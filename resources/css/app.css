@@ -1,0 +1,10 @@
+@import 'bootstrap/dist/css/bootstrap.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Alpine.js x-cloak */
+[x-cloak] {
+    display: none !important;
+}
