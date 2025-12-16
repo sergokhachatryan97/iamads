@@ -50,7 +50,7 @@ class RoleController extends Controller
 
         $this->roleService->updateRolePermissions($role, $permissions);
 
-        return redirect()->route('settings.roles.index')
+        return redirect()->route('staff.settings.roles.index')
             ->with('status', 'role-updated');
     }
 }

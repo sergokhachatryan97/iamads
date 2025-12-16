@@ -2,14 +2,14 @@
     <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
         <div class="p-6 text-gray-900">
             <div class="mb-4">
-                <a href="{{ route('settings.roles.index') }}" class="text-indigo-600 hover:text-indigo-900 text-sm">
+                <a href="{{ route('staff.settings.roles.index') }}" class="text-indigo-600 hover:text-indigo-900 text-sm">
                     ← {{ __('Back to Roles') }}
                 </a>
             </div>
 
             <h3 class="text-lg font-medium text-gray-900 mb-6">{{ __('Edit Role') }}: {{ $role->name }}</h3>
 
-            <form method="POST" action="{{ route('settings.roles.update', $role) }}">
+            <form method="POST" action="{{ route('staff.settings.roles.update', $role) }}">
                         @csrf
                         @method('PUT')
 

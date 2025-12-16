@@ -23,7 +23,7 @@ class AcceptInvitationController extends Controller
         $invitation = $this->findValidInvitation($token);
 
         if (!$invitation) {
-            return redirect()->route('login')
+            return redirect()->route('staff.login')
                 ->withErrors(['invitation' => 'This invitation link is invalid or has expired.']);
         }
 
@@ -41,7 +41,7 @@ class AcceptInvitationController extends Controller
         $invitation = $this->findValidInvitation($token);
 
         if (!$invitation) {
-            return redirect()->route('login')
+            return redirect()->route('staff.login')
                 ->withErrors(['invitation' => 'This invitation link is invalid or has expired.']);
         }
 
@@ -68,11 +68,11 @@ class AcceptInvitationController extends Controller
 
         event(new Registered($user));
 
-        // Log in the user
-        Auth::login($user);
+        // Log in the user using staff guard
+        Auth::guard('staff')->login($user);
 
-        // Redirect to email verification notice (user must verify before accessing anything)
-        return redirect()->route('verification.notice');
+        // Redirect to staff email verification notice (user must verify before accessing anything)
+        return redirect()->route('staff.verification.notice');
     }
 
     /**

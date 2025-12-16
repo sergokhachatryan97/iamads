@@ -4,7 +4,7 @@
         <p class="text-xs text-gray-500">{{ __('This invitation link expires in 48 hours.') }}</p>
     </div>
 
-    <form method="POST" action="{{ route('invitation.register', $token) }}">
+    <form method="POST" action="{{ route('staff.invitation.register', $token) }}">
         @csrf
 
         <!-- Email (Read-only) -->

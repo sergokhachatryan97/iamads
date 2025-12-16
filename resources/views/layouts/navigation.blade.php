@@ -5,19 +5,23 @@
             <div class="flex">
                 <!-- Logo -->
                 <div class="shrink-0 flex items-center">
-                    <a href="{{ route('dashboard') }}">
+                    <a href="{{ route('staff.dashboard') }}">
                         <x-application-logo class="block h-9 w-auto fill-current text-gray-800" />
                     </a>
                 </div>
 
                 <!-- Navigation Links -->
                 <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                    <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
+                    <x-nav-link :href="route('staff.dashboard')" :active="request()->routeIs('staff.dashboard')">
                         {{ __('Dashboard') }}
                     </x-nav-link>
-
-                    @if(Auth::user()->hasRole('super_admin'))
-                        <x-nav-link :href="route('admin.users.index')" :active="request()->routeIs('admin.users.*')">
+                    @if(Auth::guard('staff')->check() && Auth::guard('staff')->user()->hasRole('super_admin'))
+                        <x-nav-link :href="route('staff.users.index')" :active="request()->routeIs('staff.users.*')">
+                            {{ __('Managers') }}
+                        </x-nav-link>
+                    @endif
+                    @if(Auth::guard('staff')->check())
+                        <x-nav-link :href="route('staff.clients.index')" :active="request()->routeIs('staff.clients.*')">
                             {{ __('Users') }}
                         </x-nav-link>
                     @endif
@@ -29,8 +33,8 @@
                 <x-dropdown align="right" width="48">
                     <x-slot name="trigger">
                         <button class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 bg-white hover:text-gray-700 focus:outline-none transition ease-in-out duration-150">
-                            <img src="{{ Auth::user()->avatar_url }}" alt="{{ Auth::user()->name }}" class="h-6 w-6 rounded-full me-2 object-cover border border-gray-200">
-                            <div>{{ Auth::user()->name }}</div>
+                            <img src="{{ Auth::guard('staff')->user()->avatar_url }}" alt="{{ Auth::guard('staff')->user()->name }}" class="h-6 w-6 rounded-full me-2 object-cover border border-gray-200">
+                            <div>{{ Auth::guard('staff')->user()->name }}</div>
 
                             <div class="ms-1">
                                 <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
@@ -41,21 +45,21 @@
                     </x-slot>
 
                     <x-slot name="content">
-                        <x-dropdown-link :href="route('profile.edit')">
+                        <x-dropdown-link :href="route('staff.profile.edit')">
                             {{ __('Profile') }}
                         </x-dropdown-link>
 
-                        @if(Auth::user()->hasRole('super_admin'))
-                            <x-dropdown-link :href="route('settings.index')">
+                        @if(Auth::guard('staff')->check() && Auth::guard('staff')->user()->hasRole('super_admin'))
+                            <x-dropdown-link :href="route('staff.settings.index')">
                                 {{ __('Settings') }}
                             </x-dropdown-link>
                         @endif
 
                         <!-- Authentication -->
-                        <form method="POST" action="{{ route('logout') }}">
+                        <form method="POST" action="{{ route('staff.logout') }}">
                             @csrf
 
-                            <x-dropdown-link :href="route('logout')"
+                            <x-dropdown-link :href="route('staff.logout')"
                                     onclick="event.preventDefault();
                                                 this.closest('form').submit();">
                                 {{ __('Log Out') }}
@@ -80,13 +84,19 @@
     <!-- Responsive Navigation Menu -->
     <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden">
         <div class="pt-2 pb-3 space-y-1">
-            <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
+            <x-responsive-nav-link :href="route('staff.dashboard')" :active="request()->routeIs('staff.dashboard')">
                 {{ __('Dashboard') }}
             </x-responsive-nav-link>
 
-            @if(Auth::user()->hasRole('super_admin'))
-                <x-responsive-nav-link :href="route('admin.users.index')" :active="request()->routeIs('admin.users.*')">
+            @if(Auth::guard('staff')->check() && Auth::guard('staff')->user()->hasRole('super_admin'))
+                <x-responsive-nav-link :href="route('staff.users.index')" :active="request()->routeIs('staff.users.*')">
                     {{ __('Users') }}
+                </x-responsive-nav-link>
+            @endif
+
+            @if(Auth::guard('staff')->check())
+                <x-responsive-nav-link :href="route('staff.clients.index')" :active="request()->routeIs('staff.clients.*')">
+                    {{ __('Clients') }}
                 </x-responsive-nav-link>
             @endif
         </div>
@@ -94,29 +104,29 @@
         <!-- Responsive Settings Options -->
         <div class="pt-4 pb-1 border-t border-gray-200">
             <div class="px-4 flex items-center gap-3">
-                <img src="{{ Auth::user()->avatar_url }}" alt="{{ Auth::user()->name }}" class="h-8 w-8 rounded-full object-cover border border-gray-200">
+                <img src="{{ Auth::guard('staff')->user()->avatar_url }}" alt="{{ Auth::guard('staff')->user()->name }}" class="h-8 w-8 rounded-full object-cover border border-gray-200">
                 <div>
-                    <div class="font-medium text-base text-gray-800">{{ Auth::user()->name }}</div>
-                    <div class="font-medium text-sm text-gray-500">{{ Auth::user()->email }}</div>
+                    <div class="font-medium text-base text-gray-800">{{ Auth::guard('staff')->user()->name }}</div>
+                    <div class="font-medium text-sm text-gray-500">{{ Auth::guard('staff')->user()->email }}</div>
                 </div>
             </div>
 
             <div class="mt-3 space-y-1">
-                <x-responsive-nav-link :href="route('profile.edit')">
+                <x-responsive-nav-link :href="route('staff.profile.edit')">
                     {{ __('Profile') }}
                 </x-responsive-nav-link>
 
-                @if(Auth::user()->hasRole('super_admin'))
-                    <x-responsive-nav-link :href="route('settings.index')">
+                @if(Auth::guard('staff')->check() && Auth::guard('staff')->user()->hasRole('super_admin'))
+                    <x-responsive-nav-link :href="route('staff.settings.index')">
                         {{ __('Settings') }}
                     </x-responsive-nav-link>
                 @endif
 
                 <!-- Authentication -->
-                <form method="POST" action="{{ route('logout') }}">
+                <form method="POST" action="{{ route('staff.logout') }}">
                     @csrf
 
-                    <x-responsive-nav-link :href="route('logout')"
+                    <x-responsive-nav-link :href="route('staff.logout')"
                             onclick="event.preventDefault();
                                         this.closest('form').submit();">
                         {{ __('Log Out') }}

@@ -8,4 +8,10 @@ export default defineConfig({
             refresh: true,
         }),
     ],
+    css: {
+        devSourcemap: false, // Disable CSS source maps in development
+    },
+    build: {
+        sourcemap: false, // Disable source maps in production build
+    },
 });

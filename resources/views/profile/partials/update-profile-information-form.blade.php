@@ -9,11 +9,11 @@
         </p>
     </header>
 
-    <form id="send-verification" method="post" action="{{ route('verification.send') }}">
+    <form id="send-verification" method="post" action="{{ route('staff.verification.send') }}">
         @csrf
     </form>
 
-    <form method="post" action="{{ route('profile.update') }}" class="mt-6 space-y-6" enctype="multipart/form-data">
+    <form method="post" action="{{ route('staff.profile.update') }}" class="mt-6 space-y-6" enctype="multipart/form-data">
         @csrf
         @method('patch')
 
@@ -95,7 +95,7 @@
         </div>
     </form>
     @if($user->avatar)
-        <form id="remove-avatar-form" method="POST" action="{{ route('profile.avatar.destroy') }}" class="hidden">
+        <form id="remove-avatar-form" method="POST" action="{{ route('staff.profile.avatar.destroy') }}" class="hidden">
             @csrf
             @method('DELETE')
         </form>
