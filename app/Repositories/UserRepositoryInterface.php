@@ -39,4 +39,11 @@ interface UserRepositoryInterface
      * @return void
      */
     public function sendVerificationEmail(User $user): void;
+
+    /**
+     * Get all users ordered by name.
+     *
+     * @return Collection
+     */
+    public function getAll(): Collection;
 }

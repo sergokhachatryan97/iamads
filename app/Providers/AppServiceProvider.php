@@ -2,10 +2,14 @@
 
 namespace App\Providers;
 
+use App\Repositories\ClientRepository;
+use App\Repositories\ClientRepositoryInterface;
 use App\Repositories\RoleRepository;
 use App\Repositories\RoleRepositoryInterface;
 use App\Repositories\UserRepository;
 use App\Repositories\UserRepositoryInterface;
+use App\Services\ClientService;
+use App\Services\ClientServiceInterface;
 use App\Services\RoleService;
 use App\Services\RoleServiceInterface;
 use App\Services\UserService;
@@ -23,10 +27,12 @@ class AppServiceProvider extends ServiceProvider
         // Bind Repository interfaces to implementations
         $this->app->bind(UserRepositoryInterface::class, UserRepository::class);
         $this->app->bind(RoleRepositoryInterface::class, RoleRepository::class);
+        $this->app->bind(ClientRepositoryInterface::class, ClientRepository::class);
 
         // Bind Service interfaces to implementations
         $this->app->bind(UserServiceInterface::class, UserService::class);
         $this->app->bind(RoleServiceInterface::class, RoleService::class);
+        $this->app->bind(ClientServiceInterface::class, ClientService::class);
     }
 
     /**
@@ -36,7 +42,14 @@ class AppServiceProvider extends ServiceProvider
     {
         // Super admin bypasses all permissions
         Gate::before(function ($user, $ability) {
-            return $user->hasRole('super_admin') ? true : null;
+            if (
+                auth()->guard('staff')->check() &&
+                $user->hasRole('super_admin')
+            ) {
+                return true;
+            }
+
+            return null;
         });
     }
 }

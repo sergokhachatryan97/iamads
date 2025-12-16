@@ -14,14 +14,14 @@
     <div style="background-color: #ffffff; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 20px;">
         <p>{{ __('Click the button below to accept your invitation and set up your profile:') }}</p>
         <div style="text-align: center; margin: 30px 0;">
-            <a href="{{ route('invitation.accept', $token) }}" style="display: inline-block; padding: 12px 24px; background-color: #4f46e5; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600;">
+            <a href="{{ route('staff.invitation.accept', $token) }}" style="display: inline-block; padding: 12px 24px; background-color: #4f46e5; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600;">
                 {{ __('Accept Invitation') }}
             </a>
         </div>
         <p style="font-size: 12px; color: #6b7280; margin-top: 20px;">
             {{ __('Or copy and paste this link into your browser:') }}<br>
-            <a href="{{ route('invitation.accept', $token) }}" style="color: #4f46e5; word-break: break-all;">
-                {{ route('invitation.accept', $token) }}
+            <a href="{{ route('staff.invitation.accept', $token) }}" style="color: #4f46e5; word-break: break-all;">
+                {{ route('staff.invitation.accept', $token) }}
             </a>
         </p>
         <p style="font-size: 13px; color: #374151; margin-top: 15px;">

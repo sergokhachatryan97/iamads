@@ -3,7 +3,13 @@
         <div class="p-6 text-gray-900">
             <div class="flex items-center justify-between mb-6">
                 <h3 class="text-lg font-medium text-gray-900">{{ __('Invitations') }}</h3>
-                <a href="{{ route('settings.invitations.create') }}" class="inline-flex btn-primary items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-black uppercase tracking-widest hover:bg-indigo-700 focus:bg-indigo-700 active:bg-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
+                <a href="{{ route('staff.settings.invitations.create') }}"
+                   class="inline-flex btn-primary items-center px-4 py-2
+                   bg-indigo-600 border border-transparent rounded-md
+                   font-semibold text-xs text-black uppercase tracking-widest
+                   hover:bg-indigo-700 focus:bg-indigo-700 active:bg-indigo-900
+                    focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2
+                    transition ease-in-out duration-150">
                     {{ __('Send Invitation') }}
                 </a>
             </div>
