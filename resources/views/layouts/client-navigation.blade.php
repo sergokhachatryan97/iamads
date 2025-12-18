@@ -15,15 +15,27 @@
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                         {{ __('Dashboard') }}
                     </x-nav-link>
+                    <x-nav-link :href="route('client.services.index')" :active="request()->routeIs('client.services.*')">
+                        {{ __('Services') }}
+                    </x-nav-link>
                 </div>
             </div>
 
             <!-- Settings Dropdown -->
             <div class="hidden sm:flex sm:items-center sm:ms-6 gap-4">
                 <!-- Balance Display in Navbar -->
-                <div class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-md">
-                    <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Balance') }}:</span>
-                    <span class="text-sm font-semibold text-gray-900">${{ number_format(Auth::guard('client')->user()->balance, 2) }}</span>
+                <div class="flex items-center gap-2">
+                    <a href="{{ route('client.balance.add') }}" 
+                       class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors"
+                       title="{{ __('Add Balance') }}">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                        </svg>
+                    </a>
+                    <div class="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-md">
+                        <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Balance') }}:</span>
+                        <span class="text-sm font-semibold text-gray-900">${{ number_format(Auth::guard('client')->user()->balance, 2) }}</span>
+                    </div>
                 </div>
                 
                 <x-dropdown align="right" width="48">
@@ -76,15 +88,29 @@
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                 {{ __('Dashboard') }}
             </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('client.services.index')" :active="request()->routeIs('client.services.*')">
+                {{ __('Services') }}
+            </x-responsive-nav-link>
         </div>
 
         <!-- Balance Display in Mobile Menu -->
         <div class="px-4 py-3 bg-gray-50 border-t border-gray-200">
-            <div class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
-                {{ __('Balance') }}
-            </div>
-            <div class="text-xl font-semibold text-gray-900">
-                ${{ number_format(Auth::guard('client')->user()->balance, 2) }}
+            <div class="flex items-center gap-3">
+                <a href="{{ route('client.balance.add') }}" 
+                   class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors"
+                   title="{{ __('Add Balance') }}">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                </a>
+                <div>
+                    <div class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
+                        {{ __('Balance') }}
+                    </div>
+                    <div class="text-xl font-semibold text-gray-900">
+                        ${{ number_format(Auth::guard('client')->user()->balance, 2) }}
+                    </div>
+                </div>
             </div>
         </div>
 

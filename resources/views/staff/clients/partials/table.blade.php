@@ -133,9 +133,9 @@
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
                 @foreach($clients as $client)
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-2 sm:px-3 py-2 whitespace-nowrap sticky left-0 bg-white z-10">
-                            <input type="checkbox" name="client_ids[]" value="{{ $client->id }}" class="client-checkbox rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                    <tr class="hover:bg-gray-50 cursor-pointer" onclick="window.location.href='{{ route('staff.clients.edit', $client) }}'" style="cursor: pointer;">
+                        <td class="px-2 sm:px-3 py-2 whitespace-nowrap sticky left-0 bg-white z-10" onclick="event.stopPropagation();">
+                            <input type="checkbox" name="client_ids[]" value="{{ $client->id }}" class="client-checkbox rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" onclick="event.stopPropagation();">
                         </td>
                         <td class="px-2 sm:px-3 py-2 whitespace-nowrap">
                             <div class="text-sm font-medium text-gray-900">{{ $client->id }}</div>
@@ -176,42 +176,60 @@
                         <td class="px-2 sm:px-3 py-2 whitespace-nowrap text-sm text-gray-500">
                             {{ $client->created_at->format('Y-m-d H:i') }}
                         </td>
-                        <td class="px-1 sm:px-3 py-2 whitespace-nowrap text-right text-sm font-medium relative right-0 bg-white">
-                            <x-table-actions-dropdown :id="$client->id">
-                                <a
-                                    href="{{ route('staff.clients.edit', $client) }}"
-                                    @click.stop
-                                    class="block w-full text-left px-4 py-2 text-sm text-indigo-700 hover:bg-indigo-50"
-                                >
-                                    {{ __('Edit Discount & Rates') }}
-                                </a>
-                                @if($isSuperAdmin)
-                                    @if(!$client->staff_id)
-                                        <button
-                                            type="button"
-                                            @click.stop="open = false; setTimeout(() => { if (typeof window.handleAssignStaff === 'function') { window.handleAssignStaff({{ $client->id }}, {{ json_encode($client->name) }}, null); } }, 100);"
-                                            class="block w-full text-left px-4 py-2 text-sm text-indigo-700 hover:bg-indigo-50"
-                                        >
-                                            {{ __('Assign Staff') }}
-                                        </button>
-                                    @else
-                                        <button
-                                            type="button"
-                                            @click.stop="open = false; setTimeout(() => { if (typeof window.handleAssignStaff === 'function') { window.handleAssignStaff({{ $client->id }}, {{ json_encode($client->name) }}, {{ $client->staff_id }}); } }, 100);"
-                                            class="block w-full text-left px-4 py-2 text-sm text-indigo-700 hover:bg-indigo-50"
-                                        >
-                                            {{ __('Change Staff') }}
-                                        </button>
+                        <td class="px-1 sm:px-3 py-2 whitespace-nowrap text-right text-sm font-medium relative right-0 bg-white sticky right-0 bg-white z-10" onclick="event.stopPropagation();">
+                            <div class="relative" x-data="{ open{{ $client->id }}: false }" style="position: relative;">
+                                <button type="button"
+                                        @click.stop="open{{ $client->id }} = !open{{ $client->id }}"
+                                        class="inline-flex items-center px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                    Actions
+                                    <svg class="ml-1 -mr-1 h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                    </svg>
+                                </button>
+
+                                <x-filter-dropdown-backdrop open="open{{ $client->id }}" />
+
+                                <div
+                                    x-show="open{{ $client->id }}"
+                                    x-cloak
+                                    @click.away="open{{ $client->id }} = false"
+                                    x-transition:enter="transition ease-out duration-100"
+                                    x-transition:enter-start="transform opacity-0 scale-95"
+                                    x-transition:enter-end="transform opacity-100 scale-100"
+                                    x-transition:leave="transition ease-in duration-75"
+                                    x-transition:leave-start="transform opacity-100 scale-100"
+                                    x-transition:leave-end="transform opacity-0 scale-95"
+                                    class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 border border-gray-200"
+                                    style="display: none; z-index: 9999;">
+                                    <a href="{{ route('staff.clients.edit', $client) }}" @click.stop class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        {{ __('Edit Discount & Rates') }}
+                                    </a>
+                                    @if($isSuperAdmin)
+                                        @if(!$client->staff_id)
+                                            <button
+                                                type="button"
+                                                @click.stop="open{{ $client->id }} = false; setTimeout(() => { if (typeof window.handleAssignStaff === 'function') { window.handleAssignStaff({{ $client->id }}, {{ json_encode($client->name) }}, null); } }, 100);"
+                                                class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                {{ __('Assign Staff') }}
+                                            </button>
+                                        @else
+                                            <button
+                                                type="button"
+                                                @click.stop="open{{ $client->id }} = false; setTimeout(() => { if (typeof window.handleAssignStaff === 'function') { window.handleAssignStaff({{ $client->id }}, {{ json_encode($client->name) }}, {{ $client->staff_id }}); } }, 100);"
+                                                class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                {{ __('Change Staff') }}
+                                            </button>
+                                        @endif
                                     @endif
-                                @endif
-                                <form method="POST" action="{{ route('staff.clients.destroy', $client) }}" class="block" onsubmit="return confirm('{{ __('Are you sure you want to delete this client?') }}');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" @click.stop class="block w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50">
-                                        {{ __('Delete Client') }}
-                                    </button>
-                                </form>
-                            </x-table-actions-dropdown>
+                                    <form method="POST" action="{{ route('staff.clients.destroy', $client) }}" class="inline" onsubmit="return confirm('{{ __('Are you sure you want to delete this client?') }}');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" @click.stop class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
+                                            {{ __('Delete Client') }}
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
                         </td>
                     </tr>
                 @endforeach

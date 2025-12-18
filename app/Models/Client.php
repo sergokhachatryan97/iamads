@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Client extends Authenticatable
 {
@@ -61,5 +62,15 @@ class Client extends Authenticatable
     public function staff(): BelongsTo
     {
         return $this->belongsTo(User::class, 'staff_id');
+    }
+
+    /**
+     * Get the services favorited by this client.
+     */
+    public function favoriteServices(): BelongsToMany
+    {
+        return $this->belongsToMany(Service::class, 'client_service_favorites', 'client_id', 'service_id')
+            ->withTimestamps()
+            ->select('services.*');
     }
 }
