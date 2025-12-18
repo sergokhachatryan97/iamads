@@ -5,13 +5,14 @@
     'placeholder' => 'Select an option',
     'label' => null,
     'options' => [],
+    'size' => 'default', // 'default' or 'small'
 ])
 
 @php
     $selectId = $id ?? $name . '_select';
     $dropdownId = $selectId . '_dropdown';
     $hiddenInputId = $selectId . '_hidden';
-    
+
     // Normalize options format - accept both ['key' => 'label'] and [['value' => 'key', 'label' => 'label']]
     $normalizedOptions = [];
     foreach ($options as $key => $option) {
@@ -26,29 +27,29 @@
             ];
         }
     }
-    
+
     // Find the selected option based on value
     $selectedOption = null;
     if ($value !== null && $value !== '') {
         $selectedOption = collect($normalizedOptions)->firstWhere('value', $value);
     }
-    
+
     // Get the label for the selected option
     $selectedLabel = $selectedOption ? ($selectedOption['label'] ?? $selectedOption['value'] ?? '') : '';
 @endphp
 
-<div 
+<div
     x-data="{
         open: false,
         selectedValue: @js($value ?? ''),
         selectedLabel: @js($selectedLabel),
         options: @js($normalizedOptions),
         focusedIndex: -1,
-        
+
         get placeholder() {
             return @js($placeholder);
         },
-        
+
         toggle() {
             this.open = !this.open;
             if (this.open) {
@@ -57,30 +58,32 @@
                 });
             }
         },
-        
+
         close() {
             this.open = false;
             this.focusedIndex = -1;
         },
-        
+
         selectOption(option) {
             this.selectedValue = option.value;
             this.selectedLabel = option.label || option.value || '';
             this.close();
-            
+
             // Update hidden input
             const hiddenInput = this.$refs.hiddenInput;
             if (hiddenInput) {
                 hiddenInput.value = option.value;
                 // Dispatch change event
                 hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+                // Dispatch custom event for filter count updates
+                this.$dispatch('filter-value-changed', { name: hiddenInput.name, value: option.value });
             }
         },
-        
+
         findSelectedIndex() {
             return this.options.findIndex(opt => String(opt.value) === String(this.selectedValue));
         },
-        
+
         scrollToSelected() {
             const selectedIndex = this.findSelectedIndex();
             if (selectedIndex >= 0) {
@@ -93,7 +96,7 @@
                 });
             }
         },
-        
+
         handleKeydown(event) {
             if (!this.open) {
                 if (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown' || event.key === 'ArrowUp') {
@@ -107,7 +110,7 @@
                 }
                 return;
             }
-            
+
             switch(event.key) {
                 case 'Escape':
                     event.preventDefault();
@@ -166,11 +169,11 @@
 >
     <!-- Label (if provided) -->
     @if($label)
-        <label for="{{ $selectId }}" id="{{ $selectId }}_label" class="block text-sm font-medium text-gray-700 mb-1">
+        <label for="{{ $selectId }}" id="{{ $selectId }}_label" class="block {{ $size === 'small' ? 'text-xs' : 'text-sm' }} font-medium text-gray-700 mb-1">
             {{ $label }}
         </label>
     @endif
-    
+
     <!-- Hidden input for form submission -->
     <input
         type="hidden"
@@ -179,7 +182,7 @@
         x-ref="hiddenInput"
         :value="selectedValue"
     >
-    
+
     <!-- Trigger Button -->
     <button
         type="button"
@@ -189,23 +192,23 @@
         aria-haspopup="listbox"
         @if($label) aria-labelledby="{{ $selectId }}_label" @endif
         id="{{ $selectId }}"
-        class="relative w-full rounded-md border border-gray-300 bg-white py-2 pl-3 pr-10 text-left text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+        class="relative w-full rounded-md border border-gray-300 bg-white {{ $size === 'small' ? 'py-1.5 pl-2.5 pr-8 text-xs' : 'py-2 pl-3 pr-8 text-sm' }} shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
         :class="{ 'ring-1 ring-indigo-500 border-indigo-500': open }"
     >
         <span class="block truncate" x-text="selectedLabel || placeholder" :class="{ 'text-gray-500': !selectedLabel }"></span>
-        <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-            <svg 
-                class="h-5 w-5 text-gray-400 transition-transform duration-200"
+        <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-1.5">
+            <svg
+                class="h-4 w-4 text-gray-400 transition-transform duration-200"
                 :class="{ 'rotate-180': open }"
-                fill="none" 
-                stroke="currentColor" 
+                fill="none"
+                stroke="currentColor"
                 viewBox="0 0 24 24"
             >
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
             </svg>
         </span>
     </button>
-    
+
     <!-- Dropdown Options -->
     <div
         x-show="open"
@@ -217,7 +220,7 @@
         x-transition:leave-end="opacity-0 scale-95"
         x-on:click.away="close()"
         x-cloak
-        class="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
+        class="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-xs shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
         role="listbox"
         id="{{ $dropdownId }}"
     >
@@ -225,7 +228,7 @@
             <div
                 :data-option-index="index"
                 x-on:click="selectOption(option)"
-                class="relative cursor-pointer select-none py-2 pl-3 pr-9 hover:bg-indigo-50 focus:bg-indigo-50"
+                class="relative cursor-pointer select-none py-1.5 pl-2.5 pr-8 hover:bg-indigo-50 focus:bg-indigo-50"
                 :class="{
                     'bg-indigo-50': focusedIndex === index,
                     'bg-indigo-100': String(selectedValue) === String(option.value)
@@ -238,29 +241,29 @@
                     <template x-if="option.html">
                         <div x-html="option.html" class="flex-1"></div>
                     </template>
-                    
+
                     <!-- Default option display (label with optional icon/badge) -->
                     <template x-if="!option.html">
                         <div class="flex items-center flex-1">
                             <!-- Icon (if provided) -->
                             <template x-if="option.icon">
-                                <span class="mr-2 flex-shrink-0" x-html="option.icon"></span>
+                                <span class="mr-1.5 flex-shrink-0" x-html="option.icon"></span>
                             </template>
-                            
+
                             <!-- Label -->
-                            <span class="block truncate" x-text="option.label || option.value"></span>
-                            
+                            <span class="block truncate text-xs" x-text="option.label || option.value"></span>
+
                             <!-- Badge (if provided) -->
                             <template x-if="option.badge">
-                                <span class="ml-2 flex-shrink-0" x-html="option.badge"></span>
+                                <span class="ml-1.5 flex-shrink-0" x-html="option.badge"></span>
                             </template>
                         </div>
                     </template>
-                    
+
                     <!-- Checkmark for selected option -->
                     <template x-if="String(selectedValue) === String(option.value)">
-                        <span class="absolute inset-y-0 right-0 flex items-center pr-4 text-indigo-600">
-                            <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                        <span class="absolute inset-y-0 right-0 flex items-center pr-2 text-indigo-600">
+                            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                             </svg>
                         </span>
@@ -268,10 +271,10 @@
                 </div>
             </div>
         </template>
-        
+
         <!-- Empty state -->
         <template x-if="options.length === 0">
-            <div class="relative cursor-default select-none py-2 pl-3 pr-9 text-gray-500">
+            <div class="relative cursor-default select-none py-1.5 pl-2.5 pr-8 text-gray-500 text-xs">
                 No options available
             </div>
         </template>

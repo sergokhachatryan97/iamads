@@ -8,3 +8,28 @@
 [x-cloak] {
     display: none !important;
 }
+
+/* Custom scrollbar styles - only shows when content overflows */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: #f3f4f6;
+    border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #cbd5e0;
+    border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+}
+
+/* Firefox scrollbar */
+.custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e0 #f3f4f6;
+}
