@@ -173,7 +173,10 @@
                                         {{ $service->name }}
                                     </td>
                                     <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-900 font-medium">
-                                        ${{ number_format($service->rate_per_1000 ?? $service->rate ?? 0, 2) }}
+                                        @php
+                                            $displayPrice = $service->client_price ?? $service->rate_per_1000 ?? $service->rate ?? 0;
+                                        @endphp
+                                        ${{ number_format($displayPrice, 2) }}
                                     </td>
                                     <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
                                         {{ number_format($service->min_quantity ?? $service->min_order ?? 1) }}

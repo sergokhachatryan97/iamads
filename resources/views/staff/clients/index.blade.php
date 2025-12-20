@@ -2,123 +2,230 @@
     <x-slot name="header">
         <div class="flex justify-between items-center">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                {{ __('Clients Management') }}
+                {{ __('Users Management') }}
             </h2>
         </div>
     </x-slot>
 
-    <div class="py-12">
+    <style>
+        /* Ensure dropdowns in table are not clipped */
+        #clients-table {
+            overflow: visible !important;
+        }
+
+        #clients-table .overflow-x-auto {
+            overflow-y: visible !important;
+        }
+
+        /* Fix for sticky columns with dropdowns */
+        table tbody tr td[style*="sticky"] {
+            z-index: 10;
+        }
+
+        /* Ensure dropdown appears above button in sticky column */
+        table tbody tr td[style*="sticky"] .relative[x-data*="open"] {
+            z-index: 20 !important;
+            position: relative;
+        }
+
+        table tbody tr td[style*="sticky"] .relative[x-data*="open"] > div[x-show] {
+            z-index: 1000 !important;
+            position: absolute !important;
+        }
+    </style>
+
+    <div class="py-12"
+         x-data="{ selectedClients: [] }"
+    >
         <div class="mx-auto sm:px-6 lg:px-8" style="max-width: 90rem;">
             <div class="bg-white shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900 w-full">
+                    <!-- Totals Button -->
+                    <div class="mb-4 flex justify-end">
+                        <div class="relative" x-data="{ open: false }" @click.outside="open = false">
+                            <button type="button"
+                                    @click="open = !open"
+                                    class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                <svg class="h-5 w-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                                </svg>
+                                {{ __('Totals') }}
+                                <svg class="ml-2 -mr-1 h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                </svg>
+                            </button>
+
+                            <div x-show="open"
+                                 x-cloak
+                                 x-transition:enter="transition ease-out duration-100"
+                                 x-transition:enter-start="transform opacity-0 scale-95"
+                                 x-transition:enter-end="transform opacity-100 scale-100"
+                                 x-transition:leave="transition ease-in duration-75"
+                                 x-transition:leave-start="transform opacity-100 scale-100"
+                                 x-transition:leave-end="transform opacity-0 scale-95"
+                                 class="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg border border-gray-200 z-50"
+                                 style="display: none;">
+                                <div class="p-4">
+                                    <h3 class="text-sm font-semibold text-gray-900 mb-3">{{ __('Totals') }}</h3>
+
+                                    <div class="space-y-3 mb-4">
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-sm text-gray-600">{{ __('Total user balance') }}</span>
+                                            <span class="text-sm font-semibold text-gray-900">${{ number_format($totalBalance, 2) }}</span>
+                                        </div>
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-sm text-gray-600">{{ __('Total user spent') }}</span>
+                                            <span class="text-sm font-semibold text-gray-900">${{ number_format($totalSpent, 2) }}</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="pt-3 border-t border-gray-200">
+                                        <p class="text-xs text-gray-500">
+                                            {{ __('This feature helps you keep track of how much money users are holding and how much they\'ve spent in your panel.') }}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Search Bar and Filter Button -->
                     <div class="mb-6 relative z-10" style="isolation: isolate;">
                         <form method="GET" action="{{ route('staff.clients.index') }}" id="filter-form">
                             <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 mb-4 justify-end">
-                                <!-- Filter Button with Badge -->
-                                <div class="relative z-50 flex-shrink-0" x-data="{ open: false }" style="isolation: isolate;">
-                                    <button
-                                        type="button"
-                                        @click="open = !open"
-                                        class="relative inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                                    >
-                                        <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+                                <!-- Bulk Actions Button (shown when clients are selected) -->
+                                <div x-show="selectedClients.length > 0"
+                                     x-cloak
+                                     class="relative flex-shrink-0"
+                                     x-data="{ open: false }"
+                                     style="display: none; z-index: 1000; isolation: isolate;"
+                                >
+                                    <button type="button"
+                                            @click="open = !open"
+                                            class="relative inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                        <span class="mr-2">{{ __('Bulk Operations') }}</span>
+                                        <span class="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-indigo-600 rounded-full" x-text="selectedClients.length"></span>
+                                        <svg class="ml-2 -mr-1 h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
                                         </svg>
-                                        @php
-                                            $activeFiltersCount = 0;
-                                            if ((request('staff_id') || request('no_staff')) && auth()->guard('staff')->check() && auth()->guard('staff')->user()->hasRole('super_admin')) $activeFiltersCount++;
-                                            if (request('balance_min')) $activeFiltersCount++;
-                                            if (request('balance_max')) $activeFiltersCount++;
-                                            if (request('spent_min')) $activeFiltersCount++;
-                                            if (request('spent_max')) $activeFiltersCount++;
-                                            if (request('date_filter')) $activeFiltersCount++;
-                                            if (request('created_at_filter')) $activeFiltersCount++;
-                                        @endphp
-                                        @if($activeFiltersCount > 0)
-                                            <span class="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-indigo-600 rounded-full">
-                                                {{ $activeFiltersCount }}
-                                            </span>
-                                        @endif
                                     </button>
-
-                                    <!-- Backdrop overlay for mobile -->
-                                    <x-filter-dropdown-backdrop />
-
-                                    <!-- Filter Dropdown -->
-                                    <x-filter-dropdown>
-                                            <!-- Staff Member Filter (only visible to super_admin) -->
-                                            @if(auth()->guard('staff')->check() && auth()->guard('staff')->user()->hasRole('super_admin'))
-                                                <x-custom-select
-                                                    label="{{ __('Staff Member') }}"
-                                                    name="staff_id"
-                                                    id="staff_id"
-                                                    :value="request('staff_id', '')"
-                                                    :options="['' => __('All Staff'), 'null' => __('No Staff Assigned')]
-                                                            + collect($staffMembers)->pluck('name', 'id')->toArray()"
-                                                />
-                                            @endif
-
-                                            <!-- Balance Range -->
-                                            <div>
-                                                <x-number-range-filter
-                                                    min-label="{{ __('Balance Min') }}"
-                                                    max-label="{{ __('Balance Max') }}"
-                                                    min-name="balance_min"
-                                                    max-name="balance_max"
-                                                    min-id="balance_min"
-                                                    max-id="balance_max"
-                                                />
-                                            </div>
-
-                                            <!-- Spent Range -->
-                                            <div>
-                                                <x-number-range-filter
-                                                    min-label="{{ __('Spent Min') }}"
-                                                    max-label="{{ __('Spent Max') }}"
-                                                    min-name="spent_min"
-                                                    max-name="spent_max"
-                                                    min-id="spent_min"
-                                                    max-id="spent_max"
-                                                />
-                                            </div>
-
-                                            <!-- Date Filter -->
-                                            <x-custom-date-filter
-                                                label="{{ __('Last Auth Date') }}"
-                                                name="date_filter"
-                                                id="date_filter"
-                                                custom-range-id="custom-date-range"
-                                                from-name="date_from"
-                                                to-name="date_to"
-                                                from-id="date_from"
-                                                to-id="date_to"
-                                            />
-
-                                            <!-- Created At Date Filter -->
-                                            <x-custom-date-filter
-                                                label="{{ __('Created At Date') }}"
-                                                name="created_at_filter"
-                                                id="created_at_filter"
-                                                custom-range-id="custom-created-at-range"
-                                                from-name="created_at_from"
-                                                to-name="created_at_to"
-                                                from-id="created_at_from"
-                                                to-id="created_at_to"
-                                            />
-
-                                            <!-- Hidden fields to preserve sort and search -->
-                                            @if(request('sort'))
-                                                <input type="hidden" name="sort" value="{{ request('sort') }}">
-                                            @endif
-                                            @if(request('dir'))
-                                                <input type="hidden" name="dir" value="{{ request('dir') }}">
-                                            @endif
-
-                                            <!-- Apply Button -->
-                                            <x-filter-actions clear-route="staff.clients.index" />
-                                    </x-filter-dropdown>
+                                    <x-filter-dropdown-backdrop open="open" />
+                                    <div x-show="open"
+                                         @click.away="open = false"
+                                         x-cloak
+                                         class="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg py-1 border border-gray-200"
+                                         style="display: none; z-index: 1001; position: absolute;">
+                                        <button type="button"
+                                                @click="open = false; showBulkSuspendConfirm()"
+                                                class="block w-full text-left px-4 py-2 text-sm text-yellow-600 hover:bg-gray-100">
+                                            {{ __('Suspend selected users') }}
+                                        </button>
+                                        <button type="button"
+                                                @click="open = false; showBulkActivateConfirm()"
+                                                class="block w-full text-left px-4 py-2 text-sm text-green-600 hover:bg-gray-100">
+                                            {{ __('Activate selected users') }}
+                                        </button>
+                                    </div>
                                 </div>
+
+                                <!-- Filter Button with Badge -->
+                                @php
+                                    $activeFilters = [];
+                                    if ((request('staff_id') || request('no_staff')) && auth()->guard('staff')->check() && auth()->guard('staff')->user()->hasRole('super_admin')) {
+                                        $activeFilters[] = request('staff_id') ?: request('no_staff');
+                                    }
+                                    if (request('balance_min')) $activeFilters[] = request('balance_min');
+                                    if (request('balance_max')) $activeFilters[] = request('balance_max');
+                                    if (request('spent_min')) $activeFilters[] = request('spent_min');
+                                    if (request('spent_max')) $activeFilters[] = request('spent_max');
+                                    if (request('date_filter')) $activeFilters[] = request('date_filter');
+                                    if (request('created_at_filter')) $activeFilters[] = request('created_at_filter');
+                                @endphp
+                                <x-filter-button :active="$activeFilters">
+                                    <x-slot name="trigger">
+                                        <button
+                                            type="button"
+                                            class="relative inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                        >
+                                            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+                                            </svg>
+                                        </button>
+                                    </x-slot>
+
+                                    <x-slot name="dropdown">
+                                        <!-- Staff Member Filter (only visible to super_admin) -->
+                                        @if(auth()->guard('staff')->check() && auth()->guard('staff')->user()->hasRole('super_admin'))
+                                            <x-custom-select
+                                                label="{{ __('Staff Member') }}"
+                                                name="staff_id"
+                                                id="staff_id"
+                                                :value="request('staff_id', '')"
+                                                :options="['' => __('All Staff'), 'null' => __('No Staff Assigned')]
+                                                        + collect($staffMembers)->pluck('name', 'id')->toArray()"
+                                            />
+                                        @endif
+
+                                        <!-- Balance Range -->
+                                        <div>
+                                            <x-number-range-filter
+                                                min-label="{{ __('Balance Min') }}"
+                                                max-label="{{ __('Balance Max') }}"
+                                                min-name="balance_min"
+                                                max-name="balance_max"
+                                                min-id="balance_min"
+                                                max-id="balance_max"
+                                            />
+                                        </div>
+
+                                        <!-- Spent Range -->
+                                        <div>
+                                            <x-number-range-filter
+                                                min-label="{{ __('Spent Min') }}"
+                                                max-label="{{ __('Spent Max') }}"
+                                                min-name="spent_min"
+                                                max-name="spent_max"
+                                                min-id="spent_min"
+                                                max-id="spent_max"
+                                            />
+                                        </div>
+
+                                        <!-- Date Filter -->
+                                        <x-custom-date-filter
+                                            label="{{ __('Last Auth Date') }}"
+                                            name="date_filter"
+                                            id="date_filter"
+                                            custom-range-id="custom-date-range"
+                                            from-name="date_from"
+                                            to-name="date_to"
+                                            from-id="date_from"
+                                            to-id="date_to"
+                                        />
+
+                                        <!-- Created At Date Filter -->
+                                        <x-custom-date-filter
+                                            label="{{ __('Created At Date') }}"
+                                            name="created_at_filter"
+                                            id="created_at_filter"
+                                            custom-range-id="custom-created-at-range"
+                                            from-name="created_at_from"
+                                            to-name="created_at_to"
+                                            from-id="created_at_from"
+                                            to-id="created_at_to"
+                                        />
+
+                                        <!-- Hidden fields to preserve sort and search -->
+                                        @if(request('sort'))
+                                            <input type="hidden" name="sort" value="{{ request('sort') }}">
+                                        @endif
+                                        @if(request('dir'))
+                                            <input type="hidden" name="dir" value="{{ request('dir') }}">
+                                        @endif
+
+                                        <!-- Apply Button -->
+                                        <x-filter-actions clear-route="staff.clients.index" />
+                                    </x-slot>
+                                </x-filter-button>
 
                                 <!-- Search Input (after filter button) -->
                                 <x-search-input />
@@ -424,15 +531,48 @@
 
                     <!-- Status Messages -->
                     @if (session('status') === 'client-deleted')
-                        <div class="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                        <div x-data="{ show: true }"
+                             x-show="show"
+                             x-transition:enter="transition ease-out duration-300"
+                             x-transition:enter-start="opacity-0 transform translate-y-2"
+                             x-transition:enter-end="opacity-100 transform translate-y-0"
+                             x-transition:leave="transition ease-in duration-200"
+                             x-transition:leave-start="opacity-100 transform translate-y-0"
+                             x-transition:leave-end="opacity-0 transform translate-y-2"
+                             x-init="setTimeout(() => show = false, 3000)"
+                             class="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg shadow-sm">
                             <p class="text-sm text-green-800">{{ __('Client deleted successfully.') }}</p>
                         </div>
                     @endif
 
-                    @if ($errors->any())
-                        <div class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    @if(session('success'))
+                        <div x-data="{ show: true }"
+                             x-show="show"
+                             x-transition:enter="transition ease-out duration-300"
+                             x-transition:enter-start="opacity-0 transform translate-y-2"
+                             x-transition:enter-end="opacity-100 transform translate-y-0"
+                             x-transition:leave="transition ease-in duration-200"
+                             x-transition:leave-start="opacity-100 transform translate-y-0"
+                             x-transition:leave-end="opacity-0 transform translate-y-2"
+                             x-init="setTimeout(() => show = false, 3000)"
+                             class="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg shadow-sm">
+                            <p class="text-sm text-green-800">{{ session('success') }}</p>
+                        </div>
+                    @endif
+
+                    @if($errors->any())
+                        <div x-data="{ show: true }"
+                             x-show="show"
+                             x-transition:enter="transition ease-out duration-300"
+                             x-transition:enter-start="opacity-0 transform translate-y-2"
+                             x-transition:enter-end="opacity-100 transform translate-y-0"
+                             x-transition:leave="transition ease-in duration-200"
+                             x-transition:leave-start="opacity-100 transform translate-y-0"
+                             x-transition:leave-end="opacity-0 transform translate-y-2"
+                             x-init="setTimeout(() => show = false, 5000)"
+                             class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg shadow-sm">
                             <ul class="text-sm text-red-800">
-                                @foreach ($errors->all() as $error)
+                                @foreach($errors->all() as $error)
                                     <li>{{ $error }}</li>
                                 @endforeach
                             </ul>
@@ -529,7 +669,7 @@
                     @endif
 
                     <!-- Clients Table -->
-                    <div id="clients-table" class="relative z-0">
+                    <div id="clients-table" class="relative" style="z-index: 0; overflow: visible;">
                         @include('staff.clients.partials.table', ['clients' => $clients])
                     </div>
 
@@ -605,6 +745,343 @@
                             </div>
                         </div>
                     @endif
+
+                    <!-- Bulk Actions Confirmation Modals -->
+                    <div id="bulkSuspendModal" x-data="{ open: false }" x-show="open" x-cloak class="fixed inset-0 z-50 overflow-y-auto" style="display: none;">
+                        <div class="flex items-center justify-center min-h-screen px-4 py-2">
+                            <div x-show="open"
+                                 x-transition:enter="ease-out duration-300"
+                                 x-transition:enter-start="opacity-0"
+                                 x-transition:enter-end="opacity-100"
+                                 x-transition:leave="ease-in duration-200"
+                                 x-transition:leave-start="opacity-100"
+                                 x-transition:leave-end="opacity-0"
+                                 class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+                                 @click="open = false"></div>
+
+                            <div x-show="open"
+                                 x-transition:enter="ease-out duration-300"
+                                 x-transition:enter-start="opacity-0 translate-y-4 scale-95"
+                                 x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                                 x-transition:leave="ease-in duration-200"
+                                 x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                                 x-transition:leave-end="opacity-0 translate-y-4 scale-95"
+                                 class="relative bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all w-full max-w-md">
+                                <div class="p-6">
+                                    <h3 class="text-lg font-medium text-gray-900 mb-4">{{ __('Suspend selected users?') }}</h3>
+                                    <p class="text-sm text-gray-500 mb-6">
+                                        {{ __('Suspending users will block their access to the panel and API. They won\'t be able to log in or place new orders until reactivated. Their data will remain intact.') }}
+                                    </p>
+
+                                    <div class="flex justify-end gap-3">
+                                        <button type="button"
+                                                @click="open = false"
+                                                class="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                                            {{ __('Cancel') }}
+                                        </button>
+                                        <form method="POST" action="{{ route('staff.clients.bulk-suspend') }}" id="bulkSuspendForm">
+                                            @csrf
+                                            <button type="submit"
+                                                    class="inline-flex justify-center rounded-md border border-transparent bg-yellow-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500">
+                                                {{ __('Suspend') }}
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Single Client Suspend Modal -->
+                    <div id="suspendClientModal" x-data="{ open: false, clientId: null, clientName: '' }" x-show="open" x-cloak class="fixed inset-0 z-50 overflow-y-auto" style="display: none;">
+                        <div class="flex items-center justify-center min-h-screen px-4 py-2">
+                            <div x-show="open"
+                                 x-transition:enter="ease-out duration-300"
+                                 x-transition:enter-start="opacity-0"
+                                 x-transition:enter-end="opacity-100"
+                                 x-transition:leave="ease-in duration-200"
+                                 x-transition:leave-start="opacity-100"
+                                 x-transition:leave-end="opacity-0"
+                                 class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+                                 @click="open = false"></div>
+
+                            <div x-show="open"
+                                 x-transition:enter="ease-out duration-300"
+                                 x-transition:enter-start="opacity-0 translate-y-4 scale-95"
+                                 x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                                 x-transition:leave="ease-in duration-200"
+                                 x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                                 x-transition:leave-end="opacity-0 translate-y-4 scale-95"
+                                 class="relative bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all w-full max-w-md">
+                                <div class="p-6">
+                                    <h3 class="text-lg font-medium text-gray-900 mb-4">{{ __('Suspend user?') }}</h3>
+                                    <p class="text-sm text-gray-500 mb-2">
+                                        {{ __('Suspending this user will block access to the panel and API. They won\'t be able to log in until reactivated. Their data will remain intact.') }}
+                                    </p>
+                                    <p class="text-sm font-medium text-gray-900 mb-6">
+                                        <span x-text="'{{ __('Suspend user:') }} ' + clientName"></span>
+                                    </p>
+
+                                    <div class="flex justify-end gap-3">
+                                        <button type="button"
+                                                @click="open = false"
+                                                class="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                                            {{ __('Cancel') }}
+                                        </button>
+                                        <button type="button"
+                                                @click="open = false; const form = document.getElementById('suspend-form-' + clientId); if(form) form.submit();"
+                                                class="inline-flex justify-center rounded-md border border-transparent bg-yellow-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500">
+                                            {{ __('Suspend') }}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Single Client Activate Modal -->
+                    <div id="activateClientModal" x-data="{ open: false, clientId: null, clientName: '' }" x-show="open" x-cloak class="fixed inset-0 z-50 overflow-y-auto" style="display: none;">
+                        <div class="flex items-center justify-center min-h-screen px-4 py-2">
+                            <div x-show="open"
+                                 x-transition:enter="ease-out duration-300"
+                                 x-transition:enter-start="opacity-0"
+                                 x-transition:enter-end="opacity-100"
+                                 x-transition:leave="ease-in duration-200"
+                                 x-transition:leave-start="opacity-100"
+                                 x-transition:leave-end="opacity-0"
+                                 class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+                                 @click="open = false"></div>
+
+                            <div x-show="open"
+                                 x-transition:enter="ease-out duration-300"
+                                 x-transition:enter-start="opacity-0 translate-y-4 scale-95"
+                                 x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                                 x-transition:leave="ease-in duration-200"
+                                 x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                                 x-transition:leave-end="opacity-0 translate-y-4 scale-95"
+                                 class="relative bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all w-full max-w-md">
+                                <div class="p-6">
+                                    <h3 class="text-lg font-medium text-gray-900 mb-4">{{ __('Activate user?') }}</h3>
+                                    <p class="text-sm text-gray-500 mb-2">
+                                        {{ __('Activating this user will restore access to the panel and API. Once activated, they will be able to use the panel as usual.') }}
+                                    </p>
+                                    <p class="text-sm font-medium text-gray-900 mb-6">
+                                        <span x-text="'{{ __('Activate user:') }} ' + clientName"></span>
+                                    </p>
+
+                                    <div class="flex justify-end gap-3">
+                                        <button type="button"
+                                                @click="open = false"
+                                                class="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                                            {{ __('Cancel') }}
+                                        </button>
+                                        <button type="button"
+                                                @click="open = false; const form = document.getElementById('activate-form-' + clientId); if(form) form.submit();"
+                                                class="inline-flex justify-center rounded-md border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                                            {{ __('Activate') }}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="bulkActivateModal" x-data="{ open: false }" x-show="open" x-cloak class="fixed inset-0 z-50 overflow-y-auto" style="display: none;">
+                        <div class="flex items-center justify-center min-h-screen px-4 py-2">
+                            <div x-show="open"
+                                 x-transition:enter="ease-out duration-300"
+                                 x-transition:enter-start="opacity-0"
+                                 x-transition:enter-end="opacity-100"
+                                 x-transition:leave="ease-in duration-200"
+                                 x-transition:leave-start="opacity-100"
+                                 x-transition:leave-end="opacity-0"
+                                 class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+                                 @click="open = false"></div>
+
+                            <div x-show="open"
+                                 x-transition:enter="ease-out duration-300"
+                                 x-transition:enter-start="opacity-0 translate-y-4 scale-95"
+                                 x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                                 x-transition:leave="ease-in duration-200"
+                                 x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                                 x-transition:leave-end="opacity-0 translate-y-4 scale-95"
+                                 class="relative bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all w-full max-w-md">
+                                <div class="p-6">
+                                    <h3 class="text-lg font-medium text-gray-900 mb-4">{{ __('Activate selected users?') }}</h3>
+                                    <p class="text-sm text-gray-500 mb-6">
+                                        {{ __('Activating users will restore access to the panel and API. Once activated, they will be able to use the panel as usual.') }}
+                                    </p>
+
+                                    <div class="flex justify-end gap-3">
+                                        <button type="button"
+                                                @click="open = false"
+                                                class="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                                            {{ __('Cancel') }}
+                                        </button>
+                                        <form method="POST" action="{{ route('staff.clients.bulk-activate') }}" id="bulkActivateForm">
+                                            @csrf
+                                            <button type="submit"
+                                                    class="inline-flex justify-center rounded-md border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                                                {{ __('Activate') }}
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <script>
+                        function showBulkSuspendConfirm() {
+                            const checkboxes = document.querySelectorAll('.client-checkbox:checked');
+                            const clientIds = Array.from(checkboxes).map(cb => cb.value).filter(id => id);
+
+                            if (clientIds.length === 0) {
+                                alert('{{ __('Please select at least one client') }}');
+                                return;
+                            }
+
+                            // Update form with selected client IDs
+                            const form = document.getElementById('bulkSuspendForm');
+                            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+                            // Clear existing inputs except CSRF
+                            const existingInputs = form.querySelectorAll('input[name="client_ids[]"]');
+                            existingInputs.forEach(input => input.remove());
+
+                            // Add client IDs
+                            clientIds.forEach(id => {
+                                const input = document.createElement('input');
+                                input.type = 'hidden';
+                                input.name = 'client_ids[]';
+                                input.value = id;
+                                form.insertBefore(input, form.querySelector('button[type="submit"]'));
+                            });
+
+                            // Update CSRF token if needed
+                            let csrfInput = form.querySelector('input[name="_token"]');
+                            if (!csrfInput) {
+                                csrfInput = document.createElement('input');
+                                csrfInput.type = 'hidden';
+                                csrfInput.name = '_token';
+                                form.insertBefore(csrfInput, form.firstChild);
+                            }
+                            if (csrfToken) {
+                                csrfInput.value = csrfToken;
+                            }
+
+                            // Open modal
+                            const modal = document.getElementById('bulkSuspendModal');
+                            if (modal && typeof Alpine !== 'undefined') {
+                                const modalData = Alpine.$data(modal);
+                                if (modalData) {
+                                    modalData.open = true;
+                                }
+                            }
+                        }
+
+                        function showBulkActivateConfirm() {
+                            const checkboxes = document.querySelectorAll('.client-checkbox:checked');
+                            const clientIds = Array.from(checkboxes).map(cb => cb.value).filter(id => id);
+
+                            if (clientIds.length === 0) {
+                                alert('{{ __('Please select at least one client') }}');
+                                return;
+                            }
+
+                            // Update form with selected client IDs
+                            const form = document.getElementById('bulkActivateForm');
+                            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+                            // Clear existing inputs except CSRF
+                            const existingInputs = form.querySelectorAll('input[name="client_ids[]"]');
+                            existingInputs.forEach(input => input.remove());
+
+                            // Add client IDs
+                            clientIds.forEach(id => {
+                                const input = document.createElement('input');
+                                input.type = 'hidden';
+                                input.name = 'client_ids[]';
+                                input.value = id;
+                                form.insertBefore(input, form.querySelector('button[type="submit"]'));
+                            });
+
+                            // Update CSRF token if needed
+                            let csrfInput = form.querySelector('input[name="_token"]');
+                            if (!csrfInput) {
+                                csrfInput = document.createElement('input');
+                                csrfInput.type = 'hidden';
+                                csrfInput.name = '_token';
+                                form.insertBefore(csrfInput, form.firstChild);
+                            }
+                            if (csrfToken) {
+                                csrfInput.value = csrfToken;
+                            }
+
+                            // Open modal
+                            const modal = document.getElementById('bulkActivateModal');
+                            if (modal && typeof Alpine !== 'undefined') {
+                                const modalData = Alpine.$data(modal);
+                                if (modalData) {
+                                    modalData.open = true;
+                                }
+                            }
+                        }
+
+                        function showSuspendConfirm(clientId, clientName) {
+                            const modal = document.getElementById('suspendClientModal');
+                            if (modal && typeof Alpine !== 'undefined') {
+                                const modalData = Alpine.$data(modal);
+                                if (modalData) {
+                                    modalData.clientId = clientId;
+                                    modalData.clientName = clientName;
+                                    modalData.open = true;
+                                }
+                            }
+                        }
+
+                        function showActivateConfirm(clientId, clientName) {
+                            const modal = document.getElementById('activateClientModal');
+                            if (modal && typeof Alpine !== 'undefined') {
+                                const modalData = Alpine.$data(modal);
+                                if (modalData) {
+                                    modalData.clientId = clientId;
+                                    modalData.clientName = clientName;
+                                    modalData.open = true;
+                                }
+                            }
+                        }
+
+                        // Make functions globally available
+                        window.showBulkSuspendConfirm = showBulkSuspendConfirm;
+                        window.showBulkActivateConfirm = showBulkActivateConfirm;
+                        window.showSuspendConfirm = showSuspendConfirm;
+                        window.showActivateConfirm = showActivateConfirm;
+
+                        // Update selectedClients array when checkboxes change
+                        document.addEventListener('DOMContentLoaded', function() {
+                            const updateSelectedClients = () => {
+                                const checkboxes = document.querySelectorAll('.client-checkbox:checked');
+                                const ids = Array.from(checkboxes).map(cb => parseInt(cb.value)).filter(id => !isNaN(id));
+
+                                // Update Alpine.js data
+                                const rootElement = document.querySelector('[x-data*="selectedClients"]');
+                                if (rootElement && typeof Alpine !== 'undefined') {
+                                    const rootData = Alpine.$data(rootElement);
+                                    if (rootData) {
+                                        rootData.selectedClients = ids;
+                                    }
+                                }
+                            };
+
+                            // Watch for checkbox changes
+                            document.addEventListener('change', function(e) {
+                                if (e.target.classList.contains('client-checkbox') || e.target.id === 'select-all') {
+                                    setTimeout(updateSelectedClients, 10);
+                                }
+                            });
+                        });
+                    </script>
                 </div>
             </div>
         </div>
