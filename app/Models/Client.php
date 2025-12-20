@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Client extends Authenticatable
 {
@@ -26,6 +27,10 @@ class Client extends Authenticatable
         'rates',
         'staff_id',
         'last_auth',
+        'status',
+        'email_verified_at',
+        'suspended_at',
+        'malicious_at',
     ];
 
     /**
@@ -52,6 +57,9 @@ class Client extends Authenticatable
             'discount' => 'decimal:2',
             'rates' => 'array',
             'last_auth' => 'datetime',
+            'email_verified_at' => 'datetime',
+            'suspended_at' => 'datetime',
+            'malicious_at' => 'datetime',
         ];
     }
 
@@ -61,5 +69,23 @@ class Client extends Authenticatable
     public function staff(): BelongsTo
     {
         return $this->belongsTo(User::class, 'staff_id');
+    }
+
+    /**
+     * Get the services favorited by this client.
+     */
+    public function favoriteServices(): BelongsToMany
+    {
+        return $this->belongsToMany(Service::class, 'client_service_favorites', 'client_id', 'service_id')
+            ->withTimestamps()
+            ->select('services.*');
+    }
+
+    /**
+     * Get the login logs for this client.
+     */
+    public function loginLogs(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ClientLoginLog::class);
     }
 }

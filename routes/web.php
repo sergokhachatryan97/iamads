@@ -5,6 +5,8 @@ use App\Http\Controllers\Client\BalanceController;
 use App\Http\Controllers\Staff\InvitationController;
 use App\Http\Controllers\Staff\UserController;
 use App\Http\Controllers\Staff\ClientController;
+use App\Http\Controllers\Staff\ServiceController;
+use App\Http\Controllers\Admin\ServicesController as AdminServicesController;
 use App\Http\Controllers\Auth\AcceptInvitationController;
 use App\Http\Controllers\Client\Auth\ClientAuthenticatedSessionController;
 use App\Http\Controllers\Client\Auth\ClientRegisteredUserController;
@@ -26,7 +28,7 @@ Route::get('/', function () {
 // Client Dashboard
 Route::get('/dashboard', function () {
     return view('dashboard');
-})->middleware(['auth:client'])->name('dashboard');
+})->middleware(['auth:client', 'client.status'])->name('dashboard');
 
 // Client Auth Routes (guest only)
 Route::middleware('guest')->group(function () {
@@ -38,7 +40,7 @@ Route::middleware('guest')->group(function () {
 });
 
 // Client Account Management
-Route::middleware('auth:client')->group(function () {
+Route::middleware(['auth:client', 'client.status'])->group(function () {
     Route::post('logout', [ClientAuthenticatedSessionController::class, 'destroy'])->name('logout');
 
     Route::get('account', [AccountController::class, 'edit'])->name('client.account.edit');
@@ -47,6 +49,11 @@ Route::middleware('auth:client')->group(function () {
     // Balance Management
     Route::get('balance/add', [BalanceController::class, 'create'])->name('client.balance.add');
     Route::post('balance', [BalanceController::class, 'store'])->name('client.balance.store');
+
+    // Client Services (view only, no actions)
+    Route::get('services', [ServiceController::class, 'clientIndex'])->name('client.services.index');
+    Route::post('services/search', [ServiceController::class, 'clientSearch'])->name('client.services.search');
+    Route::post('services/{service}/favorite', [ServiceController::class, 'toggleFavorite'])->name('client.services.favorite.toggle');
 });
 
 
@@ -108,6 +115,13 @@ Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSess
         Route::get('users', [UserController::class, 'index'])->name('staff.users.index');
         Route::delete('users/{user}', [UserController::class, 'destroy'])->name('staff.users.destroy');
         Route::post('users/{user}/resend-verification', [UserController::class, 'resendVerification'])->name('staff.users.resend-verification');
+
+        // Admin Services Management
+        Route::prefix('admin')->group(function () {
+            Route::get('services', [AdminServicesController::class, 'index'])->name('admin.services.index');
+            Route::post('services', [AdminServicesController::class, 'store'])->name('admin.services.store');
+            Route::put('services/{service}', [AdminServicesController::class, 'update'])->name('admin.services.update');
+        });
     });
 
     // Clients Management (accessible to all authenticated staff, filtered by role)
@@ -116,6 +130,30 @@ Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSess
     Route::patch('clients/{client}', [ClientController::class, 'update'])->name('staff.clients.update');
     Route::delete('clients/{client}', [ClientController::class, 'destroy'])->name('staff.clients.destroy');
     Route::post('clients/{client}/assign-staff', [ClientController::class, 'assignStaff'])->name('staff.clients.assign-staff');
+    Route::post('clients/{client}/suspend', [ClientController::class, 'suspend'])->name('staff.clients.suspend');
+    Route::post('clients/{client}/activate', [ClientController::class, 'activate'])->name('staff.clients.activate');
+    Route::post('clients/bulk-suspend', [ClientController::class, 'bulkSuspend'])->name('staff.clients.bulk-suspend');
+    Route::post('clients/bulk-activate', [ClientController::class, 'bulkActivate'])->name('staff.clients.bulk-activate');
+    Route::get('clients/{client}/sign-ins', [\App\Http\Controllers\Staff\ClientLoginLogController::class, 'index'])->name('staff.clients.sign-ins');
+    Route::get('clients/{client}/sign-ins/matching-ips', [\App\Http\Controllers\Staff\ClientLoginLogController::class, 'matchingIps'])->name('staff.clients.sign-ins.matching-ips');
+
+    // Services Management (accessible to all authenticated staff)
+    Route::get('services', [ServiceController::class, 'index'])->name('staff.services.index');
+    Route::post('services/search', [ServiceController::class, 'search'])->name('staff.services.search');
+    Route::get('services/create', [ServiceController::class, 'create'])->name('staff.services.create');
+    Route::post('services', [ServiceController::class, 'store'])->name('staff.services.store');
+    Route::get('services/{service}/edit', [ServiceController::class, 'edit'])->name('staff.services.edit');
+    Route::put('services/{service}', [ServiceController::class, 'update'])->name('staff.services.update');
+    Route::post('services/{service}/duplicate', [ServiceController::class, 'duplicate'])->name('staff.services.duplicate');
+    Route::post('services/{service}/update-mode', [ServiceController::class, 'updateMode'])->name('staff.services.update-mode');
+    Route::delete('services/{service}', [ServiceController::class, 'destroy'])->name('staff.services.destroy');
+    Route::post('services/{service}/toggle-status', [ServiceController::class, 'toggleServiceStatus'])->name('staff.services.toggle-status');
+    Route::post('services/{serviceId}/restore', [ServiceController::class, 'restore'])->name('staff.services.restore');
+
+    // Categories Management (accessible to all authenticated staff)
+    Route::post('categories', [ServiceController::class, 'storeCategory'])->name('staff.categories.store');
+    Route::put('categories/{category}', [ServiceController::class, 'updateCategory'])->name('staff.categories.update');
+    Route::post('categories/{category}/toggle-status', [ServiceController::class, 'toggleCategoryStatus'])->name('staff.categories.toggle-status');
 });
 
 // Staff Invitation Acceptance Routes (guest only, under /staff prefix)

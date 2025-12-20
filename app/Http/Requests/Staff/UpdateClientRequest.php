@@ -21,11 +21,20 @@ class UpdateClientRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
-            'discount' => ['required', 'numeric', 'min:0', 'max:100'],
+        $rules = [
+            'discount' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'rates' => ['nullable', 'array'],
-            'rates.*' => ['nullable', 'numeric', 'min:0'],
+            'rates.*.type' => ['required_with:rates.*.enabled', 'in:fixed,percent'],
+            'rates.*.value' => ['required_with:rates.*.enabled', 'numeric', 'min:0'],
+            'rates.*.enabled' => ['sometimes', 'boolean'],
         ];
+
+        // Only super_admin can update staff_id
+        if (auth()->guard('staff')->check() && auth()->guard('staff')->user()->hasRole('super_admin')) {
+            $rules['staff_id'] = ['nullable', 'integer', 'exists:users,id'];
+        }
+
+        return $rules;
     }
 }
 
