@@ -330,11 +330,29 @@ class ServiceController extends Controller
             });
         }
 
-        // Add is_favorited flag to each service
+        // Add is_favorited flag and client pricing to each service
+        $pricingService = app(\App\Services\PricingService::class);
         if ($client) {
-            $categories = $categories->map(function ($category) use ($favoriteServiceIds) {
-                $category->services = $category->services->map(function ($service) use ($favoriteServiceIds) {
+            $categories = $categories->map(function ($category) use ($favoriteServiceIds, $client, $pricingService) {
+                $category->services = $category->services->map(function ($service) use ($favoriteServiceIds, $client, $pricingService) {
                     $service->is_favorited = in_array($service->id, $favoriteServiceIds);
+                    
+                    // Calculate client-specific price
+                    $service->client_price = $pricingService->priceForClient($service, $client);
+                    
+                    // Check if client has custom rate for this service
+                    $clientRates = is_array($client->rates) ? $client->rates : [];
+                    $rateData = $clientRates[$service->id] ?? $clientRates[(string)$service->id] ?? null;
+                    $service->has_custom_rate = false;
+                    $service->custom_rate_type = null;
+                    $service->custom_rate_value = null;
+                    
+                    if ($rateData && is_array($rateData) && isset($rateData['type']) && isset($rateData['value'])) {
+                        $service->has_custom_rate = true;
+                        $service->custom_rate_type = $rateData['type'];
+                        $service->custom_rate_value = (float)$rateData['value'];
+                    }
+                    
                     return $service;
                 });
                 return $category;
@@ -421,11 +439,29 @@ class ServiceController extends Controller
             });
         }
 
-        // Add is_favorited flag to each service
+        // Add is_favorited flag and client pricing to each service
+        $pricingService = app(\App\Services\PricingService::class);
         if ($client) {
-            $categories = $categories->map(function ($category) use ($favoriteServiceIds) {
-                $category->services = $category->services->map(function ($service) use ($favoriteServiceIds) {
+            $categories = $categories->map(function ($category) use ($favoriteServiceIds, $client, $pricingService) {
+                $category->services = $category->services->map(function ($service) use ($favoriteServiceIds, $client, $pricingService) {
                     $service->is_favorited = in_array($service->id, $favoriteServiceIds);
+                    
+                    // Calculate client-specific price
+                    $service->client_price = $pricingService->priceForClient($service, $client);
+                    
+                    // Check if client has custom rate for this service
+                    $clientRates = is_array($client->rates) ? $client->rates : [];
+                    $rateData = $clientRates[$service->id] ?? $clientRates[(string)$service->id] ?? null;
+                    $service->has_custom_rate = false;
+                    $service->custom_rate_type = null;
+                    $service->custom_rate_value = null;
+                    
+                    if ($rateData && is_array($rateData) && isset($rateData['type']) && isset($rateData['value'])) {
+                        $service->has_custom_rate = true;
+                        $service->custom_rate_type = $rateData['type'];
+                        $service->custom_rate_value = (float)$rateData['value'];
+                    }
+                    
                     return $service;
                 });
                 return $category;

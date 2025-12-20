@@ -18,7 +18,7 @@ class ClientRepository implements ClientRepositoryInterface
     {
         $query = Client::query()
             ->with('staff:id,name,email')
-            ->select(['id', 'name', 'email', 'balance', 'spent', 'discount', 'staff_id', 'last_auth', 'created_at']);
+            ->select(['id', 'name', 'email', 'balance', 'spent', 'discount', 'staff_id', 'last_auth', 'status', 'created_at']);
 
         // Permission-based filtering: non-super_admin can only see their own clients
         if ($user && !$user->hasRole('super_admin')) {

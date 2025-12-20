@@ -41,15 +41,19 @@
             ];
         @endphp
 
+        @php
+            $initialFilterCount = collect([request('category_id'), request('status', 'all') !== 'all' ? request('status') : ''])->filter(fn($v) => !empty($v))->count();
+        @endphp
         <div class="py-12"
-             x-data="serviceManagement(@js($filters ?? []))"
+             x-data="serviceManagement(@js($filters ?? []), {{ $initialFilterCount }})"
              @open-create-category-modal.window="openCategoryModal = true"
              @search-changed.window="handleSearchChanged($event.detail)"
              @sort-table.window="sortTable($event.detail.column)"
              @show-delete-confirm.window="showDeleteSingleConfirm($event.detail.serviceId, $event.detail.serviceName)"
+             @show-restore-confirm.window="showRestoreSingleConfirm($event.detail.serviceId, $event.detail.serviceName)"
              @close-filter-dropdown.window="updateFilterCount()"
              @filter-value-changed.window="updateFilterCount()"
-             @filter-applied.window="updateFilterCount()"
+             @filter-applied.window="handleFormSubmit($event)"
              x-init="
                  window.addEventListener('popstate', () => { window.location.reload(); });
 
@@ -64,10 +68,24 @@
                          }
                      }
                  };
-                 window.addEventListener('show-delete-confirm', deleteHandler);
+                window.addEventListener('show-delete-confirm', deleteHandler);
+                
+                var restoreHandler = function(event) {
+                    if (event.detail && event.detail.serviceId && event.detail.serviceName) {
+                        // Get Alpine component data from the element
+                        var componentData = Alpine.$data(element);
+                        if (componentData && typeof componentData.showRestoreSingleConfirm === 'function') {
+                            componentData.showRestoreSingleConfirm(event.detail.serviceId, event.detail.serviceName);
+                        }
+                    }
+                };
+                window.addEventListener('show-restore-confirm', restoreHandler);
 
-                 $nextTick(() => {
-                     if (typeof this.getActiveFiltersCount === 'function') this.getActiveFiltersCount();
+                $nextTick(() => {
+                     // Initialize filter count on page load
+                     if (typeof this.getActiveFiltersCount === 'function') {
+                         this.getActiveFiltersCount();
+                     }
                      var form = document.getElementById('filter-form');
                      if (form) {
                          form.addEventListener('input', () => { if (typeof this.getActiveFiltersCount === 'function') this.getActiveFiltersCount(); });
@@ -150,7 +168,7 @@
                 <div class="p-6 text-gray-900 w-full">
                     <!-- Search Bar and Filter Button -->
                     <div class="mb-6 relative z-10" style="isolation: isolate;">
-                        <form method="GET" action="{{ route('staff.services.index') }}" id="filter-form" @submit.prevent="handleFormSubmit($event)">
+                        <form method="GET" action="{{ route('staff.services.index') }}" id="filter-form" @submit="handleFormSubmit($event)">
                             <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 mb-4 justify-end">
                                 <!-- Bulk Actions Button (shown when services are selected) -->
                                 <div x-show="selectedServices.length > 0"
@@ -203,67 +221,55 @@
                                 </div>
 
                                 <!-- Filter Button with Badge -->
-                                <div class="relative flex-shrink-0"
-                                     x-data="{ open: false }"
-                                     @close-filter-dropdown.window="open = false"
-                                     style="isolation: isolate; z-index: 100000;">
-                                    <button
-                                        type="button"
-                                        @click="open = !open"
-                                        class="relative inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                                    >
-                                        <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
-                                        </svg>
-                                        <span
-                                            x-show="$root && $root.activeFiltersCount > 0"
-                                            x-text="$root ? $root.activeFiltersCount : 0"
-                                            class="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-indigo-600 rounded-full"
-                                        ></span>
-                                    </button>
+                                <x-filter-button count="activeFiltersCount">
+                                    <x-slot name="trigger">
+                                        <button
+                                            type="button"
+                                            class="relative inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                        >
+                                            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+                                            </svg>
+                                        </button>
+                                    </x-slot>
 
-                                    <!-- Backdrop overlay for mobile -->
-                                    <x-filter-dropdown-backdrop open="open" />
-
-                                    <!-- Filter Dropdown -->
-                                    <x-filter-dropdown open="open">
-
+                                    <x-slot name="dropdown">
                                         <!-- Category Filter -->
-                                            @php
-                                                $categoryOptions = ['' => __('All')];
-                                                if (isset($categoriesList) && $categoriesList) {
-                                                    foreach ($categoriesList as $category) {
-                                                        $categoryOptions[$category->id] = $category->name;
-                                                    }
+                                        @php
+                                            $categoryOptions = ['' => __('All')];
+                                            if (isset($categoriesList) && $categoriesList) {
+                                                foreach ($categoriesList as $category) {
+                                                    $categoryOptions[$category->id] = $category->name;
                                                 }
-                                            @endphp
-                                            <x-custom-select
-                                                label="{{ __('Category') }}"
-                                                name="category_id"
-                                                id="category_id"
-                                                size="small"
-                                                :options="$categoryOptions"
-                                                :value="request('category_id', '')"
-                                            />
+                                            }
+                                        @endphp
+                                        <x-custom-select
+                                            label="{{ __('Category') }}"
+                                            name="category_id"
+                                            id="category_id"
+                                            size="small"
+                                            :options="$categoryOptions"
+                                            :value="request('category_id', '')"
+                                        />
 
                                         <!-- Status Filter -->
-                                            <x-custom-select
-                                                label="{{ __('Status') }}"
-                                                name="status"
-                                                id="status"
-                                                size="small"
-                                                :options="[
+                                        <x-custom-select
+                                            label="{{ __('Status') }}"
+                                            name="status"
+                                            id="status"
+                                            size="small"
+                                            :options="[
                                                 'all' => __('All'),
                                                 'active' => __('Active'),
                                                 'inactive' => __('Inactive'),
                                             ]"
-                                                :value="request('status', 'all')"
-                                            />
+                                            :value="request('status', 'all')"
+                                        />
 
                                         <!-- Apply Button -->
-                                        <x-filter-actions clear-route="staff.services.index" open="open" />
-                                    </x-filter-dropdown>
-                                </div>
+                                        <x-filter-actions clear-route="staff.services.index" />
+                                    </x-slot>
+                                </x-filter-button>
 
                                 <!-- Search Input with Filter (after filter button) -->
                                 <x-search-with-filter
@@ -276,6 +282,25 @@
                                     @search-changed="handleSearchChanged($event.detail)"
                                 />
                             </div>
+
+                            <!-- Active Filters Display -->
+                            @php
+                                $hasActiveFilters = (request('category_id') || (request('status', 'all') !== 'all'));
+                                $activeCategoryId = request('category_id');
+                                $activeStatus = request('status', 'all');
+                            @endphp
+                            @if($hasActiveFilters)
+                                <div class="flex flex-wrap items-center gap-2 mb-4">
+                                    @php
+                                        // Calculate total services count
+                                        $totalServices = 0;
+                                        if (isset($categories)) {
+                                            $totalServices = $categories->sum(fn($cat) => $cat->services->count());
+                                        }
+                                    @endphp
+                                    <span class="text-sm text-gray-600">{{ $totalServices }} {{ __('results found') }}</span>
+                                </div>
+                            @endif
                         </form>
                     </div>
                 </div>
@@ -358,7 +383,7 @@
             </div>
 
                 <!-- Confirmation Modal -->
-                <div x-show="showConfirmModal" class="fixed inset-0 z-50 overflow-y-auto">
+                <div x-show="showConfirmModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto" style="display: none;">
                     <div class="flex items-center justify-center min-h-screen px-4 py-2">
                         <div x-show="showConfirmModal"
                              x-transition:enter="ease-out duration-300"
@@ -390,7 +415,7 @@
                                     </button>
                                     <button type="button"
                                             @click="confirmAction()"
-                                            :class="confirmModalActionType === 'delete' || confirmModalActionType === 'delete-single' ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500' : 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500'"
+                                            :class="confirmModalActionType === 'delete' || confirmModalActionType === 'delete-single' ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500' : confirmModalActionType === 'restore' || confirmModalActionType === 'restore-single' ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500' : 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500'"
                                             class="inline-flex justify-center rounded-md border border-transparent px-4 py-2 text-sm font-medium text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2">
                                         {{ __('OK') }}
                                     </button>
@@ -478,7 +503,7 @@
     </div>
 
     <script>
-        function serviceManagement(filters = {}) {
+        function serviceManagement(filters = {}, initialFilterCount = 0) {
             const searchByOptions = {
                 'all': '{{ __('All') }}',
                 'service_name': '{{ __('Service name') }}',
@@ -493,17 +518,18 @@
             };
 
             return {
+                useAjax: true, // Enable AJAX for services table
                 openCategoryModal: false,
                 openEditCategoryModal: false,
                 editingCategory: null,
                 collapsedCategories: {},
                 selectedServices: [],
-                activeFiltersCount: 0,
+                activeFiltersCount: initialFilterCount,
                 showConfirmModal: false,
                 confirmModalTitle: '',
                 confirmModalMessage: '',
                 confirmModalAction: null,
-                confirmModalActionType: '', // 'enable', 'disable', 'delete', 'delete-single'
+                confirmModalActionType: '', // 'enable', 'disable', 'delete', 'delete-single', 'restore-single'
                 currentSort: filters?.sort || 'id',
                 currentDir: filters?.dir || 'asc',
 
@@ -643,7 +669,6 @@
                             // Ignore errors
                         }
                     }
-
                     // Count status if it's not 'all'
                     if (statusValue && statusValue !== 'all' && statusValue.trim() !== '') {
                         count++;
@@ -659,15 +684,15 @@
                     const filters = [];
 
                     // Search filter
-                    const searchValue = formData.get('search') || '';
-                    const searchBy = formData.get('search_by') || 'all';
-                    if (searchValue.trim()) {
-                        const searchByLabel = searchByOptions[searchBy] || '{{ __('All') }}';
-                        filters.push({
-                            key: 'search',
-                            label: searchByLabel + ': ' + searchValue.trim()
-                        });
-                    }
+                    {{--const searchValue = formData.get('search') || '';--}}
+                    {{--const searchBy = formData.get('search_by') || 'all';--}}
+                    {{--if (searchValue.trim()) {--}}
+                    {{--    const searchByLabel = searchByOptions[searchBy] || '{{ __('All') }}';--}}
+                    {{--    filters.push({--}}
+                    {{--        key: 'search',--}}
+                    {{--        label: searchByLabel + ': ' + searchValue.trim()--}}
+                    {{--    });--}}
+                    {{--}--}}
 
 
                     // Status filter
@@ -679,7 +704,7 @@
                             label: '{{ __('Status') }}: ' + statusLabel
                         });
                     }
-
+                    console.log(filters, 88888);
                     return filters;
                 },
                 toggleCategory(categoryId) {
@@ -872,6 +897,7 @@
                                 await this.bulkRestore();
                                 break;
                             case 'delete-single':
+                            case 'restore-single':
                                 if (this.confirmModalAction) {
                                     await this.confirmModalAction();
                                 }
@@ -948,6 +974,56 @@
                             }
                         });
                     },
+                    showRestoreSingleConfirm(serviceId, serviceName) {
+                        if (!serviceId || !serviceName) {
+                            console.error('Missing serviceId or serviceName');
+                            return;
+                        }
+                        this.confirmModalTitle = '{{ __('Restore Service') }}';
+                        this.confirmModalMessage = '{{ __('Are you sure you want to restore this service?') }}: ' + serviceName;
+                        this.confirmModalActionType = 'restore-single';
+                        this.confirmModalAction = async () => {
+                            try {
+                                const response = await fetch(`/staff/services/${serviceId}/restore`, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'X-CSRF-TOKEN': this.getCsrfToken(),
+                                        'Accept': 'application/json',
+                                        'X-Requested-With': 'XMLHttpRequest'
+                                    }
+                                });
+
+                                // Check if response is ok
+                                if (!response.ok) {
+                                    let errorMessage = `HTTP error! status: ${response.status}`;
+                                    try {
+                                        const errorData = await response.json();
+                                        errorMessage = errorData.error || errorMessage;
+                                    } catch (e) {
+                                        // If response is not JSON, use status text
+                                        errorMessage = response.statusText || errorMessage;
+                                    }
+                                    throw new Error(errorMessage);
+                                }
+
+                                const data = await response.json();
+
+                                if (data.success) {
+                                    // Close modal
+                                    this.showConfirmModal = false;
+                                    // Reload the page to show updated list
+                                    window.location.reload();
+                                } else {
+                                    alert(data.error || '{{ __('Failed to restore service. Please try again.') }}');
+                                }
+                            } catch (error) {
+                                console.error('Restore error:', error);
+                                alert(error.message || '{{ __('Failed to restore service. Please try again.') }}');
+                            }
+                        };
+                        this.showConfirmModal = true;
+                    },
                     toggleServiceSelection(serviceId, checked, categoryId) {
                         if (!this.selectedServices) {
                             this.selectedServices = [];
@@ -1014,20 +1090,21 @@
                         this.$nextTick(() => this.performAjaxSearch());
                     },
                     handleFormSubmit(event) {
-                        event.preventDefault();
-                        // Update filter count after form values are set
-                        setTimeout(() => {
-                            this.getActiveFiltersCount();
-                        }, 0);
-                        // Close filter dropdown
-                        const filterDropdown = document.querySelector('[x-data*="open"]');
-                        if (filterDropdown && window.Alpine) {
-                            const dropdownData = Alpine.$data(filterDropdown);
-                            if (dropdownData?.open !== undefined) {
-                                dropdownData.open = false;
-                            }
+                        if (!event) return;
+
+                        if (this.useAjax === true) {
+                            // AJAX mode: prevent default form submission
+                            event.preventDefault();
+                            // Wait a bit for hidden inputs to be updated from custom-select components
+                            setTimeout(() => {
+                                // Update filter count and trigger AJAX search
+                                this.getActiveFiltersCount();
+                                this.performAjaxSearch();
+                            }, 100);
+                        } else {
+                            // Refresh mode: allow normal form submission (don't prevent default)
+                            // Form will submit normally via GET request
                         }
-                        this.performAjaxSearch();
                     },
                 updateURL(filters) {
                     // Build URL parameters
@@ -1060,8 +1137,18 @@
                     window.history.pushState({ path: newURL }, '', newURL);
                 },
                 performAjaxSearch() {
+                    // Get container first
+                    const container = document.getElementById('services-list-container');
+                    if (!container) {
+                        console.error('Services container not found');
+                        return;
+                    }
+
                     const formData = this.getFormData();
-                    if (!formData) return;
+                    if (!formData) {
+                        console.error('Form not found');
+                        return;
+                    }
 
                     const searchValue = formData.get('search') || '';
                     const searchBy = formData.get('search_by') || 'all';
@@ -1072,8 +1159,14 @@
                     const sort = formData.get('sort') || this.currentSort || 'id';
                     const dir = formData.get('dir') || this.currentDir || 'asc';
 
+                    // Debug log
+                    console.log('AJAX Search params:', { searchValue, searchBy, status, categoryId, sort, dir });
+
                     // Update filter count before search
                     this.getActiveFiltersCount();
+
+                    // Show loading state
+                    container.innerHTML = '<div class="text-center p-8"><div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div><p class="mt-2 text-gray-500">Searching...</p></div>';
 
                     // Update URL with current filters
                     this.updateURL({
@@ -1086,12 +1179,6 @@
                         sort: sort,
                         dir: dir
                     });
-
-                    // Show loading state
-                    const container = document.getElementById('services-list-container');
-                    if (container) {
-                        container.innerHTML = '<div class="text-center p-8"><div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div><p class="mt-2 text-gray-500">Searching...</p></div>';
-                    }
 
                     // Make AJAX request
                     fetch('{{ route("staff.services.search") }}', {
@@ -1109,29 +1196,83 @@
                             dir: dir
                         })
                     })
-                    .then(response => response.json())
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
                     .then(data => {
-                        if (container) {
+                        if (!container) {
+                            console.error('Container not found in response handler');
+                            return;
+                        }
+                        if (data && data.html) {
                             container.innerHTML = data.html;
                             // Re-initialize Alpine.js for the new content
                             if (window.Alpine) {
                                 Alpine.initTree(container);
                             }
                             // Update filter count after AJAX search
-                            this.getActiveFiltersCount();
-                            // Re-initialize scroll sync and checkbox state after AJAX update
-                            this.$nextTick(() => {
-                                this.initScrollSync();
-                                this.updateSelectAllCheckbox();
-                            });
+                            const self = this;
+                            setTimeout(() => {
+                                if (typeof self.getActiveFiltersCount === 'function') {
+                                    self.getActiveFiltersCount();
+                                }
+                                // Re-initialize scroll sync and checkbox state after AJAX update
+                                if (self.$nextTick) {
+                                    self.$nextTick(() => {
+                                        if (typeof self.initScrollSync === 'function') {
+                                            self.initScrollSync();
+                                        }
+                                        if (typeof self.updateSelectAllCheckbox === 'function') {
+                                            self.updateSelectAllCheckbox();
+                                        }
+                                    });
+                                }
+                            }, 50);
+                        } else {
+                            console.error('No HTML in response:', data);
+                            container.innerHTML = '<div class="text-center p-8 text-red-500">No results returned. Please refresh the page.</div>';
                         }
                     })
                     .catch(error => {
                         console.error('Search error:', error);
                         if (container) {
-                            container.innerHTML = '<div class="text-center p-8 text-red-500">Error loading results. Please refresh the page.</div>';
+                            container.innerHTML = '<div class="text-center p-8 text-red-500">Error loading results. Please check console for details and refresh the page.</div>';
                         }
                     });
+                },
+                // Clear filter function
+                clearFilter(filterName) {
+                    const form = document.getElementById('filter-form');
+                    if (!form) return;
+
+                    // Find all inputs with this name (including hidden inputs from custom-select)
+                    const inputs = form.querySelectorAll(`[name="${filterName}"]`);
+                    inputs.forEach(function(input) {
+                        if (input.type === 'hidden' || input.type === 'text' || input.type === 'number' || input.type === 'date') {
+                            input.value = filterName === 'status' ? 'all' : '';
+                        } else if (input.tagName === 'SELECT') {
+                            input.value = filterName === 'status' ? 'all' : '';
+                        }
+                    });
+
+                    // Update custom-select display if it exists
+                    if (filterName === 'category_id' || filterName === 'status') {
+                        const customSelect = form.querySelector(`#${filterName}_select`);
+                        if (customSelect) {
+                            const hiddenInput = form.querySelector(`input[name="${filterName}"]`);
+                            if (hiddenInput && filterName === 'status') {
+                                hiddenInput.value = 'all';
+                                // Trigger change event to update custom-select display
+                                hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                        }
+                    }
+
+                    // Trigger AJAX search
+                    this.performAjaxSearch();
                 }
             };
         }

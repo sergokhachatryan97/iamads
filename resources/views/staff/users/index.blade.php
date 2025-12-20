@@ -32,51 +32,47 @@
                             <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 mb-4 justify-end">
 
                                 <!-- Filter Button with Badge -->
-                                <div class="relative z-50 flex-shrink-0" x-data="{ open: false }" style="isolation: isolate;">
-                                    <button
-                                        type="button"
-                                        @click="open = !open"
-                                        class="relative inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                                    >
-                                        <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
-                                        </svg>
+                                <x-filter-button
+                                    :active="[
+                                        $filters['role'] ?? '',
+                                        $filters['verified'] ?? '',
+                                    ]"
+                                >
+                                    <x-slot name="trigger">
+                                        <button
+                                            type="button"
+                                            class="relative inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                        >
+                                            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+                                            </svg>
+                                        </button>
+                                    </x-slot>
 
-                                        @if($activeFiltersCount > 0)
-                                            <span class="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-indigo-600 rounded-full">
-                                                {{ $activeFiltersCount }}
-                                            </span>
-                                        @endif
-                                    </button>
+                                    <x-slot name="dropdown">
+                                        <!-- Role Filter -->
+                                        <x-custom-select
+                                            label="{{ __('Role') }}"
+                                            name="role"
+                                            id="role"
+                                            :options="collect($roles)->mapWithKeys(fn($role) => [$role->name => ucfirst($role->name)])->toArray()"
+                                            :value="$filters['role'] ?? ''"
+                                            placeholder="{{ __('All Roles') }}"
+                                        />
 
-                                    <!-- Backdrop overlay for mobile -->
-                                    <x-filter-dropdown-backdrop />
+                                        <!-- Verification Filter -->
+                                        <x-custom-select
+                                            label="{{ __('Verified') }}"
+                                            name="verified"
+                                            id="verified"
+                                            :options="['' => __('All'), '1' => __('Yes'), '0' => __('No')]"
+                                            :value="$filters['verified'] ?? ''"
+                                        />
 
-                                    <!-- Filter Dropdown -->
-                                    <x-filter-dropdown>
-                                            <!-- Role Filter -->
-                                            <x-custom-select
-                                                label="{{ __('Role') }}"
-                                                name="role"
-                                                id="role"
-                                                :options="collect($roles)->mapWithKeys(fn($role) => [$role->name => ucfirst($role->name)])->toArray()"
-                                                :value="$filters['role'] ?? ''"
-                                                placeholder="{{ __('All Roles') }}"
-                                            />
-
-                                            <!-- Verification Filter -->
-                                            <x-custom-select
-                                                label="{{ __('Verified') }}"
-                                                name="verified"
-                                                id="verified"
-                                                :options="['' => __('All'), '1' => __('Yes'), '0' => __('No')]"
-                                                :value="$filters['verified'] ?? ''"
-                                            />
-
-                                            <!-- Apply Button -->
-                                            <x-filter-actions clear-route="staff.users.index" />
-                                    </x-filter-dropdown>
-                                </div>
+                                        <!-- Apply Button -->
+                                        <x-filter-actions clear-route="staff.users.index" />
+                                    </x-slot>
+                                </x-filter-button>
 
                                 <!-- Search Input -->
                                 <x-search-input />
@@ -232,6 +228,59 @@
                         }
                     });
                 }
+
+                // Handle pagination links with AJAX
+                document.addEventListener('click', function(e) {
+                    const paginationLink = e.target.closest('.pagination-links a, .pagination a');
+                    if (paginationLink && paginationLink.href && tableContainer.contains(e.target.closest('.pagination-links, .pagination'))) {
+                        e.preventDefault();
+                        const url = paginationLink.href;
+                        
+                        // Show loading state
+                        tableContainer.style.opacity = '0.6';
+                        
+                        // Cancel previous request
+                        if (abortController) {
+                            abortController.abort();
+                        }
+                        abortController = new AbortController();
+                        
+                        fetch(url, {
+                            method: 'GET',
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'Accept': 'text/html',
+                            },
+                            signal: abortController.signal
+                        })
+                            .then(response => {
+                                if (!response.ok) {
+                                    throw new Error('Network response was not ok');
+                                }
+                                return response.text();
+                            })
+                            .then(html => {
+                                if (html && html.trim()) {
+                                    tableContainer.innerHTML = html.trim();
+                                    tableContainer.style.opacity = '1';
+                                    
+                                    // Update URL without reload
+                                    history.replaceState(null, '', url);
+                                }
+                            })
+                            .catch(error => {
+                                if (error.name !== 'AbortError') {
+                                    console.error('Error fetching pagination:', error);
+                                    tableContainer.style.opacity = '1';
+                                    // Fallback to full page reload on error
+                                    window.location.href = url;
+                                }
+                            })
+                            .finally(() => {
+                                abortController = null;
+                            });
+                    }
+                });
 
                 // Clear filter function - submits form normally (full page reload)
                 window.clearFilter = function (filterName) {

@@ -28,7 +28,7 @@ Route::get('/', function () {
 // Client Dashboard
 Route::get('/dashboard', function () {
     return view('dashboard');
-})->middleware(['auth:client'])->name('dashboard');
+})->middleware(['auth:client', 'client.status'])->name('dashboard');
 
 // Client Auth Routes (guest only)
 Route::middleware('guest')->group(function () {
@@ -40,7 +40,7 @@ Route::middleware('guest')->group(function () {
 });
 
 // Client Account Management
-Route::middleware('auth:client')->group(function () {
+Route::middleware(['auth:client', 'client.status'])->group(function () {
     Route::post('logout', [ClientAuthenticatedSessionController::class, 'destroy'])->name('logout');
 
     Route::get('account', [AccountController::class, 'edit'])->name('client.account.edit');
@@ -130,6 +130,12 @@ Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSess
     Route::patch('clients/{client}', [ClientController::class, 'update'])->name('staff.clients.update');
     Route::delete('clients/{client}', [ClientController::class, 'destroy'])->name('staff.clients.destroy');
     Route::post('clients/{client}/assign-staff', [ClientController::class, 'assignStaff'])->name('staff.clients.assign-staff');
+    Route::post('clients/{client}/suspend', [ClientController::class, 'suspend'])->name('staff.clients.suspend');
+    Route::post('clients/{client}/activate', [ClientController::class, 'activate'])->name('staff.clients.activate');
+    Route::post('clients/bulk-suspend', [ClientController::class, 'bulkSuspend'])->name('staff.clients.bulk-suspend');
+    Route::post('clients/bulk-activate', [ClientController::class, 'bulkActivate'])->name('staff.clients.bulk-activate');
+    Route::get('clients/{client}/sign-ins', [\App\Http\Controllers\Staff\ClientLoginLogController::class, 'index'])->name('staff.clients.sign-ins');
+    Route::get('clients/{client}/sign-ins/matching-ips', [\App\Http\Controllers\Staff\ClientLoginLogController::class, 'matchingIps'])->name('staff.clients.sign-ins.matching-ips');
 
     // Services Management (accessible to all authenticated staff)
     Route::get('services', [ServiceController::class, 'index'])->name('staff.services.index');

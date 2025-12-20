@@ -8,57 +8,82 @@
     <div class="py-12"
          x-data="serviceManagement(@js($filters ?? []))"
          @sort-table.window="sortTable($event.detail.column)"
+         @filter-applied.window="handleFormSubmit($event)"
          x-init="
              window.addEventListener('popstate', () => { window.location.reload(); });
+             
+             // Initialize active filters from form inputs
              $nextTick(() => {
-                 if (typeof this.performAjaxSearch === 'function') this.performAjaxSearch();
-                 if (typeof this.initScrollSync === 'function') this.initScrollSync();
+                 if (typeof this.updateActiveFilters === 'function') {
+                     this.updateActiveFilters();
+                 }
+                 if (typeof this.updateFilterCount === 'function') {
+                     this.updateFilterCount();
+                 }
+                 if (typeof this.performAjaxSearch === 'function') {
+                     this.performAjaxSearch();
+                 }
+                 if (typeof this.initScrollSync === 'function') {
+                     this.initScrollSync();
+                 }
              });
          ">
         <div class="max-w-[95%] mx-auto sm:px-6 lg:px-8">
             <!-- Search Bar and Filter Button -->
             <div class="mb-6 relative z-10" style="isolation: isolate;">
                 <form method="GET" action="{{ route('client.services.index') }}" id="filter-form" @submit.prevent="handleFormSubmit($event)">
+                    @php
+                        $currentCategoryId = request('category_id', '');
+                        $currentFavoritesOnly = request('favorites_only', '');
+                        $currentSearch = request('search', '');
+                        
+                        // Calculate initial filter count
+                        $initialFilterCount = 0;
+                        if ($currentCategoryId) $initialFilterCount++;
+                        if ($currentFavoritesOnly === '1') $initialFilterCount++;
+                        if ($currentSearch) $initialFilterCount++;
+                    @endphp
+                    
+                    <!-- Hidden inputs for filters (initialized from URL parameters) -->
+                    <input type="hidden" name="category_id" value="{{ $currentCategoryId }}">
+                    <input type="hidden" name="favorites_only" value="{{ $currentFavoritesOnly === '1' ? '1' : '0' }}">
+                    
                     <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 mb-4 justify-end">
-                        <!-- Filter Button -->
-                        <div class="relative flex-shrink-0"
-                             x-data="{ open: false }"
-                             @close-filter-dropdown.window="open = false"
-                             style="isolation: isolate; z-index: 100000;">
-                            <button
-                                type="button"
-                                @click="open = !open"
-                                class="relative inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                            >
-                                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
-                                </svg>
-                            </button>
+                        <!-- Filter Button with Badge -->
+                        <x-filter-button count="activeFiltersCount">
+                            <x-slot name="trigger">
+                                <button
+                                    type="button"
+                                    class="relative inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                >
+                                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+                                    </svg>
+                                </button>
+                            </x-slot>
 
-                            <!-- Backdrop overlay for mobile -->
-                            <x-filter-dropdown-backdrop open="open" />
-
-                            <!-- Filter Dropdown -->
-                            <x-filter-dropdown open="open">
+                            <x-slot name="dropdown">
                                 @php
                                     $currentCategoryId = request('category_id', '');
                                     $currentFavoritesOnly = request('favorites_only', '');
                                 @endphp
-                                
+
                                 <!-- Filter List -->
                                 <div class="space-y-1">
                                     <!-- All Option -->
                                     <button type="button"
-                                            @click="selectFilter('', false); open = false;"
-                                            class="w-full text-left px-3 py-2 text-sm rounded-md transition-colors {{ !$currentCategoryId && !$currentFavoritesOnly ? 'text-blue-500 bg-blue-50' : 'text-gray-700 hover:bg-gray-100' }}">
+                                            @click="selectFilter('', false); $dispatch('close-filter-dropdown');"
+                                            class="w-full text-left px-3 py-2 text-sm rounded-md transition-colors"
+                                            :class="!getActiveCategoryId() && getActiveFavoritesOnly() !== '1' && !getActiveSearch() ? 'text-blue-500 bg-blue-50' : 'text-gray-700 hover:bg-gray-100'">
                                         {{ __('All') }}
                                     </button>
 
                                     <!-- Favorite Services Option -->
                                     <button type="button"
-                                            @click="selectFilter('', true); open = false;"
-                                            class="w-full text-left px-3 py-2 text-sm rounded-md transition-colors flex items-center gap-2 {{ !$currentCategoryId && $currentFavoritesOnly ? 'text-blue-500 bg-blue-50' : 'text-gray-700 hover:bg-gray-100' }}">
-                                        <svg class="w-4 h-4 {{ !$currentCategoryId && $currentFavoritesOnly ? 'text-blue-500' : 'text-gray-400' }}" fill="currentColor" viewBox="0 0 20 20">
+                                            @click="selectFilter('', true); $dispatch('close-filter-dropdown');"
+                                            class="w-full text-left px-3 py-2 text-sm rounded-md transition-colors flex items-center gap-2"
+                                            :class="!getActiveCategoryId() && getActiveFavoritesOnly() === '1' && !getActiveSearch() ? 'text-blue-500 bg-blue-50' : 'text-gray-700 hover:bg-gray-100'">
+                                        <svg class="w-4 h-4" :class="!getActiveCategoryId() && getActiveFavoritesOnly() === '1' && !getActiveSearch() ? 'text-blue-500' : 'text-gray-400'" fill="currentColor" viewBox="0 0 20 20">
                                             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
                                         </svg>
                                         <span>{{ __('Favorite services') }}</span>
@@ -68,18 +93,19 @@
                                     @if(isset($categoriesList) && $categoriesList)
                                         @foreach($categoriesList as $category)
                                             <button type="button"
-                                                    @click="selectFilter({{ $category->id }}, false); open = false;"
-                                                    class="w-full text-left px-3 py-2 text-sm rounded-md transition-colors flex items-center gap-2 {{ $currentCategoryId == $category->id ? 'text-blue-500 bg-blue-50' : 'text-gray-700 hover:bg-gray-100' }}">
+                                                    @click="selectFilter({{ $category->id }}, false); $dispatch('close-filter-dropdown');"
+                                                    class="w-full text-left px-3 py-2 text-sm rounded-md transition-colors flex items-center gap-2"
+                                                    :class="String(getActiveCategoryId()) === '{{ $category->id }}' && getActiveFavoritesOnly() !== '1' && !getActiveSearch() ? 'text-blue-500 bg-blue-50' : 'text-gray-700 hover:bg-gray-100'">
                                                 @if($category->icon)
                                                     <span class="text-base flex-shrink-0">
                                                         @if(Str::startsWith($category->icon, '<svg'))
-                                                            <span class="inline-block w-4 h-4 {{ $currentCategoryId == $category->id ? 'text-blue-500' : 'text-gray-400' }}">{!! $category->icon !!}</span>
+                                                            <span class="inline-block w-4 h-4" :class="String(getActiveCategoryId()) === '{{ $category->id }}' && getActiveFavoritesOnly() !== '1' && !getActiveSearch() ? 'text-blue-500' : 'text-gray-400'">{!! $category->icon !!}</span>
                                                         @elseif(Str::startsWith($category->icon, 'data:'))
                                                             <img src="{{ $category->icon }}" alt="icon" class="w-4 h-4 object-contain">
                                                         @elseif(Str::startsWith($category->icon, 'fas ') || Str::startsWith($category->icon, 'far ') || Str::startsWith($category->icon, 'fab ') || Str::startsWith($category->icon, 'fal ') || Str::startsWith($category->icon, 'fad '))
-                                                            <i class="{{ $category->icon }} {{ $currentCategoryId == $category->id ? 'text-blue-500' : 'text-gray-400' }}"></i>
+                                                            <i class="{{ $category->icon }}" :class="String(getActiveCategoryId()) === '{{ $category->id }}' && getActiveFavoritesOnly() !== '1' && !getActiveSearch() ? 'text-blue-500' : 'text-gray-400'"></i>
                                                         @else
-                                                            <span class="inline-block {{ $currentCategoryId == $category->id ? 'text-blue-500' : 'text-gray-400' }}">{{ $category->icon }}</span>
+                                                            <span class="inline-block" :class="String(getActiveCategoryId()) === '{{ $category->id }}' && getActiveFavoritesOnly() !== '1' && !getActiveSearch() ? 'text-blue-500' : 'text-gray-400'">{{ $category->icon }}</span>
                                                         @endif
                                                     </span>
                                                 @endif
@@ -88,8 +114,15 @@
                                         @endforeach
                                     @endif
                                 </div>
-                            </x-filter-dropdown>
-                        </div>
+
+                                <!-- Clear Filter Button -->
+                                <x-filter-actions 
+                                    clear-route="client.services.index"
+                                    :closeOnClick="false"
+                                    :showApply="false"
+                                />
+                            </x-slot>
+                        </x-filter-button>
 
                         <!-- Search Input -->
                         <div class="relative" style="max-width: 300px;">
@@ -105,6 +138,43 @@
                                    placeholder="{{ __('Search by service name') }}"
                                    @input.debounce.500ms="handleSearchInput($event.target.value)"
                                    class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm">
+                        </div>
+                    </div>
+
+                    <!-- Active Filters Display -->
+                    <div x-show="hasActiveFilters()" x-cloak class="flex flex-wrap items-center gap-2 mb-4" style="display: none;">
+                        <span class="text-sm text-gray-600">{{ __('Active filters:') }}</span>
+                        <div class="flex flex-wrap gap-2">
+                            <template x-if="getActiveCategoryId()">
+                                <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-gray-200 text-gray-800">
+                                    <span x-text="'{{ __('Category') }}: ' + getCategoryName(getActiveCategoryId())"></span>
+                                    <button type="button" @click="clearFilter('category_id')" class="hover:text-gray-900">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                        </svg>
+                                    </button>
+                                </span>
+                            </template>
+                            <template x-if="getActiveFavoritesOnly() === '1'">
+                                <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-gray-200 text-gray-800">
+                                    {{ __('Favorite services') }}
+                                    <button type="button" @click="clearFilter('favorites_only')" class="hover:text-gray-900">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                        </svg>
+                                    </button>
+                                </span>
+                            </template>
+                            <template x-if="getActiveSearch()">
+                                <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-gray-200 text-gray-800">
+                                    <span x-text="'{{ __('Search') }}: ' + getActiveSearch()"></span>
+                                    <button type="button" @click="clearFilter('search')" class="hover:text-gray-900">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                        </svg>
+                                    </button>
+                                </span>
+                            </template>
                         </div>
                     </div>
                 </form>
@@ -125,13 +195,75 @@
                 currentSort: filters?.sort || 'id',
                 currentDir: filters?.dir || 'asc',
                 favoriteServices: @js($favoriteServiceIds ?? []),
+                categoriesList: @js(isset($categoriesList) ? $categoriesList->map(fn($cat) => ['id' => $cat->id, 'name' => $cat->name])->values()->all() : []),
+                activeFiltersCount: {{ $initialFilterCount }},
+                activeCategoryId: '{{ $currentCategoryId }}',
+                activeFavoritesOnly: '{{ $currentFavoritesOnly === '1' ? '1' : '0' }}',
+                activeSearch: '{{ $currentSearch }}',
 
+                // Helper functions for active filters display
+                getFormData() {
+                    const form = document.getElementById('filter-form');
+                    if (!form) return null;
+                    return new FormData(form);
+                },
+                getActiveCategoryId() {
+                    return this.activeCategoryId || '';
+                },
+                getActiveFavoritesOnly() {
+                    return this.activeFavoritesOnly || '0';
+                },
+                getActiveSearch() {
+                    return this.activeSearch || '';
+                },
+                updateActiveFilters() {
+                    const form = document.getElementById('filter-form');
+                    if (form) {
+                        const categoryInput = form.querySelector('input[name="category_id"]');
+                        const favoritesInput = form.querySelector('input[name="favorites_only"]');
+                        const searchInput = form.querySelector('input[name="search"]');
+                        
+                        this.activeCategoryId = categoryInput ? categoryInput.value || '' : '';
+                        this.activeFavoritesOnly = favoritesInput ? favoritesInput.value || '0' : '0';
+                        this.activeSearch = searchInput ? searchInput.value || '' : '';
+                    } else {
+                        // Fallback to URL params
+                        const urlParams = new URLSearchParams(window.location.search);
+                        this.activeCategoryId = urlParams.get('category_id') || '';
+                        this.activeFavoritesOnly = urlParams.get('favorites_only') || '0';
+                        this.activeSearch = urlParams.get('search') || '';
+                    }
+                },
+                hasActiveFilters() {
+                    const categoryId = this.getActiveCategoryId();
+                    const favoritesOnly = this.getActiveFavoritesOnly();
+                    const search = this.getActiveSearch();
+                    return !!(categoryId || favoritesOnly === '1' || search);
+                },
+                getCategoryName(categoryId) {
+                    if (!categoryId || !this.categoriesList) return 'N/A';
+                    const category = this.categoriesList.find(cat => String(cat.id) === String(categoryId));
+                    return category ? category.name : 'N/A';
+                },
+                updateFilterCount() {
+                    // Update active filter values first
+                    this.updateActiveFilters();
+                    
+                    let count = 0;
+                    if (this.activeCategoryId) count++;
+                    if (this.activeFavoritesOnly === '1') count++;
+                    if (this.activeSearch) count++;
+                    
+                    this.activeFiltersCount = count;
+                },
                 handleSearchInput(value) {
                     const form = document.getElementById('filter-form');
                     if (form) {
                         const searchInput = form.querySelector('input[name="search"]');
                         if (searchInput) searchInput.value = value || '';
                     }
+                    this.activeSearch = value || '';
+                    this.updateFilterCount();
                     this.performAjaxSearch();
                 },
                 selectFilter(categoryId, favoritesOnly) {
@@ -152,13 +284,45 @@
                     // Update category_id
                     const categoryInput = getOrCreateInput('category_id');
                     categoryInput.value = categoryId || '';
+                    this.activeCategoryId = categoryId || '';
 
                     // Update favorites_only
                     const favoritesInput = getOrCreateInput('favorites_only');
                     favoritesInput.value = favoritesOnly ? '1' : '0';
+                    this.activeFavoritesOnly = favoritesOnly ? '1' : '0';
 
                     // Update URL
                     this.updateURL();
+
+                    // Update filter count
+                    this.updateFilterCount();
+
+                    // Perform search
+                    this.performAjaxSearch();
+                },
+                clearFilter(filterName) {
+                    const form = document.getElementById('filter-form');
+                    if (!form) return;
+
+                    if (filterName === 'category_id') {
+                        const input = form.querySelector('input[name="category_id"]');
+                        if (input) input.value = '';
+                        this.activeCategoryId = '';
+                    } else if (filterName === 'favorites_only') {
+                        const input = form.querySelector('input[name="favorites_only"]');
+                        if (input) input.value = '0';
+                        this.activeFavoritesOnly = '0';
+                    } else if (filterName === 'search') {
+                        const input = form.querySelector('input[name="search"]');
+                        if (input) input.value = '';
+                        this.activeSearch = '';
+                    }
+
+                    // Update URL
+                    this.updateURL();
+
+                    // Update filter count
+                    this.updateFilterCount();
 
                     // Perform search
                     this.performAjaxSearch();
@@ -212,17 +376,14 @@
                 initScrollSync() {
                     // Simplified scroll sync for client view
                 },
-                getFormData() {
-                    const form = document.getElementById('filter-form');
-                    if (!form) return null;
-                    return new FormData(form);
-                },
                 getCsrfToken() {
                     return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
                 },
                 handleFormSubmit(event) {
                     event.preventDefault();
                     this.performAjaxSearch();
+                    // Close dropdown after form submission
+                    this.$dispatch('close-filter-dropdown');
                 },
                 performAjaxSearch() {
                     const formData = this.getFormData();
@@ -267,9 +428,18 @@
                             if (window.Alpine) {
                                 Alpine.initTree(container);
                             }
+                            // Update active filters and count after AJAX search
+                            if (typeof this.updateActiveFilters === 'function') {
+                                this.updateActiveFilters();
+                            }
+                            if (typeof this.updateFilterCount === 'function') {
+                                this.updateFilterCount();
+                            }
                             // Re-initialize scroll sync after AJAX update
                             this.$nextTick(() => {
-                                this.initScrollSync();
+                                if (typeof this.initScrollSync === 'function') {
+                                    this.initScrollSync();
+                                }
                             });
                         }
                     })
@@ -283,7 +453,7 @@
                 toggleFavorite(serviceId) {
                     const button = event.target.closest('button');
                     const originalState = this.favoriteServices.includes(serviceId);
-                    
+
                     // Optimistic update
                     if (originalState) {
                         this.favoriteServices = this.favoriteServices.filter(id => id !== serviceId);
@@ -401,27 +571,27 @@
                                     <label for="link-{{ $service->id }}" class="block text-sm font-medium text-gray-700 mb-1">
                                         {{ __('Link') }} <span class="text-red-500">*</span>
                                     </label>
-                                    <input type="url" 
-                                           id="link-{{ $service->id }}" 
-                                           name="link" 
+                                    <input type="url"
+                                           id="link-{{ $service->id }}"
+                                           name="link"
                                            required
                                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm">
                                 </div>
 
-                                <div x-data="{ 
-                                    quantity: {{ $service->min_quantity ?? 1 }}, 
+                                <div x-data="{
+                                    quantity: {{ $service->min_quantity ?? 1 }},
                                     rate: {{ $service->rate_per_1000 ?? 0 }},
                                     get total() { return (this.quantity * this.rate / 1000).toFixed(2); }
                                 }">
                                     <label for="quantity-{{ $service->id }}" class="block text-sm font-medium text-gray-700 mb-1">
                                         {{ __('Quantity') }} <span class="text-red-500">*</span>
                                     </label>
-                                    <input type="number" 
-                                           id="quantity-{{ $service->id }}" 
-                                           name="quantity" 
+                                    <input type="number"
+                                           id="quantity-{{ $service->id }}"
+                                           name="quantity"
                                            x-model.number="quantity"
-                                           min="{{ $service->min_quantity ?? 1 }}" 
-                                           max="{{ $service->max_quantity ?? 1 }}" 
+                                           min="{{ $service->min_quantity ?? 1 }}"
+                                           max="{{ $service->max_quantity ?? 1 }}"
                                            value="{{ $service->min_quantity ?? 1 }}"
                                            required
                                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm">
@@ -437,12 +607,12 @@
                                             </p>
                                         </div>
                                         <div class="flex gap-3">
-                                            <button type="button" 
+                                            <button type="button"
                                                     @click="$dispatch('close-modal', 'service-view-{{ $service->id }}')"
                                                     class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                                                 {{ __('Cancel') }}
                                             </button>
-                                            <button type="submit" 
+                                            <button type="submit"
                                                     class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                                                 {{ __('Create Order') }}
                                             </button>

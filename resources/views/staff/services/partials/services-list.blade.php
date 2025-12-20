@@ -328,7 +328,7 @@
                                             {{ number_format($service->max_quantity ?? $service->max_order ?? 1) }}
                                         </td>
                                         <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                                            {{ number_format($service->rate_per_1000 ?? $service->rate ?? 0, 4) }}
+                                            ${{ number_format($service->rate_per_1000 ?? $service->rate ?? 0, 4) }}
                                         </td>
                                         <td class="px-4 py-2 whitespace-nowrap">
                                             @if($service->is_active ?? true)
@@ -353,15 +353,14 @@
                                             @else
                                                 @if($service->trashed())
                                                     <!-- Restore Button for Deleted Services -->
-                                                    <form method="POST" action="{{ route('staff.services.restore', $service->id) }}" class="inline" onsubmit="return confirm('{{ __('Are you sure you want to restore this service?') }}');">
-                                                        @csrf
-                                                        <button type="submit" class="inline-flex items-center px-3 py-1 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500">
-                                                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                                                            </svg>
-                                                            {{ __('Restore') }}
-                                                        </button>
-                                                    </form>
+                                                    <button type="button" 
+                                                            @click.stop="setTimeout(function() { window.dispatchEvent(new CustomEvent('show-restore-confirm', { detail: { serviceId: {{ $service->id }}, serviceName: '{{ addslashes($service->name) }}' }, bubbles: true })); }, 150);"
+                                                            class="inline-flex items-center px-3 py-1 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500">
+                                                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                                        </svg>
+                                                        {{ __('Restore') }}
+                                                    </button>
                                                 @else
                                                     <!-- Actions Dropdown (shown when enabled) -->
                                                     <div class="relative" x-data="{ open{{ $service->id }}: false }" style="position: relative;">
