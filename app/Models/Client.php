@@ -31,6 +31,9 @@ class Client extends Authenticatable
         'email_verified_at',
         'suspended_at',
         'malicious_at',
+        'provider',
+        'provider_id',
+        'avatar',
     ];
 
     /**

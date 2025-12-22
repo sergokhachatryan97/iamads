@@ -402,8 +402,8 @@
                         container.innerHTML = '<div class="text-center p-8"><div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div><p class="mt-2 text-gray-500">Searching...</p></div>';
                     }
 
-                    // Make AJAX request
-                    fetch('{{ route("client.services.search") }}', {
+                    // Make AJAX request - use relative URL to avoid mixed content issues
+                    fetch('{{ parse_url(route("client.services.search"), PHP_URL_PATH) }}', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -540,7 +540,19 @@
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">{{ __('Rate per 1000') }}</label>
-                                <p class="text-sm text-gray-900 font-medium">${{ number_format($service->rate_per_1000 ?? 0, 2) }}</p>
+                                @php
+                                    $defaultRate = $service->default_rate ?? $service->rate_per_1000 ?? 0;
+                                    $customRate = $service->client_price ?? $defaultRate;
+                                    $hasCustomRate = $service->has_custom_rate ?? false;
+                                @endphp
+                                @if($hasCustomRate && $customRate != 0 && $defaultRate != $customRate)
+                                    <div class="flex flex-col">
+                                        <span class="text-gray-500 line-through text-xs">${{ number_format($defaultRate, 2) }}</span>
+                                        <span class="text-indigo-600 font-semibold text-sm">${{ number_format($customRate, 2) }}</span>
+                                    </div>
+                                @else
+                                    <p class="text-sm text-gray-900 font-medium">${{ number_format($customRate, 2) }}</p>
+                                @endif
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">{{ __('Min Quantity') }}</label>
@@ -580,7 +592,7 @@
 
                                 <div x-data="{
                                     quantity: {{ $service->min_quantity ?? 1 }},
-                                    rate: {{ $service->rate_per_1000 ?? 0 }},
+                                    rate: {{ ($service->client_price ?? $service->rate_per_1000 ?? 0) }},
                                     get total() { return (this.quantity * this.rate / 1000).toFixed(2); }
                                 }">
                                     <label for="quantity-{{ $service->id }}" class="block text-sm font-medium text-gray-700 mb-1">

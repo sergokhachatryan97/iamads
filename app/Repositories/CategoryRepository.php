@@ -15,7 +15,10 @@ class CategoryRepository implements CategoryRepositoryInterface
      */
     public function getAllWithServices(array $filters = []): Collection
     {
-        $query = Category::with(['services' => function ($serviceQuery) use ($filters) {
+        // For client views, only show enabled categories and enabled services
+        $forClient = $filters['for_client'] ?? false;
+        
+        $query = Category::with(['services' => function ($serviceQuery) use ($filters, $forClient) {
             // Handle deleted services
             if (!empty($filters['show_deleted']) && $filters['show_deleted'] === '1') {
                 $serviceQuery->onlyTrashed();
@@ -23,9 +26,19 @@ class CategoryRepository implements CategoryRepositoryInterface
                 $serviceQuery->whereNull('deleted_at');
             }
             
+            // For client views, only show enabled services
+            if ($forClient) {
+                $serviceQuery->where('is_active', true);
+            }
+            
             // Apply service filters
             $this->applyServiceFilters($serviceQuery, $filters);
         }]);
+
+        // For client views, only show enabled categories
+        if ($forClient) {
+            $query->where('status', true);
+        }
 
         // Filter by category_id if provided
         if (!empty($filters['category_id'])) {
@@ -50,6 +63,13 @@ class CategoryRepository implements CategoryRepositoryInterface
             (!empty($filters['status']) && $filters['status'] !== 'all')) && empty($filters['category_id']))) {
             $categories = $categories->filter(function ($category) {
                 return $category->services->isNotEmpty();
+            })->values();
+        }
+        
+        // For client views, always filter out categories without enabled services
+        if ($forClient) {
+            $categories = $categories->filter(function ($category) {
+                return $category->services->where('is_active', true)->isNotEmpty();
             })->values();
         }
 
@@ -116,11 +136,23 @@ class CategoryRepository implements CategoryRepositoryInterface
     /**
      * Get all categories ordered by creation date (newest first).
      *
+     * @param bool $forClient If true, only return enabled categories that have enabled services
      * @return Collection
      */
-    public function getAll(): Collection
+    public function getAll(bool $forClient = false): Collection
     {
-        return Category::orderBy('created_at', 'desc')->get();
+        $query = Category::query();
+        
+        // For client views, only show enabled categories that have enabled services
+        if ($forClient) {
+            $query->where('status', true)
+                  ->whereHas('services', function ($serviceQuery) {
+                      $serviceQuery->where('is_active', true)
+                                   ->whereNull('deleted_at');
+                  });
+        }
+        
+        return $query->orderBy('created_at', 'desc')->get();
     }
 
     /**
