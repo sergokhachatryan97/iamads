@@ -2,12 +2,15 @@
 
 use App\Http\Controllers\Client\AccountController;
 use App\Http\Controllers\Client\BalanceController;
+use App\Http\Controllers\Client\ServiceController as ClientServiceController;
 use App\Http\Controllers\Staff\InvitationController;
 use App\Http\Controllers\Staff\UserController;
 use App\Http\Controllers\Staff\ClientController;
+use App\Http\Controllers\Staff\ClientLoginLogController;
 use App\Http\Controllers\Staff\ServiceController;
 use App\Http\Controllers\Admin\ServicesController as AdminServicesController;
 use App\Http\Controllers\Auth\AcceptInvitationController;
+use App\Http\Controllers\Auth\ClientSocialAuthController;
 use App\Http\Controllers\Client\Auth\ClientAuthenticatedSessionController;
 use App\Http\Controllers\Client\Auth\ClientRegisteredUserController;
 use App\Http\Controllers\ProfileController;
@@ -28,7 +31,7 @@ Route::get('/', function () {
 // Client Dashboard
 Route::get('/dashboard', function () {
     return view('dashboard');
-})->middleware(['auth:client', 'client.status'])->name('dashboard');
+})->middleware(['auth:client'])->name('dashboard');
 
 // Client Auth Routes (guest only)
 Route::middleware('guest')->group(function () {
@@ -37,10 +40,18 @@ Route::middleware('guest')->group(function () {
 
     Route::get('login', [ClientAuthenticatedSessionController::class, 'create'])->name('login');
     Route::post('login', [ClientAuthenticatedSessionController::class, 'store']);
+
+    // Social Authentication Routes
+    Route::get('auth/{provider}', [ClientSocialAuthController::class, 'redirect'])
+        ->where('provider', 'google|apple|yandex|telegram')
+        ->name('auth.social.redirect');
+    Route::match(['get', 'post'], 'auth/{provider}/callback', [ClientSocialAuthController::class, 'callback'])
+        ->where('provider', 'google|apple|yandex|telegram')
+        ->name('auth.social.callback');
 });
 
 // Client Account Management
-Route::middleware(['auth:client', 'client.status'])->group(function () {
+Route::middleware('auth:client')->group(function () {
     Route::post('logout', [ClientAuthenticatedSessionController::class, 'destroy'])->name('logout');
 
     Route::get('account', [AccountController::class, 'edit'])->name('client.account.edit');
@@ -51,9 +62,9 @@ Route::middleware(['auth:client', 'client.status'])->group(function () {
     Route::post('balance', [BalanceController::class, 'store'])->name('client.balance.store');
 
     // Client Services (view only, no actions)
-    Route::get('services', [ServiceController::class, 'clientIndex'])->name('client.services.index');
-    Route::post('services/search', [ServiceController::class, 'clientSearch'])->name('client.services.search');
-    Route::post('services/{service}/favorite', [ServiceController::class, 'toggleFavorite'])->name('client.services.favorite.toggle');
+    Route::get('services', [ClientServiceController::class, 'index'])->name('client.services.index');
+    Route::post('services/search', [ClientServiceController::class, 'search'])->name('client.services.search');
+    Route::post('services/{service}/favorite/toggle', [ClientServiceController::class, 'toggleFavorite'])->name('client.services.favorite.toggle');
 });
 
 
@@ -129,13 +140,13 @@ Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSess
     Route::get('clients/{client}/edit', [ClientController::class, 'edit'])->name('staff.clients.edit');
     Route::patch('clients/{client}', [ClientController::class, 'update'])->name('staff.clients.update');
     Route::delete('clients/{client}', [ClientController::class, 'destroy'])->name('staff.clients.destroy');
-    Route::post('clients/{client}/assign-staff', [ClientController::class, 'assignStaff'])->name('staff.clients.assign-staff');
     Route::post('clients/{client}/suspend', [ClientController::class, 'suspend'])->name('staff.clients.suspend');
     Route::post('clients/{client}/activate', [ClientController::class, 'activate'])->name('staff.clients.activate');
     Route::post('clients/bulk-suspend', [ClientController::class, 'bulkSuspend'])->name('staff.clients.bulk-suspend');
     Route::post('clients/bulk-activate', [ClientController::class, 'bulkActivate'])->name('staff.clients.bulk-activate');
-    Route::get('clients/{client}/sign-ins', [\App\Http\Controllers\Staff\ClientLoginLogController::class, 'index'])->name('staff.clients.sign-ins');
-    Route::get('clients/{client}/sign-ins/matching-ips', [\App\Http\Controllers\Staff\ClientLoginLogController::class, 'matchingIps'])->name('staff.clients.sign-ins.matching-ips');
+    Route::post('clients/{client}/assign-staff', [ClientController::class, 'assignStaff'])->name('staff.clients.assign-staff');
+    Route::get('clients/{client}/sign-ins', [ClientLoginLogController::class, 'index'])->name('staff.clients.sign-ins');
+    Route::get('clients/{client}/sign-ins/matching-ips', [ClientLoginLogController::class, 'matchingIps'])->name('staff.clients.sign-ins.matching-ips');
 
     // Services Management (accessible to all authenticated staff)
     Route::get('services', [ServiceController::class, 'index'])->name('staff.services.index');
