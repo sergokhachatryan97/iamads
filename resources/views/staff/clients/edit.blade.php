@@ -475,6 +475,134 @@
                             @enderror
                         </div>
 
+                        <!-- Social Authentication Section -->
+                        @if($client->provider && $client->provider_id)
+                            <div class="mb-6 pb-6 border-b border-gray-200">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    {{ __('Social Authentication') }}
+                                </label>
+                                <p class="text-sm text-gray-500 mb-4">{{ __('This client signed up using social authentication.') }}</p>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                                            {{ __('Provider') }}
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value="{{ ucfirst($client->provider) }}"
+                                            readonly
+                                            class="block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm bg-gray-50 text-gray-600 cursor-not-allowed sm:text-sm"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                                            {{ __('Provider ID') }}
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value="{{ $client->provider_id }}"
+                                            readonly
+                                            class="block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm bg-gray-50 text-gray-600 cursor-not-allowed sm:text-sm font-mono text-xs"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+
+                        <!-- Social Media Section -->
+                        <div class="mb-6 pb-6 border-b border-gray-200">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                {{ __('Social Media') }}
+                            </label>
+                            <p class="text-sm text-gray-500 mb-4">{{ __('Add social media accounts for this client. Select platform and enter username.') }}</p>
+
+                            <div id="social-media-container" class="space-y-4">
+                                @php
+                                    $socialMedia = old('social_media', $client->social_media ?? []);
+                                    $socialMediaArray = [];
+
+                                    // Handle old input format (array of arrays from form submission)
+                                    if (!empty(old('social_media')) && isset(old('social_media')[0]) && is_array(old('social_media')[0])) {
+                                        $socialMediaArray = old('social_media');
+                                    } elseif (is_array($socialMedia) && !empty($socialMedia)) {
+                                        // Handle database format (associative array: platform => username)
+                                        foreach ($socialMedia as $platform => $username) {
+                                            if (is_string($platform) && !empty($username)) {
+                                                $socialMediaArray[] = ['platform' => $platform, 'username' => $username];
+                                            }
+                                        }
+                                    }
+
+                                    // Always ensure at least one empty row is shown
+                                    if (empty($socialMediaArray)) {
+                                        $socialMediaArray = [['platform' => '', 'username' => '']];
+                                    }
+
+                                    // Define platform options for custom-select
+                                    $platformOptions = [
+                                        'telegram' => __('Telegram'),
+                                        'facebook' => __('Facebook'),
+                                        'instagram' => __('Instagram')
+                                    ];
+                                @endphp
+
+                                @foreach($socialMediaArray as $index => $social)
+                                    <div class="flex gap-3 items-start social-media-row border border-gray-200 rounded-lg p-4 bg-gray-50">
+                                        <div class="flex-1">
+                                            <x-custom-select
+                                                name="social_media[{{ $index }}][platform]"
+                                                id="social_platform_{{ $index }}"
+                                                :value="old('social_media.{$index}.platform', $social['platform'] ?? '')"
+                                                :label="__('Platform')"
+                                                placeholder="{{ __('Select Platform') }}"
+                                                :options="$platformOptions"
+                                            />
+                                            @error('social_media.'.$index.'.platform')
+                                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                            @enderror
+                                        </div>
+                                        <div class="flex-1">
+                                            <label for="social_username_{{ $index }}" class="block text-sm font-medium text-gray-700 mb-1">
+                                                {{ __('Username') }}
+                                            </label>
+                                            <input
+                                                id="social_username_{{ $index }}"
+                                                name="social_media[{{ $index }}][username]"
+                                                type="text"
+                                                class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                                value="{{ old("social_media.{$index}.username", $social['username'] ?? '') }}"
+                                                placeholder="{{ __('Enter username or handle') }}"
+                                            />
+                                            @error('social_media.'.$index.'.username')
+                                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                            @enderror
+                                        </div>
+                                        <div class="pt-6">
+                                            <button
+                                                type="button"
+                                                onclick="removeSocialMediaRow(this)"
+                                                class="px-3 py-2 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors"
+                                            >
+                                                {{ __('Remove') }}
+                                            </button>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+
+                            <button
+                                type="button"
+                                onclick="addSocialMediaRow()"
+                                class="mt-4 inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors"
+                            >
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                </svg>
+                                {{ __('Add Social Media') }}
+                            </button>
+                        </div>
+
                         <!-- Submit Button -->
                         <div class="flex items-center justify-end gap-4">
                             <a

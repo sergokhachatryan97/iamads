@@ -18,6 +18,9 @@
                     <x-nav-link :href="route('client.services.index')" :active="request()->routeIs('client.services.*')">
                         {{ __('Services') }}
                     </x-nav-link>
+                    <x-nav-link :href="route('client.subscriptions.index')" :active="request()->routeIs('client.subscriptions.*')">
+                        {{ __('Subscriptions') }}
+                    </x-nav-link>
                 </div>
             </div>
 
@@ -90,6 +93,9 @@
             </x-responsive-nav-link>
             <x-responsive-nav-link :href="route('client.services.index')" :active="request()->routeIs('client.services.*')">
                 {{ __('Services') }}
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('client.subscriptions.index')" :active="request()->routeIs('client.subscriptions.*')">
+                {{ __('Subscriptions') }}
             </x-responsive-nav-link>
         </div>
 

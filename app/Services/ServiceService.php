@@ -38,11 +38,12 @@ class ServiceService implements ServiceServiceInterface
      * Get services by category ID.
      *
      * @param int $categoryId
+     * @param bool $activeOnly
      * @return Collection
      */
-    public function getServicesByCategoryId(int $categoryId): Collection
+    public function getServicesByCategoryId(int $categoryId, bool $activeOnly = false): Collection
     {
-        return $this->serviceRepository->getByCategoryId($categoryId);
+        return $this->serviceRepository->getByCategoryId($categoryId, $activeOnly);
     }
 
     /**

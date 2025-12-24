@@ -12,6 +12,8 @@ use App\Repositories\RoleRepository;
 use App\Repositories\RoleRepositoryInterface;
 use App\Repositories\ServiceRepository;
 use App\Repositories\ServiceRepositoryInterface;
+use App\Repositories\SubscriptionPlanRepository;
+use App\Repositories\SubscriptionPlanRepositoryInterface;
 use App\Repositories\UserRepository;
 use App\Repositories\UserRepositoryInterface;
 use App\Services\CategoryService;
@@ -24,6 +26,8 @@ use App\Services\RoleService;
 use App\Services\RoleServiceInterface;
 use App\Services\ServiceService;
 use App\Services\ServiceServiceInterface;
+use App\Services\SubscriptionPlanService;
+use App\Services\SubscriptionPlanServiceInterface;
 use App\Services\UserService;
 use App\Services\UserServiceInterface;
 use Illuminate\Support\Facades\Event;
@@ -48,6 +52,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ClientLoginLogRepositoryInterface::class, ClientLoginLogRepository::class);
         $this->app->bind(CategoryRepositoryInterface::class, CategoryRepository::class);
         $this->app->bind(ServiceRepositoryInterface::class, ServiceRepository::class);
+        $this->app->bind(SubscriptionPlanRepositoryInterface::class, SubscriptionPlanRepository::class);
 
         // Bind Service interfaces to implementations
         $this->app->bind(UserServiceInterface::class, UserService::class);
@@ -56,6 +61,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ClientLoginLogServiceInterface::class, ClientLoginLogService::class);
         $this->app->bind(CategoryServiceInterface::class, CategoryService::class);
         $this->app->bind(ServiceServiceInterface::class, ServiceService::class);
+        $this->app->bind(SubscriptionPlanServiceInterface::class, SubscriptionPlanService::class);
     }
 
     /**

@@ -26,9 +26,10 @@ interface ServiceServiceInterface
      * Get services by category ID.
      *
      * @param int $categoryId
+     * @param bool $activeOnly
      * @return Collection
      */
-    public function getServicesByCategoryId(int $categoryId): Collection;
+    public function getServicesByCategoryId(int $categoryId, bool $activeOnly = false): Collection;
 
     /**
      * Find a service by ID.
