@@ -97,11 +97,18 @@ class ServiceRepository implements ServiceRepositoryInterface
      * Get services by category ID.
      *
      * @param int $categoryId
+     * @param bool $activeOnly
      * @return Collection
      */
-    public function getByCategoryId(int $categoryId): Collection
+    public function getByCategoryId(int $categoryId, bool $activeOnly = false): Collection
     {
-        return Service::where('category_id', $categoryId)->orderBy('name')->get();
+        $query = Service::where('category_id', $categoryId);
+        
+        if ($activeOnly) {
+            $query->where('is_active', true);
+        }
+        
+        return $query->orderBy('name')->get();
     }
 
     /**

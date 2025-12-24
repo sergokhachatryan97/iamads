@@ -193,10 +193,10 @@
                                 <div class="text-sm text-gray-900 truncate max-w-xs">{{ $client->email }}</div>
                             </td>
                             <td class="px-2 sm:px-3 py-2 whitespace-nowrap cursor-pointer" onclick="window.location.href='{{ route('staff.clients.edit', $client) }}'">
-                                <div class="text-sm font-semibold text-gray-900">${{ $client->balance }}</div>
+                                <div class="text-sm font-semibold text-gray-900">${{ number_format($client->balance, 2) }}</div>
                             </td>
                             <td class="px-2 sm:px-3 py-2 whitespace-nowrap cursor-pointer" onclick="window.location.href='{{ route('staff.clients.edit', $client) }}'">
-                                <div class="text-sm text-gray-900">${{ $client->spent }}</div>
+                                <div class="text-sm text-gray-900">${{ number_format($client->spent, 2) }}</div>
                             </td>
                             <td class="px-2 sm:px-3 py-2 whitespace-nowrap cursor-pointer" onclick="window.location.href='{{ route('staff.clients.edit', $client) }}'">
                                 <div class="text-sm text-gray-900">

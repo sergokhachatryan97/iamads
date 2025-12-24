@@ -82,13 +82,13 @@ class ClientController extends Controller
     public function suspend(Client $client): RedirectResponse
     {
         $currentUser = Auth::guard('staff')->user();
-        
+
         // Permission check: non-super_admin can only suspend their own assigned clients
         if ($currentUser && !$currentUser->hasRole('super_admin') && $client->staff_id !== $currentUser->id) {
             return redirect()->back()
                 ->withErrors(['error' => 'You do not have permission to suspend this client.']);
         }
-        
+
         // Only suspend if not already suspended
         if ($client->status !== 'suspended') {
             $client->update([
@@ -110,13 +110,13 @@ class ClientController extends Controller
     public function activate(Client $client): RedirectResponse
     {
         $currentUser = Auth::guard('staff')->user();
-        
+
         // Permission check: non-super_admin can only activate their own assigned clients
         if ($currentUser && !$currentUser->hasRole('super_admin') && $client->staff_id !== $currentUser->id) {
             return redirect()->back()
                 ->withErrors(['error' => 'You do not have permission to activate this client.']);
         }
-        
+
         // Only activate if currently suspended
         if ($client->status === 'suspended') {
             $client->update([
@@ -141,20 +141,20 @@ class ClientController extends Controller
 
         $currentUser = Auth::guard('staff')->user();
         $clientIds = $request->input('client_ids');
-        
+
         // Permission check: non-super_admin can only suspend their own assigned clients
         if ($currentUser && !$currentUser->hasRole('super_admin')) {
             // Verify all clients belong to this staff member
             $unauthorizedClients = Client::whereIn('id', $clientIds)
                 ->where('staff_id', '!=', $currentUser->id)
                 ->exists();
-                
+
             if ($unauthorizedClients) {
                 return redirect()->back()
                     ->withErrors(['error' => 'You do not have permission to suspend one or more selected clients.']);
             }
         }
-        
+
         // Only suspend clients that are currently active
         Client::whereIn('id', $clientIds)
             ->where('status', 'active')
@@ -179,20 +179,20 @@ class ClientController extends Controller
 
         $currentUser = Auth::guard('staff')->user();
         $clientIds = $request->input('client_ids');
-        
+
         // Permission check: non-super_admin can only activate their own assigned clients
         if ($currentUser && !$currentUser->hasRole('super_admin')) {
             // Verify all clients belong to this staff member
             $unauthorizedClients = Client::whereIn('id', $clientIds)
                 ->where('staff_id', '!=', $currentUser->id)
                 ->exists();
-                
+
             if ($unauthorizedClients) {
                 return redirect()->back()
                     ->withErrors(['error' => 'You do not have permission to activate one or more selected clients.']);
             }
         }
-        
+
         // Only activate clients that are currently suspended
         Client::whereIn('id', $clientIds)
             ->where('status', 'suspended')
@@ -243,7 +243,7 @@ class ClientController extends Controller
     public function edit(Client $client): View
     {
         $currentUser = Auth::guard('staff')->user();
-        
+
         // Permission check: non-super_admin can only edit their own assigned clients
         if ($currentUser && !$currentUser->hasRole('super_admin') && $client->staff_id !== $currentUser->id) {
             abort(403, 'You do not have permission to edit this client.');
@@ -375,7 +375,7 @@ class ClientController extends Controller
     public function update(UpdateClientRequest $request, Client $client): RedirectResponse
     {
         $currentUser = Auth::guard('staff')->user();
-        
+
         // Permission check: non-super_admin can only update their own assigned clients
         if ($currentUser && !$currentUser->hasRole('super_admin') && $client->staff_id !== $currentUser->id) {
             abort(403, 'You do not have permission to update this client.');
@@ -409,10 +409,22 @@ class ClientController extends Controller
             $discount = 0;
         }
 
+        // Handle social media array - convert from input format to storage format
+        $socialMedia = [];
+        $socialMediaInput = $request->input('social_media', []);
+        if (is_array($socialMediaInput)) {
+            foreach ($socialMediaInput as $item) {
+                if (!empty($item['platform']) && !empty($item['username'])) {
+                    $socialMedia[$item['platform']] = trim($item['username']);
+                }
+            }
+        }
+
         // Prepare update data
         $updateData = [
             'discount' => $discount,
             'rates' => !empty($rates) ? $rates : null,
+            'social_media' => !empty($socialMedia) ? $socialMedia : null,
         ];
 
         // Only super_admin can update staff_id

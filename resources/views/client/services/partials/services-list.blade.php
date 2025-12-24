@@ -174,9 +174,18 @@
                                     </td>
                                     <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-900 font-medium">
                                         @php
-                                            $displayPrice = $service->client_price ?? $service->rate_per_1000 ?? $service->rate ?? 0;
+                                            $defaultRate = $service->default_rate ?? $service->rate_per_1000 ?? 0;
+                                            $customRate = $service->client_price ?? $defaultRate;
+                                            $hasCustomRate = $service->has_custom_rate ?? false;
                                         @endphp
-                                        ${{ number_format($displayPrice, 2) }}
+                                        @if($hasCustomRate && $customRate != 0 && $defaultRate != $customRate)
+                                            <div class="flex flex-col">
+                                                <span class="text-gray-500 line-through text-xs">${{ number_format($defaultRate, 2) }}</span>
+                                                <span class="text-indigo-600 font-semibold">${{ number_format($customRate, 2) }}</span>
+                                            </div>
+                                        @else
+                                            <span>${{ number_format($customRate, 2) }}</span>
+                                        @endif
                                     </td>
                                     <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
                                         {{ number_format($service->min_quantity ?? $service->min_order ?? 1) }}

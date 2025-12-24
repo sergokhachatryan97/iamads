@@ -29,6 +29,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(prepend: [
             \App\Http\Middleware\UseStaffSession::class,
         ]);
+        
+        // Trust proxies to properly detect HTTPS when behind a proxy (e.g., ngrok)
+        $middleware->trustProxies(at: '*');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Redirect unauthenticated staff requests to staff login

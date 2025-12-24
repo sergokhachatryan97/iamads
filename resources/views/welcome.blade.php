@@ -70,7 +70,7 @@
                                         height="11"
                                         viewBox="0 0 10 11"
                                         fill="none"
-                                        xmlns="http://www.w3.org/2000/svg"
+                                        xmlns="https://www.w3.org/2000/svg"
                                         class="w-2.5 h-2.5"
                                     >
                                         <path
@@ -97,7 +97,7 @@
                                         height="11"
                                         viewBox="0 0 10 11"
                                         fill="none"
-                                        xmlns="http://www.w3.org/2000/svg"
+                                        xmlns="https://www.w3.org/2000/svg"
                                         class="w-2.5 h-2.5"
                                     >
                                         <path

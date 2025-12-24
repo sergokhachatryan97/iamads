@@ -43,7 +43,7 @@
                 </a>
             @endif
             
-            @if(Route::has('register'))
+            @if((!isset($showRegister) || $showRegister) && Route::has('register'))
                 <a class="text-sm text-indigo-600 hover:text-indigo-900 font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" href="{{ route('register') }}">
                     {{ __('Register') }}
                 </a>

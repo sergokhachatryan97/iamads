@@ -65,7 +65,7 @@ class ServicesController extends Controller
     public function store(StoreServiceRequest $request): RedirectResponse
     {
         $data = $request->validated();
-        
+
         // Set defaults
         $data['mode'] = $data['mode'] ?? Service::MODE_DEFAULT;
         $data['is_active'] = $data['is_active'] ?? true;

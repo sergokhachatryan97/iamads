@@ -31,6 +31,10 @@ class Client extends Authenticatable
         'email_verified_at',
         'suspended_at',
         'malicious_at',
+        'provider',
+        'provider_id',
+        'avatar',
+        'social_media',
     ];
 
     /**
@@ -60,6 +64,7 @@ class Client extends Authenticatable
             'email_verified_at' => 'datetime',
             'suspended_at' => 'datetime',
             'malicious_at' => 'datetime',
+            'social_media' => 'array',
         ];
     }
 

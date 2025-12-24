@@ -91,7 +91,7 @@
                             </p>
 
                             <!-- Add Custom Rate Section -->
-                            <div class="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg" style="position: relative; z-index: 1;">
+                            <div class="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg" style="position: relative; z-index: 99999;">
                                 <label class="block text-sm font-medium text-gray-700 mb-2">
                                     {{ __('Select Services to Add Custom Rates') }}
                                 </label>
@@ -204,12 +204,12 @@
                                             x-transition:leave="transition ease-in duration-75"
                                             x-transition:leave-start="transform opacity-100 scale-100"
                                             x-transition:leave-end="transform opacity-0 scale-95"
-                                            class="absolute z-50 mt-2 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-96 overflow-y-auto"
+                                            class="absolute z-30 mt-2 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-96 overflow-y-auto"
                                             style="display: none;"
                                             @click.stop
                                         >
                                             <!-- Search Input -->
-                                            <div class="p-2 border-b border-gray-200 sticky top-0 bg-white z-10">
+                                            <div class="p-2 border-b border-gray-200 sticky top-0 bg-white z-20">
                                                 <input
                                                     type="text"
                                                     x-model="searchTerm"
@@ -220,7 +220,7 @@
                                             </div>
 
                                             <!-- Select All Option -->
-                                            <div class="p-2 border-b border-gray-200 bg-gray-50 sticky top-[49px] z-10">
+                                            <div class="p-2 border-b border-gray-200 bg-gray-50 sticky top-[49px] z-20">
                                                 <label class="flex items-center cursor-pointer">
                                                     <input
                                                         type="checkbox"
@@ -272,12 +272,13 @@
 
                             <!-- Custom Rates List -->
                             <div id="custom-rates-list" class="border border-gray-300 rounded-lg overflow-hidden relative bg-white">
-                                <!-- Table Header -->
-                                <div class="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
-                                    <div class="overflow-x-auto">
-                                        <div class="inline-block min-w-full align-middle">
-                                            <div class="grid grid-cols-12 gap-2 sm:gap-4 px-4 sm:px-6 py-3">
-                                                <div class="col-span-1 flex items-center gap-2">
+                                <!-- Responsive wrapper for horizontal scrolling -->
+                                <div class="overflow-x-auto">
+                                    <div class="min-w-[800px]">
+                                        <!-- Table Header -->
+                                        <div class="bg-gray-50 border-b border-gray-200 sticky top-0 z-20">
+                                            <div class="grid grid-cols-12 gap-2 sm:gap-3 md:gap-4 px-3 sm:px-4 md:px-6 py-3">
+                                                <div class="col-span-1 flex items-center gap-1 sm:gap-2 min-w-[60px]">
                                                     <input
                                                         type="checkbox"
                                                         id="select-all-rates"
@@ -288,28 +289,25 @@
                                                         type="button"
                                                         id="remove-selected-rates"
                                                         onclick="removeSelectedRates()"
-                                                        class="px-2 py-1 text-xs font-medium text-white bg-red-600 border border-transparent rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 hidden transition-opacity"
+                                                        class="px-1.5 sm:px-2 py-1 text-xs font-medium text-white bg-red-600 border border-transparent rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 hidden transition-opacity"
                                                         style="display: none;"
                                                     >
-                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                                                         </svg>
                                                     </button>
                                                 </div>
-                                                <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider">{{ __('Category') }}</div>
-                                                <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider">{{ __('Service') }}</div>
-                                                <div class="col-span-1 text-xs font-semibold text-gray-700 uppercase tracking-wider">{{ __('Service rate') }}</div>
-                                                <div class="col-span-3 text-xs font-semibold text-gray-700 uppercase tracking-wider">{{ __('Custom rate') }}</div>
-                                                <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider">{{ __('Difference') }}</div>
-                                                <div class="col-span-1 text-xs font-semibold text-gray-700 uppercase tracking-wider text-center">{{ __('Action') }}</div>
+                                                <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[100px]">{{ __('Category') }}</div>
+                                                <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[150px]">{{ __('Service') }}</div>
+                                                <div class="col-span-1 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[90px]">{{ __('Service rate') }}</div>
+                                                <div class="col-span-3 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[200px]">{{ __('Custom rate') }}</div>
+                                                <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[100px]">{{ __('Difference') }}</div>
+                                                <div class="col-span-1 text-xs font-semibold text-gray-700 uppercase tracking-wider text-center whitespace-nowrap min-w-[60px]">{{ __('Action') }}</div>
                                             </div>
                                         </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- Table Body -->
-                                <div class="overflow-x-auto">
-                                    <div id="custom-rates-rows" class="divide-y divide-gray-200">
+
+                                        <!-- Table Body -->
+                                        <div id="custom-rates-rows" class="divide-y divide-gray-200">
                                     @php
                                         $clientRates = is_array($client->rates) ? $client->rates : [];
                                     @endphp
@@ -342,24 +340,24 @@
                                             >
                                                 <input type="hidden" name="rates[{{ $service->id }}][enabled]" value="1" class="rate-enabled-input">
                                                 <input type="hidden" name="rates[{{ $service->id }}][remove]" value="0" class="rate-remove-input">
-                                                <div class="grid grid-cols-12 gap-2 sm:gap-4 items-center px-4 sm:px-6 py-4">
-                                                    <div class="col-span-1 flex items-center">
+                                                <div class="grid grid-cols-12 gap-2 sm:gap-3 md:gap-4 items-center px-3 sm:px-4 md:px-6 py-3 sm:py-4">
+                                                    <div class="col-span-1 flex items-center justify-start min-w-[60px]">
                                                         <input
                                                             type="checkbox"
                                                             class="rate-checkbox rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
                                                             onchange="updateRemoveSelectedButton()"
                                                         >
                                                     </div>
-                                                    <div class="col-span-2">
-                                                        <span class="text-sm font-medium text-gray-900 category-name">{{ $category->name }}</span>
+                                                    <div class="col-span-2 min-w-[100px]">
+                                                        <span class="text-xs sm:text-sm font-medium text-gray-900 category-name whitespace-nowrap">{{ $category->name }}</span>
                                                     </div>
-                                                    <div class="col-span-2">
-                                                        <span class="text-sm font-medium text-gray-900 service-name">{{ $service->name }}</span>
+                                                    <div class="col-span-2 min-w-[150px]">
+                                                        <span class="text-xs sm:text-sm font-medium text-gray-900 service-name break-words">{{ $service->name }}</span>
                                                     </div>
-                                                    <div class="col-span-1 default-price-cell">
-                                                        <span class="text-sm font-semibold text-gray-700 default-price-value">${{ number_format($service->rate_per_1000 ?? 0, 2) }}</span>
+                                                    <div class="col-span-1 default-price-cell min-w-[90px]">
+                                                        <span class="text-xs sm:text-sm font-semibold text-gray-700 default-price-value whitespace-nowrap">${{ number_format($service->rate_per_1000 ?? 0, 2) }}</span>
                                                     </div>
-                                                    <div class="col-span-3 flex gap-2 items-center flex-wrap">
+                                                    <div class="col-span-3 flex gap-1.5 sm:gap-2 items-center min-w-[200px]">
                                                         <input
                                                             type="number"
                                                             name="rates[{{ $service->id }}][value]"
@@ -367,7 +365,7 @@
                                                             step="0.01"
                                                             min="0"
                                                             placeholder="{{ $rateType === 'fixed' ? '0.00' : '0' }}"
-                                                            class="rate-value-input w-20 sm:w-24 px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                                            class="rate-value-input w-16 sm:w-20 md:w-24 px-1.5 sm:px-2 py-1 sm:py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                                                             oninput="updatePreview(this.closest('.custom-rate-row'))"
                                                         />
                                                         <x-custom-select
@@ -379,19 +377,19 @@
                                                                 ['value' => 'percent', 'label' => '%'],
                                                             ]"
                                                         />
-                                                        <span class="text-xs text-gray-500 rate-preview min-w-[70px] sm:min-w-[80px] font-mono"></span>
+                                                        <span class="text-xs text-gray-500 rate-preview min-w-[60px] sm:min-w-[70px] md:min-w-[80px] font-mono whitespace-nowrap"></span>
                                                     </div>
-                                                    <div class="col-span-2 difference-cell">
-                                                        <span class="text-sm font-semibold rate-difference">$0.00</span>
+                                                    <div class="col-span-2 difference-cell min-w-[100px]">
+                                                        <span class="text-xs sm:text-sm font-semibold rate-difference whitespace-nowrap">$0.00</span>
                                                     </div>
-                                                    <div class="col-span-1 flex items-center justify-center">
+                                                    <div class="col-span-1 flex items-center justify-center min-w-[60px]">
                                                         <button
                                                             type="button"
                                                             onclick="removeCustomRate({{ $service->id }})"
-                                                            class="text-red-600 hover:text-red-800 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 rounded p-1.5 transition-colors"
+                                                            class="text-red-600 hover:text-red-800 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 rounded p-1 sm:p-1.5 transition-colors"
                                                             title="{{ __('Remove') }}"
                                                         >
-                                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                                                             </svg>
                                                         </button>
@@ -400,6 +398,7 @@
                                             </div>
                                         @endforeach
                                     @endforeach
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -416,24 +415,24 @@
                                 >
                                     <input type="hidden" name="rates[SERVICE_ID][enabled]" value="1" class="rate-enabled-input">
                                     <input type="hidden" name="rates[SERVICE_ID][remove]" value="0" class="rate-remove-input">
-                                    <div class="grid grid-cols-12 gap-2 sm:gap-4 items-center px-4 sm:px-6 py-4">
-                                        <div class="col-span-1 flex items-center">
+                                    <div class="grid grid-cols-12 gap-2 sm:gap-3 md:gap-4 items-center px-3 sm:px-4 md:px-6 py-3 sm:py-4">
+                                        <div class="col-span-1 flex items-center justify-start min-w-[60px]">
                                             <input
                                                 type="checkbox"
                                                 class="rate-checkbox rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
                                                 onchange="updateRemoveSelectedButton()"
                                             >
                                         </div>
-                                        <div class="col-span-2">
-                                            <span class="text-sm font-medium text-gray-900 category-name"></span>
+                                        <div class="col-span-2 min-w-[100px]">
+                                            <span class="text-xs sm:text-sm font-medium text-gray-900 category-name whitespace-nowrap"></span>
                                         </div>
-                                        <div class="col-span-2">
-                                            <span class="text-sm font-medium text-gray-900 service-name"></span>
+                                        <div class="col-span-2 min-w-[150px]">
+                                            <span class="text-xs sm:text-sm font-medium text-gray-900 service-name break-words"></span>
                                         </div>
-                                        <div class="col-span-1 default-price-cell">
-                                            <span class="text-sm font-semibold text-gray-700 default-price-value"></span>
+                                        <div class="col-span-1 default-price-cell min-w-[90px]">
+                                            <span class="text-xs sm:text-sm font-semibold text-gray-700 default-price-value whitespace-nowrap"></span>
                                         </div>
-                                        <div class="col-span-3 flex gap-2 items-center flex-wrap">
+                                        <div class="col-span-3 flex gap-1.5 sm:gap-2 items-center min-w-[200px]">
                                             <input
                                                 type="number"
                                                 name="rates[SERVICE_ID][value]"
@@ -441,25 +440,25 @@
                                                 step="0.01"
                                                 min="0"
                                                 placeholder="0.00"
-                                                class="rate-value-input w-20 sm:w-24 px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                                class="rate-value-input w-16 sm:w-20 md:w-24 px-1.5 sm:px-2 py-1 sm:py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                                                 oninput="updatePreview(this.closest('.custom-rate-row'))"
                                             />
                                             <div data-custom-select-container="rates[SERVICE_ID][type]">
                                                 <!-- Custom select will be dynamically created here -->
                                             </div>
-                                            <span class="text-xs text-gray-500 rate-preview min-w-[70px] sm:min-w-[80px] font-mono"></span>
+                                            <span class="text-xs text-gray-500 rate-preview min-w-[60px] sm:min-w-[70px] md:min-w-[80px] font-mono whitespace-nowrap"></span>
                                         </div>
-                                        <div class="col-span-2 difference-cell">
-                                            <span class="text-sm font-semibold rate-difference">$0.00</span>
+                                        <div class="col-span-2 difference-cell min-w-[100px]">
+                                            <span class="text-xs sm:text-sm font-semibold rate-difference whitespace-nowrap">$0.00</span>
                                         </div>
-                                        <div class="col-span-1 flex items-center justify-center">
+                                        <div class="col-span-1 flex items-center justify-center min-w-[60px]">
                                             <button
                                                 type="button"
                                                 onclick="removeCustomRate('SERVICE_ID')"
-                                                class="text-red-600 hover:text-red-800 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 rounded p-1.5 transition-colors"
+                                                class="text-red-600 hover:text-red-800 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 rounded p-1 sm:p-1.5 transition-colors"
                                                 title="{{ __('Remove') }}"
                                             >
-                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                                                 </svg>
                                             </button>
@@ -474,6 +473,134 @@
                             @error('rates.*')
                                 <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                             @enderror
+                        </div>
+
+                        <!-- Social Authentication Section -->
+                        @if($client->provider && $client->provider_id)
+                            <div class="mb-6 pb-6 border-b border-gray-200">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    {{ __('Social Authentication') }}
+                                </label>
+                                <p class="text-sm text-gray-500 mb-4">{{ __('This client signed up using social authentication.') }}</p>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                                            {{ __('Provider') }}
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value="{{ ucfirst($client->provider) }}"
+                                            readonly
+                                            class="block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm bg-gray-50 text-gray-600 cursor-not-allowed sm:text-sm"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                                            {{ __('Provider ID') }}
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value="{{ $client->provider_id }}"
+                                            readonly
+                                            class="block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm bg-gray-50 text-gray-600 cursor-not-allowed sm:text-sm font-mono text-xs"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+
+                        <!-- Social Media Section -->
+                        <div class="mb-6 pb-6 border-b border-gray-200">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                {{ __('Social Media') }}
+                            </label>
+                            <p class="text-sm text-gray-500 mb-4">{{ __('Add social media accounts for this client. Select platform and enter username.') }}</p>
+
+                            <div id="social-media-container" class="space-y-4">
+                                @php
+                                    $socialMedia = old('social_media', $client->social_media ?? []);
+                                    $socialMediaArray = [];
+
+                                    // Handle old input format (array of arrays from form submission)
+                                    if (!empty(old('social_media')) && isset(old('social_media')[0]) && is_array(old('social_media')[0])) {
+                                        $socialMediaArray = old('social_media');
+                                    } elseif (is_array($socialMedia) && !empty($socialMedia)) {
+                                        // Handle database format (associative array: platform => username)
+                                        foreach ($socialMedia as $platform => $username) {
+                                            if (is_string($platform) && !empty($username)) {
+                                                $socialMediaArray[] = ['platform' => $platform, 'username' => $username];
+                                            }
+                                        }
+                                    }
+
+                                    // Always ensure at least one empty row is shown
+                                    if (empty($socialMediaArray)) {
+                                        $socialMediaArray = [['platform' => '', 'username' => '']];
+                                    }
+
+                                    // Define platform options for custom-select
+                                    $platformOptions = [
+                                        'telegram' => __('Telegram'),
+                                        'facebook' => __('Facebook'),
+                                        'instagram' => __('Instagram')
+                                    ];
+                                @endphp
+
+                                @foreach($socialMediaArray as $index => $social)
+                                    <div class="flex gap-3 items-start social-media-row border border-gray-200 rounded-lg p-4 bg-gray-50">
+                                        <div class="flex-1">
+                                            <x-custom-select
+                                                name="social_media[{{ $index }}][platform]"
+                                                id="social_platform_{{ $index }}"
+                                                :value="old('social_media.{$index}.platform', $social['platform'] ?? '')"
+                                                :label="__('Platform')"
+                                                placeholder="{{ __('Select Platform') }}"
+                                                :options="$platformOptions"
+                                            />
+                                            @error('social_media.'.$index.'.platform')
+                                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                            @enderror
+                                        </div>
+                                        <div class="flex-1">
+                                            <label for="social_username_{{ $index }}" class="block text-sm font-medium text-gray-700 mb-1">
+                                                {{ __('Username') }}
+                                            </label>
+                                            <input
+                                                id="social_username_{{ $index }}"
+                                                name="social_media[{{ $index }}][username]"
+                                                type="text"
+                                                class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                                value="{{ old("social_media.{$index}.username", $social['username'] ?? '') }}"
+                                                placeholder="{{ __('Enter username or handle') }}"
+                                            />
+                                            @error('social_media.'.$index.'.username')
+                                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                            @enderror
+                                        </div>
+                                        <div class="pt-6">
+                                            <button
+                                                type="button"
+                                                onclick="removeSocialMediaRow(this)"
+                                                class="px-3 py-2 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors"
+                                            >
+                                                {{ __('Remove') }}
+                                            </button>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+
+                            <button
+                                type="button"
+                                onclick="addSocialMediaRow()"
+                                class="mt-4 inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors"
+                            >
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                </svg>
+                                {{ __('Add Social Media') }}
+                            </button>
                         </div>
 
                         <!-- Submit Button -->
@@ -1210,13 +1337,13 @@
         // Show all custom rates rows (no pagination)
         function showAllRatesRows() {
             const allRowsInDOM = document.querySelectorAll('.custom-rate-row');
-            
+
             allRowsInDOM.forEach(row => {
                 if (!row || !row.parentElement) return;
                 const originalDisplay = row.getAttribute('data-original-display');
                 const removeInput = row.querySelector('.rate-remove-input');
                 const isMarkedForRemoval = removeInput && removeInput.value === '1';
-                
+
                 // Hide removed rows, show all others
                 if (originalDisplay === 'none' || isMarkedForRemoval) {
                     row.style.display = 'none';
