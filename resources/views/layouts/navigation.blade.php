@@ -30,6 +30,11 @@
                             {{ __('Services') }}
                         </x-nav-link>
                     @endif
+                    @if(Auth::guard('staff')->check())
+                        <x-nav-link :href="route('staff.subscriptions.index')" :active="request()->routeIs('staff.subscriptions.*')">
+                            {{ __('Subscriptions') }}
+                        </x-nav-link>
+                    @endif
                 </div>
             </div>
 
@@ -108,6 +113,12 @@
             @if(Auth::guard('staff')->check())
                 <x-responsive-nav-link :href="route('staff.services.index')" :active="request()->routeIs('staff.services.*')">
                     {{ __('Services') }}
+                </x-responsive-nav-link>
+            @endif
+
+            @if(Auth::guard('staff')->check())
+                <x-responsive-nav-link :href="route('staff.subscriptions.index')" :active="request()->routeIs('staff.subscriptions.*')">
+                    {{ __('Subscriptions') }}
                 </x-responsive-nav-link>
             @endif
         </div>

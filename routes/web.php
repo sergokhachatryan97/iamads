@@ -4,6 +4,7 @@ use App\Http\Controllers\Client\AccountController;
 use App\Http\Controllers\Client\BalanceController;
 use App\Http\Controllers\Client\ServiceController as ClientServiceController;
 use App\Http\Controllers\Staff\InvitationController;
+use App\Http\Controllers\Staff\SubscriptionPlanController;
 use App\Http\Controllers\Staff\UserController;
 use App\Http\Controllers\Staff\ClientController;
 use App\Http\Controllers\Staff\ClientLoginLogController;
@@ -65,6 +66,9 @@ Route::middleware('auth:client')->group(function () {
     Route::get('services', [ClientServiceController::class, 'index'])->name('client.services.index');
     Route::post('services/search', [ClientServiceController::class, 'search'])->name('client.services.search');
     Route::post('services/{service}/favorite/toggle', [ClientServiceController::class, 'toggleFavorite'])->name('client.services.favorite.toggle');
+
+    // Client Subscription Plans (preview)
+    Route::get('subscriptions', [\App\Http\Controllers\Client\SubscriptionPlanController::class, 'index'])->name('client.subscriptions.index');
 });
 
 
@@ -165,6 +169,19 @@ Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSess
     Route::post('categories', [ServiceController::class, 'storeCategory'])->name('staff.categories.store');
     Route::put('categories/{category}', [ServiceController::class, 'updateCategory'])->name('staff.categories.update');
     Route::post('categories/{category}/toggle-status', [ServiceController::class, 'toggleCategoryStatus'])->name('staff.categories.toggle-status');
+
+    // Subscription Plans Management (staff, super_admin only)
+    Route::middleware('staff.role:staff,super_admin')->group(function () {
+        Route::get('subscriptions', [SubscriptionPlanController::class, 'index'])->name('staff.subscriptions.index');
+        Route::get('subscriptions/create', [SubscriptionPlanController::class, 'create'])->name('staff.subscriptions.create');
+        Route::post('subscriptions', [SubscriptionPlanController::class, 'store'])->name('staff.subscriptions.store');
+        Route::get('subscriptions/{subscriptionPlan}/edit', [SubscriptionPlanController::class, 'edit'])->name('staff.subscriptions.edit');
+        Route::put('subscriptions/{subscriptionPlan}', [SubscriptionPlanController::class, 'update'])->name('staff.subscriptions.update');
+        Route::delete('subscriptions/{subscriptionPlan}', [SubscriptionPlanController::class, 'destroy'])->name('staff.subscriptions.destroy');
+        Route::get('subscriptions/services/by-category', [SubscriptionPlanController::class, 'getServicesByCategory'])->name('staff.subscriptions.services.by-category');
+        Route::get('subscriptions/edit-header', [SubscriptionPlanController::class, 'editHeader'])->name('staff.subscriptions.edit-header');
+        Route::post('subscriptions/update-header', [SubscriptionPlanController::class, 'updateHeader'])->name('staff.subscriptions.update-header');
+    });
 });
 
 // Staff Invitation Acceptance Routes (guest only, under /staff prefix)

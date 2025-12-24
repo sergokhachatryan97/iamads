@@ -14,14 +14,19 @@ class EnsureStaffHasRole
      *
      * @param  \Illuminate\Http\Request  $request
      * @param  \Closure  $next
-     * @param  string  $role
+     * @param  string  ...$roles
      * @return \Illuminate\Http\Response|\Illuminate\Http\RedirectResponse
      */
-    public function handle(Request $request, Closure $next, string $role): Response
+    public function handle(Request $request, Closure $next, string ...$roles): Response
     {
         $user = Auth::guard('staff')->user();
 
-        if (!$user || !$user->hasRole($role)) {
+        if (!$user) {
+            abort(403, 'User does not have the right roles.');
+        }
+
+        // Check if user has any of the provided roles
+        if (!$user->hasAnyRole($roles)) {
             abort(403, 'User does not have the right roles.');
         }
 
