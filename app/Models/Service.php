@@ -55,8 +55,6 @@ class Service extends Model
     protected $casts = [
         'dripfeed_enabled' => 'boolean',
         'user_can_cancel' => 'boolean',
-        'rate_per_1000' => 'decimal:4',
-        'service_cost_per_1000' => 'decimal:4',
         'deny_link_duplicates' => 'boolean',
         'deny_duplicates_days' => 'integer',
         'increment' => 'integer',
@@ -81,6 +79,14 @@ class Service extends Model
     {
         return $this->belongsToMany(Client::class, 'client_service_favorites', 'service_id', 'client_id')
             ->withTimestamps();
+    }
+
+    /**
+     * Get the client limits for this service.
+     */
+    public function clientLimits(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ClientServiceLimit::class);
     }
 
 }

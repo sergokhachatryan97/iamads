@@ -46,6 +46,23 @@ class ServiceService implements ServiceServiceInterface
         return $this->serviceRepository->getByCategoryId($categoryId, $activeOnly);
     }
 
+
+    /**
+     * @param int $serviceId
+     * @param int $categoryId
+     * @return Service
+     */
+    public function getServicesByIdAndCategoryId(int $serviceId, int $categoryId): Service
+    {
+        return $this->serviceRepository->getServicesByIdAndCategoryId($serviceId, $categoryId);
+    }
+
+
+    public function getActiveServicesByCategoryIds(array $categoryIds): Collection
+    {
+        return $this->serviceRepository->getActiveServicesByCategoryIds($categoryIds);
+    }
+
     /**
      * Find a service by ID.
      *
@@ -91,7 +108,7 @@ class ServiceService implements ServiceServiceInterface
     {
         // Detach all client favorites before deleting
         $service->favoritedByClients()->detach();
-        
+
         // Perform soft delete
         return $this->serviceRepository->delete($service);
     }
@@ -117,7 +134,7 @@ class ServiceService implements ServiceServiceInterface
     public function duplicateService(Service $service): Service
     {
         $data = $service->toArray();
-        
+
         // Remove fields that shouldn't be copied
         unset(
             $data['id'],
@@ -125,13 +142,13 @@ class ServiceService implements ServiceServiceInterface
             $data['updated_at'],
             $data['deleted_at'] // Exclude soft delete timestamp
         );
-        
+
         // Append " (Copy)" to the service name
         $data['name'] = $data['name'] . ' (Copy)';
-        
+
         // Ensure the duplicated service is active by default
         $data['is_active'] = true;
-        
+
         return $this->serviceRepository->create($data);
     }
 

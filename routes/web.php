@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Client\AccountController;
 use App\Http\Controllers\Client\BalanceController;
+use App\Http\Controllers\Client\OrderController;
 use App\Http\Controllers\Client\ServiceController as ClientServiceController;
 use App\Http\Controllers\Staff\InvitationController;
 use App\Http\Controllers\Staff\SubscriptionPlanController;
@@ -69,6 +70,17 @@ Route::middleware('auth:client')->group(function () {
 
     // Client Subscription Plans (preview)
     Route::get('subscriptions', [\App\Http\Controllers\Client\SubscriptionPlanController::class, 'index'])->name('client.subscriptions.index');
+    Route::get('subscriptions/my-subscriptions', [\App\Http\Controllers\Client\SubscriptionPlanController::class, 'mySubscriptions'])->name('client.subscriptions.my-subscriptions');
+    Route::post('subscriptions/{subscriptionPlan}/purchase', [\App\Http\Controllers\Client\SubscriptionPlanController::class, 'purchase'])->name('client.subscriptions.purchase');
+
+    // Client Orders
+    Route::get('orders', [OrderController::class, 'index'])->name('client.orders.index');
+    Route::get('orders/create', [OrderController::class, 'create'])->name('client.orders.create');
+    Route::post('orders', [OrderController::class, 'store'])->name('client.orders.store');
+    Route::post('orders/multi-store', [OrderController::class, 'multiStore'])->name('client.orders.multi-store');
+    Route::get('orders/services/by-category', [OrderController::class, 'servicesByCategory'])->name('client.orders.services.by-category');
+    Route::post('orders/{order}/cancel', [OrderController::class, 'cancelFull'])->name('client.orders.cancelFull');
+    Route::post('orders/{order}/cancel-partial', [OrderController::class, 'cancelPartial'])->name('client.orders.cancelPartial');
 });
 
 
@@ -152,6 +164,19 @@ Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSess
     Route::get('clients/{client}/sign-ins', [ClientLoginLogController::class, 'index'])->name('staff.clients.sign-ins');
     Route::get('clients/{client}/sign-ins/matching-ips', [ClientLoginLogController::class, 'matchingIps'])->name('staff.clients.sign-ins.matching-ips');
 
+    // Orders
+    Route::get('orders', [\App\Http\Controllers\Staff\OrderController::class, 'index'])->name('staff.orders.index');
+    Route::post('orders/{order}/cancel', [\App\Http\Controllers\Staff\OrderController::class, 'cancelFull'])->name('staff.orders.cancelFull');
+    Route::post('orders/{order}/cancel-partial', [\App\Http\Controllers\Staff\OrderController::class, 'cancelPartial'])->name('staff.orders.cancelPartial');
+    Route::get('orders/eligible-ids', [\App\Http\Controllers\Staff\OrderController::class, 'getEligibleIds'])->name('staff.orders.eligible-ids');
+    Route::post('orders/bulk-action', [\App\Http\Controllers\Staff\OrderController::class, 'bulkAction'])->name('staff.orders.bulk-action');
+
+    // Export Files
+    Route::get('exports', [\App\Http\Controllers\Staff\ExportFilesController::class, 'index'])->name('staff.exports.index');
+    Route::get('exports/json', [\App\Http\Controllers\Staff\ExportFilesController::class, 'indexJson'])->name('staff.exports.index.json');
+    Route::post('exports', [\App\Http\Controllers\Staff\ExportFilesController::class, 'store'])->name('staff.exports.store');
+    Route::get('exports/{exportFile}/download', [\App\Http\Controllers\Staff\ExportFilesController::class, 'download'])->name('staff.exports.download');
+
     // Services Management (accessible to all authenticated staff)
     Route::get('services', [ServiceController::class, 'index'])->name('staff.services.index');
     Route::post('services/search', [ServiceController::class, 'search'])->name('staff.services.search');
@@ -173,6 +198,7 @@ Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSess
     // Subscription Plans Management (staff, super_admin only)
     Route::middleware('staff.role:staff,super_admin')->group(function () {
         Route::get('subscriptions', [SubscriptionPlanController::class, 'index'])->name('staff.subscriptions.index');
+        Route::get('subscriptions/client-subscriptions', [SubscriptionPlanController::class, 'clientSubscriptions'])->name('staff.subscriptions.client-subscriptions');
         Route::get('subscriptions/create', [SubscriptionPlanController::class, 'create'])->name('staff.subscriptions.create');
         Route::post('subscriptions', [SubscriptionPlanController::class, 'store'])->name('staff.subscriptions.store');
         Route::get('subscriptions/{subscriptionPlan}/edit', [SubscriptionPlanController::class, 'edit'])->name('staff.subscriptions.edit');

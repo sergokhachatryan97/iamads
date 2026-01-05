@@ -103,12 +103,43 @@ class ServiceRepository implements ServiceRepositoryInterface
     public function getByCategoryId(int $categoryId, bool $activeOnly = false): Collection
     {
         $query = Service::where('category_id', $categoryId);
-        
+
         if ($activeOnly) {
             $query->where('is_active', true);
         }
-        
+
         return $query->orderBy('name')->get();
+    }
+
+    /**
+     * @param int $serviceId
+     * @param int $categoryId
+     * @return Service
+     */
+    public function getServicesByIdAndCategoryId(int $serviceId, int $categoryId): Service
+    {
+       return Service::where('id', $serviceId)
+            ->where('is_active', true)
+            ->where('category_id', $categoryId)
+            ->firstOrFail();
+    }
+
+
+
+
+    public function getActiveServicesByCategoryIds(array $categoryIds): Collection
+    {
+        if (empty($categoryIds)) {
+            return collect();
+        }
+
+        return Service::query()
+            ->select(['id', 'name', 'category_id', 'min_quantity', 'max_quantity'])
+            ->whereIn('category_id', $categoryIds)
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
+            ->orderBy('name')
+            ->get();
     }
 
     /**

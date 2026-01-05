@@ -93,4 +93,36 @@ class Client extends Authenticatable
     {
         return $this->hasMany(ClientLoginLog::class);
     }
+
+    /**
+     * Get the orders for this client.
+     */
+    public function orders(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Order::class);
+    }
+
+    /**
+     * Get the transactions for this client.
+     */
+    public function transactions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ClientTransaction::class);
+    }
+
+    /**
+     * Get the service quotas for this client.
+     */
+    public function serviceQuotas(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ClientServiceQuota::class);
+    }
+
+    /**
+     * Get the service limits for this client.
+     */
+    public function serviceLimits(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ClientServiceLimit::class);
+    }
 }

@@ -28,8 +28,8 @@ class UpdateClientRequest extends FormRequest
             'rates.*.value' => ['required_with:rates.*.enabled', 'numeric', 'min:0'],
             'rates.*.enabled' => ['sometimes', 'boolean'],
             'social_media' => ['nullable', 'array'],
-            'social_media.*.platform' => ['required_with:social_media.*.username', 'string', 'in:telegram,facebook,instagram'],
-            'social_media.*.username' => ['required_with:social_media.*.platform', 'string', 'max:255'],
+            'social_media.*.platform' => ['nullable', 'required_with:social_media.*.username', 'string', 'in:telegram,facebook,instagram'],
+            'social_media.*.username' => ['nullable', 'required_with:social_media.*.platform', 'string', 'max:255'],
         ];
 
         // Only super_admin can update staff_id

@@ -14,6 +14,18 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    ->withSchedule(function (\Illuminate\Console\Scheduling\Schedule $schedule): void {
+        $schedule->command('subscriptions:renew-expired')
+            ->daily()
+            ->at('00:00')
+            ->timezone(config('app.timezone'));
+
+        // Poll provider status every 10 minutes as fallback to webhooks
+        $schedule->command('orders:sync-provider-status')
+            ->everyTenMinutes()
+            ->withoutOverlapping()
+            ->runInBackground();
+    })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'role' => RoleMiddleware::class,

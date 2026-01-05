@@ -61,4 +61,14 @@ return [
         'bot_username' => env('TELEGRAM_BOT_USERNAME'),
     ],
 
+    'provider' => [
+        'base_url' => env('PROVIDER_BASE_URL'),
+        'api_key' => env('PROVIDER_API_KEY'),
+        'webhook_secret' => env('PROVIDER_WEBHOOK_SECRET'),
+        'rate_limit_per_second' => env('PROVIDER_RATE_LIMIT_PER_SECOND', 5),
+        'status_rate_limit_per_second' => env('PROVIDER_STATUS_RATE_LIMIT_PER_SECOND', 5),
+        'webhook_stale_minutes' => env('PROVIDER_WEBHOOK_STALE_MINUTES', 15),
+        'poll_min_minutes' => env('PROVIDER_POLL_MIN_MINUTES', 5),
+        'sync_lock_ttl_minutes' => env('PROVIDER_SYNC_LOCK_TTL_MINUTES', 5),
+    ],
 ];

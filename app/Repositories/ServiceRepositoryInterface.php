@@ -32,6 +32,15 @@ interface ServiceRepositoryInterface
     public function getByCategoryId(int $categoryId, bool $activeOnly = false): Collection;
 
     /**
+     * @param int $serviceId
+     * @param int $categoryId
+     * @return Service
+     */
+    public function getServicesByIdAndCategoryId(int $serviceId, int $categoryId): Service;
+
+    public function getActiveServicesByCategoryIds(array $categoryIds): Collection;
+
+    /**
      * Find a service by ID.
      *
      * @param int $id

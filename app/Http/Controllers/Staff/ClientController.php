@@ -5,13 +5,17 @@ namespace App\Http\Controllers\Staff;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Staff\IndexClientRequest;
 use App\Http\Requests\Staff\UpdateClientRequest;
+use App\Models\Category;
 use App\Models\Client;
+use App\Models\ClientServiceLimit;
+use App\Models\Service;
 use App\Services\ClientServiceInterface;
 use App\Services\PricingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class ClientController extends Controller
@@ -248,114 +252,134 @@ class ClientController extends Controller
         if ($currentUser && !$currentUser->hasRole('super_admin') && $client->staff_id !== $currentUser->id) {
             abort(403, 'You do not have permission to edit this client.');
         }
-        // Get only active categories with active services (not deleted)
-        $categories = \App\Models\Category::where('status', true)
-            ->with(['services' => function ($query) {
-                $query->where('is_active', true)
-                    ->whereNull('deleted_at') // Explicitly exclude soft-deleted services
-                    ->orderBy('name');
-            }])
-            ->orderBy('name')
-            ->get()
-            ->filter(function($category) {
-                // Only include categories that have at least one active service
-                return $category->services->count() > 0;
-            });
 
-        // Get recent sign-in logs (last 10)
-        $recentSignIns = $client->loginLogs()->orderBy('signed_in_at', 'desc')->take(10)->get();
-
-        // Get services that already have custom rates
         $clientRates = is_array($client->rates) ? $client->rates : [];
         $disabledServiceIds = array_keys($clientRates);
 
-        // Prepare categories data for JavaScript (only active services, excluding those already in use)
-        $categoriesData = $categories->map(function($category) use ($disabledServiceIds) {
+        $disabledRatesLookup = array_fill_keys(array_map('strval', $disabledServiceIds), true);
+
+        $categories = Category::query()
+            ->where('status', true)
+            ->whereHas('services', function ($q) {
+                $q->where('is_active', true)->whereNull('deleted_at');
+            })
+            ->with(['services' => function ($q) {
+                $q->where('is_active', true)
+                    ->whereNull('deleted_at')
+                    ->orderBy('name');
+            }])
+            ->orderBy('name')
+            ->get();
+
+        $recentSignIns = $client->loginLogs()
+            ->orderBy('signed_in_at', 'desc')
+            ->limit(10)
+            ->get();
+
+        $baseCategories = $categories->map(function ($category) {
             return [
                 'id' => $category->id,
                 'name' => $category->name,
-                'services' => $category->services->filter(function($service) use ($disabledServiceIds) {
-                    // Only active, not deleted, and not already in use
-                    return $service->is_active
-                        && !$service->trashed()
-                        && !in_array((string)$service->id, array_map('strval', $disabledServiceIds));
-                })->map(function($service) {
+                'services' => $category->services->map(function ($service) {
                     return [
-                        'id' => (string)$service->id,
+                        'id' => (string) $service->id,
                         'name' => $service->name,
-                        'price' => (float)($service->rate_per_1000 ?? 0)
+                        'price' => (float) ($service->rate_per_1000 ?? 0),
                     ];
-                })->values()->toArray()
+                })->values()->all(),
             ];
-        })->filter(function($category) {
-            // Only include categories that have services after filtering
-            return count($category['services']) > 0;
-        })->values()->toArray();
+        })->values();
 
-        $selectOptions = $categories->mapWithKeys(function($category) {
-            $services = $category->services->filter(function($service) {
-                // Only active and not deleted
-                return $service->is_active && !$service->trashed();
-            })->map(function($service) {
+        // categoriesData: same base, but exclude disabled (already has custom rate)
+        $categoriesData = $baseCategories->map(function ($cat) use ($disabledRatesLookup) {
+            $cat['services'] = array_values(array_filter($cat['services'], function ($s) use ($disabledRatesLookup) {
+                return !isset($disabledRatesLookup[(string) $s['id']]);
+            }));
+            return $cat;
+        })->filter(fn ($cat) => count($cat['services']) > 0)
+            ->values()
+            ->all();
+
+        // selectOptions: [CategoryName => [{value,label,price}, ...]]
+        $selectOptions = $baseCategories->mapWithKeys(function ($cat) {
+            $services = array_map(function ($s) {
                 return [
-                    'value' => (string)$service->id,
-                    'label' => $service->name,
-                    'price' => (float)($service->rate_per_1000 ?? 0)
+                    'value' => (string) $s['id'],
+                    'label' => $s['name'],
+                    'price' => (float) $s['price'],
                 ];
-            })->toArray();
-            return [$category->name => $services];
-        })->filter(function($services) {
-            // Only include categories that have services
-            return count($services) > 0;
-        })->toArray();
+            }, $cat['services']);
 
-        // Get staff members for assignment (only if super_admin)
+            return [$cat['name'] => $services];
+        })->filter(fn ($services) => count($services) > 0)
+            ->all();
+
+        // Get staff members for assignment (only if super_admin) — keep your existing logic
         $staffMembers = $this->clientService->getAllStaff($currentUser);
 
-        // Get all active services with calculated prices for this client
-        $allServices = \App\Models\Service::where('is_active', true)
+        // All active services list for table (DB filtered; also eager-load category)
+        $services = Service::query()
+            ->select(['id', 'name', 'rate_per_1000', 'category_id', 'is_active', 'deleted_at'])
+            ->where('is_active', true)
             ->whereNull('deleted_at')
             ->with('category:id,name')
             ->orderBy('category_id')
             ->orderBy('name')
-            ->get()
-            ->map(function($service) use ($client) {
-                $defaultPrice = (float)($service->rate_per_1000 ?? 0);
-                $clientPrice = $this->pricingService->priceForClient($service, $client);
+            ->get();
 
-                // Check if client has custom rate for this service
-                // Handle both string and integer keys (JSON stores as strings)
-                $clientRates = is_array($client->rates) ? $client->rates : [];
-                $serviceIdStr = (string)$service->id;
+        $priceCache = [];
 
-                // Check for custom rate with both integer and string keys
-                $rateData = null;
-                if (isset($clientRates[$service->id])) {
-                    $rateData = $clientRates[$service->id];
-                } elseif (isset($clientRates[$serviceIdStr])) {
-                    $rateData = $clientRates[$serviceIdStr];
-                }
+        $allServices = $services->map(function ($service) use ($client, $clientRates, &$priceCache) {
+            $serviceIdStr = (string) $service->id;
+            $defaultPrice = (float) ($service->rate_per_1000 ?? 0);
 
-                $hasCustomRate = false;
-                $customRateType = null;
-                $customRateValue = null;
+            if (!array_key_exists($serviceIdStr, $priceCache)) {
+                $priceCache[$serviceIdStr] = $this->pricingService->priceForClient($service, $client);
+            }
+            $clientPrice = (float) $priceCache[$serviceIdStr];
 
-                // Only mark as custom rate if we have valid type and value
-                if ($rateData && is_array($rateData) && isset($rateData['type']) && isset($rateData['value'])) {
-                    $hasCustomRate = true;
-                    $customRateType = $rateData['type'];
-                    $customRateValue = (float)$rateData['value'];
-                }
+            // Custom rate extraction (accept both int/string keys)
+            $rateData = $clientRates[$serviceIdStr] ?? ($clientRates[$service->id] ?? null);
 
-                return [
-                    'service' => $service,
-                    'default_price' => $defaultPrice,
-                    'client_price' => $clientPrice,
-                    'has_custom_rate' => $hasCustomRate,
-                    'custom_rate_type' => $customRateType,
-                    'custom_rate_value' => $customRateValue,
-                ];
-            });
+            $hasCustomRate = is_array($rateData)
+                && isset($rateData['type'], $rateData['value']);
+
+            return [
+                'service' => $service,
+                'default_price' => $defaultPrice,
+                'client_price' => $clientPrice,
+                'has_custom_rate' => $hasCustomRate,
+                'custom_rate_type' => $hasCustomRate ? $rateData['type'] : null,
+                'custom_rate_value' => $hasCustomRate ? (float) $rateData['value'] : null,
+            ];
+        });
+
+        // Existing service limits for this client
+        $serviceLimits = $client->serviceLimits()
+            ->with('service.category')
+            ->get();
+
+        $serviceLimitsCategoriesData = $baseCategories->map(function ($cat) {
+            return [
+                'id' => $cat['id'],
+                'name' => $cat['name'],
+                'services' => array_values(array_map(function ($s) {
+                    return [
+                        'id' => (string) $s['id'],
+                        'name' => $s['name'],
+                    ];
+                }, $cat['services'])),
+            ];
+        })->filter(fn ($cat) => count($cat['services']) > 0)
+            ->values()
+            ->all();
+
+        // Disabled service IDs for limits dropdown (services that already have limits)
+        $disabledServiceLimitIds = $serviceLimits
+            ->pluck('service_id')
+            ->map(fn ($id) => (string) $id)
+            ->values()
+            ->all();
 
         return view('staff.clients.edit', [
             'client' => $client,
@@ -366,8 +390,12 @@ class ClientController extends Controller
             'disabledServiceIds' => $disabledServiceIds,
             'staffMembers' => $staffMembers,
             'allServices' => $allServices,
+            'serviceLimits' => $serviceLimits,
+            'serviceLimitsCategoriesData' => $serviceLimitsCategoriesData,
+            'disabledServiceLimitIds' => $disabledServiceLimitIds,
         ]);
     }
+
 
     /**
      * Update client discount and rates.
@@ -376,54 +404,134 @@ class ClientController extends Controller
     {
         $currentUser = Auth::guard('staff')->user();
 
-        // Permission check: non-super_admin can only update their own assigned clients
         if ($currentUser && !$currentUser->hasRole('super_admin') && $client->staff_id !== $currentUser->id) {
             abort(403, 'You do not have permission to update this client.');
         }
-        // Build rates array from service IDs with type and value
-        $rates = [];
+
         $ratesInput = $request->input('rates', []);
+        $rates = [];
 
-        foreach ($ratesInput as $serviceId => $rateData) {
-            // Skip if marked for removal
-            if (!empty($rateData['remove']) && $rateData['remove'] == '1') {
-                continue;
-            }
+        if (is_array($ratesInput)) {
+            foreach ($ratesInput as $serviceId => $rateData) {
+                if (!is_array($rateData)) continue;
 
-            // Only include rates that are enabled and have valid type and value
-            if (!empty($rateData['enabled']) &&
-                isset($rateData['type']) &&
-                isset($rateData['value']) &&
-                $rateData['value'] !== null &&
-                $rateData['value'] !== '') {
-                $rates[$serviceId] = [
-                    'type' => $rateData['type'],
-                    'value' => (float) $rateData['value'],
-                ];
-            }
-        }
+                // Skip if marked for removal
+                if (!empty($rateData['remove']) && $rateData['remove'] == '1') {
+                    continue;
+                }
 
-        // Set discount: if empty or 0, save as 0
-        $discount = $request->input('discount');
-        if ($discount === null || $discount === '' || $discount == 0) {
-            $discount = 0;
-        }
-
-        // Handle social media array - convert from input format to storage format
-        $socialMedia = [];
-        $socialMediaInput = $request->input('social_media', []);
-        if (is_array($socialMediaInput)) {
-            foreach ($socialMediaInput as $item) {
-                if (!empty($item['platform']) && !empty($item['username'])) {
-                    $socialMedia[$item['platform']] = trim($item['username']);
+                if (!empty($rateData['enabled'])
+                    && isset($rateData['type'], $rateData['value'])
+                    && $rateData['value'] !== null
+                    && $rateData['value'] !== ''
+                ) {
+                    $rates[(string)$serviceId] = [
+                        'type'  => $rateData['type'],
+                        'value' => (float) $rateData['value'],
+                    ];
                 }
             }
         }
 
-        // Prepare update data
+        // -------- Discount (normalize) --------
+        $discountRaw = $request->input('discount');
+        $discount = (is_numeric($discountRaw) && (float)$discountRaw > 0) ? (float)$discountRaw : 0;
+
+        // -------- Social media (normalize to platform => username) --------
+        $socialMediaInput = $request->input('social_media', []);
+        $socialMedia = [];
+
+        if (is_array($socialMediaInput)) {
+            foreach ($socialMediaInput as $item) {
+                if (!is_array($item)) continue;
+
+                $platform = $item['platform'] ?? null;
+                $username = $item['username'] ?? null;
+
+                if ($platform && $username !== null && trim((string)$username) !== '') {
+                    $socialMedia[(string)$platform] = trim((string)$username);
+                }
+            }
+        }
+
+        // -------- Service limits (batch operations) --------
+        $serviceLimitsInput = $request->input('service_limits', []);
+
+        $toDeleteServiceIds = [];
+        $toUpsert = [];
+
+        if (is_array($serviceLimitsInput) && !empty($serviceLimitsInput)) {
+            $serviceIds = array_keys($serviceLimitsInput);
+
+            // Validate services exist in ONE query
+            $existingServiceIds = Service::query()
+                ->whereIn('id', $serviceIds)
+                ->pluck('id')
+                ->map(fn($id) => (string)$id)
+                ->all();
+
+            $existingLookup = array_fill_keys($existingServiceIds, true);
+
+            foreach ($serviceLimitsInput as $serviceId => $limitData) {
+                $serviceIdStr = (string)$serviceId;
+
+                // skip unknown service ids
+                if (!isset($existingLookup[$serviceIdStr])) {
+                    continue;
+                }
+
+                if (!is_array($limitData)) {
+                    continue;
+                }
+
+                if (!empty($limitData['remove']) && $limitData['remove'] == '1') {
+                    $toDeleteServiceIds[] = $serviceIdStr;
+                    continue;
+                }
+
+                $minQty = (isset($limitData['min_quantity']) && $limitData['min_quantity'] !== '')
+                    ? (int)$limitData['min_quantity']
+                    : null;
+
+                $maxQty = (isset($limitData['max_quantity']) && $limitData['max_quantity'] !== '')
+                    ? (int)$limitData['max_quantity']
+                    : null;
+
+                $increment = (isset($limitData['increment']) && $limitData['increment'] !== '')
+                    ? (int)$limitData['increment']
+                    : null;
+
+                // Validate max >= min when both present
+                if ($minQty !== null && $maxQty !== null && $maxQty < $minQty) {
+                    return redirect()
+                        ->route('staff.clients.edit', $client)
+                        ->withErrors([
+                            'service_limits' => "Max quantity must be greater than or equal to min quantity for service ID {$serviceIdStr}."
+                        ])
+                        ->withInput();
+                }
+
+                $hasAnyValue = ($minQty !== null || $maxQty !== null || $increment !== null);
+
+                if (!$hasAnyValue) {
+                    $toDeleteServiceIds[] = $serviceIdStr;
+                    continue;
+                }
+
+                $toUpsert[] = [
+                    'client_id'     => $client->id,
+                    'service_id'    => $serviceIdStr,
+                    'min_quantity'  => $minQty,
+                    'max_quantity'  => $maxQty,
+                    'increment'     => $increment,
+                ];
+            }
+        }
+
+        // -------- Prepare update data --------
         $updateData = [
-            'discount' => $discount,
-            'rates' => !empty($rates) ? $rates : null,
+            'discount'     => $discount,
+            'rates'        => !empty($rates) ? $rates : null,
             'social_media' => !empty($socialMedia) ? $socialMedia : null,
         ];
 
@@ -433,12 +541,34 @@ class ClientController extends Controller
         }
 
         try {
-            $client->update($updateData);
+            DB::transaction(function () use ($client, $updateData, $toDeleteServiceIds, $toUpsert) {
+                $client->update($updateData);
 
-            return redirect()->route('staff.clients.edit', $client)
+                // Batch delete limits
+                if (!empty($toDeleteServiceIds)) {
+                    ClientServiceLimit::query()
+                        ->where('client_id', $client->id)
+                        ->whereIn('service_id', array_values(array_unique($toDeleteServiceIds)))
+                        ->delete();
+                }
+
+                // Batch upsert limits (fast, no per-row query)
+                if (!empty($toUpsert)) {
+                    // Uses unique(client_id, service_id)
+                    ClientServiceLimit::query()->upsert(
+                        $toUpsert,
+                        ['client_id', 'service_id'],
+                        ['min_quantity', 'max_quantity', 'increment']
+                    );
+                }
+            });
+
+            return redirect()
+                ->route('staff.clients.edit', $client)
                 ->with('success', __('Client updated successfully.'));
-        } catch (\Exception $e) {
-            return redirect()->route('staff.clients.edit', $client)
+        } catch (\Throwable $e) {
+            return redirect()
+                ->route('staff.clients.edit', $client)
                 ->with('error', __('Failed to update client. Please try again.'));
         }
     }
