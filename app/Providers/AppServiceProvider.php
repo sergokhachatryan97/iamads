@@ -26,6 +26,8 @@ use App\Services\RoleService;
 use App\Services\RoleServiceInterface;
 use App\Services\ServiceService;
 use App\Services\ServiceServiceInterface;
+use App\Services\OrderService;
+use App\Services\OrderServiceInterface;
 use App\Services\SubscriptionPlanService;
 use App\Services\SubscriptionPlanServiceInterface;
 use App\Services\UserService;
@@ -62,6 +64,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(CategoryServiceInterface::class, CategoryService::class);
         $this->app->bind(ServiceServiceInterface::class, ServiceService::class);
         $this->app->bind(SubscriptionPlanServiceInterface::class, SubscriptionPlanService::class);
+        $this->app->bind(OrderServiceInterface::class, OrderService::class);
     }
 
     /**

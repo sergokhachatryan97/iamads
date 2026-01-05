@@ -1,5 +1,7 @@
 import './bootstrap';
 import 'bootstrap';
+import './pagination';
+import './sorting';
 
 import Alpine from 'alpinejs';
 

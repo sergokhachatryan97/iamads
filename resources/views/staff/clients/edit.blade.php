@@ -603,6 +603,381 @@
                             </button>
                         </div>
 
+                        <!-- Service Limits Section -->
+                        <div class="mb-6 pb-6 border-b border-gray-200">
+                            <h3 class="text-lg font-medium text-gray-900 mb-2">{{ __('Service Limits') }}</h3>
+                            <p class="text-sm text-gray-600 mb-4">{{ __('Override service defaults (min/max quantity, increment) for this client. Leave empty to use service defaults.') }}</p>
+
+                            @error('service_limits')
+                                <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                                    <p class="text-sm text-red-800">{{ $message }}</p>
+                                </div>
+                            @enderror
+
+                            <!-- Add Service Limits Section -->
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    {{ __('Select Services to Add Limits') }}
+                                </label>
+                                <div class="flex gap-2">
+                                    <div class="flex-1 relative" id="service-limits-selector" style="z-index: 10;"
+                                         x-data="{
+                                             open: false,
+                                             selectedServices: [],
+                                             categories: @js($serviceLimitsCategoriesData),
+                                             disabledServiceIds: @js($disabledServiceLimitIds),
+                                             searchTerm: '',
+
+                                             get filteredCategories() {
+                                                 let filtered = this.categories.map(cat => ({
+                                                     ...cat,
+                                                     services: cat.services.filter(s =>
+                                                         !this.isDisabled(s.id)
+                                                     )
+                                                 })).filter(cat => cat.services.length > 0);
+
+                                                 if (this.searchTerm) {
+                                                     const search = this.searchTerm.toLowerCase();
+                                                     filtered = filtered.map(cat => ({
+                                                         ...cat,
+                                                         services: cat.services.filter(s =>
+                                                             s.name.toLowerCase().includes(search)
+                                                         )
+                                                     })).filter(cat => cat.services.length > 0);
+                                                 }
+
+                                                 return filtered;
+                                             },
+
+                                             toggleService(serviceId) {
+                                                 const idStr = String(serviceId);
+                                                 if (this.isDisabled(idStr)) return;
+                                                 const index = this.selectedServices.indexOf(idStr);
+                                                 if (index > -1) {
+                                                     this.selectedServices.splice(index, 1);
+                                                 } else {
+                                                     this.selectedServices.push(idStr);
+                                                 }
+                                             },
+
+                                             isSelected(serviceId) {
+                                                 return this.selectedServices.includes(String(serviceId));
+                                             },
+
+                                             isDisabled(serviceId) {
+                                                 return this.disabledServiceIds.includes(String(serviceId));
+                                             },
+
+                                             toggleSelectAll() {
+                                                 const available = this.getAllAvailableServices();
+                                                 const allSelected = available.every(id => this.isSelected(id));
+
+                                                 if (allSelected) {
+                                                     available.forEach(id => {
+                                                         const index = this.selectedServices.indexOf(id);
+                                                         if (index > -1) this.selectedServices.splice(index, 1);
+                                                     });
+                                                 } else {
+                                                     available.forEach(id => {
+                                                         if (!this.isSelected(id) && !this.isDisabled(id)) {
+                                                             this.selectedServices.push(id);
+                                                         }
+                                                     });
+                                                 }
+                                             },
+
+                                             getAllAvailableServices() {
+                                                 return this.filteredCategories
+                                                     .flatMap(cat => cat.services.map(s => String(s.id)))
+                                                     .filter(id => !this.isDisabled(id));
+                                             },
+
+                                             isAllSelected() {
+                                                 const available = this.getAllAvailableServices();
+                                                 return available.length > 0 && available.every(id => this.isSelected(id));
+                                             }
+                                         }"
+                                         @click.away="open = false"
+                                    >
+                                        <button
+                                            type="button"
+                                            @click="open = !open"
+                                            class="w-full flex items-center justify-between px-4 py-2 border border-gray-300 rounded-lg shadow-sm bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                        >
+                                            <span class="text-gray-700" x-text="selectedServices.length > 0 ? selectedServices.length + ' {{ __('selected') }}' : '{{ __('Select services...') }}'"></span>
+                                            <svg class="h-5 w-5 text-gray-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" :class="{ 'transform rotate-180': open }">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                            </svg>
+                                        </button>
+                                        <div
+                                            x-show="open"
+                                            x-cloak
+                                            x-transition:enter="transition ease-out duration-100"
+                                            x-transition:enter-start="transform opacity-0 scale-95"
+                                            x-transition:enter-end="transform opacity-100 scale-100"
+                                            x-transition:leave="transition ease-in duration-75"
+                                            x-transition:leave-start="transform opacity-100 scale-100"
+                                            x-transition:leave-end="transform opacity-0 scale-95"
+                                            class="absolute z-30 mt-2 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-96 overflow-y-auto"
+                                            style="display: none;"
+                                            @click.stop
+                                        >
+                                            <!-- Search Input -->
+                                            <div class="p-2 border-b border-gray-200 sticky top-0 bg-white z-20">
+                                                <input
+                                                    type="text"
+                                                    x-model="searchTerm"
+                                                    placeholder="{{ __('Search services...') }}"
+                                                    class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                                    @click.stop
+                                                />
+                                            </div>
+
+                                            <!-- Select All Option -->
+                                            <div class="p-2 border-b border-gray-200 bg-gray-50 sticky top-[49px] z-20">
+                                                <label class="flex items-center cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        @change="toggleSelectAll()"
+                                                        :checked="isAllSelected()"
+                                                        class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
+                                                        @click.stop
+                                                    >
+                                                    <span class="ml-2 text-sm font-medium text-gray-900">{{ __('Select All') }}</span>
+                                                </label>
+                                            </div>
+
+                                            <!-- Categories and Services -->
+                                            <div class="p-2">
+                                                <template x-for="category in filteredCategories" :key="'cat-' + category.id">
+                                                    <div class="mb-2">
+                                                        <div class="px-2 py-1 text-xs font-semibold text-gray-500 uppercase mt-2 first:mt-0" x-text="category.name"></div>
+                                                        <template x-for="service in category.services" :key="'service-' + service.id">
+                                                            <label class="flex items-center px-2 py-2 hover:bg-gray-100 rounded cursor-pointer" @click.stop>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    :value="service.id"
+                                                                    @change="toggleService(service.id)"
+                                                                    :checked="isSelected(service.id)"
+                                                                    class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
+                                                                    @click.stop
+                                                                >
+                                                                <span class="ml-2 text-sm text-gray-700 flex-1" x-text="service.name"></span>
+                                                            </label>
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                                <div x-show="filteredCategories.length === 0" class="px-2 py-4 text-sm text-gray-500 text-center">
+                                                    {{ __('No services found') }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onclick="addSelectedServiceLimits()"
+                                        class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                    >
+                                        {{ __('Add Selected') }}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Service Limits List -->
+                            <div id="service-limits-list" class="border border-gray-300 rounded-lg overflow-hidden relative bg-white">
+                                <div class="overflow-x-auto">
+                                    <div class="min-w-[800px]">
+                                        <!-- Table Header -->
+                                        <div class="bg-gray-50 border-b border-gray-200 sticky top-0 z-20">
+                                            <div class="grid grid-cols-12 gap-2 sm:gap-3 md:gap-4 px-3 sm:px-4 md:px-6 py-3">
+                                                <div class="col-span-1 flex items-center gap-1 sm:gap-2 min-w-[60px]">
+                                                    <input
+                                                        type="checkbox"
+                                                        id="select-all-limits"
+                                                        class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
+                                                        onchange="toggleSelectAllLimits(this.checked)"
+                                                    >
+                                                    <button
+                                                        type="button"
+                                                        id="remove-selected-limits"
+                                                        onclick="removeSelectedLimits()"
+                                                        class="px-1.5 sm:px-2 py-1 text-xs font-medium text-white bg-red-600 border border-transparent rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 hidden transition-opacity"
+                                                        style="display: none;"
+                                                    >
+                                                        <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                                <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[100px]">{{ __('Category') }}</div>
+                                                <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[150px]">{{ __('Service') }}</div>
+                                                <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[120px]">{{ __('Min Override') }}</div>
+                                                <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[120px]">{{ __('Max Override') }}</div>
+                                                <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[120px]">{{ __('Increment Override') }}</div>
+                                                <div class="col-span-1 text-xs font-semibold text-gray-700 uppercase tracking-wider text-center whitespace-nowrap min-w-[60px]">{{ __('Action') }}</div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Table Body -->
+                                        <div id="service-limits-rows" class="divide-y divide-gray-200">
+                                            @foreach($categories as $category)
+                                                @foreach($category->services as $service)
+                                                    @php
+                                                        if (!$service->is_active || $service->trashed()) {
+                                                            continue;
+                                                        }
+                                                        $hasLimit = $serviceLimits->where('service_id', $service->id)->first();
+                                                        if (!$hasLimit) continue;
+                                                    @endphp
+                                                    <div
+                                                        class="service-limit-row hover:bg-gray-50 transition-colors"
+                                                        data-service-id="{{ $service->id }}"
+                                                        data-category-id="{{ $category->id }}"
+                                                        data-category-name="{{ $category->name }}"
+                                                    >
+                                                        <input type="hidden" name="service_limits[{{ $service->id }}][remove]" value="0" class="limit-remove-input">
+                                                        <div class="grid grid-cols-12 gap-2 sm:gap-3 md:gap-4 items-center px-3 sm:px-4 md:px-6 py-3 sm:py-4">
+                                                            <div class="col-span-1 flex items-center justify-start min-w-[60px]">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    class="limit-checkbox rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
+                                                                    onchange="updateRemoveSelectedLimitsButton()"
+                                                                >
+                                                            </div>
+                                                            <div class="col-span-2 min-w-[100px]">
+                                                                <span class="text-xs sm:text-sm font-medium text-gray-900 category-name whitespace-nowrap">{{ $category->name }}</span>
+                                                            </div>
+                                                            <div class="col-span-2 min-w-[150px]">
+                                                                <span class="text-xs sm:text-sm font-medium text-gray-900 service-name break-words">{{ $service->name }}</span>
+                                                            </div>
+                                                            <div class="col-span-2 min-w-[120px]">
+                                                                <input
+                                                                    type="number"
+                                                                    name="service_limits[{{ $service->id }}][min_quantity]"
+                                                                    value="{{ old("service_limits.{$service->id}.min_quantity", $hasLimit->min_quantity ?? '') }}"
+                                                                    min="0"
+                                                                    step="1"
+                                                                    class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                                                    placeholder="{{ __('Default') }}"
+                                                                >
+                                                            </div>
+                                                            <div class="col-span-2 min-w-[120px]">
+                                                                <input
+                                                                    type="number"
+                                                                    name="service_limits[{{ $service->id }}][max_quantity]"
+                                                                    value="{{ old("service_limits.{$service->id}.max_quantity", $hasLimit->max_quantity ?? '') }}"
+                                                                    min="0"
+                                                                    step="1"
+                                                                    class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                                                    placeholder="{{ __('Default') }}"
+                                                                >
+                                                            </div>
+                                                            <div class="col-span-2 min-w-[120px]">
+                                                                <input
+                                                                    type="number"
+                                                                    name="service_limits[{{ $service->id }}][increment]"
+                                                                    value="{{ old("service_limits.{$service->id}.increment", $hasLimit->increment ?? '') }}"
+                                                                    min="0"
+                                                                    step="1"
+                                                                    class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                                                    placeholder="{{ __('Default') }}"
+                                                                >
+                                                            </div>
+                                                            <div class="col-span-1 flex items-center justify-center min-w-[60px]">
+                                                                <button
+                                                                    type="button"
+                                                                    onclick="removeServiceLimit({{ $service->id }})"
+                                                                    class="text-red-600 hover:text-red-800 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 rounded p-1 sm:p-1.5 transition-colors"
+                                                                    title="{{ __('Remove') }}"
+                                                                >
+                                                                    <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                                                    </svg>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                @endforeach
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Hidden template for new rows -->
+                            <template id="service-limit-template">
+                                <div
+                                    class="service-limit-row hover:bg-gray-50 transition-colors"
+                                    data-service-id=""
+                                    data-category-id=""
+                                    data-category-name=""
+                                    data-template-service-id="SERVICE_ID"
+                                >
+                                    <input type="hidden" name="service_limits[SERVICE_ID][remove]" value="0" class="limit-remove-input">
+                                    <div class="grid grid-cols-12 gap-2 sm:gap-3 md:gap-4 items-center px-3 sm:px-4 md:px-6 py-3 sm:py-4">
+                                        <div class="col-span-1 flex items-center justify-start min-w-[60px]">
+                                            <input
+                                                type="checkbox"
+                                                class="limit-checkbox rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
+                                                onchange="updateRemoveSelectedLimitsButton()"
+                                            >
+                                        </div>
+                                        <div class="col-span-2 min-w-[100px]">
+                                            <span class="text-xs sm:text-sm font-medium text-gray-900 category-name whitespace-nowrap"></span>
+                                        </div>
+                                        <div class="col-span-2 min-w-[150px]">
+                                            <span class="text-xs sm:text-sm font-medium text-gray-900 service-name break-words"></span>
+                                        </div>
+                                        <div class="col-span-2 min-w-[120px]">
+                                            <input
+                                                type="number"
+                                                name="service_limits[SERVICE_ID][min_quantity]"
+                                                value=""
+                                                min="0"
+                                                step="1"
+                                                class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                                placeholder="{{ __('Default') }}"
+                                            >
+                                        </div>
+                                        <div class="col-span-2 min-w-[120px]">
+                                            <input
+                                                type="number"
+                                                name="service_limits[SERVICE_ID][max_quantity]"
+                                                value=""
+                                                min="0"
+                                                step="1"
+                                                class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                                placeholder="{{ __('Default') }}"
+                                            >
+                                        </div>
+                                        <div class="col-span-2 min-w-[120px]">
+                                            <input
+                                                type="number"
+                                                name="service_limits[SERVICE_ID][increment]"
+                                                value=""
+                                                min="0"
+                                                step="1"
+                                                class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                                placeholder="{{ __('Default') }}"
+                                            >
+                                        </div>
+                                        <div class="col-span-1 flex items-center justify-center min-w-[60px]">
+                                            <button
+                                                type="button"
+                                                onclick="removeServiceLimit('SERVICE_ID')"
+                                                class="text-red-600 hover:text-red-800 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 rounded p-1 sm:p-1.5 transition-colors"
+                                                title="{{ __('Remove') }}"
+                                            >
+                                                <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+
                         <!-- Submit Button -->
                         <div class="flex items-center justify-end gap-4">
                             <a
@@ -1332,7 +1707,198 @@
             @if(session('error'))
                 showStatusMessage('{{ session('error') }}', 'error');
             @endif
+
+            // Initialize service limits checkboxes
+            document.querySelectorAll('.limit-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', updateRemoveSelectedLimitsButton);
+            });
+            updateRemoveSelectedLimitsButton();
         });
+
+        // Service Limits Functions
+        function addSelectedServiceLimits() {
+            const dropdownComponent = document.getElementById('service-limits-selector');
+            if (!dropdownComponent) {
+                alert('{{ __('Please select at least one service') }}');
+                return;
+            }
+
+            if (typeof Alpine === 'undefined') {
+                alert('{{ __('Please refresh the page and try again.') }}');
+                return;
+            }
+
+            let alpineData;
+            try {
+                alpineData = Alpine.$data(dropdownComponent);
+            } catch (e) {
+                alert('{{ __('Error accessing dropdown data. Please try again.') }}');
+                return;
+            }
+
+            if (!alpineData) {
+                alert('{{ __('Please select at least one service') }}');
+                return;
+            }
+
+            let selectedIdsArray = [];
+            try {
+                const rawSelected = alpineData.selectedServices;
+                if (!rawSelected) {
+                    alert('{{ __('Please select at least one service') }}');
+                    return;
+                }
+
+                if (Array.isArray(rawSelected)) {
+                    selectedIdsArray = [...rawSelected];
+                } else if (rawSelected && typeof rawSelected.length === 'number') {
+                    try {
+                        selectedIdsArray = Array.prototype.slice.call(rawSelected);
+                    } catch (e) {
+                        selectedIdsArray = [];
+                        for (let i = 0; i < rawSelected.length; i++) {
+                            selectedIdsArray.push(rawSelected[i]);
+                        }
+                    }
+                }
+            } catch (e) {
+                alert('{{ __('Error reading selected services. Please try again.') }}');
+                return;
+            }
+
+            if (!selectedIdsArray || selectedIdsArray.length === 0) {
+                alert('{{ __('Please select at least one service') }}');
+                return;
+            }
+
+            // Get services data from categories
+            const servicesDataFlat = {};
+            if (alpineData.categories) {
+                alpineData.categories.forEach(category => {
+                    category.services.forEach(service => {
+                        servicesDataFlat[String(service.id)] = {
+                            id: service.id,
+                            name: service.name,
+                            category_id: category.id,
+                            category_name: category.name
+                        };
+                    });
+                });
+            }
+
+            for (let i = 0; i < selectedIdsArray.length; i++) {
+                const serviceId = selectedIdsArray[i];
+                const serviceIdStr = String(serviceId);
+
+                // Check if service is already added
+                const existingRow = document.querySelector(`.service-limit-row[data-service-id="${serviceIdStr}"]`);
+                if (existingRow && existingRow.style.display !== 'none') {
+                    continue;
+                }
+
+                if (existingRow) {
+                    existingRow.remove();
+                }
+
+                const service = servicesDataFlat[serviceIdStr];
+                if (!service) continue;
+
+                const template = document.getElementById('service-limit-template');
+                const container = document.getElementById('service-limits-rows');
+                if (!template || !container) continue;
+
+                const newRow = template.content.cloneNode(true);
+                const rowElement = newRow.querySelector('.service-limit-row');
+                rowElement.setAttribute('data-service-id', serviceIdStr);
+                rowElement.setAttribute('data-category-id', service.category_id);
+                rowElement.setAttribute('data-category-name', service.category_name);
+
+                // Update all SERVICE_ID placeholders
+                newRow.querySelectorAll('[name*="SERVICE_ID"]').forEach(input => {
+                    input.name = input.name.replace(/SERVICE_ID/g, serviceIdStr);
+                });
+
+                // Update service and category names
+                const categoryNameSpan = newRow.querySelector('.category-name');
+                const serviceNameSpan = newRow.querySelector('.service-name');
+                if (categoryNameSpan) categoryNameSpan.textContent = service.category_name;
+                if (serviceNameSpan) serviceNameSpan.textContent = service.name;
+
+                // Update remove button
+                const removeButton = newRow.querySelector('button[onclick*="SERVICE_ID"]');
+                if (removeButton) {
+                    removeButton.setAttribute('onclick', `removeServiceLimit('${serviceIdStr}')`);
+                }
+
+                container.appendChild(newRow);
+            }
+
+            // Clear selection
+            if (alpineData) {
+                alpineData.selectedServices = [];
+                alpineData.open = false;
+            }
+
+            updateRemoveSelectedLimitsButton();
+        }
+
+        function removeServiceLimit(serviceId) {
+            const serviceIdStr = String(serviceId);
+            const row = document.querySelector(`.service-limit-row[data-service-id="${serviceIdStr}"]`);
+            if (row) {
+                const removeInput = row.querySelector('.limit-remove-input');
+                if (removeInput) {
+                    removeInput.value = '1';
+                }
+                row.style.display = 'none';
+                const checkbox = row.querySelector('.limit-checkbox');
+                if (checkbox) {
+                    checkbox.checked = false;
+                }
+                updateRemoveSelectedLimitsButton();
+            }
+        }
+
+        function toggleSelectAllLimits(checked) {
+            const checkboxes = document.querySelectorAll('.limit-checkbox');
+            checkboxes.forEach(checkbox => {
+                const row = checkbox.closest('.service-limit-row');
+                if (row && row.style.display !== 'none') {
+                    checkbox.checked = checked;
+                }
+            });
+            updateRemoveSelectedLimitsButton();
+        }
+
+        function updateRemoveSelectedLimitsButton() {
+            const checkboxes = document.querySelectorAll('.limit-checkbox');
+            const checkedBoxes = Array.from(checkboxes).filter(cb => {
+                const row = cb.closest('.service-limit-row');
+                return row && row.style.display !== 'none' && cb.checked;
+            });
+
+            const removeButton = document.getElementById('remove-selected-limits');
+            if (removeButton) {
+                if (checkedBoxes.length > 0) {
+                    removeButton.style.display = 'inline-flex';
+                    removeButton.classList.remove('hidden');
+                } else {
+                    removeButton.style.display = 'none';
+                    removeButton.classList.add('hidden');
+                }
+            }
+        }
+
+        function removeSelectedLimits() {
+            const checkboxes = document.querySelectorAll('.limit-checkbox:checked');
+            checkboxes.forEach(checkbox => {
+                const row = checkbox.closest('.service-limit-row');
+                if (row && row.style.display !== 'none') {
+                    const serviceId = row.getAttribute('data-service-id');
+                    removeServiceLimit(serviceId);
+                }
+            });
+        }
 
         // Show all custom rates rows (no pagination)
         function showAllRatesRows() {
@@ -1379,6 +1945,268 @@
             setTimeout(() => {
                 messageContainer.classList.add('hidden');
             }, 3000);
+        }
+
+        // Service Limits Functions
+        function addSelectedServiceLimits() {
+            const dropdownComponent = document.getElementById('service-limits-selector');
+            if (!dropdownComponent) {
+                alert('{{ __('Please select at least one service') }}');
+                return;
+            }
+
+            if (typeof Alpine === 'undefined') {
+                alert('{{ __('Please refresh the page and try again.') }}');
+                return;
+            }
+
+            let alpineData;
+            try {
+                alpineData = Alpine.$data(dropdownComponent);
+            } catch (e) {
+                alert('{{ __('Error accessing dropdown data. Please try again.') }}');
+                return;
+            }
+
+            if (!alpineData) {
+                alert('{{ __('Please select at least one service') }}');
+                return;
+            }
+
+            let selectedIdsArray = [];
+            try {
+                const rawSelected = alpineData.selectedServices;
+                if (!rawSelected) {
+                    alert('{{ __('Please select at least one service') }}');
+                    return;
+                }
+
+                if (Array.isArray(rawSelected)) {
+                    selectedIdsArray = [...rawSelected];
+                } else if (rawSelected && typeof rawSelected.length === 'number') {
+                    try {
+                        selectedIdsArray = Array.prototype.slice.call(rawSelected);
+                    } catch (e) {
+                        selectedIdsArray = [];
+                        for (let i = 0; i < rawSelected.length; i++) {
+                            selectedIdsArray.push(rawSelected[i]);
+                        }
+                    }
+                }
+            } catch (e) {
+                alert('{{ __('Error reading selected services. Please try again.') }}');
+                return;
+            }
+
+            if (!selectedIdsArray || selectedIdsArray.length === 0) {
+                alert('{{ __('Please select at least one service') }}');
+                return;
+            }
+
+            // Get services data from categories
+            const servicesDataFlat = {};
+            if (alpineData.categories) {
+                alpineData.categories.forEach(category => {
+                    category.services.forEach(service => {
+                        servicesDataFlat[String(service.id)] = {
+                            id: service.id,
+                            name: service.name,
+                            category_id: category.id,
+                            category_name: category.name
+                        };
+                    });
+                });
+            }
+
+            for (let i = 0; i < selectedIdsArray.length; i++) {
+                const serviceId = selectedIdsArray[i];
+                const serviceIdStr = String(serviceId);
+
+                // Check if service is already added
+                const existingRow = document.querySelector(`.service-limit-row[data-service-id="${serviceIdStr}"]`);
+                if (existingRow && existingRow.style.display !== 'none') {
+                    continue;
+                }
+
+                if (existingRow) {
+                    existingRow.remove();
+                }
+
+                const service = servicesDataFlat[serviceIdStr];
+                if (!service) continue;
+
+                const template = document.getElementById('service-limit-template');
+                const container = document.getElementById('service-limits-rows');
+                if (!template || !container) continue;
+
+                const newRow = template.content.cloneNode(true);
+                const rowElement = newRow.querySelector('.service-limit-row');
+                rowElement.setAttribute('data-service-id', serviceIdStr);
+                rowElement.setAttribute('data-category-id', service.category_id);
+                rowElement.setAttribute('data-category-name', service.category_name);
+
+                // Update all SERVICE_ID placeholders
+                newRow.querySelectorAll('[name*="SERVICE_ID"]').forEach(input => {
+                    input.name = input.name.replace(/SERVICE_ID/g, serviceIdStr);
+                });
+
+                // Update service and category names
+                const categoryNameSpan = newRow.querySelector('.category-name');
+                const serviceNameSpan = newRow.querySelector('.service-name');
+                if (categoryNameSpan) categoryNameSpan.textContent = service.category_name;
+                if (serviceNameSpan) serviceNameSpan.textContent = service.name;
+
+                // Update remove button
+                const removeButton = newRow.querySelector('button[onclick*="SERVICE_ID"]');
+                if (removeButton) {
+                    removeButton.setAttribute('onclick', `removeServiceLimit('${serviceIdStr}')`);
+                }
+
+                container.appendChild(newRow);
+            }
+
+            // Clear selection
+            if (alpineData) {
+                alpineData.selectedServices = [];
+                alpineData.open = false;
+            }
+
+            updateRemoveSelectedLimitsButton();
+        }
+
+        function removeServiceLimit(serviceId) {
+            const serviceIdStr = String(serviceId);
+            const row = document.querySelector(`.service-limit-row[data-service-id="${serviceIdStr}"]`);
+            if (row) {
+                const removeInput = row.querySelector('.limit-remove-input');
+                if (removeInput) {
+                    removeInput.value = '1';
+                }
+                row.style.display = 'none';
+                const checkbox = row.querySelector('.limit-checkbox');
+                if (checkbox) {
+                    checkbox.checked = false;
+                }
+                updateRemoveSelectedLimitsButton();
+            }
+        }
+
+        function toggleSelectAllLimits(checked) {
+            const checkboxes = document.querySelectorAll('.limit-checkbox');
+            checkboxes.forEach(checkbox => {
+                const row = checkbox.closest('.service-limit-row');
+                if (row && row.style.display !== 'none') {
+                    checkbox.checked = checked;
+                }
+            });
+            updateRemoveSelectedLimitsButton();
+        }
+
+        function updateRemoveSelectedLimitsButton() {
+            const checkboxes = document.querySelectorAll('.limit-checkbox');
+            const checkedBoxes = Array.from(checkboxes).filter(cb => {
+                const row = cb.closest('.service-limit-row');
+                return row && row.style.display !== 'none' && cb.checked;
+            });
+
+            const removeButton = document.getElementById('remove-selected-limits');
+            if (removeButton) {
+                if (checkedBoxes.length > 0) {
+                    removeButton.style.display = 'inline-flex';
+                    removeButton.classList.remove('hidden');
+                } else {
+                    removeButton.style.display = 'none';
+                    removeButton.classList.add('hidden');
+                }
+            }
+        }
+
+        function removeSelectedLimits() {
+            const checkboxes = document.querySelectorAll('.limit-checkbox:checked');
+            checkboxes.forEach(checkbox => {
+                const row = checkbox.closest('.service-limit-row');
+                if (row && row.style.display !== 'none') {
+                    const serviceId = row.getAttribute('data-service-id');
+                    removeServiceLimit(serviceId);
+                }
+            });
+        }
+
+        // Social Media Functions
+        function addSocialMediaRow() {
+            const container = document.getElementById('social-media-container');
+            if (!container) return;
+
+            // Get current row count
+            const existingRows = container.querySelectorAll('.social-media-row');
+            const newIndex = existingRows.length;
+
+            // Platform options (from PHP)
+            const platformOptions = {
+                'telegram': @json(__('Telegram')),
+                'facebook': @json(__('Facebook')),
+                'instagram': @json(__('Instagram'))
+            };
+
+            const platformLabel = @json(__('Platform'));
+            const selectPlatformLabel = @json(__('Select Platform'));
+            const usernameLabel = @json(__('Username'));
+            const usernamePlaceholder = @json(__('Enter username or handle'));
+            const removeLabel = @json(__('Remove'));
+
+            // Create new row HTML
+            const newRow = document.createElement('div');
+            newRow.className = 'flex gap-3 items-start social-media-row border border-gray-200 rounded-lg p-4 bg-gray-50';
+            
+            let optionsHtml = '<option value="">' + selectPlatformLabel + '</option>';
+            for (const [value, label] of Object.entries(platformOptions)) {
+                optionsHtml += '<option value="' + value + '">' + label + '</option>';
+            }
+            
+            newRow.innerHTML = 
+                '<div class="flex-1">' +
+                    '<label class="block text-sm font-medium text-gray-700 mb-1">' + platformLabel + '</label>' +
+                    '<select name="social_media[' + newIndex + '][platform]" id="social_platform_' + newIndex + '" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">' +
+                        optionsHtml +
+                    '</select>' +
+                '</div>' +
+                '<div class="flex-1">' +
+                    '<label for="social_username_' + newIndex + '" class="block text-sm font-medium text-gray-700 mb-1">' + usernameLabel + '</label>' +
+                    '<input id="social_username_' + newIndex + '" name="social_media[' + newIndex + '][username]" type="text" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm" placeholder="' + usernamePlaceholder + '" />' +
+                '</div>' +
+                '<div class="pt-6">' +
+                    '<button type="button" onclick="removeSocialMediaRow(this)" class="px-3 py-2 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors">' + removeLabel + '</button>' +
+                '</div>';
+
+            container.appendChild(newRow);
+        }
+
+        function removeSocialMediaRow(button) {
+            const row = button.closest('.social-media-row');
+            if (row) {
+                row.remove();
+                
+                // Re-index remaining rows to ensure sequential array indices
+                const container = document.getElementById('social-media-container');
+                if (container) {
+                    const rows = container.querySelectorAll('.social-media-row');
+                    rows.forEach(function(r, index) {
+                        // Update platform select name and id
+                        const platformSelect = r.querySelector('select[name*="[platform]"]');
+                        if (platformSelect) {
+                            platformSelect.name = 'social_media[' + index + '][platform]';
+                            platformSelect.id = 'social_platform_' + index;
+                        }
+                        
+                        // Update username input name and id
+                        const usernameInput = r.querySelector('input[name*="[username]"]');
+                        if (usernameInput) {
+                            usernameInput.name = 'social_media[' + index + '][username]';
+                            usernameInput.id = 'social_username_' + index;
+                        }
+                    });
+                }
+            }
         }
     </script>
 </x-app-layout>
