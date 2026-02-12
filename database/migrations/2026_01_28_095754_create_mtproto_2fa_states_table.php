@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('mtproto_2fa_states', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('account_id')->unique()->constrained('mtproto_telegram_accounts')->onDelete('cascade')->index();
+            $table->foreignId('account_id')->unique()->constrained('mtproto_telegram_accounts')->onDelete('cascade');
             $table->string('email_alias')->nullable();
             $table->text('encrypted_password')->nullable(); // Encrypted password using Laravel encryption
             $table->enum('status', ['pending', 'waiting_email', 'confirmed', 'failed'])->default('pending')->index();
