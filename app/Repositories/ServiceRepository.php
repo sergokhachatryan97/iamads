@@ -134,7 +134,7 @@ class ServiceRepository implements ServiceRepositoryInterface
         }
 
         return Service::query()
-            ->select(['id', 'name', 'category_id', 'min_quantity', 'max_quantity'])
+            ->select(['id', 'name', 'category_id', 'min_quantity', 'max_quantity', 'target_type'])
             ->whereIn('category_id', $categoryIds)
             ->where('is_active', true)
             ->whereNull('deleted_at')

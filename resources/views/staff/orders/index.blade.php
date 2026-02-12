@@ -1,4 +1,5 @@
 <x-app-layout>
+    {{-- Staff orders: header shows title only; no create button (orders are created by clients) --}}
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
             {{ __('Orders') }}
@@ -114,6 +115,9 @@
                     @php
                         $statusButtons = [
                             'all' => __('All'),
+                            \App\Models\Order::STATUS_VALIDATING => __('Validating'),
+                            \App\Models\Order::STATUS_INVALID_LINK => __('Invalid Link'),
+                            \App\Models\Order::STATUS_RESTRICTED => __('Restricted'),
                             \App\Models\Order::STATUS_AWAITING => __('Awaiting'),
                             \App\Models\Order::STATUS_PENDING => __('Pending'),
                             \App\Models\Order::STATUS_IN_PROGRESS => __('In Progress'),
@@ -373,7 +377,7 @@
                                                         $username = explode('?', $username)[0];
                                                         $username = explode('/', $username)[0];
                                                         $telegramUrl = 'tg://resolve?domain=' . $username;
-                                                    } elseif (preg_match('/^@([A-Za-z0-9_]{5,32})$/i', $order->link, $matches)) {
+                                                    } elseif (preg_match('/^@([A-Za-z0-9_]{3,32})$/i', $order->link, $matches)) {
                                                         $telegramUrl = 'tg://resolve?domain=' . $matches[1];
                                                     }
                                                 @endphp
@@ -405,6 +409,9 @@
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             @php
                                                 $statusColors = [
+                                                    'validating' => 'bg-cyan-100 text-cyan-800',
+                                                    'invalid_link' => 'bg-red-100 text-red-800',
+                                                    'restricted' => 'bg-orange-100 text-orange-800',
                                                     'awaiting' => 'bg-yellow-100 text-yellow-800',
                                                     'pending' => 'bg-blue-100 text-blue-800',
                                                     'in_progress' => 'bg-indigo-100 text-indigo-800',
@@ -417,11 +424,15 @@
                                                 $statusColor = $statusColors[$order->status] ?? 'bg-gray-100 text-gray-800';
                                                 $statusLabel = ucfirst(str_replace('_', ' ', $order->status));
                                             @endphp
-                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ $statusColor }}">
+                                            <span
+                                                class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ $statusColor }} order-status-badge"
+                                                data-order-id="{{ $order->id }}"
+                                                data-status="{{ $order->status }}"
+                                            >
                                                 {{ $statusLabel }}
                                             </span>
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 order-remains" data-order-id="{{ $order->id }}">
                                             {{ number_format($order->remains) }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
@@ -433,15 +444,16 @@
                                             <div class="flex items-center">
                                                 <div class="w-24 bg-gray-200 rounded-full h-2 mr-2">
                                                     <div
-                                                        class="bg-indigo-600 h-2 rounded-full transition-all duration-300"
+                                                        class="bg-indigo-600 h-2 rounded-full transition-all duration-300 order-progress-bar"
+                                                        data-order-id="{{ $order->id }}"
                                                         style="width: {{ min(100, max(0, $progress)) }}%"
                                                     ></div>
                                                 </div>
-                                                <span class="text-sm font-medium text-gray-900">
+                                                <span class="text-sm font-medium text-gray-900 order-progress-text" data-order-id="{{ $order->id }}">
                                                     {{ number_format($progress, 1) }}%
                                                 </span>
                                             </div>
-                                            <div class="text-xs text-gray-500 mt-1">
+                                            <div class="text-xs text-gray-500 mt-1 order-progress-detail" data-order-id="{{ $order->id }}">
                                                 {{ number_format($delivered) }} / {{ number_format($quantity) }}
                                             </div>
                                         </td>
@@ -651,6 +663,9 @@
                             <div class="text-sm font-semibold text-gray-900">
                                 @php
                                     $statusColors = [
+                                        'validating' => 'bg-cyan-100 text-cyan-800',
+                                        'invalid_link' => 'bg-red-100 text-red-800',
+                                        'restricted' => 'bg-orange-100 text-orange-800',
                                         'awaiting' => 'bg-yellow-100 text-yellow-800',
                                         'pending' => 'bg-blue-100 text-blue-800',
                                         'in_progress' => 'bg-indigo-100 text-indigo-800',
@@ -697,7 +712,7 @@
                                     $username = explode('?', $username)[0];
                                     $username = explode('/', $username)[0];
                                     $telegramUrl = 'tg://resolve?domain=' . $username;
-                                } elseif (preg_match('/^@([A-Za-z0-9_]{5,32})$/i', $order->link, $matches)) {
+                                } elseif (preg_match('/^@([A-Za-z0-9_]{3,32})$/i', $order->link, $matches)) {
                                     $telegramUrl = 'tg://resolve?domain=' . $matches[1];
                                 }
                             @endphp
@@ -1056,6 +1071,149 @@
                     window.location.href = url.toString();
                 });
         }
+
+        // Real-time status updates
+        (function() {
+            const statusColors = {
+                'validating': 'bg-cyan-100 text-cyan-800',
+                'invalid_link': 'bg-red-100 text-red-800',
+                'restricted': 'bg-orange-100 text-orange-800',
+                'awaiting': 'bg-yellow-100 text-yellow-800',
+                'pending': 'bg-blue-100 text-blue-800',
+                'in_progress': 'bg-indigo-100 text-indigo-800',
+                'processing': 'bg-purple-100 text-purple-800',
+                'partial': 'bg-orange-100 text-orange-800',
+                'completed': 'bg-green-100 text-green-800',
+                'canceled': 'bg-red-100 text-red-800',
+                'fail': 'bg-gray-100 text-gray-800',
+            };
+
+            function formatStatusLabel(status) {
+                return status.split('_').map(word =>
+                    word.charAt(0).toUpperCase() + word.slice(1)
+                ).join(' ');
+            }
+
+            function updateOrderStatus(orderId, statusData) {
+                // Update status badge
+                const statusBadge = document.querySelector(`.order-status-badge[data-order-id="${orderId}"]`);
+                if (statusBadge) {
+                    const currentStatus = statusBadge.getAttribute('data-status');
+                    if (currentStatus !== statusData.status) {
+                        statusBadge.setAttribute('data-status', statusData.status);
+                        statusBadge.className = `px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[statusData.status] || 'bg-gray-100 text-gray-800'}`;
+                        statusBadge.textContent = formatStatusLabel(statusData.status);
+
+                        // Add animation effect
+                        statusBadge.classList.add('animate-pulse');
+                        setTimeout(() => {
+                            statusBadge.classList.remove('animate-pulse');
+                        }, 1000);
+                    }
+                }
+
+                // Update remains
+                const remainsElement = document.querySelector(`.order-remains[data-order-id="${orderId}"]`);
+                if (remainsElement) {
+                    remainsElement.textContent = new Intl.NumberFormat().format(statusData.remains);
+                }
+
+                // Update progress bar
+                const progressBar = document.querySelector(`.order-progress-bar[data-order-id="${orderId}"]`);
+                if (progressBar) {
+                    progressBar.style.width = `${Math.min(100, Math.max(0, statusData.progress))}%`;
+                }
+
+                // Update progress text
+                const progressText = document.querySelector(`.order-progress-text[data-order-id="${orderId}"]`);
+                if (progressText) {
+                    progressText.textContent = `${statusData.progress.toFixed(1)}%`;
+                }
+
+                // Update progress detail
+                const progressDetail = document.querySelector(`.order-progress-detail[data-order-id="${orderId}"]`);
+                if (progressDetail) {
+                    progressDetail.textContent = `${new Intl.NumberFormat().format(statusData.delivered)} / ${new Intl.NumberFormat().format(statusData.quantity)}`;
+                }
+            }
+
+            function pollOrderStatuses() {
+                // Get all order IDs from the current page
+                const orderBadges = document.querySelectorAll('.order-status-badge');
+                const orderIds = Array.from(orderBadges).map(badge =>
+                    parseInt(badge.getAttribute('data-order-id'), 10)
+                ).filter(id => !isNaN(id));
+
+                if (orderIds.length === 0) {
+                    return;
+                }
+
+                const url = new URL('{{ route("staff.orders.statuses") }}', window.location.origin);
+                orderIds.forEach(id => {
+                    url.searchParams.append('order_ids[]', id);
+                });
+
+                fetch(url.toString(), {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json',
+                    },
+                    credentials: 'same-origin',
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.statuses) {
+                        Object.entries(data.statuses).forEach(([orderId, statusData]) => {
+                            updateOrderStatus(parseInt(orderId, 10), statusData);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error polling order statuses:', error);
+                });
+            }
+
+            // Start polling when page loads
+            let pollInterval;
+
+            function startPolling() {
+                // Poll immediately
+                pollOrderStatuses();
+
+                // Then poll every 3 seconds
+                pollInterval = setInterval(pollOrderStatuses, 3000);
+            }
+
+            function stopPolling() {
+                if (pollInterval) {
+                    clearInterval(pollInterval);
+                    pollInterval = null;
+                }
+            }
+
+            // Start polling when page is visible
+            if (document.visibilityState === 'visible') {
+                startPolling();
+            }
+
+            // Handle visibility change (pause when tab is hidden)
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') {
+                    startPolling();
+                } else {
+                    stopPolling();
+                }
+            });
+
+            // Clean up on page unload
+            window.addEventListener('beforeunload', stopPolling);
+        })();
     </script>
 
 </x-app-layout>

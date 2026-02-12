@@ -30,10 +30,12 @@ use App\Services\OrderService;
 use App\Services\OrderServiceInterface;
 use App\Services\SubscriptionPlanService;
 use App\Services\SubscriptionPlanServiceInterface;
+use App\Services\Telegram\MtprotoClientFactory;
 use App\Services\UserService;
 use App\Services\UserServiceInterface;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use SocialiteProviders\Apple\Provider as AppleProvider;
@@ -65,6 +67,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ServiceServiceInterface::class, ServiceService::class);
         $this->app->bind(SubscriptionPlanServiceInterface::class, SubscriptionPlanService::class);
         $this->app->bind(OrderServiceInterface::class, OrderService::class);
+        $this->app->singleton(MtprotoClientFactory::class);
     }
 
     /**
@@ -72,13 +75,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->registerRevoltErrorHandler();
+
         // Force HTTPS when behind a proxy (e.g., ngrok)
-        if (request()->server('HTTP_X_FORWARDED_PROTO') === 'https' || 
+        if (request()->server('HTTP_X_FORWARDED_PROTO') === 'https' ||
             request()->server('HTTPS') === 'on' ||
             (config('app.url') && str_starts_with(config('app.url'), 'https://'))) {
             URL::forceScheme('https');
         }
-        
+
         // Set default pagination view to Tailwind
         \Illuminate\Pagination\Paginator::defaultView('vendor.pagination.tailwind');
         \Illuminate\Pagination\Paginator::defaultSimpleView('vendor.pagination.simple-tailwind');
@@ -100,5 +105,38 @@ class AppServiceProvider extends ServiceProvider
 
             return null;
         });
+    }
+
+    /**
+     * Register Revolt/EventLoop error handler once per process so UnhandledFutureError
+     * (e.g. stream closed after MTProto disconnect) is logged as warning and does not crash workers.
+     */
+    private function registerRevoltErrorHandler(): void
+    {
+        if (!class_exists(\Revolt\EventLoop::class)) {
+            return;
+        }
+        try {
+            \Revolt\EventLoop::setErrorHandler(function (\Throwable $e): void {
+                $msg = (string) $e->getMessage();
+                $cls = get_class($e);
+                $isUnhandledFuture = $e instanceof \Amp\Future\UnhandledFutureError
+                    || str_contains($cls, 'UnhandledFutureError')
+                    || stripos($msg, 'Unhandled future') !== false;
+                if ($isUnhandledFuture) {
+                    Log::warning('Revolt/EventLoop unhandled future (often after MTProto disconnect)', [
+                        'message' => $msg,
+                        'class' => $cls,
+                    ]);
+                    return;
+                }
+                Log::error('Revolt/EventLoop uncaught error', [
+                    'message' => $msg,
+                    'class' => $cls,
+                ]);
+            });
+        } catch (\Throwable $e) {
+            Log::debug('Revolt EventLoop setErrorHandler not available', ['msg' => $e->getMessage()]);
+        }
     }
 }

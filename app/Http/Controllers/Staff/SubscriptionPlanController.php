@@ -204,7 +204,13 @@ class SubscriptionPlanController extends Controller
 
     public function getServicesByCategory(Request $request): JsonResponse
     {
-        $categoryId = (int) $request->input('category_id');
+        $validated = $request->validate([
+            'category_id' => ['required', 'exists:categories,id'],
+            'target_type' => ['nullable', 'string', 'in:bot,channel,group'],
+        ]);
+
+        $categoryId = (int) $validated['category_id'];
+        $targetType = $validated['target_type'] ?? null;
 
         if (!$categoryId) {
             return response()->json(['services' => []]);
@@ -212,6 +218,11 @@ class SubscriptionPlanController extends Controller
 
         $services = $this->serviceService
             ->getServicesByCategoryId($categoryId, true)
+            ->when($targetType, function ($collection) use ($targetType) {
+                return $collection->filter(function ($service) use ($targetType) {
+                    return $service->target_type === $targetType;
+                });
+            })
             ->map(fn ($s) => $this->formatService($s))
             ->values();
 

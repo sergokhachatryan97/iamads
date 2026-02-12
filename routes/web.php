@@ -4,6 +4,7 @@ use App\Http\Controllers\Client\AccountController;
 use App\Http\Controllers\Client\BalanceController;
 use App\Http\Controllers\Client\OrderController;
 use App\Http\Controllers\Client\ServiceController as ClientServiceController;
+use App\Http\Controllers\GoogleGmailOAuthController;
 use App\Http\Controllers\Staff\InvitationController;
 use App\Http\Controllers\Staff\SubscriptionPlanController;
 use App\Http\Controllers\Staff\UserController;
@@ -11,6 +12,8 @@ use App\Http\Controllers\Staff\ClientController;
 use App\Http\Controllers\Staff\ClientLoginLogController;
 use App\Http\Controllers\Staff\ServiceController;
 use App\Http\Controllers\Admin\ServicesController as AdminServicesController;
+use App\Http\Controllers\Staff\ProviderOrderStatsController;
+use App\Http\Controllers\Staff\SocpanelModerationController;
 use App\Http\Controllers\Auth\AcceptInvitationController;
 use App\Http\Controllers\Auth\ClientSocialAuthController;
 use App\Http\Controllers\Client\Auth\ClientAuthenticatedSessionController;
@@ -117,7 +120,9 @@ Route::prefix('staff')->middleware([UseStaffSession::class, 'signed', 'throttle:
 // Block clients from accessing staff routes
 Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSession::class, BlockClientFromStaffRoutes::class])->group(function () {
     Route::get('dashboard', function () {
-        return view('dashboard');
+        return view('dashboard', [
+            'partialOrdersStats' => \Illuminate\Support\Facades\Cache::get('stats:partial_orders'),
+        ]);
     })->name('staff.dashboard');
 
     Route::get('profile', [ProfileController::class, 'edit'])->name('staff.profile.edit');
@@ -149,6 +154,13 @@ Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSess
             Route::post('services', [AdminServicesController::class, 'store'])->name('admin.services.store');
             Route::put('services/{service}', [AdminServicesController::class, 'update'])->name('admin.services.update');
         });
+
+        // Socpanel moderation: provider orders table (super admin only)
+        Route::get('socpanel-moderation', [SocpanelModerationController::class, 'index'])->name('staff.socpanel-moderation.index');
+
+        // Provider order statistics (completed orders by user / by service)
+        Route::get('provider-order-stats', [ProviderOrderStatsController::class, 'index'])->name('staff.provider-order-stats.index');
+        Route::get('provider-order-stats/export', [ProviderOrderStatsController::class, 'exportCsv'])->name('staff.provider-order-stats.export');
     });
 
     // Clients Management (accessible to all authenticated staff, filtered by role)
@@ -170,6 +182,7 @@ Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSess
     Route::post('orders/{order}/cancel-partial', [\App\Http\Controllers\Staff\OrderController::class, 'cancelPartial'])->name('staff.orders.cancelPartial');
     Route::get('orders/eligible-ids', [\App\Http\Controllers\Staff\OrderController::class, 'getEligibleIds'])->name('staff.orders.eligible-ids');
     Route::post('orders/bulk-action', [\App\Http\Controllers\Staff\OrderController::class, 'bulkAction'])->name('staff.orders.bulk-action');
+    Route::get('orders/statuses', [\App\Http\Controllers\Staff\OrderController::class, 'getStatuses'])->name('staff.orders.statuses');
 
     // Export Files
     Route::get('exports', [\App\Http\Controllers\Staff\ExportFilesController::class, 'index'])->name('staff.exports.index');
@@ -238,6 +251,17 @@ Route::middleware(['guest', UseStaffSession::class])->group(function () {
     Route::post('/invite/register/{token}', [AcceptInvitationController::class, 'register'])
         ->middleware('throttle:5,1')
         ->name('invitation.register');
+});
+
+Route::get('/oauth/google/redirect', [GoogleGmailOAuthController::class, 'redirect'])
+    ->name('oauth.google.redirect');
+
+Route::get('/oauth/google/callback', [GoogleGmailOAuthController::class, 'callback'])
+    ->name('oauth.google.callback');
+
+Route::get('test', function () {
+    \App\Jobs\ProcessPartialOrdersJob::dispatch()->onQueue('default');
+
 });
 
 require __DIR__.'/auth.php';

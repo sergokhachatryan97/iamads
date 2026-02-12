@@ -47,6 +47,27 @@
                             @enderror
                         </div>
 
+                        <!-- Target Type -->
+                        <div class="mb-6" x-show="categoryId" x-cloak>
+                            <label for="target_type" class="block text-sm font-medium text-gray-700 mb-2">
+                                {{ __('Target Type') }}
+                            </label>
+                            <select
+                                id="target_type"
+                                name="target_type"
+                                x-model="targetType"
+                                @change="loadServices"
+                                class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                <option value="">{{ __('All Target Types') }}</option>
+                                <option value="bot">Bot</option>
+                                <option value="channel">Channel</option>
+                                <option value="group">Group</option>
+                            </select>
+                            <p class="mt-1 text-xs text-gray-500">
+                                {{ __('Filter services by target type (optional)') }}
+                            </p>
+                        </div>
+
                         <!-- Link (Single) -->
                         <div class="mb-6">
                             <label for="link" class="block text-sm font-medium text-gray-700 mb-2">
@@ -85,7 +106,23 @@
                                 {{ __('No active services found for this category.') }}
                             </div>
                             <div x-show="!loading && services.length > 0" class="space-y-3 border border-gray-200 rounded-lg p-4 bg-gray-50 max-h-96 overflow-y-auto">
-                                <template x-for="service in (Array.isArray(services) ? services : [])" :key="'service-' + service.id">
+                                <!-- Target Type Filter -->
+                                <div class="mb-3 pb-3 border-b border-gray-200">
+                                    <label for="service_target_type_filter" class="block text-xs font-medium text-gray-700 mb-1">
+                                        {{ __('Filter by Target Type') }}
+                                    </label>
+                                    <select
+                                        id="service_target_type_filter"
+                                        x-model="serviceTargetTypeFilter"
+                                        @change="filterServicesByTargetType"
+                                        class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm text-xs">
+                                        <option value="">{{ __('All Target Types') }}</option>
+                                        <option value="bot">Bot</option>
+                                        <option value="channel">Channel</option>
+                                        <option value="group">Group</option>
+                                    </select>
+                                </div>
+                                <template x-for="service in filteredServices" :key="'service-' + service.id">
                                     <div class="flex items-start gap-3 p-3 bg-white rounded-md border border-gray-200 hover:border-indigo-300 transition-colors"
                                          :class="isServiceSelected(service.id) ? 'border-indigo-500 bg-indigo-50' : ''">
                                         <div class="flex items-center h-5 mt-0.5">
@@ -100,6 +137,7 @@
                                         <div class="flex-1">
                                             <label :for="'service_' + service.id" class="font-medium text-gray-900 cursor-pointer">
                                                 <span x-text="service.name"></span>
+                                                <span x-show="service.target_type" class="ml-2 text-xs text-gray-500">(<span x-text="service.target_type"></span>)</span>
                                             </label>
                                             <div class="mt-1 text-xs text-gray-500">
                                                 <span>{{ __('Min') }}: <span x-text="service.min_quantity || 1"></span></span>
@@ -174,9 +212,12 @@
         function multiOrderForm() {
             return {
                 categoryId: '{{ old('category_id', $preselectedCategoryId ?? '') }}',
+                targetType: '{{ old('target_type', '') }}',
+                serviceTargetTypeFilter: '',
                 link: '{{ old('link', '') }}',
                 linkValid: true,
                 services: [],
+                filteredServices: [],
                 selectedServices: [],
                 loading: false,
                 submitting: false,
@@ -201,27 +242,48 @@
                     if (!link || link.trim() === '') {
                         return true;
                     }
-                    const regex = /^(https?:\/\/)?(t\.me|telegram\.me|telegram\.dog)\/([A-Za-z0-9_+\/\-]+(\?[A-Za-z0-9=&_%\-]+)?)$|^@[A-Za-z0-9_]{5,32}$/i;
+                    const regex = /^(https?:\/\/)?(t\.me|telegram\.me|telegram\.dog)\/([A-Za-z0-9_+\/\-]+(\?[A-Za-z0-9=&_%\-]+)?)$|^@[A-Za-z0-9_]{3,32}$/i;
                     return regex.test(link.trim());
                 },
 
                 async loadServices() {
                     if (!this.categoryId) {
                         this.services = [];
+                        this.filteredServices = [];
                         this.selectedServices = [];
+                        this.targetType = '';
+                        this.serviceTargetTypeFilter = '';
                         return;
                     }
 
                     this.loading = true;
                     try {
-                        const response = await fetch(`{{ route('client.orders.services.by-category') }}?category_id=${this.categoryId}`);
+                        let url = `{{ route('client.orders.services.by-category') }}?category_id=${this.categoryId}`;
+                        if (this.targetType) {
+                            url += `&target_type=${this.targetType}`;
+                        }
+                        const response = await fetch(url);
                         const data = await response.json();
                         this.services = Array.isArray(data) ? data : [];
+                        this.filterServicesByTargetType();
+                        // Clear selected services when filtering changes
+                        this.selectedServices = [];
                     } catch (error) {
                         console.error('Error loading services:', error);
                         this.services = [];
+                        this.filteredServices = [];
                     } finally {
                         this.loading = false;
+                    }
+                },
+
+                filterServicesByTargetType() {
+                    if (!this.serviceTargetTypeFilter) {
+                        this.filteredServices = Array.isArray(this.services) ? this.services : [];
+                    } else {
+                        this.filteredServices = (Array.isArray(this.services) ? this.services : []).filter(
+                            service => service.target_type === this.serviceTargetTypeFilter
+                        );
                     }
                 },
 

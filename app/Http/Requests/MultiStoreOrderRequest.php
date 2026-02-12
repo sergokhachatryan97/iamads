@@ -29,7 +29,7 @@ class MultiStoreOrderRequest extends FormRequest
                 'required',
                 'string',
                 'max:2048',
-                'regex:/^(https?:\/\/)?(t\.me|telegram\.me|telegram\.dog)\/([A-Za-z0-9_+\/\-]+(\?[A-Za-z0-9=&_%\-]+)?)$|^@[A-Za-z0-9_]{5,32}$/i',
+                'regex:/^(https?:\/\/)?(t\.me|telegram\.me|telegram\.dog)\/([A-Za-z0-9_+\/\-]+(\?[A-Za-z0-9=&_%\-]+)?)$|^@[A-Za-z0-9_]{3,32}$/i',
             ],
             'services' => ['required', 'array', 'min:1'],
             'services.*.service_id' => ['required', 'exists:services,id'],
