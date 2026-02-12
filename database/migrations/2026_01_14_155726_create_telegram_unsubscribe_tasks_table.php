@@ -13,7 +13,9 @@ return new class extends Migration
     {
         Schema::create('telegram_unsubscribe_tasks', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('telegram_account_id')->constrained('telegram_accounts')->onDelete('cascade');
+            $table->foreignId('telegram_account_id')
+                ->constrained('telegram_accounts')
+                ->cascadeOnDelete();
             $table->string('link_hash', 64)->index();
             $table->timestamp('due_at')->index();
             $table->string('status', 20)->default('pending')->index(); // pending|processing|done|failed
