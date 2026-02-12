@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\InspectTelegramQuotaLinkJob;
 use App\Models\Client;
 use App\Models\ClientServiceQuota;
 use App\Models\ClientTransaction;
@@ -25,31 +26,33 @@ class SubscriptionPurchaseService
      */
     public function purchaseMonthlyFromBalance(Client $client, int $planId, string|array $links, bool $autoRenew = false): void
     {
-        // Normalize links to array
         $linksArray = is_array($links) ? $links : [$links];
-        $linksArray = array_filter(array_map('trim', $linksArray)); // Remove empty and trim
-        
+        $linksArray = array_values(array_filter(array_map('trim', $linksArray)));
+
         if (empty($linksArray)) {
             throw ValidationException::withMessages([
                 'links' => ['At least one link is required.']
             ]);
         }
 
-        DB::transaction(function () use ($client, $planId, $linksArray, $autoRenew) {
-            // Lock client row for update
-            $client = Client::lockForUpdate()->findOrFail($client->id);
+        // (Optional բայց լավ) normalize + dedupe links այստեղ
+        // Եթե հիմա չես ուզում parser բերել այստեղ, գոնե պարզ unique արա։
+        $linksArray = array_values(array_unique($linksArray));
 
-            // Load plan (must be active)
-            $plan = SubscriptionPlan::where('id', $planId)
+        DB::transaction(function () use ($client, $planId, $linksArray, $autoRenew) {
+            $client = Client::query()->lockForUpdate()->findOrFail($client->id);
+
+            $plan = SubscriptionPlan::query()
+                ->whereKey($planId)
                 ->where('is_active', true)
                 ->firstOrFail();
 
-            // Load monthly price
-            $monthlyPrice = SubscriptionPlanPrice::where('subscription_plan_id', $plan->id)
+            $monthlyPrice = SubscriptionPlanPrice::query()
+                ->where('subscription_plan_id', $plan->id)
                 ->where('billing_cycle', 'monthly')
                 ->first();
 
-            if (!$monthlyPrice || !$monthlyPrice->price || $monthlyPrice->price <= 0) {
+            if (!$monthlyPrice || (float)$monthlyPrice->price <= 0) {
                 throw ValidationException::withMessages([
                     'plan' => ['This plan does not have a valid monthly price.']
                 ]);
@@ -57,11 +60,13 @@ class SubscriptionPurchaseService
 
             $price = (float) $monthlyPrice->price;
 
-            // Prevent duplicate active purchase
-            $existingActiveQuota = ClientServiceQuota::where('client_id', $client->id)
-                ->where('subscription_id', $planId)
+            // Prevent duplicate active purchase (lock rows to avoid race)
+            $existingActiveQuota = ClientServiceQuota::query()
+                ->where('client_id', $client->id)
+                ->where('subscription_id', $plan->id)
                 ->where('expires_at', '>', now())
-                ->first();
+                ->lockForUpdate()
+                ->exists();
 
             if ($existingActiveQuota) {
                 throw ValidationException::withMessages([
@@ -69,19 +74,17 @@ class SubscriptionPurchaseService
                 ]);
             }
 
-            // Balance check
-            if ($client->balance < $price) {
+            if ((float)$client->balance < $price) {
                 throw ValidationException::withMessages([
                     'balance' => ['Insufficient balance. Please top up.']
                 ]);
             }
 
-            // Deduct price from balance
-            $client->balance -= $price;
+            $client->balance = (float)$client->balance - $price;
             $client->save();
 
-            // Load included services
-            $planServices = SubscriptionPlanService::where('subscription_plan_id', $plan->id)
+            $planServices = SubscriptionPlanService::query()
+                ->where('subscription_plan_id', $plan->id)
                 ->get();
 
             if ($planServices->isEmpty()) {
@@ -90,28 +93,29 @@ class SubscriptionPurchaseService
                 ]);
             }
 
-            // Calculate expiration date (1 month from now)
             $expiresAt = now()->addMonth();
-
-            // Create quota rows for each included service
-            // If multiple links, divide quantity equally among all links
             $linkCount = count($linksArray);
+
             foreach ($planServices as $planService) {
-                // Divide quantity equally among all links
-                $quantityPerLink = $linkCount > 1 
-                    ? (int) floor($planService->quantity / $linkCount)
-                    : $planService->quantity;
-                
-                // Calculate remainder for the first link(s) if division is not exact
-                $remainder = $linkCount > 1 
-                    ? $planService->quantity % $linkCount 
-                    : 0;
+                $totalQty = (int) $planService->quantity;
+
+                // avoid division by zero / weird cases
+                if ($totalQty <= 0) {
+                    continue;
+                }
+
+                $quantityPerLink = $linkCount > 1 ? intdiv($totalQty, $linkCount) : $totalQty;
+                $remainder = $linkCount > 1 ? ($totalQty % $linkCount) : 0;
 
                 foreach ($linksArray as $index => $link) {
-                    // Add remainder to first links if division is not exact
                     $finalQuantity = $quantityPerLink + ($index < $remainder ? 1 : 0);
-                    
-                    ClientServiceQuota::create([
+
+                    // IMPORTANT: skip zero quotas
+                    if ($finalQuantity <= 0) {
+                        continue;
+                    }
+
+                    $quota = ClientServiceQuota::create([
                         'client_id' => $client->id,
                         'subscription_id' => $plan->id,
                         'service_id' => $planService->service_id,
@@ -121,15 +125,18 @@ class SubscriptionPurchaseService
                         'expires_at' => $expiresAt,
                         'auto_renew' => $autoRenew,
                     ]);
+
+                    InspectTelegramQuotaLinkJob::dispatch($quota->id)->afterCommit();
                 }
             }
 
-            // Create ledger record
             ClientTransaction::create([
                 'client_id' => $client->id,
                 'order_id' => null,
                 'amount' => -$price,
                 'type' => ClientTransaction::TYPE_SUBSCRIPTION_CHARGE,
+                // optional metadata fields եթե ունես
+                // 'meta' => ['plan_id' => $plan->id, 'links_count' => $linkCount, 'expires_at' => $expiresAt->toDateTimeString()],
             ]);
         });
     }
@@ -145,88 +152,102 @@ class SubscriptionPurchaseService
      */
     public function renewSubscription(Client $client, int $planId, string|array $links): bool
     {
-        // Normalize links to array
         $linksArray = is_array($links) ? $links : [$links];
-        $linksArray = array_filter(array_map('trim', $linksArray));
-        
+        $linksArray = array_values(array_filter(array_map('trim', $linksArray)));
+
         if (empty($linksArray)) {
-            \Log::error("Subscription renewal failed: No links provided for client {$client->id}, plan {$planId}");
+            \Log::error("Subscription renewal failed: No links provided", [
+                'client_id' => $client->id,
+                'plan_id' => $planId,
+            ]);
             return false;
         }
 
+        $linksArray = array_values(array_unique($linksArray));
+
         try {
             DB::transaction(function () use ($client, $planId, $linksArray) {
-                // Lock client row for update
-                $client = Client::lockForUpdate()->findOrFail($client->id);
+                $client = Client::query()->lockForUpdate()->findOrFail($client->id);
 
-                // Load plan (must be active)
-                $plan = SubscriptionPlan::where('id', $planId)
+                $plan = SubscriptionPlan::query()
+                    ->whereKey($planId)
                     ->where('is_active', true)
                     ->first();
 
                 if (!$plan) {
-                    throw new \Exception("Subscription plan {$planId} not found or inactive.");
+                    throw new \RuntimeException("Subscription plan {$planId} not found or inactive.");
                 }
 
-                // Load monthly price
-                $monthlyPrice = SubscriptionPlanPrice::where('subscription_plan_id', $plan->id)
+                $monthlyPrice = SubscriptionPlanPrice::query()
+                    ->where('subscription_plan_id', $plan->id)
                     ->where('billing_cycle', 'monthly')
                     ->first();
 
-                if (!$monthlyPrice || !$monthlyPrice->price || $monthlyPrice->price <= 0) {
-                    throw new \Exception("Subscription plan {$planId} does not have a valid monthly price.");
+                $price = (float) ($monthlyPrice->price ?? 0);
+                if ($price <= 0) {
+                    throw new \RuntimeException("Subscription plan {$planId} does not have a valid monthly price.");
                 }
 
-                $price = (float) $monthlyPrice->price;
+                // Prevent duplicate active renewal (important)
+                $alreadyActive = ClientServiceQuota::query()
+                    ->where('client_id', $client->id)
+                    ->where('subscription_id', $plan->id)
+                    ->where('expires_at', '>', now())
+                    ->lockForUpdate()
+                    ->exists();
 
-                // Balance check
-                if ($client->balance < $price) {
-                    throw new \Exception("Insufficient balance for client {$client->id}. Required: {$price}, Available: {$client->balance}");
+                if ($alreadyActive) {
+                    throw new \RuntimeException("Renewal blocked: client already has an active subscription for plan {$plan->id}.");
                 }
 
-                // Load included services
-                $planServices = SubscriptionPlanService::where('subscription_plan_id', $plan->id)
+                if ((float) $client->balance < $price) {
+                    throw new \RuntimeException("Insufficient balance. Required: {$price}, Available: {$client->balance}");
+                }
+
+                $planServices = SubscriptionPlanService::query()
+                    ->where('subscription_plan_id', $plan->id)
                     ->get();
 
                 if ($planServices->isEmpty()) {
-                    throw new \Exception("Subscription plan {$planId} has no included services.");
+                    throw new \RuntimeException("Subscription plan {$planId} has no included services.");
                 }
 
-                // Deduct price from balance
-                $client->balance -= $price;
-                $client->save();
-
-                // Calculate expiration date (1 month from now)
-                $expiresAt = now()->addMonth();
-
-                // Get the auto_renew flag from the expired quota (should be true, but check first)
-                $expiredQuota = ClientServiceQuota::where('client_id', $client->id)
-                    ->where('subscription_id', $planId)
+                // Get auto_renew from the last expired quota (if any)
+                $expiredQuota = ClientServiceQuota::query()
+                    ->where('client_id', $client->id)
+                    ->where('subscription_id', $plan->id)
                     ->where('expires_at', '<=', now())
-                    ->where('auto_renew', true)
+                    ->orderByDesc('expires_at')
+                    ->lockForUpdate()
                     ->first();
 
-                $autoRenew = $expiredQuota ? $expiredQuota->auto_renew : false;
+                $autoRenew = (bool) ($expiredQuota?->auto_renew ?? false);
 
-                // Create quota rows for each included service
-                // If multiple links, divide quantity equally among all links
+                // Deduct price
+                $client->balance = (float) $client->balance - $price;
+                $client->save();
+
+                $expiresAt = now()->addMonth();
                 $linkCount = count($linksArray);
+
                 foreach ($planServices as $planService) {
-                    // Divide quantity equally among all links
-                    $quantityPerLink = $linkCount > 1 
-                        ? (int) floor($planService->quantity / $linkCount)
-                        : $planService->quantity;
-                    
-                    // Calculate remainder for the first link(s) if division is not exact
-                    $remainder = $linkCount > 1 
-                        ? $planService->quantity % $linkCount 
-                        : 0;
+                    $totalQty = (int) $planService->quantity;
+                    if ($totalQty <= 0) {
+                        continue;
+                    }
+
+                    $quantityPerLink = $linkCount > 1 ? intdiv($totalQty, $linkCount) : $totalQty;
+                    $remainder = $linkCount > 1 ? ($totalQty % $linkCount) : 0;
 
                     foreach ($linksArray as $index => $link) {
-                        // Add remainder to first links if division is not exact
                         $finalQuantity = $quantityPerLink + ($index < $remainder ? 1 : 0);
-                        
-                        ClientServiceQuota::create([
+
+                        // IMPORTANT: skip zero quotas
+                        if ($finalQuantity <= 0) {
+                            continue;
+                        }
+
+                        $quota = ClientServiceQuota::create([
                             'client_id' => $client->id,
                             'subscription_id' => $plan->id,
                             'service_id' => $planService->service_id,
@@ -234,12 +255,13 @@ class SubscriptionPurchaseService
                             'orders_left' => null,
                             'link' => $link,
                             'expires_at' => $expiresAt,
-                            'auto_renew' => $autoRenew, // Keep the auto_renew setting
+                            'auto_renew' => $autoRenew,
                         ]);
+
+                        InspectTelegramQuotaLinkJob::dispatch($quota->id)->afterCommit();
                     }
                 }
 
-                // Create ledger record
                 ClientTransaction::create([
                     'client_id' => $client->id,
                     'order_id' => null,
@@ -250,8 +272,7 @@ class SubscriptionPurchaseService
             });
 
             return true;
-        } catch (\Exception $e) {
-            // Log the error and return false
+        } catch (\Throwable $e) {
             \Log::error('Failed to renew subscription', [
                 'client_id' => $client->id,
                 'plan_id' => $planId,

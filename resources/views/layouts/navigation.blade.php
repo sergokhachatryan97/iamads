@@ -19,6 +19,12 @@
                         <x-nav-link :href="route('staff.users.index')" :active="request()->routeIs('staff.users.*')">
                             {{ __('Managers') }}
                         </x-nav-link>
+                        <x-nav-link :href="route('staff.socpanel-moderation.index')" :active="request()->routeIs('staff.socpanel-moderation.*')">
+                            {{ __('Socpanel Moderation') }}
+                        </x-nav-link>
+                        <x-nav-link :href="route('staff.provider-order-stats.index')" :active="request()->routeIs('staff.provider-order-stats.*')">
+                            {{ __('Provider Order Stats') }}
+                        </x-nav-link>
                     @endif
                     @if(Auth::guard('staff')->check())
                         <x-nav-link :href="route('staff.orders.index')" :active="request()->routeIs('staff.orders.*')">
@@ -109,6 +115,12 @@
             @if(Auth::guard('staff')->check() && Auth::guard('staff')->user()->hasRole('super_admin'))
                 <x-responsive-nav-link :href="route('staff.users.index')" :active="request()->routeIs('staff.users.*')">
                     {{ __('Users') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('staff.socpanel-moderation.index')" :active="request()->routeIs('staff.socpanel-moderation.*')">
+                    {{ __('Socpanel Moderation') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('staff.provider-order-stats.index')" :active="request()->routeIs('staff.provider-order-stats.*')">
+                    {{ __('Provider Order Stats') }}
                 </x-responsive-nav-link>
             @endif
 

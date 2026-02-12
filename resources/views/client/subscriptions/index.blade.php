@@ -114,7 +114,7 @@
 
                                                 {{-- Button pinned bottom --}}
                                                 <div class="mt-auto pt-6">
-                                                    <button 
+                                                    <button
                                                         @click="checkBalanceAndOpenModal()"
                                                         :disabled="isActive"
                                                         class="w-full text-white font-semibold py-2 px-4 rounded transition"
@@ -181,7 +181,7 @@
 
                                                 {{-- Button pinned bottom --}}
                                                 <div class="mt-auto pt-6">
-                                                    <button 
+                                                    <button
                                                         @click="checkBalanceAndOpenModal()"
                                                         :disabled="isActive"
                                                         class="w-full text-white font-semibold py-2 px-4 rounded transition"
@@ -247,7 +247,7 @@
 
                                                 {{-- Button pinned bottom --}}
                                                 <div class="mt-auto pt-6">
-                                                    <button 
+                                                    <button
                                                         @click="checkBalanceAndOpenModal()"
                                                         :disabled="isActive"
                                                         class="w-full text-white font-semibold py-2 px-4 rounded transition"
@@ -276,7 +276,7 @@
 
     {{-- Success Message --}}
     @if(session('status') === 'subscription-purchased')
-        <div 
+        <div
             x-data="{ show: true }"
             x-show="show"
             x-init="setTimeout(() => show = false, 5000)"

@@ -288,13 +288,87 @@
                                 </td>
                             </tr>
                         @else
-                            @foreach($category->services as $service)
-                                <tr x-show="!isCategoryCollapsed({{ $category->id }})"
+                            @php
+                                // Group services by target_type
+                                $servicesByTargetType = $category->services->groupBy(function($service) {
+                                    return $service->target_type ?? 'other';
+                                });
+                                $targetTypeLabels = [
+                                    'bot' => 'Bot Services 🤖',
+                                    'channel' => 'Channel Services',
+                                    'group' => 'Group Services',
+                                    'other' => 'Other Services',
+                                ];
+                            @endphp
+
+                            @foreach(['bot', 'channel', 'group', 'other'] as $targetType)
+                                @if($servicesByTargetType->has($targetType) && $servicesByTargetType->get($targetType)->isNotEmpty())
+                                    @php
+                                        $targetServices = $servicesByTargetType->get($targetType);
+                                        $targetGroupId = "category_{$category->id}_target_{$targetType}";
+                                    @endphp
+
+                                    {{-- Target Type Group Header --}}
+                                    <tr x-show="!isCategoryCollapsed({{ $category->id }})" x-transition class="bg-gray-100">
+                                        <td colspan="10" class="px-6 py-2">
+                                            <div class="flex items-center justify-between">
+                                                <div class="flex items-center gap-3">
+                                                    <button type="button"
+                                                            @click="toggleTargetGroup('{{ $targetGroupId }}')"
+                                                            class="inline-flex items-center gap-1 text-sm font-medium text-gray-700 hover:text-gray-900 focus:outline-none">
+                                                        <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-180': isTargetGroupCollapsed('{{ $targetGroupId }}') }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                                        </svg>
+                                                        <span>{{ $targetTypeLabels[$targetType] ?? ucfirst($targetType) }} ({{ $targetServices->count() }})</span>
+                                                    </button>
+                                                </div>
+                                                <div class="flex items-center gap-3">
+                                                    {{-- Actions Dropdown for Target Type Group --}}
+                                                    <div class="relative" x-data="{ open{{ $targetGroupId }}: false }">
+                                                        <button type="button"
+                                                                @click="open{{ $targetGroupId }} = !open{{ $targetGroupId }}"
+                                                                class="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                                            Actions
+                                                            <svg class="ml-2 -mr-1 h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                                                <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                                            </svg>
+                                                        </button>
+                                                        <div x-show="open{{ $targetGroupId }}"
+                                                             @click.away="open{{ $targetGroupId }} = false"
+                                                             x-cloak
+                                                             class="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg py-1 border border-gray-200"
+                                                             style="display: none; z-index: 9999;">
+                                                            <button type="button"
+                                                                    @click="selectAllTargetGroupServices('{{ $targetGroupId }}', {{ $category->id }}, '{{ $targetType }}'); open{{ $targetGroupId }} = false"
+                                                                    class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                                {{ __('Select all') }}
+                                                            </button>
+                                                            <button type="button"
+                                                                    @click="showBulkEnableTargetGroupConfirm('{{ $targetGroupId }}', {{ $category->id }}, '{{ $targetType }}'); open{{ $targetGroupId }} = false"
+                                                                    class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                                {{ __('Enable all') }}
+                                                            </button>
+                                                            <button type="button"
+                                                                    @click="showBulkDisableTargetGroupConfirm('{{ $targetGroupId }}', {{ $category->id }}, '{{ $targetType }}'); open{{ $targetGroupId }} = false"
+                                                                    class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                                {{ __('Disable all') }}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                    </tr>
+
+                                    {{-- Service Rows for this target type --}}
+                                    @foreach($targetServices as $service)
+                                <tr x-show="!isCategoryCollapsed({{ $category->id }}) && !isTargetGroupCollapsed('{{ $targetGroupId }}')"
                                     x-transition
                                     class="hover:bg-gray-50 {{ !($service->is_active ?? true) ? 'opacity-60 bg-gray-50' : '' }}">
                                         <td class="px-4 py-2 whitespace-nowrap">
                                             <input type="checkbox"
                                                    data-category-id="{{ $category->id }}"
+                                                   data-target-type="{{ $targetType }}"
                                                    data-service-id="{{ $service->id }}"
                                                    value="{{ $service->id }}"
                                                    :checked="selectedServices.includes({{ $service->id }})"
@@ -315,8 +389,18 @@
                                                     'mentions' => 'Mentions',
                                                     'package' => 'Package',
                                                 ];
+                                                $targetTypes = [
+                                                    'bot' => 'Bot',
+                                                    'channel' => 'Channel',
+                                                    'group' => 'Group',
+                                                ];
                                             @endphp
-                                            {{ $serviceTypes[$service->service_type ?? 'default'] ?? ucfirst($service->service_type ?? 'Default') }}
+                                            <div class="flex flex-col gap-1">
+                                                <span>{{ $serviceTypes[$service->service_type ?? 'default'] ?? ucfirst($service->service_type ?? 'Default') }}</span>
+                                                @if($service->target_type)
+                                                    <span class="text-xs text-gray-400">({{ $targetTypes[$service->target_type] ?? ucfirst($service->target_type) }})</span>
+                                                @endif
+                                            </div>
                                         </td>
                                         <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
                                             {{ ucfirst($service->mode) }}
@@ -411,8 +495,10 @@
                                             @endif
                                         </td>
                                     </tr>
-                                @endforeach
-                            @endif
+                                    @endforeach
+                                @endif
+                            @endforeach
+                        @endif
                     @endforeach
                 </tbody>
             </table>

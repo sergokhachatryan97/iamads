@@ -22,13 +22,23 @@ class StoreServiceRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
+        $rules = [
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'category_id' => ['required', 'integer', 'exists:categories,id'],
             'mode' => ['required', 'string', 'in:manual,auto'],
             'service_type' => ['nullable', 'string'],
+            'target_type' => ['nullable', 'string', Rule::in(['bot', 'channel', 'group'])],
+            'template_key' => ['nullable', 'string', Rule::in(array_keys(config('telegram_service_templates', [])))],
+            'duration_days' => ['nullable', 'integer', 'min:1'],
             'dripfeed_enabled' => ['nullable', 'boolean'],
+            'speed_limit_enabled' => ['nullable', 'boolean'],
+            'speed_multiplier_fast' => ['nullable', 'numeric', 'min:1', 'max:10'],
+            'speed_multiplier_super_fast' => ['nullable', 'numeric', 'min:1', 'max:10'],
+            'rate_multiplier_fast' => ['nullable', 'numeric', 'min:1', 'max:10'],
+            'rate_multiplier_super_fast' => ['nullable', 'numeric', 'min:1', 'max:10'],
+            'requires_subscription' => ['nullable', 'boolean'],
+            'required_subscription_template_key' => ['nullable', 'string', Rule::in(array_keys(config('telegram_service_templates', [])))],
             'user_can_cancel' => ['nullable', 'boolean'],
             'rate_per_1000' => ['required', 'numeric', 'min:0'],
             'service_cost_per_1000' => ['nullable', 'numeric', 'min:0'],
@@ -42,6 +52,35 @@ class StoreServiceRequest extends FormRequest
             'auto_complete_enabled' => ['nullable', 'boolean'],
             'refill_enabled' => ['nullable', 'boolean'],
         ];
+
+        // Validate duration_days if template requires it
+        $templateKey = $this->input('template_key');
+        if ($templateKey) {
+            $template = config("telegram_service_templates.{$templateKey}");
+            if ($template && ($template['requires_duration_days'] ?? false)) {
+                $rules['duration_days'] = ['required', 'integer', 'min:1'];
+            }
+        }
+
+        // Validate speed multipliers if speed limit is enabled
+        if ($this->boolean('speed_limit_enabled')) {
+            $rules['speed_multiplier_fast'] = ['required', 'numeric', 'min:1', 'max:10'];
+            $rules['speed_multiplier_super_fast'] = ['required', 'numeric', 'min:1', 'max:10'];
+            // Rate multipliers are always required (default to 1.000)
+            $rules['rate_multiplier_fast'] = ['required', 'numeric', 'min:1', 'max:10'];
+            $rules['rate_multiplier_super_fast'] = ['required', 'numeric', 'min:1', 'max:10'];
+        } else {
+            // If speed limit disabled, force rate multipliers to 1.000
+            $rules['rate_multiplier_fast'] = ['nullable', 'numeric', 'min:1', 'max:10'];
+            $rules['rate_multiplier_super_fast'] = ['nullable', 'numeric', 'min:1', 'max:10'];
+        }
+
+        // Validate required_subscription_template_key if requires_subscription is enabled
+        if ($this->boolean('requires_subscription')) {
+            $rules['required_subscription_template_key'] = ['required', 'string', Rule::in(array_keys(config('telegram_service_templates', [])))];
+        }
+
+        return $rules;
     }
 
     /**
@@ -53,6 +92,12 @@ class StoreServiceRequest extends FormRequest
             // Auto complete requires parsing to be enabled
             if ($this->input('auto_complete_enabled') && !$this->input('start_count_parsing_enabled')) {
                 $validator->errors()->add('auto_complete_enabled', 'Auto Complete can only be enabled when Start count parsing is enabled.');
+            }
+
+            // Speed limit and dripfeed are mutually exclusive
+            if ($this->boolean('speed_limit_enabled') && $this->boolean('dripfeed_enabled')) {
+                $validator->errors()->add('speed_limit_enabled', 'Speed limit and Dripfeed cannot be enabled at the same time.');
+                $validator->errors()->add('dripfeed_enabled', 'Speed limit and Dripfeed cannot be enabled at the same time.');
             }
         });
     }

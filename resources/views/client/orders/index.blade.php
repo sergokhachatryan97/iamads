@@ -13,27 +13,32 @@
 
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            @if(session('success'))
-                <div class="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
-                    <span class="block sm:inline">{{ session('success') }}</span>
-                </div>
-            @endif
+            <div x-data="{ show: true }"
+                 x-init="setTimeout(() => show = false, 3000)"
+                 x-show="show"
+                 x-transition.opacity.duration.300ms>
+                @if(session('success'))
+                    <div class="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
+                        <span class="block sm:inline">{{ session('success') }}</span>
+                    </div>
+                @endif
 
-            @if(session('error'))
-                <div class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-                    <span class="block sm:inline">{{ session('error') }}</span>
-                </div>
-            @endif
+                @if(session('error'))
+                    <div class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                        <span class="block sm:inline">{{ session('error') }}</span>
+                    </div>
+                @endif
 
-            @if($errors->any())
-                <div class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-                    <ul class="list-disc list-inside">
-                        @foreach($errors->all() as $error)
-                            <li>{{ $error }}</li>
-                        @endforeach
-                    </ul>
-                </div>
-            @endif
+                @if($errors->any())
+                    <div class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                        <ul class="list-disc list-inside">
+                            @foreach($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+            </div>
 
             <!-- Status Filter Tabs -->
             <div class="mb-4">
@@ -183,7 +188,7 @@
                                                         $username = explode('?', $username)[0];
                                                         $username = explode('/', $username)[0];
                                                         $telegramUrl = 'tg://resolve?domain=' . $username;
-                                                    } elseif (preg_match('/^@([A-Za-z0-9_]{5,32})$/i', $order->link, $matches)) {
+                                                    } elseif (preg_match('/^@([A-Za-z0-9_]{3,32})$/i', $order->link, $matches)) {
                                                         $telegramUrl = 'tg://resolve?domain=' . $matches[1];
                                                     }
                                                 @endphp
@@ -210,7 +215,7 @@
                                             {{ number_format($order->quantity) }}
                                         </td>
                                         <td class="px-6 py-4 text-sm text-gray-900">
-                                            {{ $order->service_id }} — {{ $order->service->name }}
+                                            {{ $order->service->name }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             @php
