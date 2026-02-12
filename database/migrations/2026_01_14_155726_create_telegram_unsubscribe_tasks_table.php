@@ -19,8 +19,11 @@ return new class extends Migration
             $table->string('link_hash', 64)->index();
             $table->timestamp('due_at')->index();
             $table->string('status', 20)->default('pending')->index(); // pending|processing|done|failed
-            $table->string('provider_task_id', 255)->nullable()->index();$table->foreignId('telegram_task_id')->nullable()
-                ->constrained('telegram_tasks')
+            $table->string('provider_task_id', 255)->nullable()->index();
+            $table->string('telegram_task_id', 26)->nullable()->index();
+            $table->foreign('telegram_task_id')
+                ->references('id')
+                ->on('telegram_tasks')
                 ->nullOnDelete();
             $table->text('error')->nullable();
             $table->string('subject_type')->nullable(); // e.g. App\Models\Order
