@@ -402,8 +402,8 @@
                         container.innerHTML = '<div class="text-center p-8"><div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div><p class="mt-2 text-gray-500">Searching...</p></div>';
                     }
 
-                    // Make AJAX request
-                    fetch('{{ route("client.services.search") }}', {
+                    // Make AJAX request - use relative URL to avoid mixed content issues
+                    fetch('{{ parse_url(route("client.services.search"), PHP_URL_PATH) }}', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -540,7 +540,19 @@
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">{{ __('Rate per 1000') }}</label>
-                                <p class="text-sm text-gray-900 font-medium">${{ number_format($service->rate_per_1000 ?? 0, 2) }}</p>
+                                @php
+                                    $defaultRate = $service->default_rate ?? $service->rate_per_1000 ?? 0;
+                                    $customRate = $service->client_price ?? $defaultRate;
+                                    $hasCustomRate = $service->has_custom_rate ?? false;
+                                @endphp
+                                @if($hasCustomRate && $customRate != 0 && $defaultRate != $customRate)
+                                    <div class="flex flex-col">
+                                        <span class="text-gray-500 line-through text-xs">${{ number_format($defaultRate, 2) }}</span>
+                                        <span class="text-indigo-600 font-semibold text-sm">${{ number_format($customRate, 2) }}</span>
+                                    </div>
+                                @else
+                                    <p class="text-sm text-gray-900 font-medium">${{ number_format($customRate, 2) }}</p>
+                                @endif
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">{{ __('Min Quantity') }}</label>
@@ -563,63 +575,22 @@
                             </div>
                         @endif
 
-                        {{-- Order Form (Design Only) --}}
+                        {{-- Create Order Button --}}
                         <div class="border-t border-gray-200 pt-6">
-                            <h4 class="text-md font-semibold text-gray-900 mb-4">{{ __('Create Order') }}</h4>
-                            <form class="space-y-4">
-                                <div>
-                                    <label for="link-{{ $service->id }}" class="block text-sm font-medium text-gray-700 mb-1">
-                                        {{ __('Link') }} <span class="text-red-500">*</span>
-                                    </label>
-                                    <input type="url"
-                                           id="link-{{ $service->id }}"
-                                           name="link"
-                                           required
-                                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm">
-                                </div>
-
-                                <div x-data="{
-                                    quantity: {{ $service->min_quantity ?? 1 }},
-                                    rate: {{ $service->rate_per_1000 ?? 0 }},
-                                    get total() { return (this.quantity * this.rate / 1000).toFixed(2); }
-                                }">
-                                    <label for="quantity-{{ $service->id }}" class="block text-sm font-medium text-gray-700 mb-1">
-                                        {{ __('Quantity') }} <span class="text-red-500">*</span>
-                                    </label>
-                                    <input type="number"
-                                           id="quantity-{{ $service->id }}"
-                                           name="quantity"
-                                           x-model.number="quantity"
-                                           min="{{ $service->min_quantity ?? 1 }}"
-                                           max="{{ $service->max_quantity ?? 1 }}"
-                                           value="{{ $service->min_quantity ?? 1 }}"
-                                           required
-                                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm">
-                                    <p class="mt-1 text-xs text-gray-500">
-                                        {{ __('Min: :min, Max: :max', ['min' => number_format($service->min_quantity ?? 1), 'max' => number_format($service->max_quantity ?? 1)]) }}
-                                    </p>
-
-                                    <div class="flex items-center justify-between pt-4 border-t border-gray-200 mt-4">
-                                        <div>
-                                            <p class="text-sm text-gray-600">{{ __('Total Cost') }}</p>
-                                            <p class="text-lg font-semibold text-gray-900">
-                                                $<span x-text="total">0.00</span>
-                                            </p>
-                                        </div>
-                                        <div class="flex gap-3">
-                                            <button type="button"
-                                                    @click="$dispatch('close-modal', 'service-view-{{ $service->id }}')"
-                                                    class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                                                {{ __('Cancel') }}
-                                            </button>
-                                            <button type="submit"
-                                                    class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                                                {{ __('Create Order') }}
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </form>
+                            <div class="flex items-center justify-end gap-3">
+                                <button type="button"
+                                        @click="$dispatch('close-modal', 'service-view-{{ $service->id }}')"
+                                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                    {{ __('Close') }}
+                                </button>
+                                <a href="{{ route('client.orders.create', ['category_id' => $service->category_id, 'service_id' => $service->id]) }}"
+                                   class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                    </svg>
+                                    {{ __('Create Order') }}
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>

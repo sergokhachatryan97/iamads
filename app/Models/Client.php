@@ -31,6 +31,10 @@ class Client extends Authenticatable
         'email_verified_at',
         'suspended_at',
         'malicious_at',
+        'provider',
+        'provider_id',
+        'avatar',
+        'social_media',
     ];
 
     /**
@@ -60,6 +64,7 @@ class Client extends Authenticatable
             'email_verified_at' => 'datetime',
             'suspended_at' => 'datetime',
             'malicious_at' => 'datetime',
+            'social_media' => 'array',
         ];
     }
 
@@ -87,5 +92,37 @@ class Client extends Authenticatable
     public function loginLogs(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(ClientLoginLog::class);
+    }
+
+    /**
+     * Get the orders for this client.
+     */
+    public function orders(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Order::class);
+    }
+
+    /**
+     * Get the transactions for this client.
+     */
+    public function transactions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ClientTransaction::class);
+    }
+
+    /**
+     * Get the service quotas for this client.
+     */
+    public function serviceQuotas(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ClientServiceQuota::class);
+    }
+
+    /**
+     * Get the service limits for this client.
+     */
+    public function serviceLimits(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ClientServiceLimit::class);
     }
 }

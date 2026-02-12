@@ -96,7 +96,7 @@
                         @endif
 
                         <div class="space-y-6">
-                            
+
                             {{-- Essential Information Section --}}
                             <div class="border-l-4 border-indigo-500 bg-indigo-50/30 rounded-r-lg p-5 sm:p-6">
                                 <div class="flex items-center gap-2 mb-4">
@@ -106,7 +106,7 @@
                                     <h3 class="text-lg font-semibold text-gray-900">{{ __('Essential Information') }}</h3>
                                     <span class="text-xs text-gray-500 font-normal">(Required)</span>
                                 </div>
-                                
+
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                                     {{-- Service name --}}
                                     <div>
@@ -371,10 +371,9 @@
                                 </h3>
                                 <p class="text-xs text-gray-500 mb-4">{{ __('Optional configuration options') }}</p>
 
-                                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                                     {{-- Deny link duplicates --}}
-                                    <div class="space-y-4">
-                                        <div>
+                                    <div>
                                             <x-custom-select
                                                 name="deny_link_duplicates"
                                                 id="deny_link_duplicates"
@@ -389,23 +388,22 @@
                                             @enderror
                                         </div>
 
-                                        <div x-show="denyDuplicates === '1'" x-cloak class="transition-all">
-                                            <label for="deny_duplicates_days" class="block text-sm font-medium text-gray-700 mb-1.5">
-                                                {{ __('Days to Check') }}
-                                            </label>
-                                            <input type="number"
-                                                   name="deny_duplicates_days"
-                                                   id="deny_duplicates_days"
-                                                   value="{{ old('deny_duplicates_days', isset($service) ? ($service->deny_duplicates_days ?? 90) : '90') }}"
-                                                   min="1"
-                                                   max="3650"
-                                                   class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('deny_duplicates_days') border-red-300 @enderror"
-                                                   placeholder="90">
-                                            @error('deny_duplicates_days')
-                                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                                            @enderror
-                                            <p class="mt-1 text-xs text-gray-500">{{ __('Check for duplicate links within this period') }}</p>
-                                        </div>
+                                    <div x-show="denyDuplicates === '1'" x-cloak class="transition-all">
+                                        <label for="deny_duplicates_days" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                            {{ __('Days to Check') }}
+                                        </label>
+                                        <input type="number"
+                                               name="deny_duplicates_days"
+                                               id="deny_duplicates_days"
+                                               value="{{ old('deny_duplicates_days', isset($service) ? ($service->deny_duplicates_days ?? 90) : '90') }}"
+                                               min="1"
+                                               max="3650"
+                                               class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('deny_duplicates_days') border-red-300 @enderror"
+                                               placeholder="90">
+                                        @error('deny_duplicates_days')
+                                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                                        @enderror
+                                        <p class="mt-1 text-xs text-gray-500">{{ __('Check for duplicate links within this period') }}</p>
                                     </div>
 
                                     {{-- Increment --}}
@@ -590,14 +588,14 @@
                             if (parsingInput.value) {
                                 this.parsingEnabled = parsingInput.value;
                             }
-                            
+
                             // Watch for parsing enabled changes from custom-select
                             parsingInput.addEventListener('change', () => {
                                 this.parsingEnabled = parsingInput.value;
                                 this.guardAutoComplete(this.parsingEnabled);
                             });
                         }
-                        
+
                         // Watch for mode changes
                         const modeInput = document.querySelector('input[name="mode"][type="hidden"]');
                         if (modeInput) {
@@ -612,7 +610,7 @@
                             });
                         }
                     });
-                    
+
                     // Initial guard check
                     this.guardAutoComplete(this.parsingEnabled);
                 },

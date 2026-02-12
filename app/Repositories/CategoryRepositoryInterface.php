@@ -18,9 +18,10 @@ interface CategoryRepositoryInterface
     /**
      * Get all categories ordered by name.
      *
+     * @param bool $forClient If true, only return enabled categories
      * @return Collection
      */
-    public function getAll(): Collection;
+    public function getAll(bool $forClient = false): Collection;
 
     /**
      * Find a category by ID.

@@ -35,4 +35,40 @@ return [
         ],
     ],
 
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI', env('APP_URL') . '/auth/google/callback'),
+    ],
+
+    'apple' => [
+        'client_id' => env('APPLE_CLIENT_ID'),
+        'client_secret' => env('APPLE_CLIENT_SECRET', ''), // Generated dynamically from private_key
+        'team_id' => env('APPLE_TEAM_ID'),
+        'key_id' => env('APPLE_KEY_ID'),
+        'private_key' => env('APPLE_PRIVATE_KEY'),
+        'redirect' => env('APPLE_REDIRECT_URI', env('APP_URL') . '/auth/apple/callback'),
+    ],
+
+    'yandex' => [
+        'client_id' => env('YANDEX_CLIENT_ID'),
+        'client_secret' => env('YANDEX_CLIENT_SECRET'),
+        'redirect' => env('YANDEX_REDIRECT_URI', env('APP_URL') . '/auth/yandex/callback'),
+    ],
+
+    'telegram' => [
+        'bot_token' => env('TELEGRAM_BOT_TOKEN'),
+        'bot_username' => env('TELEGRAM_BOT_USERNAME'),
+    ],
+
+    'provider' => [
+        'base_url' => env('PROVIDER_BASE_URL'),
+        'api_key' => env('PROVIDER_API_KEY'),
+        'webhook_secret' => env('PROVIDER_WEBHOOK_SECRET'),
+        'rate_limit_per_second' => env('PROVIDER_RATE_LIMIT_PER_SECOND', 5),
+        'status_rate_limit_per_second' => env('PROVIDER_STATUS_RATE_LIMIT_PER_SECOND', 5),
+        'webhook_stale_minutes' => env('PROVIDER_WEBHOOK_STALE_MINUTES', 15),
+        'poll_min_minutes' => env('PROVIDER_POLL_MIN_MINUTES', 5),
+        'sync_lock_ttl_minutes' => env('PROVIDER_SYNC_LOCK_TTL_MINUTES', 5),
+    ],
 ];

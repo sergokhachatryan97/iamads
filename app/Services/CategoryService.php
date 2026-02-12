@@ -27,11 +27,12 @@ class CategoryService implements CategoryServiceInterface
     /**
      * Get all categories.
      *
+     * @param bool $forClient If true, only return enabled categories
      * @return Collection
      */
-    public function getAllCategories(): Collection
+    public function getAllCategories(bool $forClient = false): Collection
     {
-        return $this->categoryRepository->getAll();
+        return $this->categoryRepository->getAll($forClient);
     }
 
     /**

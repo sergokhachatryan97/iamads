@@ -328,7 +328,7 @@
                                             {{ number_format($service->max_quantity ?? $service->max_order ?? 1) }}
                                         </td>
                                         <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                                            ${{ number_format($service->rate_per_1000 ?? $service->rate ?? 0, 4) }}
+                                            ${{ number_format($service->rate_per_1000 ?? $service->rate ?? 0, 2) }}
                                         </td>
                                         <td class="px-4 py-2 whitespace-nowrap">
                                             @if($service->is_active ?? true)
@@ -353,7 +353,7 @@
                                             @else
                                                 @if($service->trashed())
                                                     <!-- Restore Button for Deleted Services -->
-                                                    <button type="button" 
+                                                    <button type="button"
                                                             @click.stop="setTimeout(function() { window.dispatchEvent(new CustomEvent('show-restore-confirm', { detail: { serviceId: {{ $service->id }}, serviceName: '{{ addslashes($service->name) }}' }, bubbles: true })); }, 150);"
                                                             class="inline-flex items-center px-3 py-1 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500">
                                                         <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">

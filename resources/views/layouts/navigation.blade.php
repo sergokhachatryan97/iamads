@@ -21,6 +21,11 @@
                         </x-nav-link>
                     @endif
                     @if(Auth::guard('staff')->check())
+                        <x-nav-link :href="route('staff.orders.index')" :active="request()->routeIs('staff.orders.*')">
+                            {{ __('Orders') }}
+                        </x-nav-link>
+                    @endif
+                    @if(Auth::guard('staff')->check())
                         <x-nav-link :href="route('staff.clients.index')" :active="request()->routeIs('staff.clients.*')">
                             {{ __('Users') }}
                         </x-nav-link>
@@ -30,6 +35,14 @@
                             {{ __('Services') }}
                         </x-nav-link>
                     @endif
+            @if(Auth::guard('staff')->check())
+                <x-nav-link :href="route('staff.subscriptions.index')" :active="request()->routeIs('staff.subscriptions.index') || request()->routeIs('staff.subscriptions.create') || request()->routeIs('staff.subscriptions.edit') || request()->routeIs('staff.subscriptions.edit-header')">
+                    {{ __('Subscription Plans') }}
+                </x-nav-link>
+                <x-nav-link :href="route('staff.subscriptions.client-subscriptions')" :active="request()->routeIs('staff.subscriptions.client-subscriptions')">
+                    {{ __('Client Subscriptions') }}
+                </x-nav-link>
+            @endif
                 </div>
             </div>
 
@@ -42,7 +55,7 @@
                             <div>{{ Auth::guard('staff')->user()->name }}</div>
 
                             <div class="ms-1">
-                                <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                <svg class="fill-current h-4 w-4" xmlns="https://www.w3.org/2000/svg" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
                                 </svg>
                             </div>
@@ -100,6 +113,9 @@
             @endif
 
             @if(Auth::guard('staff')->check())
+                <x-responsive-nav-link :href="route('staff.orders.index')" :active="request()->routeIs('staff.orders.*')">
+                    {{ __('Orders') }}
+                </x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('staff.clients.index')" :active="request()->routeIs('staff.clients.*')">
                     {{ __('Clients') }}
                 </x-responsive-nav-link>
@@ -108,6 +124,15 @@
             @if(Auth::guard('staff')->check())
                 <x-responsive-nav-link :href="route('staff.services.index')" :active="request()->routeIs('staff.services.*')">
                     {{ __('Services') }}
+                </x-responsive-nav-link>
+            @endif
+
+            @if(Auth::guard('staff')->check())
+                <x-responsive-nav-link :href="route('staff.subscriptions.index')" :active="request()->routeIs('staff.subscriptions.index') || request()->routeIs('staff.subscriptions.create') || request()->routeIs('staff.subscriptions.edit') || request()->routeIs('staff.subscriptions.edit-header')">
+                    {{ __('Subscription Plans') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('staff.subscriptions.client-subscriptions')" :active="request()->routeIs('staff.subscriptions.client-subscriptions')">
+                    {{ __('Client Subscriptions') }}
                 </x-responsive-nav-link>
             @endif
         </div>
