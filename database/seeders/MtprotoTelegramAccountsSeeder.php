@@ -18,6 +18,13 @@ class MtprotoTelegramAccountsSeeder extends Seeder
             'acc_006',
             'acc_007',
             'acc_008',
+            'acc_009',
+            'acc_010',
+            'acc_011',
+            'acc_012',
+            'acc_013',
+            'acc_014',
+            'acc_015',
         ];
 
         foreach ($accounts as $name) {
@@ -25,6 +32,8 @@ class MtprotoTelegramAccountsSeeder extends Seeder
                 ['session_name' => $name],
                 [
                     'is_active' => true,
+                    'is_probe' => true,
+                    'is_inspect' => true,
                     'subscription_count' => 0,
                     'proxy_type' => 'http',
                     'proxy_host' => 'proxy.geonode.io',
