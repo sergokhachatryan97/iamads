@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('mtproto_telegram_accounts', function (Blueprint $table) {
-            $table->string('proxy_type', 20)->nullable()->after('session_path');
+            $table->string('proxy_type', 20)->nullable();
             $table->string('proxy_host')->nullable()->after('proxy_type');
             $table->unsignedInteger('proxy_port')->nullable()->after('proxy_host');
             $table->string('proxy_user')->nullable()->after('proxy_port');
