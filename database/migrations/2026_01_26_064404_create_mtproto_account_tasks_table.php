@@ -13,7 +13,14 @@ return new class extends Migration
     {
         Schema::create('mtproto_account_tasks', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('account_id')->constrained('mtproto_telegram_accounts')->onDelete('cascade')->index();
+            $table->unsignedBigInteger('account_id');
+
+            $table->index('account_id', 'idx_mtproto_account_tasks_account_id');
+
+            $table->foreign('account_id', 'fk_mtproto_account_tasks_account_id')
+                ->references('id')
+                ->on('mtproto_telegram_accounts')
+                ->cascadeOnDelete();
             $table->string('task_type', 50)->index();
             $table->json('payload_json')->nullable();
             $table->enum('status', ['pending', 'running', 'done', 'failed', 'retry'])->default('pending')->index();
@@ -25,7 +32,7 @@ return new class extends Migration
 
             // Unique constraint: one task per account per task_type (prevents duplicates)
             $table->unique(['account_id', 'task_type']);
-            
+
             // Index for efficient querying
             $table->index(['status', 'retry_at']);
         });
