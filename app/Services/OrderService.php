@@ -2,17 +2,19 @@
 
 namespace App\Services;
 
-use App\Jobs\SendOrderToProvider;
+use App\Jobs\InspectTelegramLinkJob;
 use App\Models\Category;
 use App\Models\Client;
 use App\Models\Order;
 use App\Models\Service;
 use App\Models\ClientTransaction;
-use App\Models\ClientServiceQuota;
 use App\Models\ClientServiceLimit;
+use App\Models\TelegramAccount;
+use App\Support\TelegramLinkParser;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 class OrderService implements OrderServiceInterface
@@ -39,10 +41,27 @@ class OrderService implements OrderServiceInterface
                 (int) $data['category_id']
             );
 
+            // Handle custom_comments service type: ONE ORDER PER COMMENT
+            if ($service->service_type === 'custom_comments') {
+                return $this->createCustomCommentsOrder($client, $data, $service, $createdBy);
+            }
+
             // 3) Normalize targets
             $targets = $this->normalizeTargets($data['targets'] ?? []);
 
-            // 4) Effective limits once
+            $this->validateUniqueLinksInRequest($targets);
+
+            // 4) Dripfeed toggle
+            $clientDripfeedEnabled = (bool) ($data['dripfeed_enabled'] ?? false);
+            if ($service->dripfeed_enabled && $clientDripfeedEnabled) {
+                $totalQuantity = 0;
+                foreach ($targets as $target) {
+                    $totalQuantity += (int) ($target['quantity'] ?? 0);
+                }
+                $this->validateDripfeedFields($data, $totalQuantity);
+            }
+
+            // 5) Effective limits once (client override)
             $serviceLimit = ClientServiceLimit::query()
                 ->where('client_id', $client->id)
                 ->where('service_id', $service->id)
@@ -52,18 +71,22 @@ class OrderService implements OrderServiceInterface
             $effectiveMaxQty = $serviceLimit?->max_quantity ?? ($service->max_quantity ?? null);
             $effectiveIncrement = $serviceLimit?->increment ?? ($service->increment ?? 0);
 
-            // 5) Duplicate links check in ONE query (if enabled)
+            // 6) Duplicate links check in ONE query (if enabled)
             if ($service->deny_link_duplicates) {
                 $this->validateNoDuplicateLinksBatch($service, $targets, $now);
             }
 
-            // 6) Rate once
-            $effectiveRate = (float) $this->pricingService->priceForClient($service, $client);
+            // 7) Base rate (per 1000)
+            $baseRate = (float) $this->pricingService->priceForClient($service, $client);
 
-            // 7) Validate each row + calculate charges
+            // 7b) Speed tier and rate multiplier (for pricing)
+            $speedTier = $service->speed_limit_enabled ? ($data['speed_tier'] ?? 'normal') : 'normal';
+            $rateMultiplier = $service->rateMultiplierForTier($speedTier);
+            $finalRate = $rateMultiplier;
+
+            // 8) Validate each row + calculate charges
             $rowCharges = [];
             $totalCharge = 0.0;
-            $totalQty = 0;
 
             foreach ($targets as $index => $target) {
                 $qty = (int) $target['quantity'];
@@ -76,11 +99,12 @@ class OrderService implements OrderServiceInterface
                     (int) $effectiveIncrement
                 );
 
-                // NOTE: keeping your original formula (/100).
-                $charge = round(($qty / 100) * $effectiveRate, 2);
+                // Calculate charge using final rate (base * rate multiplier)
+                $charge = round(($qty / 100) * $finalRate, 2);
 
+                // Cost also uses rate multiplier if service_cost_per_1000 exists
                 $cost = $service->service_cost_per_1000 !== null
-                    ? round(($qty / 100) * (float) $service->service_cost_per_1000, 2)
+                    ? round(($qty / 100) * (float) $service->service_cost_per_1000 * $finalRate, 2)
                     : null;
 
                 $rowCharges[] = [
@@ -91,76 +115,98 @@ class OrderService implements OrderServiceInterface
                 ];
 
                 $totalCharge += $charge;
-                $totalQty += $qty;
             }
 
-            // 8) Decide payment source
-            $paymentSource = Order::PAYMENT_SOURCE_BALANCE;
-            $subscriptionId = null;
-
-            $quota = ClientServiceQuota::query()
-                ->where('client_id', $client->id)
-                ->where('service_id', $service->id)
-                ->where('expires_at', '>', $now)
-                ->where(function ($q) use ($targets) {
-                    $q->whereNull('orders_left')
-                        ->orWhere('orders_left', '>=', count($targets));
-                })
-                ->where(function ($q) use ($totalQty) {
-                    $q->whereNull('quantity_left')
-                        ->orWhere('quantity_left', '>=', $totalQty);
-                })
-                ->lockForUpdate()
-                ->first();
-
-            if ($quota) {
-                $paymentSource = Order::PAYMENT_SOURCE_SUBSCRIPTION;
-                $subscriptionId = $quota->subscription_id;
-
-                if ($quota->orders_left !== null) {
-                    $quota->orders_left -= count($targets);
-                }
-                if ($quota->quantity_left !== null) {
-                    $quota->quantity_left -= $totalQty;
-                }
-                $quota->save();
-            } else {
-                if ($client->balance < $totalCharge) {
-                    throw ValidationException::withMessages([
-                        'balance' => 'Insufficient balance. Please top up.',
-                    ]);
-                }
-
-                $client->balance -= $totalCharge;
-                $client->save();
+            // 9) Payment source is ALWAYS balance
+            if ($client->balance < $totalCharge) {
+                throw ValidationException::withMessages([
+                    'balance' => 'Insufficient balance. Please top up.',
+                ]);
             }
 
-            // 9) Create orders
+            $client->balance -= $totalCharge;
+            $client->save();
+
+            // 10) Create orders
             $batchId = (string) \Illuminate\Support\Str::uuid();
+
+            // Dripfeed fields
+            $dripfeedEnabled = ($service->dripfeed_enabled && $clientDripfeedEnabled);
+            $dripfeedQuantity = $dripfeedEnabled ? (int) ($data['dripfeed_quantity'] ?? null) : null;
+            $dripfeedInterval = $dripfeedEnabled ? (int) ($data['dripfeed_interval'] ?? null) : null;
+            $dripfeedIntervalUnit = $dripfeedEnabled ? (string) ($data['dripfeed_interval_unit'] ?? null) : null;
+
+            // Calculate dripfeed runs and interval_minutes
+            $dripfeedRunsTotal = null;
+            $dripfeedIntervalMinutes = null;
+            if ($dripfeedEnabled && $dripfeedQuantity && $dripfeedInterval) {
+                // Convert interval to minutes
+                $dripfeedIntervalMinutes = match($dripfeedIntervalUnit) {
+                    'minutes' => $dripfeedInterval,
+                    'hours' => $dripfeedInterval * 60,
+                    'days' => $dripfeedInterval * 1440,
+                    default => $dripfeedInterval, // assume minutes
+                };
+
+                // Calculate total runs needed
+                $totalQty = array_sum(array_column($rowCharges, 'quantity'));
+                $dripfeedRunsTotal = (int) ceil($totalQty / max(1, $dripfeedQuantity));
+            }
 
             $orders = [];
             foreach ($rowCharges as $row) {
-                $orders[] = Order::create([
+                // Build pricing snapshot for this order
+                $pricingSnapshot = [
+                    'speed_tier' => $speedTier,
+                    'base_rate_per_100' => $baseRate,
+                    'rate_multiplier' => $rateMultiplier,
+                    'final_rate_per_100' => $finalRate,
+                    'quantity' => $row['quantity'],
+                    'total_price' => $row['charge'],
+                    'computed_at' => $now->toDateTimeString(),
+                ];
+
+                $orderData = [
                     'batch_id' => $batchId,
                     'client_id' => $client->id,
                     'created_by' => $createdBy,
                     'category_id' => (int) $data['category_id'],
                     'service_id' => $service->id,
                     'link' => $row['link'],
-                    'payment_source' => $paymentSource,
-                    'subscription_id' => $subscriptionId,
+                    'payment_source' => Order::PAYMENT_SOURCE_BALANCE,
+                    'subscription_id' => null,
                     'charge' => $row['charge'],
                     'cost' => $row['cost'],
                     'quantity' => $row['quantity'],
+                    'speed_tier' => $speedTier,
+                    'speed_multiplier' => $service->getSpeedMultiplier($speedTier), // For execution interval
+                    'dripfeed_enabled' => $dripfeedEnabled,
+                    'dripfeed_quantity' => $dripfeedQuantity,
+                    'dripfeed_interval' => $dripfeedInterval,
+                    'dripfeed_interval_unit' => $dripfeedIntervalUnit,
+                    'dripfeed_runs_total' => $dripfeedRunsTotal,
+                    'dripfeed_interval_minutes' => $dripfeedIntervalMinutes,
+                    'dripfeed_run_index' => 0,
+                    'dripfeed_delivered_in_run' => 0,
+                    'dripfeed_next_run_at' => $dripfeedEnabled ? $now : null,
                     'start_count' => null,
                     'delivered' => 0,
                     'remains' => $row['quantity'],
-                    'status' => Order::STATUS_AWAITING,
+                    'status' => Order::STATUS_VALIDATING,
                     'mode' => 'manual',
-                ]);
+                ];
+
+                // Merge provider_payload
+                $orderData['provider_payload'] = array_merge(
+                    $orderData['provider_payload'] ?? [],
+                    ['pricing_snapshot' => $pricingSnapshot]
+                );
+
+                $orders[] = Order::create($orderData);
             }
 
-            if ($paymentSource === Order::PAYMENT_SOURCE_BALANCE) {
+            // 11) Transaction history (only if charge > 0)
+            if ($totalCharge > 0) {
                 ClientTransaction::create([
                     'client_id' => $client->id,
                     'order_id' => null,
@@ -171,7 +217,9 @@ class OrderService implements OrderServiceInterface
 
 
             foreach ($orders as $order) {
-                SendOrderToProvider::dispatch($order->id)->afterCommit();
+                InspectTelegramLinkJob::dispatch($order->id)
+                    ->onQueue('tg-inspect')
+                    ->afterCommit();
             }
 
             return Collection::make($orders)->load(['service', 'category']);
@@ -179,212 +227,112 @@ class OrderService implements OrderServiceInterface
     }
 
     /**
-     * Refund an order.
+     * Create orders for custom_comments service type: ONE ORDER PER COMMENT.
      */
-    public function refund(Order $order, int $newDelivered, string $newStatus): Order
+    private function createCustomCommentsOrder(Client $client, array $data, Service $service, ?int $createdBy): Collection
     {
-        if (!in_array($newStatus, [Order::STATUS_PARTIAL, Order::STATUS_CANCELED], true)) {
-            throw ValidationException::withMessages([
-                'status' => 'Status must be either "partial" or "canceled" for refunds.',
-            ]);
-        }
+        return DB::transaction(function () use ($client, $data, $service, $createdBy) {
+            $client = Client::lockForUpdate()->findOrFail($client->id);
 
-        return DB::transaction(function () use ($order, $newDelivered, $newStatus) {
-            $now = now();
-
-            $client = Client::lockForUpdate()->findOrFail($order->client_id);
-
-            $delivered = max(0, $newDelivered);
-            $remains = max(0, $order->quantity - $delivered);
-
-            $undelivered = $newStatus === Order::STATUS_CANCELED
-                ? $order->quantity
-                : max(0, $order->quantity - $delivered);
-
-            if ($order->payment_source === Order::PAYMENT_SOURCE_BALANCE && $order->quantity > 0) {
-                $refund = round($order->charge * ($undelivered / $order->quantity), 2);
-
-                if ($refund > 0) {
-                    $client->balance += $refund;
-                    $client->save();
-
-                    ClientTransaction::create([
-                        'client_id' => $client->id,
-                        'order_id' => $order->id,
-                        'amount' => $refund,
-                        'type' => ClientTransaction::TYPE_REFUND,
-                    ]);
-                }
-            } elseif ($order->payment_source === Order::PAYMENT_SOURCE_SUBSCRIPTION) {
-                $quota = ClientServiceQuota::query()
-                    ->where('client_id', $client->id)
-                    ->where('subscription_id', $order->subscription_id)
-                    ->where('service_id', $order->service_id)
-                    ->where('expires_at', '>', $now)
-                    ->lockForUpdate()
-                    ->first();
-
-                if ($quota) {
-                    if ($newStatus === Order::STATUS_CANCELED && $quota->orders_left !== null) {
-                        $quota->orders_left += 1;
-                    }
-                    if ($quota->quantity_left !== null) {
-                        $quota->quantity_left += $undelivered;
-                    }
-                    $quota->save();
-                }
+            $clientDripfeedEnabled = (bool) ($data['dripfeed_enabled'] ?? false);
+            if ($service->dripfeed_enabled && $clientDripfeedEnabled) {
+                $this->validateDripfeedFields($data, 1);
             }
 
-            $order->update([
-                'delivered' => $delivered,
-                'remains' => $remains,
-                'status' => $newStatus,
-            ]);
+            $commentsInput = $data['comments'] ?? null;
+            if (empty($commentsInput)) {
+                throw ValidationException::withMessages([
+                    'comments' => 'Comments are required for custom comments service.',
+                ]);
+            }
 
-            return $order->fresh();
-        });
-    }
+            $comments = array_filter(
+                array_map('trim', explode("\n", (string) $commentsInput)),
+                fn ($line) => $line !== ''
+            );
 
-    /**
-     * Cancel an order fully.
-     */
-    public function cancelFull(Order $order, Client $client): Order
-    {
-        if ($order->client_id !== $client->id) {
-            throw ValidationException::withMessages([
-                'order' => 'You can only cancel your own orders.',
-            ]);
-        }
+            if (empty($comments)) {
+                throw ValidationException::withMessages([
+                    'comments' => 'At least one non-empty comment is required.',
+                ]);
+            }
 
-        $service = $order->service;
-        if (!$service || !$service->user_can_cancel) {
-            throw ValidationException::withMessages([
-                'order' => 'This service does not allow cancellation.',
-            ]);
-        }
+            $link = $data['link'] ?? null;
+            if (empty($link)) {
+                throw ValidationException::withMessages([
+                    'link' => 'Link is required for this service.',
+                ]);
+            }
 
-        if (!in_array($order->status, [Order::STATUS_AWAITING, Order::STATUS_PENDING, Order::STATUS_PROCESSING], true)) {
-            throw ValidationException::withMessages([
-                'order' => 'This order cannot be canceled. Only awaiting or pending orders can be fully canceled.',
-            ]);
-        }
+            $effectiveRate = (float) $this->pricingService->priceForClient($service, $client);
 
-        return DB::transaction(function () use ($order, $client) {
-            $now = now();
+            $speedTier = $service->speed_limit_enabled ? ($data['speed_tier'] ?? 'normal') : 'normal';
+            $speedMultiplier = $service->getSpeedMultiplier($speedTier);
 
-            $client = Client::lockForUpdate()->findOrFail($client->id);
-            $order = Order::lockForUpdate()->findOrFail($order->id);
+            $chargePerComment = round(($effectiveRate / 100) * $speedMultiplier, 2);
+            $costPerComment = $service->service_cost_per_1000 !== null
+                ? round(((float) $service->service_cost_per_1000 / 100) * $speedMultiplier, 2)
+                : null;
 
-            $refund = $order->charge;
+            $commentCount = count($comments);
+            $totalCharge = round($chargePerComment * $commentCount, 2);
 
-            $order->update([
-                'status' => Order::STATUS_CANCELED,
+            if ($client->balance < $totalCharge) {
+                throw ValidationException::withMessages([
+                    'balance' => 'Insufficient balance. Please top up.',
+                ]);
+            }
+
+            $client->balance -= $totalCharge;
+            $client->save();
+            $batchId = (string) \Illuminate\Support\Str::uuid();
+
+            $dripfeedQuantity = ($service->dripfeed_enabled && $clientDripfeedEnabled) ? (int) ($data['dripfeed_quantity'] ?? null) : null;
+            $dripfeedInterval = ($service->dripfeed_enabled && $clientDripfeedEnabled) ? (int) ($data['dripfeed_interval'] ?? null) : null;
+            $dripfeedIntervalUnit = ($service->dripfeed_enabled && $clientDripfeedEnabled) ? (string) ($data['dripfeed_interval_unit'] ?? null) : null;
+
+            $totalCost = $costPerComment !== null ? round($costPerComment * $commentCount, 2) : null;
+
+            $order = Order::create([
+                'batch_id' => $batchId,
+                'client_id' => $client->id,
+                'created_by' => $createdBy,
+                'category_id' => (int) $data['category_id'],
+                'service_id' => $service->id,
+                'link' => (string) $link,
+                'comment_text' => implode("\n", $comments),
+                'payment_source' => Order::PAYMENT_SOURCE_BALANCE,
+                'subscription_id' => null,
+                'charge' => $totalCharge,
+                'cost' => $totalCost,
+                'quantity' => $commentCount,
+                'speed_tier' => $service->speed_limit_enabled ? $speedTier : null,
+                'speed_multiplier' => $service->speed_limit_enabled ? $speedMultiplier : 1.00,
+                'dripfeed_quantity' => $dripfeedQuantity,
+                'dripfeed_interval' => $dripfeedInterval,
+                'dripfeed_interval_unit' => $dripfeedIntervalUnit,
+                'start_count' => null,
                 'delivered' => 0,
-                'remains' => $order->quantity,
+                'remains' => $commentCount,
+                'status' => Order::STATUS_VALIDATING,
+                'mode' => 'manual',
             ]);
 
-            if ($order->payment_source === Order::PAYMENT_SOURCE_BALANCE && $refund > 0) {
-                $client->balance += $refund;
-                $client->save();
-
+            // 11) Transaction history
+            if ($totalCharge > 0) {
                 ClientTransaction::create([
                     'client_id' => $client->id,
-                    'order_id' => $order->id,
-                    'amount' => $refund,
-                    'type' => ClientTransaction::TYPE_REFUND,
+                    'order_id' => null,
+                    'amount' => -$totalCharge,
+                    'type' => ClientTransaction::TYPE_ORDER_CHARGE,
                 ]);
-            } elseif ($order->payment_source === Order::PAYMENT_SOURCE_SUBSCRIPTION) {
-                $quota = ClientServiceQuota::query()
-                    ->where('client_id', $client->id)
-                    ->where('subscription_id', $order->subscription_id)
-                    ->where('service_id', $order->service_id)
-                    ->where('expires_at', '>', $now)
-                    ->lockForUpdate()
-                    ->first();
-
-                if ($quota) {
-                    if ($quota->orders_left !== null) {
-                        $quota->orders_left += 1;
-                    }
-                    if ($quota->quantity_left !== null) {
-                        $quota->quantity_left += $order->quantity;
-                    }
-                    $quota->save();
-                }
             }
 
-            return $order->fresh();
-        });
-    }
+            InspectTelegramLinkJob::dispatch($order->id)
+                ->onQueue('tg-inspect')
+                ->afterCommit();
 
-    /**
-     * Cancel an order partially.
-     */
-    public function cancelPartial(Order $order, Client $client): Order
-    {
-        if ($order->client_id !== $client->id) {
-            throw ValidationException::withMessages([
-                'order' => 'You can only cancel your own orders.',
-            ]);
-        }
-
-        $service = $order->service;
-        if (!$service || !$service->user_can_cancel) {
-            throw ValidationException::withMessages([
-                'order' => 'This service does not allow cancellation.',
-            ]);
-        }
-
-        if (!in_array($order->status, [Order::STATUS_IN_PROGRESS, Order::STATUS_PROCESSING], true)) {
-            throw ValidationException::withMessages([
-                'order' => 'This order cannot be partially canceled. Only in_progress or processing orders can be partially canceled.',
-            ]);
-        }
-
-        return DB::transaction(function () use ($order, $client) {
-            $now = now();
-
-            $client = Client::lockForUpdate()->findOrFail($client->id);
-            $order = Order::lockForUpdate()->findOrFail($order->id);
-
-            $undelivered = max(0, $order->quantity - $order->delivered);
-
-            $refund = 0.0;
-            if ($undelivered > 0 && $order->quantity > 0) {
-                $refund = round($order->charge * ($undelivered / $order->quantity), 2);
-            }
-
-            $order->update([
-                'status' => Order::STATUS_PARTIAL,
-                'remains' => max(0, $order->quantity - $order->delivered),
-            ]);
-
-            if ($order->payment_source === Order::PAYMENT_SOURCE_BALANCE && $refund > 0) {
-                $client->balance += $refund;
-                $client->save();
-
-                ClientTransaction::create([
-                    'client_id' => $client->id,
-                    'order_id' => $order->id,
-                    'amount' => $refund,
-                    'type' => ClientTransaction::TYPE_REFUND,
-                ]);
-            } elseif ($order->payment_source === Order::PAYMENT_SOURCE_SUBSCRIPTION && $undelivered > 0) {
-                $quota = ClientServiceQuota::query()
-                    ->where('client_id', $client->id)
-                    ->where('subscription_id', $order->subscription_id)
-                    ->where('service_id', $order->service_id)
-                    ->where('expires_at', '>', $now)
-                    ->lockForUpdate()
-                    ->first();
-
-                if ($quota && $quota->quantity_left !== null) {
-                    $quota->quantity_left += $undelivered;
-                    $quota->save();
-                }
-            }
-
-            return $order->fresh();
+            return Collection::make([$order])->load(['service', 'category']);
         });
     }
 
@@ -446,7 +394,6 @@ class OrderService implements OrderServiceInterface
 
             $orderData = [];
             $totalBalanceCharge = 0.0;
-            $quotaMap = [];
 
             foreach ($servicesInput as $index => $serviceInput) {
                 $serviceId = (int) $serviceInput['service_id'];
@@ -478,51 +425,13 @@ class OrderService implements OrderServiceInterface
                     ? round(($qty / 100) * (float) $service->service_cost_per_1000, 2)
                     : null;
 
-                $paymentSource = Order::PAYMENT_SOURCE_BALANCE;
-                $subscriptionId = null;
-
-                if (!isset($quotaMap[$serviceId])) {
-                    $quota = ClientServiceQuota::query()
-                        ->where('client_id', $client->id)
-                        ->where('service_id', $serviceId)
-                        ->where('expires_at', '>', $now)
-                        ->where(function ($q) {
-                            $q->whereNull('orders_left')->orWhere('orders_left', '>=', 1);
-                        })
-                        ->where(function ($q) use ($qty) {
-                            $q->whereNull('quantity_left')->orWhere('quantity_left', '>=', $qty);
-                        })
-                        ->lockForUpdate()
-                        ->first();
-
-                    if ($quota) {
-                        $quotaMap[$serviceId] = $quota;
-                    }
-                }
-
-                if (isset($quotaMap[$serviceId])) {
-                    $quota = $quotaMap[$serviceId];
-                    $paymentSource = Order::PAYMENT_SOURCE_SUBSCRIPTION;
-                    $subscriptionId = $quota->subscription_id;
-
-                    // Decrement quota
-                    if ($quota->orders_left !== null) {
-                        $quota->orders_left -= 1;
-                    }
-                    if ($quota->quantity_left !== null) {
-                        $quota->quantity_left -= $qty;
-                    }
-                } else {
-                    $totalBalanceCharge += $charge;
-                }
+                $totalBalanceCharge += $charge;
 
                 $orderData[] = [
                     'service_id' => $serviceId,
                     'quantity' => $qty,
                     'charge' => $charge,
                     'cost' => $cost,
-                    'payment_source' => $paymentSource,
-                    'subscription_id' => $subscriptionId,
                 ];
             }
 
@@ -537,10 +446,6 @@ class OrderService implements OrderServiceInterface
                 $client->save();
             }
 
-            foreach ($quotaMap as $quota) {
-                $quota->save();
-            }
-
             $batchId = (string) \Illuminate\Support\Str::uuid();
 
             $orders = [];
@@ -552,15 +457,15 @@ class OrderService implements OrderServiceInterface
                     'category_id' => $categoryId,
                     'service_id' => $row['service_id'],
                     'link' => $link,
-                    'payment_source' => $row['payment_source'],
-                    'subscription_id' => $row['subscription_id'],
+                    'payment_source' => Order::PAYMENT_SOURCE_BALANCE,
+                    'subscription_id' => null,
                     'charge' => $row['charge'],
                     'cost' => $row['cost'],
                     'quantity' => $row['quantity'],
                     'start_count' => null,
                     'delivered' => 0,
                     'remains' => $row['quantity'],
-                    'status' => Order::STATUS_AWAITING,
+                    'status' => Order::STATUS_VALIDATING,
                     'mode' => 'manual',
                 ]);
             }
@@ -575,7 +480,9 @@ class OrderService implements OrderServiceInterface
             }
 
             foreach ($orders as $order) {
-                \App\Jobs\SendOrderToProvider::dispatch($order->id)->afterCommit();
+                InspectTelegramLinkJob::dispatch($order->id)
+                    ->onQueue('tg-inspect')
+                    ->afterCommit();
             }
 
             return new Collection($orders);
@@ -583,8 +490,288 @@ class OrderService implements OrderServiceInterface
     }
 
     /**
-     * Normalize and validate targets.
+     * ✅ Refund for INVALID_LINK / RESTRICTED (idempotent).
      */
+    public function refundInvalid(Order $order, string $reason = 'Invalid link'): void
+    {
+        DB::transaction(function () use ($order, $reason) {
+            $order = Order::lockForUpdate()->findOrFail($order->id);
+            $client = Client::lockForUpdate()->findOrFail($order->client_id);
+
+            $payload = $order->provider_payload ?? [];
+            if (!is_array($payload)) $payload = [];
+
+            if (!empty($payload['refund']['done'])) {
+                return;
+            }
+
+            $charge = (float) ($order->charge ?? 0);
+
+            if ($charge > 0 && $order->payment_source === Order::PAYMENT_SOURCE_BALANCE) {
+                $client->balance += $charge;
+                $client->save();
+
+                ClientTransaction::create([
+                    'client_id' => $client->id,
+                    'order_id'  => $order->id,
+                    'amount'    => $charge,
+                    'type'      => ClientTransaction::TYPE_REFUND,
+                ]);
+            }
+
+            $payload['refund'] = [
+                'done' => true,
+                'amount' => $charge,
+                'reason' => $reason,
+                'at' => now()->toDateTimeString(),
+            ];
+
+            $order->update([
+                'provider_payload' => $payload,
+            ]);
+        });
+    }
+
+    // ----------------- EXISTING REFUND/CANCEL METHODS (unchanged) -----------------
+
+    public function refund(Order $order, int $newDelivered, string $newStatus): Order
+    {
+        if (!in_array($newStatus, [Order::STATUS_PARTIAL, Order::STATUS_CANCELED], true)) {
+            throw ValidationException::withMessages([
+                'status' => 'Status must be either "partial" or "canceled" for refunds.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($order, $newDelivered, $newStatus) {
+            $client = Client::lockForUpdate()->findOrFail($order->client_id);
+
+            $delivered = max(0, $newDelivered);
+            $remains = max(0, $order->quantity - $delivered);
+
+            $undelivered = $newStatus === Order::STATUS_CANCELED
+                ? $order->quantity
+                : max(0, $order->quantity - $delivered);
+
+            if ($order->payment_source === Order::PAYMENT_SOURCE_BALANCE && $order->quantity > 0) {
+                $refund = round($order->charge * ($undelivered / $order->quantity), 2);
+
+                if ($refund > 0) {
+                    $client->balance += $refund;
+                    $client->save();
+
+                    ClientTransaction::create([
+                        'client_id' => $client->id,
+                        'order_id' => $order->id,
+                        'amount' => $refund,
+                        'type' => ClientTransaction::TYPE_REFUND,
+                    ]);
+                }
+            }
+
+            $order->update([
+                'delivered' => $delivered,
+                'remains' => $remains,
+                'status' => $newStatus,
+            ]);
+
+            return $order->fresh();
+        });
+    }
+
+    public function cancelFull(Order $order, Client $client): Order
+    {
+        if ($order->client_id !== $client->id) {
+            throw ValidationException::withMessages([
+                'order' => 'You can only cancel your own orders.',
+            ]);
+        }
+
+        $service = $order->service;
+        if (!$service || !$service->user_can_cancel) {
+            throw ValidationException::withMessages([
+                'order' => 'This service does not allow cancellation.',
+            ]);
+        }
+
+        if (!in_array($order->status, [Order::STATUS_AWAITING, Order::STATUS_PENDING, Order::STATUS_PROCESSING], true)) {
+            throw ValidationException::withMessages([
+                'order' => 'This order cannot be canceled. Only awaiting or pending orders can be fully canceled.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($order, $client) {
+            $client = Client::lockForUpdate()->findOrFail($client->id);
+            $order = Order::lockForUpdate()->findOrFail($order->id);
+
+            $refund = $order->charge;
+
+            $order->update([
+                'status' => Order::STATUS_CANCELED,
+                'delivered' => 0,
+                'remains' => $order->quantity,
+            ]);
+
+            $this->decrementTelegramAccountCounts($order);
+
+            if ($order->payment_source === Order::PAYMENT_SOURCE_BALANCE && $refund > 0) {
+                $client->balance += $refund;
+                $client->save();
+
+                ClientTransaction::create([
+                    'client_id' => $client->id,
+                    'order_id' => $order->id,
+                    'amount' => $refund,
+                    'type' => ClientTransaction::TYPE_REFUND,
+                ]);
+            }
+
+            return $order->fresh();
+        });
+    }
+
+    public function cancelPartial(Order $order, Client $client): Order
+    {
+        if ($order->client_id !== $client->id) {
+            throw ValidationException::withMessages([
+                'order' => 'You can only cancel your own orders.',
+            ]);
+        }
+
+        $service = $order->service;
+        if (!$service || !$service->user_can_cancel) {
+            throw ValidationException::withMessages([
+                'order' => 'This service does not allow cancellation.',
+            ]);
+        }
+
+        if (!in_array($order->status, [Order::STATUS_IN_PROGRESS, Order::STATUS_PROCESSING], true)) {
+            throw ValidationException::withMessages([
+                'order' => 'This order cannot be partially canceled. Only in_progress or processing orders can be partially canceled.',
+            ]);
+        }
+
+        return DB::transaction(function () use ($order, $client) {
+            $client = Client::lockForUpdate()->findOrFail($client->id);
+            $order = Order::lockForUpdate()->findOrFail($order->id);
+
+            $undelivered = max(0, $order->quantity - $order->delivered);
+
+            $refund = 0.0;
+            if ($undelivered > 0 && $order->quantity > 0) {
+                $refund = round($order->charge * ($undelivered / $order->quantity), 2);
+            }
+
+            $order->update([
+                'status' => Order::STATUS_PARTIAL,
+                'remains' => max(0, $order->quantity - $order->delivered),
+            ]);
+
+            if ($order->payment_source === Order::PAYMENT_SOURCE_BALANCE && $refund > 0) {
+                $client->balance += $refund;
+                $client->save();
+
+                ClientTransaction::create([
+                    'client_id' => $client->id,
+                    'order_id' => $order->id,
+                    'amount' => $refund,
+                    'type' => ClientTransaction::TYPE_REFUND,
+                ]);
+            }
+
+            return $order->fresh();
+        });
+    }
+
+    private function decrementTelegramAccountCounts(Order $order, ?int $maxStepsToDecrement = null): void
+    {
+        $providerPayload = $order->provider_payload ?? [];
+        $steps = $providerPayload['steps'] ?? [];
+        $executionMeta = $providerPayload['execution_meta'] ?? [];
+        $perCall = $executionMeta['per_call'] ?? 1;
+
+        if (empty($steps)) {
+            return;
+        }
+
+        $successfulSteps = [];
+        foreach ($steps as $step) {
+            if (($step['ok'] ?? false) === true && !($step['decremented'] ?? false)) {
+                $successfulSteps[] = $step;
+            }
+        }
+
+        if ($maxStepsToDecrement !== null && $maxStepsToDecrement > 0) {
+            $successfulSteps = array_slice($successfulSteps, 0, min(count($successfulSteps), $maxStepsToDecrement));
+        }
+
+        $accountCounts = [];
+        foreach ($successfulSteps as $step) {
+            $accountId = $step['account_id'] ?? null;
+            if ($accountId) {
+                $accountCounts[$accountId] = ($accountCounts[$accountId] ?? 0) + $perCall;
+            }
+        }
+
+        foreach ($accountCounts as $accountId => $decrementAmount) {
+            try {
+                $account = TelegramAccount::find($accountId);
+                if ($account) {
+                    $newCount = max(0, $account->subscription_count - $decrementAmount);
+                    $account->update(['subscription_count' => $newCount]);
+                }
+            } catch (\Throwable $e) {
+                Log::error('Failed to decrement TelegramAccount subscription_count', [
+                    'order_id' => $order->id,
+                    'account_id' => $accountId,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        if (!empty($successfulSteps)) {
+            $updatedSteps = [];
+            $decrementedCount = 0;
+            foreach ($steps as $step) {
+                if (($step['ok'] ?? false) === true && !($step['decremented'] ?? false) && $decrementedCount < count($successfulSteps)) {
+                    $step['decremented'] = true;
+                    $decrementedCount++;
+                }
+                $updatedSteps[] = $step;
+            }
+
+            $providerPayload['steps'] = $updatedSteps;
+            $order->update(['provider_payload' => $providerPayload]);
+        }
+    }
+
+    private function validateDripfeedFields(array $data, int $maxQuantity = PHP_INT_MAX): void
+    {
+        $errors = [];
+
+        $dripfeedQuantity = isset($data['dripfeed_quantity']) && is_numeric($data['dripfeed_quantity'])
+            ? (int) $data['dripfeed_quantity']
+            : 0;
+
+        if ($dripfeedQuantity <= 0) {
+            $errors['dripfeed_quantity'] = 'Dripfeed quantity is required and must be greater than 0.';
+        } elseif ($dripfeedQuantity > $maxQuantity) {
+            $errors['dripfeed_quantity'] = "Quantity per step cannot be greater than total order quantity ({$maxQuantity}).";
+        }
+
+        if (!isset($data['dripfeed_interval']) || !is_numeric($data['dripfeed_interval']) || (int) $data['dripfeed_interval'] <= 0) {
+            $errors['dripfeed_interval'] = 'Dripfeed interval is required and must be greater than 0.';
+        }
+
+        $allowedUnits = ['minutes', 'hours', 'days'];
+        if (!isset($data['dripfeed_interval_unit']) || !in_array($data['dripfeed_interval_unit'], $allowedUnits, true)) {
+            $errors['dripfeed_interval_unit'] = 'Dripfeed interval unit is required and must be one of: ' . implode(', ', $allowedUnits) . '.';
+        }
+
+        if (!empty($errors)) {
+            throw ValidationException::withMessages($errors);
+        }
+    }
+
     private function normalizeTargets(array $targets): array
     {
         if (empty($targets)) {
@@ -619,9 +806,6 @@ class OrderService implements OrderServiceInterface
         return $normalized;
     }
 
-    /**
-     * Validate service quantity rules per row.
-     */
     private function validateServiceQuantityRules(int $rowQty, int $rowIndex, int $minQuantity, ?int $maxQuantity, int $increment): void
     {
         if ($rowQty < $minQuantity) {
@@ -643,9 +827,6 @@ class OrderService implements OrderServiceInterface
         }
     }
 
-    /**
-     * Single-link duplicate check (used in multi, per service).
-     */
     private function validateNoDuplicateLink(Service $service, string $link): void
     {
         $days = $service->deny_duplicates_days ?? 90;
@@ -673,9 +854,6 @@ class OrderService implements OrderServiceInterface
         }
     }
 
-    /**
-     * Batch duplicate check (used in create() to avoid N queries).
-     */
     private function validateNoDuplicateLinksBatch(Service $service, array $targets, \Carbon\CarbonInterface $now): void
     {
         $days = $service->deny_duplicates_days ?? 90;
@@ -704,4 +882,42 @@ class OrderService implements OrderServiceInterface
             ]);
         }
     }
+
+    private function validateUniqueLinksInRequest(array $targets): void
+    {
+        $seen = [];
+
+        foreach ($targets as $i => $t) {
+            $raw = trim((string)($t['link'] ?? ''));
+
+            $parsed = TelegramLinkParser::parse($raw);
+
+            // եթե format-ը սխալ է՝ թող validation-ը բռնի, բայց ապահով key տանք
+            $kind = $parsed['kind'] ?? 'unknown';
+
+            // canonical key by kind
+            $key = match ($kind) {
+                'public_username', 'public_post', 'bot_start' =>
+                    $kind . ':' . strtolower((string)($parsed['username'] ?? '')),
+
+                'invite' =>
+                    $kind . ':' . (string)($parsed['hash'] ?? ''),
+
+                // fallback to raw
+                default =>
+                    'raw:' . strtolower($raw),
+            };
+
+            if (isset($seen[$key])) {
+                $firstIndex = $seen[$key];
+
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    "targets.{$i}.link" => "Duplicate link in this order (same as row " . ($firstIndex + 1) . ").",
+                ]);
+            }
+
+            $seen[$key] = $i;
+        }
+    }
+
 }

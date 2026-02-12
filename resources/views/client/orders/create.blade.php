@@ -54,7 +54,7 @@
                                     id="category_id"
                                     name="category_id"
                                     x-model="categoryId"
-                                    @change="loadServices"
+                                    @change="targetType = ''; if (categoryId) loadServices()"
                                     required
                                     class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                                     <option value="">{{ __('Select a category') }}</option>
@@ -67,6 +67,31 @@
                                 @enderror
                             </div>
 
+                            <!-- Target Type -->
+                            <div class="mb-6" x-show="categoryId" x-cloak>
+                                <label for="target_type" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {{ __('Target Type') }} <span class="text-red-500">*</span>
+                                </label>
+                                <select
+                                    id="target_type"
+                                    name="target_type"
+                                    x-model="targetType"
+                                    @change="loadServices()"
+                                    :required="categoryId"
+                                    class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                    <option value="">{{ __('Select target type') }}</option>
+                                    <option value="bot">Bot</option>
+                                    <option value="channel">Channel</option>
+                                    <option value="group">Group</option>
+                                </select>
+                                @error('target_type')
+                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                @enderror
+                                <p class="mt-1 text-xs text-gray-500">
+                                    {{ __('Select bot, channel, or group to filter services') }}
+                                </p>
+                            </div>
+
                             <!-- Service -->
                             <div class="mb-6">
                                 <label for="service_id" class="block text-sm font-medium text-gray-700 mb-2">
@@ -77,8 +102,8 @@
                                     name="service_id"
                                     x-model="serviceId"
                                     @change="updateServiceInfo"
-                                    :disabled="!categoryId || loading"
-                                    required
+                                    :disabled="!categoryId || !targetType || loading"
+                                    :required="categoryId && targetType"
                                     class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed">
                                     <option value="" x-text="loading ? '{{ __('Loading...') }}' : '{{ __('Select a service') }}'"></option>
                                     <template x-for="service in (Array.isArray(services) ? services : [])" :key="'service-' + service.id">
@@ -90,8 +115,94 @@
                                 @enderror
                             </div>
 
+                            <!-- Custom Comments Field (only for custom_comments service type) -->
+                            <div
+                                x-show="selectedService?.service_type === 'custom_comments'"
+                                x-transition
+                                class="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4"
+                            >
+                                <label for="comments" class="block text-sm font-semibold text-gray-800 mb-2">
+                                    {{ __('Comments') }}
+                                    <span class="text-red-500">*</span>
+                                </label>
+
+                                <textarea
+                                    id="comments"
+                                    name="comments"
+                                    x-model="comments"
+                                    @input="calculateCommentsTotal(); validateCommentsCount()"
+                                    @keyup="calculateCommentsTotal(); validateCommentsCount()"
+                                    rows="6"
+                                    placeholder="{{ __('Enter comments, one per line') }}"
+                                    :required="selectedService?.service_type === 'custom_comments'"
+                                    :class="commentsCountError ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'"
+                                    class="block w-full resize-y rounded-md bg-white shadow-sm sm:text-sm"
+                                ></textarea>
+
+                                <div class="mt-2 flex items-start gap-2 text-xs text-gray-600">
+                                    <svg class="h-4 w-4 text-indigo-500 mt-0.5" fill="none" stroke="currentColor" stroke-width="2"
+                                         viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                              d="M13 16h-1v-4h-1m1-4h.01M12 18a6 6 0 100-12 6 6 0 000 12z" />
+                                    </svg>
+                                    <p>
+                                        {{ __('Each non-empty line will be processed as a separate comment and will create its own order.') }}
+                                        <span x-show="selectedService?.min_quantity" class="font-medium">
+                                            {{ __('Minimum') }}: <span x-text="selectedService?.min_quantity || 1"></span> {{ __('comments required') }}.
+                                        </span>
+                                    </p>
+                                </div>
+
+                                <p x-show="commentsCountError" class="mt-2 text-sm text-red-600 font-medium" x-text="commentsCountError"></p>
+
+                                <!-- Real-time Total Calculation -->
+                                <div class="mt-3 p-3 bg-indigo-50 rounded-md border border-indigo-200" x-show="selectedService?.service_type === 'custom_comments'">
+                                    <div class="flex items-center justify-between">
+                                        <div class="text-sm text-gray-700">
+                                            <span class="font-medium">{{ __('Comments Count') }}:</span>
+                                            <span x-text="commentsCount || 0"></span>
+                                        </div>
+                                        <div class="text-sm text-gray-700">
+                                            <span class="font-medium">{{ __('Rate') }}:</span>
+                                            <span>$<span x-text="(selectedService?.rate_per_1000 || 0).toFixed(2)"></span> {{ __('per 100') }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                @error('comments')
+                                <p class="mt-2 text-sm text-red-600 font-medium">{{ $message }}</p>
+                                @enderror
+                            </div>
+
+                            <!-- Link field for custom_comments (optional, can be in targets or here) -->
+                            <div class="mb-6" x-show="selectedService?.service_type === 'custom_comments'">
+                                <label for="comments_link" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {{ __('Telegram Link') }}
+                                    <span class="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    id="comments_link"
+                                    :required="selectedService?.service_type === 'custom_comments'"
+                                    name="link"
+                                    x-model="commentsLink"
+                                    @input="commentsLinkValid = validateTelegramLink(commentsLink)"
+                                    :class="commentsLinkValid ? 'border-gray-300' : 'border-red-300'"
+                                    placeholder="https://t.me/username or @username"
+                                    class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                <p x-show="!commentsLinkValid && commentsLink" class="mt-1 text-xs text-red-600">
+                                    {{ __('Please enter a valid Telegram link.') }}
+                                </p>
+                                <p class="mt-1 text-xs text-gray-500">
+                                    {{ __('Optional: Enter a Telegram link. If not provided, link from targets will be used.') }}
+                                </p>
+                                @error('link')
+                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                @enderror
+                            </div>
+
                             <!-- Targets (Link + Quantity pairs) -->
-                            <div class="mb-6">
+                            <div class="mb-6" x-show="selectedService?.service_type !== 'custom_comments'" x-cloak>
                                 <div class="flex items-center justify-between mb-2">
                                     <label class="block text-sm font-medium text-gray-700">
                                         {{ __('Links & Quantities') }} <span class="text-red-500">*</span>
@@ -122,7 +233,7 @@
                                                     @input="target.linkValid = validateTelegramLink(target.link)"
                                                     :class="target.linkValid ? 'border-gray-300' : 'border-red-300'"
                                                     placeholder="https://t.me/username or @username"
-                                                    required
+                                                    :required="selectedService?.service_type !== 'custom_comments'"
                                                     class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                                                 <p x-show="!target.linkValid && target.link" class="mt-1 text-xs text-red-600">
                                                     {{ __('Please enter a valid Telegram link.') }}
@@ -145,7 +256,7 @@
                                                         @wheel.prevent="stepQuantity($event.deltaY > 0 ? -1 : +1, index)"
                                                         @change="target.quantity = adjustQuantityToIncrement(target.quantity, index)"
                                                         @blur="$el.dispatchEvent(new Event('change'))"
-                                                        required
+                                                        :required="selectedService?.service_type !== 'custom_comments'"
                                                         class="no-spinner block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm pr-12">
                                                     <div class="absolute inset-y-0 right-0 flex flex-col justify-center">
                                                         <button
@@ -187,10 +298,139 @@
                                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                 @enderror
                             </div>
+                            <!-- Dripfeed Toggle Switch (only when service has dripfeed enabled) -->
+                            <div class="mb-6" x-show="selectedService?.dripfeed_enabled === true">
+                                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-md border border-gray-200 mb-4">
+                                    <div>
+                                        <label class="text-sm font-medium text-gray-900">{{ __('Enable Dripfeed') }}</label>
+                                        <p class="text-xs text-gray-500 mt-1">{{ __('Configure dripfeed settings to deliver orders gradually over time') }}</p>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            x-model="dripfeedEnabled"
+                                            class="sr-only peer"
+                                        >
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                    </label>
+                                </div>
+                                <!-- Hidden input to ensure value is always submitted -->
+                                <input type="hidden" name="dripfeed_enabled" :value="dripfeedEnabled ? '1' : '0'">
+                            </div>
+
+                            <!-- Dripfeed Fields (only when service has dripfeed enabled AND toggle is ON) -->
+                            <div class="mb-6" x-show="selectedService?.dripfeed_enabled === true && dripfeedEnabled === true">
+                                <div class="p-4 bg-blue-50 rounded-md border border-blue-200 mb-4">
+                                    <h3 class="text-sm font-medium text-blue-900 mb-3">{{ __('Dripfeed Settings') }}</h3>
+
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <!-- Dripfeed Quantity -->
+                                        <div>
+                                            <label for="dripfeed_quantity" class="block text-sm font-medium text-gray-700 mb-1">
+                                                {{ __('Quantity per Step') }} <span class="text-red-500">*</span>
+                                            </label>
+                                            <input
+                                                type="number"
+                                                id="dripfeed_quantity"
+                                                name="dripfeed_quantity"
+                                                x-model.number="dripfeedQuantity"
+                                                :min="1"
+                                                :max="getTotalQuantity()"
+                                                :required="dripfeedEnabled"
+                                                @input="validateDripfeedQuantity"
+                                                :class="dripfeedQuantityError ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'"
+                                                class="block w-full rounded-md shadow-sm sm:text-sm">
+                                            <p class="mt-1 text-xs text-gray-500">
+                                                {{ __('Amount to deliver per drip step') }}
+                                                <span x-show="getTotalQuantity() > 0">
+                                                    ({{ __('Max') }}: <span x-text="getTotalQuantity()"></span>)
+                                                </span>
+                                            </p>
+                                            <p x-show="dripfeedQuantityError" class="mt-1 text-sm text-red-600" x-text="dripfeedQuantityError"></p>
+                                            @error('dripfeed_quantity')
+                                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                            @enderror
+                                        </div>
+
+                                        <!-- Dripfeed Interval -->
+                                        <div>
+                                            <label for="dripfeed_interval" class="block text-sm font-medium text-gray-700 mb-1">
+                                                {{ __('Interval') }} <span class="text-red-500">*</span>
+                                            </label>
+                                            <input
+                                                type="number"
+                                                id="dripfeed_interval"
+                                                name="dripfeed_interval"
+                                                x-model.number="dripfeedInterval"
+                                                min="1"
+                                                :required="dripfeedEnabled"
+                                                class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                            <p class="mt-1 text-xs text-gray-500">
+                                                {{ __('Interval value') }}
+                                            </p>
+                                            @error('dripfeed_interval')
+                                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                            @enderror
+                                        </div>
+
+                                        <!-- Dripfeed Interval Unit -->
+                                        <div>
+                                            <label for="dripfeed_interval_unit" class="block text-sm font-medium text-gray-700 mb-1">
+                                                {{ __('Interval Unit') }} <span class="text-red-500">*</span>
+                                            </label>
+                                            <select
+                                                id="dripfeed_interval_unit"
+                                                name="dripfeed_interval_unit"
+                                                x-model="dripfeedIntervalUnit"
+                                                :required="dripfeedEnabled"
+                                                class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                                <option value="">{{ __('Select unit') }}</option>
+                                                <option value="minutes">{{ __('Minutes') }}</option>
+                                                <option value="hours">{{ __('Hours') }}</option>
+                                                <option value="days">{{ __('Days') }}</option>
+                                            </select>
+                                            @error('dripfeed_interval_unit')
+                                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                            @enderror
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Speed Tier (only when service has speed_limit_enabled) -->
+                            <div class="mb-6" x-show="selectedService?.speed_limit_enabled === true" x-cloak>
+                                <label for="speed_tier" class="block text-sm font-medium text-gray-700 mb-2">
+                                    {{ __('Speed Tier') }} <span class="text-red-500">*</span>
+                                </label>
+                                <select
+                                    id="speed_tier"
+                                    name="speed_tier"
+                                    x-model="speedTier"
+                                    @change="updateSpeedTierPrice()"
+                                    required
+                                    class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                    <option value="normal">{{ __('Normal') }} (1.0x)</option>
+                                    <option value="fast" x-text="'{{ __('Fast') }} (' + (selectedService?.speed_multiplier_fast || 1.50).toFixed(2) + 'x)'"></option>
+                                    <option value="super_fast" x-text="'{{ __('Super Fast') }} (' + (selectedService?.speed_multiplier_super_fast || 2.00).toFixed(2) + 'x)'"></option>
+                                </select>
+                                <p class="mt-1 text-xs text-gray-500">
+                                    {{ __('Select delivery speed. Faster speeds have higher prices.') }}
+                                </p>
+                                @error('speed_tier')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                @enderror
+                            </div>
 
                             <!-- Service Info -->
                             <div class="mt-4 p-3 bg-gray-50 rounded-md" x-show="selectedService">
-                                <div class="text-xs text-gray-600 mb-2">
+                                <!-- For custom_comments: show only min/max row count -->
+                                <div class="text-xs text-gray-600 mb-2" x-show="selectedService?.service_type === 'custom_comments'">
+                                    <span class="font-medium">{{ __('Row Count Rules') }}:</span>
+                                    <span x-text="'Min: ' + (selectedService?.min_quantity || 1)"></span>
+                                    <span x-show="selectedService?.max_quantity" x-text="' - Max: ' + (selectedService?.max_quantity || '')"></span>
+                                </div>
+                                <!-- For other services: show quantity rules with increment -->
+                                <div class="text-xs text-gray-600 mb-2" x-show="selectedService?.service_type !== 'custom_comments'">
                                     <span class="font-medium">{{ __('Quantity Rules') }}:</span>
                                     <span x-text="'Min: ' + (selectedService?.min_quantity || 1)"></span>
                                     <span x-show="selectedService?.max_quantity" x-text="' - Max: ' + (selectedService?.max_quantity || '')"></span>
@@ -233,7 +473,13 @@
                                 </div>
                             </div>
 
-                            <p class="mt-2 text-sm text-gray-700" x-show="selectedService && getTotalQuantity() > 0">
+                            <p class="mt-2 text-sm text-gray-700" x-show="selectedService?.service_type === 'custom_comments' && commentsCount > 0">
+                                {{ __('Total quantity') }}: <span x-text="commentsCount"></span> |
+                                {{ __('Estimated charge') }}: $<span x-text="(commentsTotalCharge || 0).toFixed(2)"></span>
+                            </p>
+
+
+                            <p class="mt-2 text-sm text-gray-700" x-show="selectedService?.service_type !== 'custom_comments' && selectedService && getTotalQuantity() > 0">
                                 {{ __('Total quantity') }}: <span x-text="getTotalQuantity()"></span> |
                                 {{ __('Estimated charge') }}: $<span x-text="calculateCharge()"></span>
                             </p>
@@ -333,6 +579,22 @@
                                 <div class="space-y-3" x-show="!multiLoading && multiServices.length > 0">
                                     <template x-for="(serviceRow, index) in multiSelectedServices" :key="index">
                                         <div class="flex gap-3 items-start p-3 bg-gray-50 rounded-md border border-gray-200">
+                                            <div class="w-32">
+                                                <label :for="'multi_target_type_' + index" class="block text-sm font-medium text-gray-700 mb-1">
+                                                    {{ __('Target Type') }}
+                                                </label>
+                                                <select
+                                                    :id="'multi_target_type_' + index"
+                                                    :name="'services[' + index + '][target_type]'"
+                                                    x-model="serviceRow.target_type"
+                                                    @change="filterServicesForRow(index)"
+                                                    class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                                    <option value="">{{ __('All') }}</option>
+                                                    <option value="bot">Bot</option>
+                                                    <option value="channel">Channel</option>
+                                                    <option value="group">Group</option>
+                                                </select>
+                                            </div>
                                             <div class="flex-1">
                                                 <label :for="'multi_service_' + index" class="block text-sm font-medium text-gray-700 mb-1">
                                                     {{ __('Service') }} <span class="text-red-500">*</span>
@@ -345,7 +607,7 @@
                                                     required
                                                     class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                                                     <option value="">{{ __('Select a service') }}</option>
-                                                    <template x-for="service in (Array.isArray(multiServices) ? multiServices : [])" :key="'multi-service-' + service.id">
+                                                    <template x-for="service in getFilteredServicesForRow(index)" :key="'multi-service-' + service.id">
                                                         <option :value="service.id" x-text="service.name"></option>
                                                     </template>
                                                 </select>
@@ -458,18 +720,35 @@
                 orderType: 'single', // 'single' or 'multi'
                 // Single service order data
                 categoryId: '{{ old('category_id', $preselectedCategoryId ?? '') }}',
+                targetType: '{{ old('target_type', '') }}',
                 serviceId: '{{ old('service_id', $preselectedServiceId ?? '') }}',
                 services: [],
                 selectedService: null,
                 targets: @js(old('targets') ?: [['link' => '', 'quantity' => 1]]),
                 loading: false,
                 submitting: false,
+                // Custom comments
+                comments: '',
+                commentsLink: '{{ old('link', '') }}',
+                commentsLinkValid: true,
+                commentsCount: 0,
+                commentsTotalCharge: 0,
+                chargePerComment: 0,
+                commentsCountError: '',
+                // Dripfeed
+                dripfeedEnabled: {{ old('dripfeed_enabled', 'false') === 'true' ? 'true' : 'false' }},
+                dripfeedQuantity: null,
+                dripfeedInterval: null,
+                dripfeedIntervalUnit: null,
+                dripfeedQuantityError: '',
+                // Speed Tier
+                speedTier: '{{ old('speed_tier', 'normal') }}',
                 // Multi-service order data
                 multiCategoryId: '{{ old('category_id', $preselectedCategoryId ?? '') }}',
                 multiLink: '{{ old('link', '') }}',
                 multiLinkValid: true,
                 multiServices: [],
-                multiSelectedServices: [{ service_id: '', quantity: 1, min_quantity: 1, max_quantity: null, increment: 0, rate_per_1000: 0 }],
+                multiSelectedServices: [{ service_id: '', target_type: '', quantity: 1, min_quantity: 1, max_quantity: null, increment: 0, rate_per_1000: 0 }],
                 multiLoading: false,
 
                 init() {
@@ -483,11 +762,20 @@
                     if (!Array.isArray(this.multiSelectedServices)) {
                         this.multiSelectedServices = [];
                     }
-                    if (this.categoryId) {
+                    if (this.categoryId && this.targetType) {
                         this.loadServices().then(() => {
                             if (this.serviceId && this.services.length > 0) {
                                 this.$nextTick(() => {
                                     this.updateServiceInfo();
+                                    // Ensure all targets have min_quantity set
+                                    if (this.selectedService) {
+                                        const minQty = this.selectedService.min_quantity || 1;
+                                        this.targets.forEach(target => {
+                                            if (!target.quantity || target.quantity < minQty) {
+                                                target.quantity = minQty;
+                                            }
+                                        });
+                                    }
                                 });
                             }
                         });
@@ -512,29 +800,43 @@
                     if (this.multiLink) {
                         this.multiLinkValid = this.validateTelegramLink(this.multiLink);
                     }
+                    // Validate comments link on init
+                    if (this.commentsLink) {
+                        this.commentsLinkValid = this.validateTelegramLink(this.commentsLink);
+                    }
+                    // Calculate comments total on init if comments exist
+                    if (this.comments) {
+                        this.$nextTick(() => {
+                            this.calculateCommentsTotal();
+                        });
+                    }
                 },
 
                 validateTelegramLink(link) {
                     if (!link || link.trim() === '') {
                         return true;
                     }
-                    const regex = /^(https?:\/\/)?(t\.me|telegram\.me|telegram\.dog)\/([A-Za-z0-9_+\/\-]+(\?[A-Za-z0-9=&_%\-]+)?)$|^@[A-Za-z0-9_]{5,32}$/i;
+                    const regex = /^(https?:\/\/)?(t\.me|telegram\.me|telegram\.dog)\/([A-Za-z0-9_+\/\-]+(\?[A-Za-z0-9=&_%\-]+)?)$|^@[A-Za-z0-9_]{3,32}$/i;
                     return regex.test(link.trim());
                 },
 
                 // Single service order methods
                 async loadServices() {
-                    if (!this.categoryId) {
+                    if (!this.categoryId || !this.targetType) {
                         this.services = [];
+                        if (!this.targetType) {
+                            this.serviceId = '';
+                            this.selectedService = null;
+                        }
                         return Promise.resolve();
                     }
 
                     this.loading = true;
                     try {
-                        const response = await fetch(`{{ route('client.orders.services.by-category') }}?category_id=${this.categoryId}`);
+                        const response = await fetch(`{{ route('client.orders.services.by-category') }}?category_id=${this.categoryId}&target_type=${this.targetType}`);
                         const data = await response.json();
                         this.services = Array.isArray(data) ? data : [];
-                        // Clear selected service if category changed
+                        // Clear selected service if not in filtered list
                         if (this.serviceId && !this.services.find(s => s.id == this.serviceId)) {
                             this.serviceId = '';
                             this.selectedService = null;
@@ -553,21 +855,110 @@
                         return;
                     }
                     this.selectedService = this.services.find(s => s.id == this.serviceId) || null;
-                    // Update default quantity for all targets
+                    // Update default quantity for all targets - always use min_quantity
                     if (this.selectedService) {
-                        const defaultQty = this.selectedService.increment > 0
-                            ? this.selectedService.increment
-                            : (this.selectedService.min_quantity || 1);
+                        const defaultQty = this.selectedService.min_quantity || 1;
                         this.targets.forEach(target => {
-                            if (!target.quantity || target.quantity < 1) {
-                                target.quantity = defaultQty;
-                            }
+                            target.quantity = defaultQty;
                         });
+                        // Recalculate comments total if service changed and comments exist
+                        if (this.comments && this.selectedService.service_type === 'custom_comments') {
+                            this.$nextTick(() => {
+                                this.calculateCommentsTotal();
+                                this.validateCommentsCount();
+                            });
+                        }
+                    }
+                    // Reset dripfeed fields if service doesn't have dripfeed enabled
+                    if (this.selectedService && !this.selectedService.dripfeed_enabled) {
+                        this.dripfeedEnabled = false;
+                        this.dripfeedQuantity = null;
+                        this.dripfeedInterval = null;
+                        this.dripfeedIntervalUnit = '';
+                        this.dripfeedQuantityError = '';
+                    }
+                    // Reset speed tier if service doesn't have speed_limit_enabled
+                    if (this.selectedService && !this.selectedService.speed_limit_enabled) {
+                        this.speedTier = 'normal';
+                    }
+                },
+
+                calculateCommentsTotal() {
+                    // Reset values first
+                    this.commentsCount = 0;
+                    this.commentsTotalCharge = 0;
+                    this.chargePerComment = 0;
+
+                    if (!this.selectedService || this.selectedService.service_type !== 'custom_comments') {
+                        return;
+                    }
+
+                    if (!this.comments || typeof this.comments !== 'string' || this.comments.trim() === '') {
+                        return;
+                    }
+
+                    // Parse comments: split by newline, trim, filter empty
+                    const lines = this.comments.split('\n')
+                        .map(line => line.trim())
+                        .filter(line => line !== '');
+
+                    this.commentsCount = lines.length;
+
+                    if (this.commentsCount === 0) {
+                        return;
+                    }
+
+                    // Calculate charge per comment: rate_per_1000 / 100 * speed multiplier
+                    const rate = parseFloat(this.selectedService.rate_per_1000) || 0;
+                    const multiplier = this.getSpeedMultiplier();
+                    this.chargePerComment = Math.round((rate / 100) * multiplier * 100) / 100;
+
+                    // Total charge = charge per comment * number of comments
+                    this.commentsTotalCharge = Math.round(this.chargePerComment * this.commentsCount * 100) / 100;
+                },
+
+                validateCommentsCount() {
+                    this.commentsCountError = '';
+
+                    if (!this.selectedService || this.selectedService.service_type !== 'custom_comments') {
+                        return;
+                    }
+
+                    if (!this.comments || typeof this.comments !== 'string' || this.comments.trim() === '') {
+                        if (this.selectedService.min_quantity > 0) {
+                            this.commentsCountError = `{{ __('Minimum') }} ${this.selectedService.min_quantity} {{ __('comments required') }}.`;
+                        }
+                        return;
+                    }
+
+                    const minQuantity = this.selectedService.min_quantity || 1;
+
+                    if (this.commentsCount < minQuantity) {
+                        this.commentsCountError = `{{ __('Minimum') }} ${minQuantity} {{ __('comments required') }}. {{ __('You have entered') }} ${this.commentsCount} {{ __('comment(s)') }}.`;
+                    }
+                },
+
+                // getTotalRowQuantity() {
+                //     return this.commentsCount
+                // },
+                //
+                // getCommentsTotalCharge() {
+                //     return this.commentsTotalCharge
+                // },
+
+                validateDripfeedQuantity() {
+                    this.dripfeedQuantityError = '';
+                    if (!this.dripfeedEnabled || !this.dripfeedQuantity) {
+                        return;
+                    }
+                    const totalQty = this.getTotalQuantity();
+                    if (totalQty > 0 && this.dripfeedQuantity > totalQty) {
+                        this.dripfeedQuantityError = '{{ __('Quantity per step cannot be greater than total order quantity') }}';
                     }
                 },
 
                 addTargetRow() {
-                    const defaultQty = this.getMinQuantity();
+                    const defaultQty = this.selectedService ? (this.selectedService.min_quantity || 1) : 1;
                     this.targets.push({ link: '', quantity: defaultQty, linkValid: true });
                 },
 
@@ -690,14 +1081,61 @@
                     });
                 },
 
+                getSpeedMultiplier() {
+                    if (!this.selectedService?.speed_limit_enabled || !this.speedTier || this.speedTier === 'normal') {
+                        return 1.0;
+                    }
+                    if (this.speedTier === 'fast') {
+                        return parseFloat(this.selectedService.speed_multiplier_fast || 1.50);
+                    }
+                    if (this.speedTier === 'super_fast') {
+                        return parseFloat(this.selectedService.speed_multiplier_super_fast || 2.00);
+                    }
+                    return 1.0;
+                },
+
+                updateSpeedTierPrice() {
+                    // Recalculate charges when speed tier changes
+                    if (this.selectedService?.service_type === 'custom_comments') {
+                        this.calculateCommentsTotal();
+                    }
+                },
+
                 calculateCharge() {
                     if (!this.selectedService) return '0.00';
                     const totalQty = this.getTotalQuantity();
                     const rate = Number(this.selectedService.rate_per_1000) || 0;
-                    return (Math.round((totalQty / 100) * rate * 100) / 100).toFixed(2);
+                    const multiplier = this.getSpeedMultiplier();
+                    return (Math.round((totalQty / 100) * rate * multiplier * 100) / 100).toFixed(2);
                 },
 
                 submitForm(event) {
+                    // For custom_comments, validate comments count and remove empty targets before submit
+                    if (this.selectedService?.service_type === 'custom_comments') {
+                        this.validateCommentsCount();
+                        if (this.commentsCountError) {
+                            this.submitting = false;
+                            return;
+                        }
+
+                        const form = event?.target?.closest('form') || this.$el.querySelector('form[action="{{ route('client.orders.store') }}"]');
+                        if (form) {
+                            // Remove all targets inputs for custom_comments
+                            const targetInputs = form.querySelectorAll('input[name^="targets["]');
+                            targetInputs.forEach(input => {
+                                input.remove();
+                            });
+                        }
+                    }
+
+                    // Validate dripfeed quantity before submit
+                    if (this.dripfeedEnabled) {
+                        this.validateDripfeedQuantity();
+                        if (this.dripfeedQuantityError) {
+                            this.submitting = false;
+                            return;
+                        }
+                    }
                     this.submitting = true;
                     const form = event?.target?.closest('form') || this.$el.querySelector('form[action="{{ route('client.orders.store') }}"]');
                     if (form) {
@@ -715,11 +1153,13 @@
 
                     this.multiLoading = true;
                     try {
-                        const response = await fetch(`{{ route('client.orders.services.by-category') }}?category_id=${this.multiCategoryId}`);
+                        // Load all services for the category (no target_type filter at global level)
+                        const url = `{{ route('client.orders.services.by-category') }}?category_id=${this.multiCategoryId}`;
+                        const response = await fetch(url);
                         const data = await response.json();
                         this.multiServices = Array.isArray(data) ? data : [];
                         // Clear selected services if category changed
-                        this.multiSelectedServices = [];
+                        this.multiSelectedServices = [{ service_id: '', target_type: '', quantity: 1, min_quantity: 1, max_quantity: null, increment: 0, rate_per_1000: 0 }];
                     } catch (error) {
                         console.error('Error loading services:', error);
                         this.multiServices = [];
@@ -731,7 +1171,8 @@
                 addMultiServiceRow() {
                     this.multiSelectedServices.push({
                         service_id: '',
-                        quantity: 1,
+                        target_type: '',
+                        quantity: 1, // Will be updated when service is selected
                         min_quantity: 1,
                         max_quantity: null,
                         increment: 0,
@@ -742,6 +1183,33 @@
                 removeMultiServiceRow(index) {
                     if (this.multiSelectedServices.length > 1) {
                         this.multiSelectedServices.splice(index, 1);
+                    }
+                },
+
+                getFilteredServicesForRow(index) {
+                    const serviceRow = this.multiSelectedServices[index];
+                    if (!serviceRow || !Array.isArray(this.multiServices)) {
+                        return [];
+                    }
+                    if (!serviceRow.target_type) {
+                        return this.multiServices;
+                    }
+                    return this.multiServices.filter(service => service.target_type === serviceRow.target_type);
+                },
+
+                filterServicesForRow(index) {
+                    const serviceRow = this.multiSelectedServices[index];
+                    // Clear service selection when target type changes if the selected service doesn't match
+                    if (serviceRow.service_id) {
+                        const selectedService = this.multiServices.find(s => s.id == serviceRow.service_id);
+                        if (selectedService && serviceRow.target_type && selectedService.target_type !== serviceRow.target_type) {
+                            serviceRow.service_id = '';
+                            serviceRow.min_quantity = 1;
+                            serviceRow.max_quantity = null;
+                            serviceRow.increment = 0;
+                            serviceRow.rate_per_1000 = 0;
+                            serviceRow.quantity = 1;
+                        }
                     }
                 },
 
@@ -756,10 +1224,8 @@
                         serviceRow.max_quantity = service.max_quantity || null;
                         serviceRow.increment = service.increment || 0;
                         serviceRow.rate_per_1000 = service.rate_per_1000 || 0;
-                        // Set default quantity
-                        const defaultQty = service.increment > 0
-                            ? service.increment
-                            : (service.min_quantity || 1);
+                        // Set default quantity to min_quantity
+                        const defaultQty = service.min_quantity || 1;
                         serviceRow.quantity = defaultQty;
                     }
                 },

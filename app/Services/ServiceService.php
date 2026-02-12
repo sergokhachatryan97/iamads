@@ -82,7 +82,96 @@ class ServiceService implements ServiceServiceInterface
      */
     public function createService(array $data): Service
     {
+        // Auto-generate name if template is selected
+        if (isset($data['template_key']) && $data['template_key']) {
+            if (empty($data['name']) || ($data['name'] === '')) {
+                $data['name'] = $this->generateServiceName($data['template_key'], $data['duration_days'] ?? null);
+            }
+        }
+
+        // Store template snapshot and auto-set target_type from template
+        if (isset($data['template_key']) && $data['template_key']) {
+            $template = config("telegram_service_templates.{$data['template_key']}");
+            if ($template) {
+                $data['template_snapshot'] = $template;
+                
+                // Auto-set target_type from template if not provided
+                if (empty($data['target_type'])) {
+                    $data['target_type'] = $this->getTargetTypeFromTemplate($template);
+                }
+            }
+        }
+
+        // Enforce mutual exclusivity of speed_limit_enabled and dripfeed_enabled
+        if (!empty($data['speed_limit_enabled']) && !empty($data['dripfeed_enabled'])) {
+            // If both are set, prioritize speed_limit_enabled
+            $data['dripfeed_enabled'] = false;
+        }
+
+        // If speed_limit_enabled is false or not set, force rate multipliers to 1.000
+        if (empty($data['speed_limit_enabled'])) {
+            $data['rate_multiplier_fast'] = 1.000;
+            $data['rate_multiplier_super_fast'] = 1.000;
+        }
+
         return $this->serviceRepository->create($data);
+    }
+
+    /**
+     * Determine target_type from template's allowed_peer_types.
+     *
+     * @param array $template
+     * @return string|null
+     */
+    private function getTargetTypeFromTemplate(array $template): ?string
+    {
+        $peerTypes = $template['allowed_peer_types'] ?? [];
+        
+        if (in_array('bot', $peerTypes, true)) {
+            return 'bot';
+        }
+        
+        if (in_array('channel', $peerTypes, true)) {
+            return 'channel';
+        }
+        
+        if (in_array('group', $peerTypes, true) || in_array('supergroup', $peerTypes, true)) {
+            return 'group';
+        }
+        
+        return null;
+    }
+
+    /**
+     * Generate service name from template.
+     *
+     * @param string $templateKey
+     * @param int|null $durationDays
+     * @return string
+     */
+    private function generateServiceName(string $templateKey, ?int $durationDays): string
+    {
+        $template = config("telegram_service_templates.{$templateKey}");
+        if (!$template) {
+            return 'Service';
+        }
+
+        $label = $template['label'] ?? 'Service';
+
+        // For templates that require duration input, append duration to name
+        if (($template['requires_duration_days'] ?? false) && $durationDays) {
+            // Remove "(Daily)" from label and append duration
+            $cleanLabel = str_replace(' (Daily)', '', $label);
+            if (str_contains($cleanLabel, 'Channel Subscribe')) {
+                return "Channel Subscribe {$durationDays}d";
+            }
+            if (str_contains($cleanLabel, 'Group Subscribe')) {
+                return "Group Subscribe {$durationDays}d";
+            }
+            return "{$cleanLabel} {$durationDays}d";
+        }
+
+        return $label;
     }
 
     /**
@@ -94,6 +183,46 @@ class ServiceService implements ServiceServiceInterface
      */
     public function updateService(Service $service, array $data): bool
     {
+        // Auto-generate name if template is selected and name is empty
+        if (isset($data['template_key']) && $data['template_key']) {
+            if (empty($data['name'])) {
+                $data['name'] = $this->generateServiceName($data['template_key'], $data['duration_days'] ?? null);
+            }
+        }
+
+        // Store template snapshot and auto-set target_type from template
+        if (isset($data['template_key']) && $data['template_key']) {
+            $template = config("telegram_service_templates.{$data['template_key']}");
+            if ($template) {
+                $data['template_snapshot'] = $template;
+                
+                // Auto-set target_type from template if not provided
+                if (empty($data['target_type'])) {
+                    $data['target_type'] = $this->getTargetTypeFromTemplate($template);
+                }
+            }
+        }
+
+        // Enforce mutual exclusivity of speed_limit_enabled and dripfeed_enabled
+        if (isset($data['speed_limit_enabled']) && isset($data['dripfeed_enabled'])) {
+            if ($data['speed_limit_enabled'] && $data['dripfeed_enabled']) {
+                // If both are set, prioritize speed_limit_enabled
+                $data['dripfeed_enabled'] = false;
+            }
+        } elseif (isset($data['speed_limit_enabled']) && $data['speed_limit_enabled']) {
+            // If speed_limit is enabled, ensure dripfeed is disabled
+            $data['dripfeed_enabled'] = false;
+        } elseif (isset($data['dripfeed_enabled']) && $data['dripfeed_enabled']) {
+            // If dripfeed is enabled, ensure speed_limit is disabled
+            $data['speed_limit_enabled'] = false;
+        }
+
+        // If speed_limit_enabled is false, force rate multipliers to 1.000
+        if (isset($data['speed_limit_enabled']) && !$data['speed_limit_enabled']) {
+            $data['rate_multiplier_fast'] = 1.000;
+            $data['rate_multiplier_super_fast'] = 1.000;
+        }
+
         return $this->serviceRepository->update($service, $data);
     }
 

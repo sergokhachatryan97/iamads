@@ -157,11 +157,13 @@ class OrderController extends Controller
     {
         $validated = $request->validate([
             'category_id' => ['required', 'exists:categories,id'],
+            'target_type' => ['nullable', 'string', 'in:bot,channel,group'],
         ]);
 
         $client = $this->client;
 
         $categoryId = (int) $validated['category_id'];
+        $targetType = $validated['target_type'] ?? null;
 
         // Normalize client rates keys to string once (avoids int/string duplication checks)
         $clientRatesRaw = is_array($client->rates) ? $client->rates : [];
@@ -180,10 +182,16 @@ class OrderController extends Controller
 
         $pricingService = app(\App\Services\PricingService::class);
 
-        $services = Service::query()
+        $query = Service::query()
             ->where('category_id', $categoryId)
-            ->where('is_active', true)
-            ->orderBy('name')
+            ->where('is_active', true);
+
+        // Filter by target_type if provided
+        if ($targetType) {
+            $query->where('target_type', $targetType);
+        }
+
+        $services = $query->orderBy('name')
             ->get([
                 'id',
                 'name',
@@ -195,6 +203,12 @@ class OrderController extends Controller
                 'deny_duplicates_days',
                 'service_cost_per_1000',
                 'is_active',
+                'service_type',
+                'dripfeed_enabled',
+                'speed_limit_enabled',
+                'speed_multiplier_fast',
+                'speed_multiplier_super_fast',
+                'target_type',
             ])
             ->map(function (Service $service) use ($clientRates, $serviceLimits, $client, $pricingService, $clientDiscount) {
 
@@ -236,6 +250,7 @@ class OrderController extends Controller
                 return [
                     'id' => $service->id,
                     'name' => $service->name,
+                    'target_type' => $service->target_type,
 
                     'min_quantity' => $effectiveMinQty,
                     'max_quantity' => $effectiveMaxQty,
@@ -267,9 +282,18 @@ class OrderController extends Controller
                     // Discount info
                     'client_discount' => $clientDiscount,
                     'discount_applies' => $discountApplies,
+
+                    // Service type and dripfeed
+                    'service_type' => $service->service_type ?? null,
+                    'dripfeed_enabled' => (bool) ($service->dripfeed_enabled ?? false),
+
+                    // Speed limit settings
+                    'speed_limit_enabled' => (bool) ($service->speed_limit_enabled ?? false),
+                    'speed_multiplier_fast' => $service->speed_multiplier_fast !== null ? (float) $service->speed_multiplier_fast : 1.50,
+                    'speed_multiplier_super_fast' => $service->speed_multiplier_super_fast !== null ? (float) $service->speed_multiplier_super_fast : 2.00,
                 ];
             })
-            ->values(); // ensures clean 0..N array in JSON
+            ->values();
 
         return response()->json($services);
     }

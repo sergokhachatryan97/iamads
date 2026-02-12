@@ -352,4 +352,63 @@ class OrderController extends Controller
 
         return $redirect;
     }
+
+    /**
+     * Get order statuses for real-time updates.
+     * Returns statuses for orders currently visible on the page.
+     */
+    public function getStatuses(Request $request): JsonResponse
+    {
+        $user = Auth::guard('staff')->user();
+        $isSuperAdmin = $user->hasRole('super_admin');
+
+        // Handle both GET (query params) and POST (body) requests
+        $orderIds = $request->input('order_ids', []);
+
+        // If empty, try to get from query string
+        if (empty($orderIds) && $request->has('order_ids')) {
+            $orderIds = $request->query('order_ids', []);
+        }
+
+        if (empty($orderIds) || !is_array($orderIds)) {
+            return response()->json(['statuses' => []]);
+        }
+
+        // Validate order IDs are integers
+        $orderIds = array_filter(array_map('intval', $orderIds));
+
+        if (empty($orderIds)) {
+            return response()->json(['statuses' => []]);
+        }
+
+        $query = Order::query()
+            ->whereIn('id', $orderIds)
+            ->select(['id', 'status', 'delivered', 'quantity', 'remains']);
+
+        // Filter by staff member (unless super admin)
+        if (!$isSuperAdmin) {
+            $query->whereHas('client', function ($q) use ($user) {
+                $q->where('staff_id', $user->id);
+            });
+        }
+
+        $orders = $query->get();
+
+        $statuses = [];
+        foreach ($orders as $order) {
+            $delivered = $order->delivered ?? 0;
+            $quantity = $order->quantity ?? 1;
+            $progress = $quantity > 0 ? round(($delivered / $quantity) * 100, 1) : 0;
+
+            $statuses[$order->id] = [
+                'status' => $order->status,
+                'remains' => $order->remains,
+                'delivered' => $delivered,
+                'quantity' => $quantity,
+                'progress' => $progress,
+            ];
+        }
+
+        return response()->json(['statuses' => $statuses]);
+    }
 }

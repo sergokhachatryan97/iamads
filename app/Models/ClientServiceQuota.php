@@ -24,6 +24,10 @@ class ClientServiceQuota extends Model
         'link',
         'expires_at',
         'auto_renew',
+        'provider_payload',
+        'provider_sending_at',
+        'provider_last_error',
+        'provider_last_error_at',
     ];
 
     /**
@@ -38,6 +42,9 @@ class ClientServiceQuota extends Model
             'quantity_left' => 'integer',
             'expires_at' => 'datetime',
             'auto_renew' => 'boolean',
+            'provider_payload' => 'array',
+            'provider_sending_at' => 'datetime',
+            'provider_last_error_at' => 'datetime',
         ];
     }
 

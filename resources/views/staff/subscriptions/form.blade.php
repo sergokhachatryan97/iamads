@@ -106,6 +106,25 @@
                                             <x-input-error :messages="$errors->get('category_id')" class="mt-2" />
                                         </div>
 
+                                        {{-- Target Type --}}
+                                        <div x-show="selectedCategoryId" x-cloak>
+                                            <x-input-label for="target_type" :value="__('Target Type')" />
+                                            <select
+                                                id="target_type"
+                                                name="target_type"
+                                                x-model="targetType"
+                                                @change="loadServicesByCategoryAndTargetType()"
+                                                class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                                                <option value="">{{ __('All Target Types') }}</option>
+                                                <option value="bot">Bot</option>
+                                                <option value="channel">Channel</option>
+                                                <option value="group">Group</option>
+                                            </select>
+                                            <p class="mt-1 text-xs text-gray-500">
+                                                {{ __('Filter services by target type (optional)') }}
+                                            </p>
+                                        </div>
+
                                         <div>
                                             <x-input-label for="currency" :value="__('Currency') . ' *'" />
                                             <x-text-input id="currency" name="currency" type="text"
@@ -507,6 +526,7 @@
                 servicesByCategory: Object.freeze(payload.servicesByCategory || {}),
 
                 selectedCategoryId: payload.initialCategoryId ? String(payload.initialCategoryId) : null,
+                targetType: '',
                 availableServices: [],
                 selectedServices: Array.isArray(payload.initialSelectedServices) ? payload.initialSelectedServices : [],
 
@@ -542,6 +562,14 @@
                                 this.selectedCategoryId = v ? String(v) : null;
                                 this.categoryChanged(v);
                             });
+
+                            // Watch for target_type changes
+                            const targetTypeEl = document.getElementById('target_type');
+                            if (targetTypeEl) {
+                                targetTypeEl.addEventListener('change', () => {
+                                    this.loadServicesByCategoryAndTargetType();
+                                });
+                            }
                         } else if (this.selectedCategoryId) {
                             this.categoryChanged(this.selectedCategoryId);
                         }
@@ -562,6 +590,7 @@
                 categoryChanged(categoryId) {
                     if (!categoryId) {
                         this.selectedCategoryId = null;
+                        this.targetType = '';
                         this.availableServices = [];
                         this.selectedServices = [];
                         return;
@@ -569,32 +598,57 @@
 
                     const key = String(categoryId);
                     this.selectedCategoryId = key;
-                    this.availableServices = this.servicesByCategory[key] || [];
+                    // Reset target type when category changes
+                    this.targetType = '';
+                    this.loadServicesByCategoryAndTargetType();
+                },
 
-                    // edit: changing away from original clears selected
-                    if (this.mode === 'edit' && this.originalCategoryId && key !== String(this.originalCategoryId)) {
+                async loadServicesByCategoryAndTargetType() {
+                    if (!this.selectedCategoryId) {
+                        this.availableServices = [];
                         this.selectedServices = [];
-                        this.quantityErrors = {};
                         return;
                     }
 
-                    // keep only active/available
-                    this.selectedServices = (this.selectedServices || []).filter(s =>
-                        this.availableServices.some(a => String(a.id) === String(s.id))
-                    );
+                    try {
+                        const url = new URL('{{ route("staff.subscriptions.services.by-category") }}', window.location.origin);
+                        url.searchParams.set('category_id', this.selectedCategoryId);
+                        if (this.targetType) {
+                            url.searchParams.set('target_type', this.targetType);
+                        }
 
-                    // ensure name/min/max + set default qty if missing
-                    this.selectedServices = this.selectedServices.map(s => {
-                        const found = this.availableServices.find(a => String(a.id) === String(s.id));
-                        const min = found?.min_quantity ?? s.min_quantity ?? 1;
-                        return {
-                            ...s,
-                            name: found ? found.name : (s.name || ''),
-                            min_quantity: found?.min_quantity ?? s.min_quantity ?? 1,
-                            max_quantity: found?.max_quantity !== undefined ? found.max_quantity : (s.max_quantity ?? null),
-                            quantity: (s.quantity ?? min),
-                        };
-                    });
+                        const response = await fetch(url);
+                        const data = await response.json();
+                        this.availableServices = Array.isArray(data.services) ? data.services : [];
+
+                        // edit: changing away from original clears selected
+                        if (this.mode === 'edit' && this.originalCategoryId && this.selectedCategoryId !== String(this.originalCategoryId)) {
+                            this.selectedServices = [];
+                            this.quantityErrors = {};
+                            return;
+                        }
+
+                        // keep only active/available
+                        this.selectedServices = (this.selectedServices || []).filter(s =>
+                            this.availableServices.some(a => String(a.id) === String(s.id))
+                        );
+
+                        // ensure name/min/max + set default qty if missing
+                        this.selectedServices = this.selectedServices.map(s => {
+                            const found = this.availableServices.find(a => String(a.id) === String(s.id));
+                            const min = found?.min_quantity ?? s.min_quantity ?? 1;
+                            return {
+                                ...s,
+                                name: found ? found.name : (s.name || ''),
+                                min_quantity: found?.min_quantity ?? s.min_quantity ?? 1,
+                                max_quantity: found?.max_quantity !== undefined ? found.max_quantity : (s.max_quantity ?? null),
+                                quantity: (s.quantity ?? min),
+                            };
+                        });
+                    } catch (error) {
+                        console.error('Error loading services:', error);
+                        this.availableServices = [];
+                    }
                 },
 
                 toggleService(service) {

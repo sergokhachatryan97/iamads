@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Services\OrderServiceInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -11,6 +12,11 @@ use Illuminate\Validation\ValidationException;
 
 class ProviderWebhookController extends Controller
 {
+    public function __construct(
+        private OrderServiceInterface $orderService
+    ) {
+    }
+
     /**
      * Handle incoming provider webhook.
      */
@@ -169,6 +175,7 @@ class ProviderWebhookController extends Controller
 
         // Extract status
         $providerStatus = $this->extractValue($payload, ['status', 'state', 'data.status']);
+        $oldStatus = $order->status;
         if ($providerStatus !== null) {
             $updateData['status'] = $this->mapProviderStatus((string) $providerStatus);
         }
@@ -219,7 +226,96 @@ class ProviderWebhookController extends Controller
         // Update order if we have any changes
         if (!empty($updateData)) {
             $order->update($updateData);
+            
+            // If status changed to CANCELED, decrement TelegramAccount subscription_count
+            $newStatus = $updateData['status'] ?? $order->status;
+            if ($newStatus === Order::STATUS_CANCELED && $oldStatus !== Order::STATUS_CANCELED) {
+                try {
+                    // Use reflection to call private method, or make it public/protected
+                    // For now, we'll handle it directly here
+                    $this->decrementTelegramAccountCountsFromOrder($order);
+                } catch (\Throwable $e) {
+                    Log::error('Failed to decrement TelegramAccount counts from webhook', [
+                        'order_id' => $order->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
         }
+    }
+
+    /**
+     * Decrement TelegramAccount subscription_count when order is canceled via webhook.
+     */
+    protected function decrementTelegramAccountCountsFromOrder(Order $order): void
+    {
+        $providerPayload = $order->provider_payload ?? [];
+        $steps = $providerPayload['steps'] ?? [];
+        $executionMeta = $providerPayload['execution_meta'] ?? [];
+        $perCall = $executionMeta['per_call'] ?? 1;
+
+        if (empty($steps)) {
+            return;
+        }
+
+        // Count successful steps that haven't been decremented yet
+        $successfulSteps = [];
+        foreach ($steps as $step) {
+            if (($step['ok'] ?? false) === true && !($step['decremented'] ?? false)) {
+                $successfulSteps[] = $step;
+            }
+        }
+
+        if (empty($successfulSteps)) {
+            return;
+        }
+
+        // Group steps by account_id and count
+        $accountCounts = [];
+        foreach ($successfulSteps as $step) {
+            $accountId = $step['account_id'] ?? null;
+            if ($accountId) {
+                $accountCounts[$accountId] = ($accountCounts[$accountId] ?? 0) + $perCall;
+            }
+        }
+
+        // Decrement each account
+        foreach ($accountCounts as $accountId => $decrementAmount) {
+            try {
+                $account = \App\Models\TelegramAccount::find($accountId);
+                if ($account) {
+                    $newCount = max(0, $account->subscription_count - $decrementAmount);
+                    $account->update(['subscription_count' => $newCount]);
+
+                    Log::info('Decremented TelegramAccount subscription_count from webhook cancellation', [
+                        'order_id' => $order->id,
+                        'account_id' => $accountId,
+                        'decremented_by' => $decrementAmount,
+                        'new_count' => $newCount,
+                    ]);
+                }
+            } catch (\Throwable $e) {
+                Log::error('Failed to decrement TelegramAccount subscription_count from webhook', [
+                    'order_id' => $order->id,
+                    'account_id' => $accountId,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        // Mark steps as decremented in provider_payload
+        $updatedSteps = [];
+        $decrementedCount = 0;
+        foreach ($steps as $step) {
+            if (($step['ok'] ?? false) === true && !($step['decremented'] ?? false) && $decrementedCount < count($successfulSteps)) {
+                $step['decremented'] = true;
+                $decrementedCount++;
+            }
+            $updatedSteps[] = $step;
+        }
+
+        $providerPayload['steps'] = $updatedSteps;
+        $order->update(['provider_payload' => $providerPayload]);
     }
 
     /**

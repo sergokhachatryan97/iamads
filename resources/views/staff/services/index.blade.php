@@ -69,7 +69,7 @@
                      }
                  };
                 window.addEventListener('show-delete-confirm', deleteHandler);
-                
+
                 var restoreHandler = function(event) {
                     if (event.detail && event.detail.serviceId && event.detail.serviceName) {
                         // Get Alpine component data from the element
@@ -154,7 +154,11 @@
             @endif
 
                 @if ($errors->any())
-                    <div class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <div  x-data="{ show: true }"
+                          x-init="setTimeout(() => show = false, 3000)"
+                          x-show="show"
+                          x-transition.opacity.duration.300ms
+                          class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
                         <ul class="text-sm text-red-800">
                             @foreach ($errors->all() as $error)
                                 <li>{{ $error }}</li>
@@ -704,7 +708,7 @@
                             label: '{{ __('Status') }}: ' + statusLabel
                         });
                     }
-                    console.log(filters, 88888);
+
                     return filters;
                 },
                 toggleCategory(categoryId) {
@@ -712,6 +716,57 @@
                 },
                 isCategoryCollapsed(categoryId) {
                     return !!this.collapsedCategories[categoryId];
+                },
+                collapsedTargetGroups: {},
+                toggleTargetGroup(targetGroupId) {
+                    this.collapsedTargetGroups[targetGroupId] = !this.collapsedTargetGroups[targetGroupId];
+                },
+                isTargetGroupCollapsed(targetGroupId) {
+                    return !!this.collapsedTargetGroups[targetGroupId];
+                },
+                selectAllTargetGroupServices(targetGroupId, categoryId, targetType) {
+                    // Select all services in this target group
+                    const checkboxes = document.querySelectorAll(`input.service-checkbox[data-category-id="${categoryId}"][data-target-type="${targetType}"]`);
+                    const serviceIds = [];
+                    checkboxes.forEach(cb => {
+                        cb.checked = true;
+                        const serviceId = parseInt(cb.value);
+                        if (serviceId && !this.selectedServices.includes(serviceId)) {
+                            this.selectedServices.push(serviceId);
+                        }
+                    });
+                    this.updateCategoryCheckbox(categoryId);
+                    this.updateSelectAllCheckbox();
+                },
+                showBulkEnableTargetGroupConfirm(targetGroupId, categoryId, targetType) {
+                    // Get all service IDs in this target group
+                    const serviceIds = [];
+                    const checkboxes = document.querySelectorAll(`input.service-checkbox[data-category-id="${categoryId}"][data-target-type="${targetType}"]`);
+                    checkboxes.forEach(cb => {
+                        const serviceId = parseInt(cb.value);
+                        if (serviceId) {
+                            serviceIds.push(serviceId);
+                        }
+                    });
+                    if (serviceIds.length === 0) return;
+                    // Temporarily select these services and show enable confirmation
+                    this.selectedServices = [...new Set([...this.selectedServices, ...serviceIds])];
+                    this.showBulkEnableConfirm();
+                },
+                showBulkDisableTargetGroupConfirm(targetGroupId, categoryId, targetType) {
+                    // Get all service IDs in this target group
+                    const serviceIds = [];
+                    const checkboxes = document.querySelectorAll(`input.service-checkbox[data-category-id="${categoryId}"][data-target-type="${targetType}"]`);
+                    checkboxes.forEach(cb => {
+                        const serviceId = parseInt(cb.value);
+                        if (serviceId) {
+                            serviceIds.push(serviceId);
+                        }
+                    });
+                    if (serviceIds.length === 0) return;
+                    // Temporarily select these services and show disable confirmation
+                    this.selectedServices = [...new Set([...this.selectedServices, ...serviceIds])];
+                    this.showBulkDisableConfirm();
                 },
                 selectAllCategoryServices(categoryId) {
                     const checkboxes = document.querySelectorAll('input.service-checkbox[data-category-id="' + categoryId + '"]');
@@ -965,7 +1020,6 @@
                         console.log('After setting showConfirmModal', this.showConfirmModal);
                         // Force Alpine to update
                         this.$nextTick(() => {
-                            console.log('Modal state after nextTick', this.showConfirmModal);
                             var modalEl = document.querySelector('[x-show="showConfirmModal"]');
                             if (modalEl) {
                                 console.log('Modal element found', modalEl.style.display, modalEl.classList);
@@ -1158,9 +1212,6 @@
                     const categoryId = formData.get('category_id') || '';
                     const sort = formData.get('sort') || this.currentSort || 'id';
                     const dir = formData.get('dir') || this.currentDir || 'asc';
-
-                    // Debug log
-                    console.log('AJAX Search params:', { searchValue, searchBy, status, categoryId, sort, dir });
 
                     // Update filter count before search
                     this.getActiveFiltersCount();

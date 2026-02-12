@@ -23,38 +23,38 @@
                         console.error('Delete URL is not set');
                         return;
                     }
-                    
+
                     const form = document.createElement('form');
                     form.method = 'POST';
                     form.action = this.deleteUrl;
                     form.style.display = 'none';
-                    
+
                     const csrfMeta = document.querySelector('meta[name="csrf-token"]');
                     if (!csrfMeta) {
                         console.error('CSRF meta tag not found');
                         alert('Error: Unable to find security token. Please refresh the page and try again.');
                         return;
                     }
-                    
+
                     const csrfToken = csrfMeta.getAttribute('content');
                     if (!csrfToken) {
                         console.error('CSRF token content is empty');
                         alert('Error: Security token is missing. Please refresh the page and try again.');
                         return;
                     }
-                    
+
                     const csrfInput = document.createElement('input');
                     csrfInput.type = 'hidden';
                     csrfInput.name = '_token';
                     csrfInput.value = csrfToken;
                     form.appendChild(csrfInput);
-                    
+
                     const methodInput = document.createElement('input');
                     methodInput.type = 'hidden';
                     methodInput.name = '_method';
                     methodInput.value = 'DELETE';
                     form.appendChild(methodInput);
-                    
+
                     document.body.appendChild(form);
                     form.submit();
                 }
@@ -103,12 +103,12 @@
                 </div>
             @endif
 
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg" 
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg"
                  x-data="subscriptionDeleteModal()"
                  @open-delete-modal.window="openDeleteConfirmation($event.detail.planId, $event.detail.planName, $event.detail.url)"
             >
                 {{-- Delete Confirmation Modal --}}
-                <div 
+                <div
                     x-show="openDeleteModal"
                     x-transition:enter="ease-out duration-300"
                     x-transition:enter-start="opacity-0"
@@ -123,7 +123,7 @@
                 >
                     <div class="flex min-h-full items-center justify-center p-4">
                         {{-- Background overlay --}}
-                        <div 
+                        <div
                             x-show="openDeleteModal"
                             x-transition:enter="ease-out duration-300"
                             x-transition:enter-start="opacity-0"
@@ -137,7 +137,7 @@
                         ></div>
 
                         {{-- Modal panel --}}
-                        <div 
+                        <div
                             x-show="openDeleteModal"
                             x-transition:enter="ease-out duration-300"
                             x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
@@ -164,7 +164,7 @@
                                         </h3>
                                         <div class="mt-3">
                                             <p class="text-sm leading-6 text-gray-600">
-                                                {{ __('Are you sure you want to delete') }} <span class="font-semibold text-gray-900" x-text="planNameToDelete"></span>? 
+                                                {{ __('Are you sure you want to delete') }} <span class="font-semibold text-gray-900" x-text="planNameToDelete"></span>?
                                                 <span class="block mt-1">{{ __('This action cannot be undone.') }}</span>
                                             </p>
                                         </div>
@@ -210,7 +210,7 @@
                                     @foreach($plans as $plan)
                                         <tr>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ $plan->name }}</td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $plan->category->name }}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $plan->category?->name }}</td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $plan->currency }}</td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 @php
@@ -239,7 +239,7 @@
                                                             {{ __('Edit') }}
                                                         </x-dropdown-link>
 
-                                                        <button 
+                                                        <button
                                                             type="button"
                                                             @click.stop="open = false; $dispatch('open-delete-modal', { planId: {{ $plan->id }}, planName: '{{ addslashes($plan->name) }}', url: '{{ route('staff.subscriptions.destroy', $plan) }}' })"
                                                             class="block w-full px-4 py-2 text-start text-sm leading-5 text-red-600 hover:bg-red-50 focus:outline-none focus:bg-red-50 transition duration-150 ease-in-out"
