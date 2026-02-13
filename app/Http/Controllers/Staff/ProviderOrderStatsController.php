@@ -25,20 +25,34 @@ class ProviderOrderStatsController extends Controller
         $totalChargeWithoutFailed = (float) (clone $baseQueryWithoutFailed)->selectRaw('COALESCE(SUM(CAST(charge AS DECIMAL(20,4))), 0) as total')->value('total');
         $totalChargePartial = (float) (clone $baseQueryPartial)->selectRaw('COALESCE(SUM(CAST(charge AS DECIMAL(20,4))), 0) as total')->value('total');
 
-        $userSort = in_array($request->input('user_sort'), ['orders_count', 'total_charge'], true)
-            ? $request->input('user_sort') : 'total_charge';
-        $userDir = strtolower((string) $request->input('user_dir')) === 'asc' ? 'asc' : 'desc';
+        $totalsCompleted = (clone $baseQuery)->selectRaw('COALESCE(SUM(COALESCE(quantity, 0)), 0) as qty, COALESCE(SUM(COALESCE(remains, 0)), 0) as rem')->first();
+        $totalQuantity = (int) ($totalsCompleted->qty ?? 0);
+        $totalRemains = (int) ($totalsCompleted->rem ?? 0);
+        $totalDifference = $totalQuantity - $totalRemains;
+
+        $totalsWithoutFailed = (clone $baseQueryWithoutFailed)->selectRaw('COALESCE(SUM(COALESCE(quantity, 0)), 0) as qty, COALESCE(SUM(COALESCE(remains, 0)), 0) as rem')->first();
+        $totalQuantityWithoutFailed = (int) ($totalsWithoutFailed->qty ?? 0);
+        $totalRemainsWithoutFailed = (int) ($totalsWithoutFailed->rem ?? 0);
+        $totalDifferenceWithoutFailed = $totalQuantityWithoutFailed - $totalRemainsWithoutFailed;
+
+        $totalsPartial = (clone $baseQueryPartial)->selectRaw('COALESCE(SUM(COALESCE(quantity, 0)), 0) as qty, COALESCE(SUM(COALESCE(remains, 0)), 0) as rem')->first();
+        $totalQuantityPartial = (int) ($totalsPartial->qty ?? 0);
+        $totalRemainsPartial = (int) ($totalsPartial->rem ?? 0);
+        $totalDifferencePartial = $totalQuantityPartial - $totalRemainsPartial;
 
         $byUser = (clone $baseQuery)
             ->select([
                 'user_login',
                 'user_remote_id',
                 DB::raw('COUNT(*) as orders_count'),
+                DB::raw('COALESCE(SUM(COALESCE(quantity, 0)), 0) as total_quantity'),
+                DB::raw('COALESCE(SUM(COALESCE(remains, 0)), 0) as total_remains'),
+                DB::raw('COALESCE(SUM(COALESCE(quantity, 0)), 0) - COALESCE(SUM(COALESCE(remains, 0)), 0) as total_difference'),
                 DB::raw('COALESCE(SUM(CAST(charge AS DECIMAL(20,4))), 0) as total_charge'),
                 DB::raw('COALESCE(AVG(CAST(charge AS DECIMAL(20,4))), 0) as avg_charge'),
             ])
             ->groupBy('user_login', 'user_remote_id')
-            ->orderBy($userSort, $userDir)
+            ->orderByDesc('total_charge')
             ->paginate(20, ['*'], 'user_page')
             ->withQueryString();
 
@@ -48,24 +62,26 @@ class ProviderOrderStatsController extends Controller
                 'user_remote_id',
                 'remote_service_id',
                 DB::raw('COUNT(*) as orders_count'),
+                DB::raw('COALESCE(SUM(COALESCE(quantity, 0)), 0) as total_quantity'),
+                DB::raw('COALESCE(SUM(COALESCE(remains, 0)), 0) as total_remains'),
+                DB::raw('COALESCE(SUM(COALESCE(quantity, 0)), 0) - COALESCE(SUM(COALESCE(remains, 0)), 0) as total_difference'),
                 DB::raw('COALESCE(SUM(CAST(charge AS DECIMAL(20,4))), 0) as total_charge'),
             ])
             ->groupBy('user_login', 'user_remote_id', 'remote_service_id')
             ->orderByDesc('total_charge')
             ->get();
 
-        $serviceSort = in_array($request->input('service_sort'), ['orders_count', 'total_charge'], true)
-            ? $request->input('service_sort') : 'total_charge';
-        $serviceDir = strtolower((string) $request->input('service_dir')) === 'asc' ? 'asc' : 'desc';
-
         $byService = (clone $baseQuery)
             ->select([
                 'remote_service_id',
                 DB::raw('COUNT(*) as orders_count'),
+                DB::raw('COALESCE(SUM(COALESCE(quantity, 0)), 0) as total_quantity'),
+                DB::raw('COALESCE(SUM(COALESCE(remains, 0)), 0) as total_remains'),
+                DB::raw('COALESCE(SUM(COALESCE(quantity, 0)), 0) - COALESCE(SUM(COALESCE(remains, 0)), 0) as total_difference'),
                 DB::raw('COALESCE(SUM(CAST(charge AS DECIMAL(20,4))), 0) as total_charge'),
             ])
             ->groupBy('remote_service_id')
-            ->orderBy($serviceSort, $serviceDir)
+            ->orderByDesc('total_charge')
             ->paginate(20, ['*'], 'service_page')
             ->withQueryString();
 
@@ -74,11 +90,14 @@ class ProviderOrderStatsController extends Controller
                 'user_login',
                 'user_remote_id',
                 DB::raw('COUNT(*) as orders_count'),
+                DB::raw('COALESCE(SUM(COALESCE(quantity, 0)), 0) as total_quantity'),
+                DB::raw('COALESCE(SUM(COALESCE(remains, 0)), 0) as total_remains'),
+                DB::raw('COALESCE(SUM(COALESCE(quantity, 0)), 0) - COALESCE(SUM(COALESCE(remains, 0)), 0) as total_difference'),
                 DB::raw('COALESCE(SUM(CAST(charge AS DECIMAL(20,4))), 0) as total_charge'),
                 DB::raw('COALESCE(AVG(CAST(charge AS DECIMAL(20,4))), 0) as avg_charge'),
             ])
             ->groupBy('user_login', 'user_remote_id')
-            ->orderBy($userSort, $userDir)
+            ->orderByDesc('total_charge')
             ->paginate(20, ['*'], 'user_page_wf')
             ->withQueryString();
 
@@ -86,23 +105,44 @@ class ProviderOrderStatsController extends Controller
             ->select([
                 'remote_service_id',
                 DB::raw('COUNT(*) as orders_count'),
+                DB::raw('COALESCE(SUM(COALESCE(quantity, 0)), 0) as total_quantity'),
+                DB::raw('COALESCE(SUM(COALESCE(remains, 0)), 0) as total_remains'),
+                DB::raw('COALESCE(SUM(COALESCE(quantity, 0)), 0) - COALESCE(SUM(COALESCE(remains, 0)), 0) as total_difference'),
                 DB::raw('COALESCE(SUM(CAST(charge AS DECIMAL(20,4))), 0) as total_charge'),
             ])
             ->groupBy('remote_service_id')
-            ->orderBy($serviceSort, $serviceDir)
+            ->orderByDesc('total_charge')
             ->paginate(20, ['*'], 'service_page_wf')
             ->withQueryString();
+
+        $byUserByServiceWithoutFailed = (clone $baseQueryWithoutFailed)
+            ->select([
+                'user_login',
+                'user_remote_id',
+                'remote_service_id',
+                DB::raw('COUNT(*) as orders_count'),
+                DB::raw('COALESCE(SUM(COALESCE(quantity, 0)), 0) as total_quantity'),
+                DB::raw('COALESCE(SUM(COALESCE(remains, 0)), 0) as total_remains'),
+                DB::raw('COALESCE(SUM(COALESCE(quantity, 0)), 0) - COALESCE(SUM(COALESCE(remains, 0)), 0) as total_difference'),
+                DB::raw('COALESCE(SUM(CAST(charge AS DECIMAL(20,4))), 0) as total_charge'),
+            ])
+            ->groupBy('user_login', 'user_remote_id', 'remote_service_id')
+            ->orderByDesc('total_charge')
+            ->get();
 
         $byUserPartial = (clone $baseQueryPartial)
             ->select([
                 'user_login',
                 'user_remote_id',
                 DB::raw('COUNT(*) as orders_count'),
+                DB::raw('COALESCE(SUM(COALESCE(quantity, 0)), 0) as total_quantity'),
+                DB::raw('COALESCE(SUM(COALESCE(remains, 0)), 0) as total_remains'),
+                DB::raw('COALESCE(SUM(COALESCE(quantity, 0)), 0) - COALESCE(SUM(COALESCE(remains, 0)), 0) as total_difference'),
                 DB::raw('COALESCE(SUM(CAST(charge AS DECIMAL(20,4))), 0) as total_charge'),
                 DB::raw('COALESCE(AVG(CAST(charge AS DECIMAL(20,4))), 0) as avg_charge'),
             ])
             ->groupBy('user_login', 'user_remote_id')
-            ->orderBy($userSort, $userDir)
+            ->orderByDesc('total_charge')
             ->paginate(20, ['*'], 'user_page_partial')
             ->withQueryString();
 
@@ -110,12 +150,30 @@ class ProviderOrderStatsController extends Controller
             ->select([
                 'remote_service_id',
                 DB::raw('COUNT(*) as orders_count'),
+                DB::raw('COALESCE(SUM(COALESCE(quantity, 0)), 0) as total_quantity'),
+                DB::raw('COALESCE(SUM(COALESCE(remains, 0)), 0) as total_remains'),
+                DB::raw('COALESCE(SUM(COALESCE(quantity, 0)), 0) - COALESCE(SUM(COALESCE(remains, 0)), 0) as total_difference'),
                 DB::raw('COALESCE(SUM(CAST(charge AS DECIMAL(20,4))), 0) as total_charge'),
             ])
             ->groupBy('remote_service_id')
-            ->orderBy($serviceSort, $serviceDir)
+            ->orderByDesc('total_charge')
             ->paginate(20, ['*'], 'service_page_partial')
             ->withQueryString();
+
+        $byUserByServicePartial = (clone $baseQueryPartial)
+            ->select([
+                'user_login',
+                'user_remote_id',
+                'remote_service_id',
+                DB::raw('COUNT(*) as orders_count'),
+                DB::raw('COALESCE(SUM(COALESCE(quantity, 0)), 0) as total_quantity'),
+                DB::raw('COALESCE(SUM(COALESCE(remains, 0)), 0) as total_remains'),
+                DB::raw('COALESCE(SUM(COALESCE(quantity, 0)), 0) - COALESCE(SUM(COALESCE(remains, 0)), 0) as total_difference'),
+                DB::raw('COALESCE(SUM(CAST(charge AS DECIMAL(20,4))), 0) as total_charge'),
+            ])
+            ->groupBy('user_login', 'user_remote_id', 'remote_service_id')
+            ->orderByDesc('total_charge')
+            ->get();
 
         $serviceNames = ProviderService::query()
             ->select('remote_service_id', 'name')
@@ -179,8 +237,10 @@ class ProviderOrderStatsController extends Controller
             'byService' => $byService,
             'byUserWithoutFailed' => $byUserWithoutFailed,
             'byServiceWithoutFailed' => $byServiceWithoutFailed,
+            'byUserByServiceWithoutFailed' => $byUserByServiceWithoutFailed,
             'byUserPartial' => $byUserPartial,
             'byServicePartial' => $byServicePartial,
+            'byUserByServicePartial' => $byUserByServicePartial,
             'serviceNames' => $serviceNames,
             'chartTopUsers' => $chartTopUsers,
             'chartTopServices' => $chartTopServices,
@@ -192,10 +252,15 @@ class ProviderOrderStatsController extends Controller
             'totalCharge' => $totalCharge,
             'totalChargeWithoutFailed' => $totalChargeWithoutFailed,
             'totalChargePartial' => $totalChargePartial,
-            'userSort' => $userSort,
-            'userDir' => $userDir,
-            'serviceSort' => $serviceSort,
-            'serviceDir' => $serviceDir,
+            'totalQuantity' => $totalQuantity,
+            'totalRemains' => $totalRemains,
+            'totalDifference' => $totalDifference,
+            'totalQuantityWithoutFailed' => $totalQuantityWithoutFailed,
+            'totalRemainsWithoutFailed' => $totalRemainsWithoutFailed,
+            'totalDifferenceWithoutFailed' => $totalDifferenceWithoutFailed,
+            'totalQuantityPartial' => $totalQuantityPartial,
+            'totalRemainsPartial' => $totalRemainsPartial,
+            'totalDifferencePartial' => $totalDifferencePartial,
             'inputDateFrom' => $request->filled('date_from') ? $request->date_from : ($dateFrom ? $dateFrom->format('Y-m-d') : ''),
             'inputDateTo' => $request->filled('date_to') ? $request->date_to : ($dateTo ? $dateTo->format('Y-m-d') : ''),
         ]);
@@ -210,76 +275,91 @@ class ProviderOrderStatsController extends Controller
             'remote_service_id' => ['nullable', 'string', 'max:50'],
             'user_login' => ['nullable', 'string', 'max:255'],
             'user_remote_id' => ['nullable', 'string', 'max:50'],
+            'tab' => ['nullable', 'string', 'in:completed,without_failed,partial'],
         ]);
         $filters = $this->filtersFromArray($validated);
-        $baseQuery = ProviderOrder::query()->completed()->filter($filters);
+        $tab = $validated['tab'] ?? 'without_failed';
 
-        $serviceNames = ProviderService::query()
-            ->select('remote_service_id', 'name')
-            ->whereNotNull('remote_service_id')
-            ->get()
-            ->groupBy('remote_service_id')
-            ->map(fn ($rows) => $rows->first()->name)
-            ->all();
+        $baseQuery = ProviderOrder::query()->where('provider_code', '<>', 'socpanel')->filter($filters);
+        $baseQuery = match ($tab) {
+            'completed' => $baseQuery->completed(),
+            'partial' => $baseQuery->partial(),
+            default => $baseQuery->withoutFailed(),
+        };
 
-        return response()->streamDownload(function () use ($baseQuery, $serviceNames) {
+        $totals = (clone $baseQuery)->selectRaw(
+            'COALESCE(SUM(COALESCE(quantity, 0)), 0) as total_quantity, ' .
+            'COALESCE(SUM(COALESCE(remains, 0)), 0) as total_remains, ' .
+            'COALESCE(SUM(CAST(charge AS DECIMAL(20,4))), 0) as total_charge'
+        )->first();
+        $totalQuantity = (int) ($totals->total_quantity ?? 0);
+        $totalRemains = (int) ($totals->total_remains ?? 0);
+        $totalDifference = $totalQuantity - $totalRemains;
+        $totalCharge = (float) ($totals->total_charge ?? 0);
+
+        return response()->streamDownload(function () use ($baseQuery, $totalQuantity, $totalRemains, $totalDifference, $totalCharge) {
             $out = fopen('php://output', 'w');
+            fprintf($out, "\xEF\xBB\xBF");
 
-            $byUser = (clone $baseQuery)
+            $rows = (clone $baseQuery)
                 ->select([
                     'user_login',
                     'user_remote_id',
+                    'remote_service_id',
                     DB::raw('COUNT(*) as orders_count'),
+                    DB::raw('COALESCE(SUM(COALESCE(quantity, 0)), 0) as total_quantity'),
+                    DB::raw('COALESCE(SUM(COALESCE(remains, 0)), 0) as total_remains'),
+                    DB::raw('COALESCE(SUM(COALESCE(quantity, 0)), 0) - COALESCE(SUM(COALESCE(remains, 0)), 0) as total_difference'),
                     DB::raw('COALESCE(SUM(CAST(charge AS DECIMAL(20,4))), 0) as total_charge'),
-                    DB::raw('COALESCE(AVG(CAST(charge AS DECIMAL(20,4))), 0) as avg_charge'),
                 ])
-                ->groupBy('user_login', 'user_remote_id')
+                ->groupBy('user_login', 'user_remote_id', 'remote_service_id')
                 ->orderByDesc('total_charge')
                 ->get();
 
-            fputcsv($out, ['User (login)', 'User remote ID', 'Completed orders', 'Total charge', 'Avg charge']);
-            foreach ($byUser as $row) {
+            fputcsv($out, ['User', 'Service', 'Order', 'Quantity', 'Remains', 'Difference', 'Total']);
+            foreach ($rows as $row) {
                 fputcsv($out, [
-                    $row->user_login ?? '',
-                    $row->user_remote_id ?? '',
+                    $row->user_login ?: $row->user_remote_id ?: '—',
+                    $row->remote_service_id ?? '—',
                     $row->orders_count,
+                    $row->total_quantity,
+                    $row->total_remains,
+                    $row->total_difference,
                     $row->total_charge,
-                    $row->avg_charge,
                 ]);
             }
             fputcsv($out, []);
-
-            $byService = (clone $baseQuery)
-                ->select([
-                    'remote_service_id',
-                    DB::raw('COUNT(*) as orders_count'),
-                    DB::raw('COALESCE(SUM(CAST(charge AS DECIMAL(20,4))), 0) as total_charge'),
-                ])
-                ->groupBy('remote_service_id')
-                ->orderByDesc('total_charge')
-                ->get();
-
-            fputcsv($out, ['Service ID', 'Service name', 'Completed orders', 'Total charge']);
-            foreach ($byService as $row) {
-                fputcsv($out, [
-                    $row->remote_service_id ?? '',
-                    $serviceNames[$row->remote_service_id ?? ''] ?? '',
-                    $row->orders_count,
-                    $row->total_charge,
-                ]);
-            }
+            fputcsv($out, ['TOTAL', '', '', $totalQuantity, $totalRemains, $totalDifference, $totalCharge]);
 
             fclose($out);
-        }, 'provider-order-stats-' . date('Y-m-d-His') . '.csv', [
-            'Content-Type' => 'text/csv',
+        }, $filename = $this->exportFilename($validated), [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
         ]);
+    }
+
+    private function exportFilename(array $validated): string
+    {
+        $base = 'provider-order-stats';
+        $dateFrom = isset($validated['date_from']) ? \Carbon\Carbon::parse($validated['date_from'])->format('Y-m-d') : null;
+        $dateTo = isset($validated['date_to']) ? \Carbon\Carbon::parse($validated['date_to'])->format('Y-m-d') : null;
+        if ($dateFrom && $dateTo) {
+            return $base . '-' . $dateFrom . '-to-' . $dateTo . '.csv';
+        }
+        if ($dateFrom) {
+            return $base . '-from-' . $dateFrom . '.csv';
+        }
+        if ($dateTo) {
+            return $base . '-to-' . $dateTo . '.csv';
+        }
+        return $base . '-' . date('Y-m-d-His') . '.csv';
     }
 
     private function normalizeFilters(ProviderOrderStatsRequest $request): array
     {
         $filters = $request->filters();
         if (empty($filters['date_from']) && empty($filters['date_to'])) {
-            $filters['date_from'] = now()->subDays(30)->startOfDay();
+            $filters['date_from'] = now()->startOfDay();
             $filters['date_to'] = now()->endOfDay();
         }
         return $filters;
@@ -295,7 +375,7 @@ class ProviderOrderStatsController extends Controller
             $filters['date_to'] = \Carbon\Carbon::parse($input['date_to'])->endOfDay();
         }
         if (empty($filters['date_from']) && empty($filters['date_to'])) {
-            $filters['date_from'] = now()->subDays(30)->startOfDay();
+            $filters['date_from'] = now()->startOfDay();
             $filters['date_to'] = now()->endOfDay();
         }
         if (!empty($input['provider_code'])) {
