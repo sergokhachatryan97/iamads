@@ -52,7 +52,7 @@ class ProviderOrder extends Model
     /** Exclude failed orders (status fail/failed) for "all without failed" stats. */
     public function scopeWithoutFailed(Builder $q): Builder
     {
-        return $q->whereNotIn('status', ['fail', 'failed']);
+        return $q->whereNotIn('status', ['fail', 'failed', 'canceled']);
     }
 
     /** Only orders with partial status (remote_status or status = partial). */
