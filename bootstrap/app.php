@@ -43,10 +43,15 @@ return Application::configure(basePath: dirname(__DIR__))
             ->everyThreeMinutes()
             ->withoutOverlapping(4);
 
-//        $schedule->job(new SyncValidatingProviderOrdersJob())
-//            ->everyMinute()
-//            ->withoutOverlapping(10)
-//            ->onOneServer();
+        $schedule->job(new SyncValidatingProviderOrdersJob('validating'))
+            ->everyThreeMinutes()
+            ->withoutOverlapping(10)
+            ->onOneServer();
+
+        $schedule->job(new SyncValidatingProviderOrdersJob('ok'))
+            ->everyFifteenMinutes()
+            ->withoutOverlapping(10)
+            ->onOneServer();
 //
         $schedule->command('socpanel:cancel-invalid')
             ->everyMinute()

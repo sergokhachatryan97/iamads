@@ -28,6 +28,12 @@ class SyncValidatingProviderOrdersJob implements ShouldQueue
         'completed' => 'ok',
         'canceled'  => 'canceled',
     ];
+    private ?string $status;
+
+    public function __construct(string $status)
+    {
+        $this->status = $status;
+    }
 
     public function handle(SocpanelClient $client): void
     {
@@ -43,7 +49,7 @@ class SyncValidatingProviderOrdersJob implements ShouldQueue
             $orders = ProviderOrder::query()
                 ->select(['id', 'remote_order_id', 'status', 'provider_payload'])
                 ->where(function ($q) {
-                    $q->where('status', Order::STATUS_VALIDATING)
+                    $q->where('status', $this->status )
                         ->orWhere(function ($q) {
                             $q->where('status', Order::DEPENDS_STATUS_FAILED)
                                 ->where('remote_service_id', 76);
@@ -99,6 +105,7 @@ class SyncValidatingProviderOrdersJob implements ShouldQueue
 
                 $order->update([
                     'status' => $newStatus,
+                    'remains' => $item['remains'],
                     'provider_payload' => array_merge($order->provider_payload ?? [], $item),
                 ]);
 
