@@ -6,7 +6,7 @@ return [
 
     'domain' => env('HORIZON_DOMAIN'),
 
-    'path' => env('HORIZON_PATH', 'horizon'),
+    'path' => env('HORIZON_PATH', 'staff/horizon'),
 
     'use' => 'default',
 
@@ -15,7 +15,7 @@ return [
         Str::slug(env('APP_NAME', 'laravel'), '_').'_horizon:'
     ),
 
-    'middleware' => ['web', 'auth'],
+    'middleware' => ['web', 'auth:staff'],
 
     'waits' => [
         'redis:default' => 60,
