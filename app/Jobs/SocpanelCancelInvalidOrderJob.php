@@ -49,10 +49,10 @@ class SocpanelCancelInvalidOrderJob implements ShouldQueue
             ->where('provider_code', $providerName)
             ->where('remains', '>', 0)
             ->orderBy('id')
-//            ->where(function ($q) {
-//                $q->whereNull('provider_last_error')
-//                    ->orWhere('provider_last_error', '<>', 'Expected bot start link without referral');
-//            })
+            ->where(function ($q) {
+                $q->whereNull('provider_last_error')
+                    ->orWhere('provider_last_error', '<>', 'Expected bot start link without referral');
+            })
             ->limit($batchSize)
             ->get();
 
