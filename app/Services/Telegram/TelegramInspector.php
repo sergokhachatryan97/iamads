@@ -122,43 +122,7 @@ class TelegramInspector
                 return $this->fail($result, 'INVALID_FORMAT', 'Username not found in link');
             }
 
-            // 1) Bot API first
-            $bot = $this->botResolver->getChat($username);
 
-            if (($bot['ok'] ?? false) === true) {
-                $chat = $bot['chat'];
-
-                $result['ok'] = true;
-                $result['chat_type'] = $chat['type'] ?? null;
-                $result['title'] = $chat['title'] ?? $chat['username'] ?? null;
-
-                $this->applyAudienceFromChatType($result);
-
-                if (!empty($chat['id'])) {
-                    $mc = $this->botResolver->getMemberCount($chat['id']);
-                    if ($mc !== null) {
-                        $result['member_count'] = $mc;
-                    }
-                }
-
-                // paid messages check
-                $chatType = $result['chat_type'] ?? null;
-                if (in_array($chatType, ['supergroup', 'channel'], true)) {
-                    $maybeFail = $this->ensureNoPaidMessagesOrFail($result, $username, $bot);
-                    if (is_array($maybeFail)) {
-                        return $maybeFail;
-                    }
-                }
-
-                $result['resolved'] = [
-                    'source' => 'bot_api',
-                    'data' => $bot,
-                ];
-
-                return $result;
-            }
-
-            // 2) MTProto fallback (getInfo only)
             $info = $this->mtprotoPool->getInfoByUsername($username);
 
             if (($info['ok'] ?? false) === true) {
@@ -195,14 +159,8 @@ class TelegramInspector
                 return $result;
             }
 
-            $botCode = strtoupper((string)($bot['error_code'] ?? ''));
             $mtCode  = strtoupper((string)($info['error_code'] ?? ''));
             Log::info(sprintf('Telegram mtCode code: %s', $mtCode), ['link' => $link]);
-            $botTemporary = [
-                'BOTAPI_COOLDOWN',
-                'BOTAPI_TIMEOUT',
-                'BOTAPI_NETWORK',
-            ];
 
             $mtTemporary = [
                 'NO_AVAILABLE_ACCOUNTS',
@@ -219,7 +177,6 @@ class TelegramInspector
                     'RESOLVE_TEMPORARY_UNAVAILABLE',
                     'Unable to resolve chat due to temporary infrastructure issue',
                     [
-                        'bot' => $bot,
                         'mtproto' => $info,
                     ]
                 );
@@ -230,7 +187,6 @@ class TelegramInspector
                 'RESOLVE_FAILED',
                 'Chat or user does not exist',
                 [
-                    'bot' => $bot,
                     'mtproto' => $info,
                 ]
             );
