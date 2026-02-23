@@ -22,7 +22,7 @@ return new class extends Migration
             $table->text('last_error')->nullable();
             $table->timestamps();
 
-            $table->unique(['order_id', 'account_phone', 'link_hash']);
+            $table->unique(['order_id', 'account_phone', 'link_hash'], 'tg_ord_phone_link_uq');
         });
     }
 
