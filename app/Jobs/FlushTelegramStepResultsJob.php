@@ -274,6 +274,7 @@ class FlushTelegramStepResultsJob implements ShouldQueue
 
         // Bulk load
         $orders = Order::query()
+            ->with('service')
             ->whereIn('id', array_keys($orderAgg))
             ->get()
             ->keyBy('id');
@@ -285,9 +286,10 @@ class FlushTelegramStepResultsJob implements ShouldQueue
             if (!$order) continue;
 
             $oldStatus = $order->status;
+            $target = $order->target_quantity;
 
-            $newDelivered = min((int)$order->quantity, (int)$order->delivered + (int)$incDelivered);
-            $newRemains = max(0, (int)$order->quantity - $newDelivered);
+            $newDelivered = min($target, (int)$order->delivered + (int)$incDelivered);
+            $newRemains = max(0, $target - $newDelivered);
             $newStatus = $newRemains > 0 ? Order::STATUS_IN_PROGRESS : Order::STATUS_COMPLETED;
 
             $order->update([

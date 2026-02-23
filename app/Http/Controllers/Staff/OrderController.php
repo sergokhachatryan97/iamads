@@ -64,7 +64,20 @@ class OrderController extends Controller
 
         $ordersIds = $query->pluck('id')->toArray();
 
-        $orders = $query->paginate(3)->withQueryString();
+        $orders = $query->paginate(20)->withQueryString();
+
+        // Per-status counts (unfiltered by status, but filtered by staff)
+        $countBase = Order::query();
+        if (!$isSuperAdmin) {
+            $countBase->whereHas('client', function ($q) use ($user) {
+                $q->where('staff_id', $user->id);
+            });
+        }
+        $statusCounts = (clone $countBase)
+            ->selectRaw('status, COUNT(*) as cnt')
+            ->groupBy('status')
+            ->pluck('cnt', 'status')
+            ->toArray();
 
         // Get all available statuses for filter
         $statuses = [
@@ -83,6 +96,7 @@ class OrderController extends Controller
             'orders' => $orders,
             'ordersIds' => $ordersIds,
             'statuses' => $statuses,
+            'statusCounts' => $statusCounts,
             'currentStatus' => $request->get('status', 'all'),
             'sortBy' => $sortBy,
             'sortDir' => $sortDir,

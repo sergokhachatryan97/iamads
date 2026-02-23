@@ -4,7 +4,7 @@ namespace App\Jobs;
 
 use App\Models\ClientServiceQuota;
 use App\Services\Telegram\TelegramInspector;
-use App\Services\Telegram\TelegramExecutionPolicy;
+use App\Support\TelegramExecutionPolicy;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;

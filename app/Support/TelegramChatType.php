@@ -2,6 +2,8 @@
 
 namespace App\Support;
 
+use Illuminate\Support\Facades\Log;
+
 final class TelegramChatType
 {
 
@@ -32,7 +34,7 @@ final class TelegramChatType
         }
 
         if ($raw === 'user') {
-            return !empty($chat['bot']) ? 'bot' : 'user';
+            return( !empty($chat['bot']) || !empty($user['bot'])) ? 'bot' : 'user';
         }
 
         return 'unknown';
@@ -63,7 +65,7 @@ final class TelegramChatType
 
         // user/bot/unknown
         return [
-            'chat_type'  => 'unknown',
+            'chat_type'  => null,
             'audience'   => null,
             'is_channel' => false,
             'is_group'   => false,

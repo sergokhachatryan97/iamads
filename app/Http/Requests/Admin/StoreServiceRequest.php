@@ -35,6 +35,7 @@ class StoreServiceRequest extends FormRequest
             'max_quantity' => ['required', 'integer', 'min:1', 'gte:min_quantity'],
             'deny_link_duplicates' => ['nullable', 'boolean'],
             'deny_duplicates_days' => ['required_if:deny_link_duplicates,1', 'nullable', 'integer', 'min:0', 'max:65535'],
+            'overflow_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'increment' => ['required', 'integer', 'min:0'],
             'start_count_parsing_enabled' => ['nullable', 'boolean'],
             'count_type' => ['required_if:start_count_parsing_enabled,1', 'nullable', 'string'],

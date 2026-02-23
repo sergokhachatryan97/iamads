@@ -59,6 +59,13 @@ class OrderController extends Controller
 
         $orders = $query->paginate(20)->withQueryString();
 
+        // Per-status counts for this client
+        $statusCounts = Order::where('client_id', $this->client->id)
+            ->selectRaw('status, COUNT(*) as cnt')
+            ->groupBy('status')
+            ->pluck('cnt', 'status')
+            ->toArray();
+
         // Get all available statuses for filter
         $statuses = [
             'all' => __('All Statuses'),
@@ -75,6 +82,7 @@ class OrderController extends Controller
         return view('client.orders.index', [
             'orders' => $orders,
             'statuses' => $statuses,
+            'statusCounts' => $statusCounts,
             'currentStatus' => $request->get('status', 'all'),
             'sortBy' => $sortBy,
             'sortDir' => $sortDir,

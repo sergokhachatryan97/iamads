@@ -207,7 +207,7 @@ return [
             'bot' => [
                 'action' => 'bot_start',
                 'interval_seconds' => 1,
-                'per_call' => 25,
+                'per_call' => 1,
             ],
         ],
 

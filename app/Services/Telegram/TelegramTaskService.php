@@ -5,11 +5,14 @@ namespace App\Services\Telegram;
 use App\Models\ClientServiceQuota;
 use App\Models\Order;
 use App\Models\TelegramAccount;
+use App\Models\TelegramAccountLinkState;
+use App\Models\TelegramOrderMembership;
 use App\Models\TelegramTask;
 use App\Models\TelegramUnsubscribeTask;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redis;
+use Illuminate\Support\Str;
 
 /**
  * Service for managing Telegram tasks in provider pull architecture.
@@ -22,6 +25,8 @@ use Illuminate\Support\Facades\Redis;
  */
 class TelegramTaskService
 {
+    private const ORDER_GEN_LOCK_TTL = 30;
+
     public function __construct(
         private TelegramAccountClaimService $claimService,
         private TelegramActionDedupeService $dedupeService,
@@ -55,7 +60,6 @@ class TelegramTaskService
                 Order::STATUS_IN_PROGRESS,
                 Order::STATUS_PENDING,
             ])
-//            ->whereNull('provider')
             ->where('remains', '>', 0)
             ->limit($batchSize * 2) // Fetch more to account for filtering
             ->get();
@@ -114,6 +118,7 @@ class TelegramTaskService
 
     /**
      * Generate a single task for an order.
+     * Protected by: (1) Redis lock per order/action, (2) DB transaction + lockForUpdate, (3) active-task existence check.
      *
      * @param Order $order
      * @return TelegramTask|null
@@ -127,101 +132,158 @@ class TelegramTaskService
             return null;
         }
 
-        // Check next_run_at
-        $nextRunAt = $executionMeta['next_run_at'] ?? null;
-        if ($nextRunAt) {
-            $nextRunAtCarbon = \Carbon\Carbon::parse($nextRunAt);
-            if ($nextRunAtCarbon->isFuture()) {
-                return null;
-            }
-        }
-
-        // Get action and policy
         $action = (string) ($executionMeta['action'] ?? 'subscribe');
-        $policy = config("telegram.action_policies.{$action}", []);
-        $dedupePerLink = (bool) ($policy['dedupe_per_link'] ?? true);
 
-        // Get link data
-        $telegramData = $providerPayload['telegram'] ?? [];
-        $parsed = is_array($telegramData['parsed'] ?? null) ? $telegramData['parsed'] : [];
-        $linkHash = $this->dedupeService->normalizeAndHashLink($parsed);
+        // 1) Redis lock per order/action
+        $lockKey = "tg:gen:order:{$order->id}:{$action}";
+        $lockToken = (string) Str::uuid();
+        $acquired = Redis::set($lockKey, $lockToken, 'EX', self::ORDER_GEN_LOCK_TTL, 'NX');
 
-        $service = $order->service;
-        $executor = $service ? $service->executor() : 'remote_provider';
-
-        // Select account with reserve claim (manual => only accounts with mtproto_account_id)
-        [$account, $stats] = $this->selectAccountWithReserve(
-            $action,
-            $order,
-            $linkHash,
-            $dedupePerLink,
-            $executor
-        );
-
-        if (!$account) {
-            $errorMessage = $executor === 'local_mtproto'
-                ? 'No local MTProto accounts available'
-                : 'No available Telegram account (cooldown/cap/dedupe constraints)';
-            $order->update([
-                'status' => Order::STATUS_PENDING,
-                'provider_last_error' => $errorMessage,
-                'provider_last_error_at' => now(),
+        if (!$acquired) {
+            Log::debug('Skip generateTaskForOrder: lock not acquired', [
+                'order_id' => $order->id,
+                'action' => $action,
             ]);
             return null;
         }
 
-        $templateKey = $service?->template_key;
-        $policyKey = $service?->policyKey();
-        $linkKind = $parsed['kind'] ?? null;
-        $peerType = $telegramData['chat_type'] ?? null;
-        $postId = $parsed['post_id'] ?? null;
-        $startParam = $parsed['start'] ?? null;
+        try {
+            return DB::transaction(function () use ($order, $action) {
+                // 2) Reload order with row lock
+                $order = Order::query()->whereKey($order->id)->lockForUpdate()->first();
+                if (!$order) {
+                    return null;
+                }
 
-        $payload = $this->buildTaskPayload([
-            'action' => $action,
-            'link' => $order->link,
-            'link_hash' => $linkHash,
-            'per_call' => (int) ($executionMeta['per_call'] ?? 1),
-            'executor' => $executor,
-            'template_key' => $templateKey,
-            'policy_key' => $policyKey,
-            'link_kind' => $linkKind,
-            'peer_type' => $peerType,
-            'post_id' => $postId,
-            'start_param' => $startParam,
-            'meta' => $executionMeta,
-            'parsed' => $parsed,
-            'subject' => ['type' => 'order', 'id' => $order->id],
-        ]);
+                $providerPayload = $order->provider_payload ?? [];
+                $executionMeta = $providerPayload['execution_meta'] ?? [];
+                if (!is_array($executionMeta)) {
+                    return null;
+                }
 
-        // Create task (set both order_id and subject for backward compatibility)
-        $task = TelegramTask::create([
-            'order_id' => $order->id,
-            'subject_type' => Order::class,
-            'subject_id' => $order->id,
-            'action' => $action,
-            'link_hash' => $linkHash,
-            'telegram_account_id' => $account->id,
-            'provider_account_id' => $account->provider_account_id,
-            'status' => TelegramTask::STATUS_QUEUED,
-            'attempt' => 0,
-            'payload' => $payload,
-        ]);
+                // Re-check next_run_at
+                $nextRunAt = $executionMeta['next_run_at'] ?? null;
+                if ($nextRunAt) {
+                    try {
+                        if (\Carbon\Carbon::parse($nextRunAt)->isFuture()) {
+                            return null;
+                        }
+                    } catch (\Throwable) {
+                        // invalid date, allow
+                    }
+                }
 
-        // Advance order.next_run_at
-        $intervalSeconds = (int) ($executionMeta['interval_seconds'] ?? 60);
-        $executionMeta['next_run_at'] = now()->addSeconds($intervalSeconds)->toDateTimeString();
-        $providerPayload['execution_meta'] = $executionMeta;
-        $order->update(['provider_payload' => $providerPayload]);
+                // Re-check eligibility
+                if (!in_array($order->status, [
+                    Order::STATUS_AWAITING,
+                    Order::STATUS_IN_PROGRESS,
+                    Order::STATUS_PENDING,
+                ], true)) {
+                    return null;
+                }
+                if ((int) $order->remains <= 0) {
+                    return null;
+                }
 
-        Log::debug('Generated task for order', [
-            'task_id' => $task->id,
-            'order_id' => $order->id,
-            'account_id' => $account->id,
-            'action' => $action,
-        ]);
+                // 3) Active task existence check
+                if (TelegramTask::query()
+                    ->where('order_id', $order->id)
+                    ->where('action', $action)
+                    ->whereIn('status', [
+                        TelegramTask::STATUS_QUEUED,
+                        TelegramTask::STATUS_LEASED,
+                        TelegramTask::STATUS_PENDING,
+                    ])
+                    ->exists()) {
+                    return null;
+                }
 
-        return $task;
+                $policy = config("telegram.action_policies.{$action}", []);
+                $dedupePerLink = (bool) ($policy['dedupe_per_link'] ?? true);
+
+                $telegramData = $providerPayload['telegram'] ?? [];
+                $parsed = is_array($telegramData['parsed'] ?? null) ? $telegramData['parsed'] : [];
+                $linkHash = $this->dedupeService->normalizeAndHashLink($parsed);
+
+                $service = $order->service;
+                $executor = $service ? $service->executor() : 'remote_provider';
+
+                [$account, $stats] = $this->selectAccountWithReserve(
+                    $action,
+                    $order,
+                    $linkHash,
+                    $dedupePerLink,
+                    $executor
+                );
+
+                if (!$account) {
+                    $errorMessage = $executor === 'local_mtproto'
+                        ? 'No local MTProto accounts available'
+                        : 'No available Telegram account (cooldown/cap/dedupe constraints)';
+                    $order->update([
+                        'status' => Order::STATUS_PENDING,
+                        'provider_last_error' => $errorMessage,
+                        'provider_last_error_at' => now(),
+                    ]);
+                    return null;
+                }
+
+                $templateKey = $service?->template_key;
+                $policyKey = $service?->policyKey();
+                $linkKind = $parsed['kind'] ?? null;
+                $peerType = $telegramData['chat_type'] ?? null;
+                $postId = $parsed['post_id'] ?? null;
+                $startParam = $parsed['start'] ?? null;
+
+                $payload = $this->buildTaskPayload([
+                    'action' => $action,
+                    'link' => $order->link,
+                    'link_hash' => $linkHash,
+                    'per_call' => (int) ($executionMeta['per_call'] ?? 1),
+                    'executor' => $executor,
+                    'template_key' => $templateKey,
+                    'policy_key' => $policyKey,
+                    'link_kind' => $linkKind,
+                    'peer_type' => $peerType,
+                    'post_id' => $postId,
+                    'start_param' => $startParam,
+                    'meta' => $executionMeta,
+                    'parsed' => $parsed,
+                    'subject' => ['type' => 'order', 'id' => $order->id],
+                ]);
+
+                $task = TelegramTask::create([
+                    'order_id' => $order->id,
+                    'subject_type' => Order::class,
+                    'subject_id' => $order->id,
+                    'action' => $action,
+                    'link_hash' => $linkHash,
+                    'telegram_account_id' => $account->id,
+                    'provider_account_id' => $account->provider_account_id,
+                    'status' => TelegramTask::STATUS_QUEUED,
+                    'attempt' => 0,
+                    'payload' => $payload,
+                ]);
+
+                $intervalSeconds = (int) ($executionMeta['interval_seconds'] ?? 60);
+                $executionMeta['next_run_at'] = now()->addSeconds($intervalSeconds)->toDateTimeString();
+                $providerPayload['execution_meta'] = $executionMeta;
+                $order->update(['provider_payload' => $providerPayload]);
+
+                Log::debug('Generated task for order', [
+                    'task_id' => $task->id,
+                    'order_id' => $order->id,
+                    'account_id' => $account->id,
+                    'action' => $action,
+                ]);
+
+                return $task;
+            });
+        } finally {
+            // Release lock only if we still own it (Lua: delete if value matches token)
+            $lua = "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
+            Redis::eval($lua, 1, $lockKey, $lockToken);
+        }
     }
 
     /**
@@ -578,18 +640,26 @@ class TelegramTaskService
             return ['ok' => false, 'error' => 'Subject not found'];
         }
 
+        // Handle quota vs order differently
+        if ($subject instanceof ClientServiceQuota) {
+            $account = $task->telegramAccount;
+            if (!$account) {
+                return ['ok' => false, 'error' => 'Telegram account not found'];
+            }
+            return $this->handleQuotaTaskReport($task, $subject, $account, $state, $ok, $error, $retryAfter);
+        }
+
+        // Account-driven order claim flow: task has payload.account_phone, update membership (order_id = orders.id)
+        if ($subject instanceof Order && ($task->payload['account_phone'] ?? null) !== null && ($task->payload['account_phone'] ?? '') !== '') {
+            return $this->handleOrderClaimTaskReport($task, $subject, $state, $ok, $error, $retryAfter);
+        }
+
+        // Handle order task (existing task-driven logic; requires telegram account)
+        $order = $subject;
         $account = $task->telegramAccount;
         if (!$account) {
             return ['ok' => false, 'error' => 'Telegram account not found'];
         }
-
-        // Handle quota vs order differently
-        if ($subject instanceof ClientServiceQuota) {
-            return $this->handleQuotaTaskReport($task, $subject, $account, $state, $ok, $error, $retryAfter);
-        }
-
-        // Handle order task (existing logic)
-        $order = $subject;
 
         // Update task
         $task->update([
@@ -617,11 +687,9 @@ class TelegramTaskService
 
             // Commit claim: consume cooldown, cap, set state
             $providerPayload = $order->provider_payload ?? [];
-            $executionMeta = $providerPayload['execution_meta'] ?? [];
             $policy = config("telegram.action_policies.{$action}", []);
             $dedupePerLink = (bool) ($policy['dedupe_per_link'] ?? true);
             $needsCap = in_array($action, ['subscribe', 'unsubscribe'], true);
-
             $commitResult = $this->claimService->commitClaim(
                 $account->id,
                 $action,
@@ -1540,6 +1608,146 @@ class TelegramTaskService
         $quota->update(['provider_payload' => $providerPayload]);
 
         $task->update(['status' => TelegramTask::STATUS_FAILED]);
+
+        return ['ok' => true];
+    }
+
+    /**
+     * Handle report for account-driven order claim task (claim flow).
+     * Updates telegram_order_memberships (order_id = orders.id) and order remains.
+     *
+     * @param TelegramTask $task
+     * @param Order $order
+     * @param string $state
+     * @param bool $ok
+     * @param string|null $error
+     * @param int|null $retryAfter
+     * @return array{ok: bool, error?: string}
+     */
+    private function handleOrderClaimTaskReport(
+        TelegramTask $task,
+        Order $order,
+        string $state,
+        bool $ok,
+        ?string $error,
+        ?int $retryAfter
+    ): array {
+        $task->update([
+            'result' => [
+                'state' => $state,
+                'ok' => $ok,
+                'error' => $error,
+                'retry_after' => $retryAfter,
+            ],
+            'status' => $state === 'pending' ? TelegramTask::STATUS_PENDING : ($ok ? TelegramTask::STATUS_DONE : TelegramTask::STATUS_FAILED),
+        ]);
+
+        if ($state === 'pending') {
+            if ($retryAfter) {
+                $task->update([
+                    'status' => TelegramTask::STATUS_PENDING,
+                    'leased_until' => now()->addSeconds(max(60, min(300, (int) $retryAfter))),
+                ]);
+            }
+            return ['ok' => true];
+        }
+
+        $accountPhone = $task->payload['account_phone'] ?? null;
+        $linkHash = $task->link_hash ?? '';
+        if ($accountPhone === null || $accountPhone === '') {
+            Log::warning('Order claim task report missing account_phone in payload', ['task_id' => $task->id]);
+            return ['ok' => true];
+        }
+        $accountPhone = TelegramAccountLinkState::normalizePhone((string) $accountPhone);
+
+        $membership = TelegramOrderMembership::query()
+            ->where('order_id', $order->id)
+            ->where('account_phone', $accountPhone)
+            ->where('link_hash', $linkHash)
+            ->first();
+
+        $globalState = TelegramAccountLinkState::query()
+            ->where('account_phone', $accountPhone)
+            ->where('link_hash', $linkHash)
+            ->first();
+
+        if ($ok && $state === 'done') {
+            if ($task->action === 'unsubscribe') {
+                if ($globalState) {
+                    $globalState->update([
+                        'state' => TelegramAccountLinkState::STATE_UNSUBSCRIBED,
+                        'last_error' => null,
+                    ]);
+                }
+                if ($membership) {
+                    $membership->update([
+                        'state' => TelegramOrderMembership::STATE_UNSUBSCRIBED,
+                        'unsubscribed_at' => now(),
+                        'last_error' => null,
+                    ]);
+                }
+            }
+
+            if ($globalState) {
+                $globalState->update([
+                    'state' => TelegramAccountLinkState::STATE_SUBSCRIBED,
+                    'last_error' => null,
+                ]);
+            }
+            if ($membership) {
+                $membership->update([
+                    'state' => TelegramOrderMembership::STATE_SUBSCRIBED,
+                    'subscribed_at' => now(),
+                    'last_error' => null,
+                ]);
+                $perCall = max(1, (int) ($task->payload['per_call'] ?? 1));
+                $currentRemains = (int) $order->remains;
+                $deduct = min($perCall, $currentRemains);
+                $newDelivered = (int) $order->delivered + $deduct;
+                $target = $order->target_quantity;
+
+                if ($newDelivered >= $target) {
+                    $order->update([
+                        'remains' => 0,
+                        'delivered' => $newDelivered,
+                        'status' => Order::STATUS_COMPLETED,
+                        'completed_at' => $order->completed_at ?? now(),
+                        'provider_last_error' => null,
+                        'provider_last_error_at' => null,
+                    ]);
+                } else {
+                    $order->update([
+                        'remains' => max(0, $target - $newDelivered),
+                        'delivered' => $newDelivered,
+                        'provider_last_error' => null,
+                        'provider_last_error_at' => null,
+                    ]);
+                }
+            }
+        } else {
+            if ($order->dripfeed_enabled) {
+                $order->update([
+                    'dripfeed_delivered_in_run' =>
+                        max(0, $order->dripfeed_delivered_in_run - 1)
+                ]);
+            }
+            if ($globalState) {
+                $globalState->update([
+                    'state' => TelegramAccountLinkState::STATE_FAILED,
+                    'last_error' => $error ?? 'Task failed',
+                ]);
+            }
+            if ($membership) {
+                $membership->update([
+                    'state' => TelegramOrderMembership::STATE_FAILED,
+                    'last_error' => $error ?? 'Task failed',
+                ]);
+                $order->update([
+                    'provider_last_error' => $error ?? 'Provider task failed',
+                    'provider_last_error_at' => now(),
+                ]);
+            }
+        }
 
         return ['ok' => true];
     }

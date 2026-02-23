@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -28,6 +29,12 @@ class Order extends Model
     public const STATUS_COMPLETED = 'completed';
     public const STATUS_CANCELED = 'canceled';
     public const STATUS_FAIL = 'fail';
+
+    /** Execution phase for account-driven claim flow. */
+    public const EXECUTION_PHASE_RUNNING = 'running';
+    public const EXECUTION_PHASE_UNSUBSCRIBING = 'unsubscribing';
+    public const EXECUTION_PHASE_COMPLETED = 'completed';
+    public const EXECUTION_PHASE_STOPPING = 'stopping';
 
     // Speed tier constants
     public const SPEED_TIER_NORMAL = 'normal';
@@ -91,7 +98,49 @@ class Order extends Model
         'provider_last_polled_at',
         'provider_status_sync_lock_at',
         'provider_status_sync_lock_owner',
+        'execution_phase',
+        'completed_at',
     ];
+
+    /**
+     * Target quantity including overflow (subscribe actions). If service has overflow_percent > 0,
+     * target = ceil(quantity * (1 + overflow_percent/100)), else quantity.
+     */
+    public function getTargetQuantityAttribute(): int
+    {
+        $base = (int) ($this->quantity ?? 0);
+
+        $overflowPercent = 0;
+        if ($this->relationLoaded('service') && $this->service && isset($this->service->overflow_percent)) {
+            $overflowPercent = (float) $this->service->overflow_percent;
+        } elseif ($this->service_id) {
+            $service = $this->service;
+            if ($service && isset($service->overflow_percent)) {
+                $overflowPercent = (float) $service->overflow_percent;
+            }
+        }
+
+        if ($overflowPercent <= 0) {
+            return $base;
+        }
+
+        return (int) ceil($base * (1 + $overflowPercent / 100));
+    }
+
+    /**
+     * Compute target quantity from base quantity and service (for order creation).
+     */
+    public static function computeTargetQuantity(int $quantity, ?Service $service): int
+    {
+        if (!$service || !isset($service->overflow_percent)) {
+            return $quantity;
+        }
+        $overflowPercent = (float) $service->overflow_percent;
+        if ($overflowPercent <= 0) {
+            return $quantity;
+        }
+        return (int) ceil($quantity * (1 + $overflowPercent / 100));
+    }
 
     /**
      * The attributes that should be cast.
@@ -128,6 +177,7 @@ class Order extends Model
             'provider_sending_at' => 'datetime',
             'provider_last_polled_at' => 'datetime',
             'provider_status_sync_lock_at' => 'datetime',
+            'completed_at' => 'datetime',
         ];
     }
 
@@ -248,5 +298,28 @@ class Order extends Model
 
         $this->depends_verified_at = now();
         $this->save();
+    }
+
+    /**
+     * Apply filters for order stats: date_from, date_to, status, service_id, client_id.
+     */
+    public function scopeFilter(Builder $q, array $filters): Builder
+    {
+        if (!empty($filters['date_from'])) {
+            $q->where('created_at', '>=', $filters['date_from']);
+        }
+        if (!empty($filters['date_to'])) {
+            $q->where('created_at', '<=', $filters['date_to']);
+        }
+        if (!empty($filters['status']) && $filters['status'] !== 'all') {
+            $q->where('status', $filters['status']);
+        }
+        if (!empty($filters['service_id'])) {
+            $q->where('service_id', $filters['service_id']);
+        }
+        if (!empty($filters['client_id'])) {
+            $q->where('client_id', $filters['client_id']);
+        }
+        return $q;
     }
 }

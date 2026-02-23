@@ -119,9 +119,7 @@
                             \App\Models\Order::STATUS_INVALID_LINK => __('Invalid Link'),
                             \App\Models\Order::STATUS_RESTRICTED => __('Restricted'),
                             \App\Models\Order::STATUS_AWAITING => __('Awaiting'),
-                            \App\Models\Order::STATUS_PENDING => __('Pending'),
                             \App\Models\Order::STATUS_IN_PROGRESS => __('In Progress'),
-                            \App\Models\Order::STATUS_PROCESSING => __('Processing'),
                             \App\Models\Order::STATUS_PARTIAL => __('Partial'),
                             \App\Models\Order::STATUS_COMPLETED => __('Completed'),
                             \App\Models\Order::STATUS_CANCELED => __('Canceled'),
@@ -136,12 +134,20 @@
                                 $urlParams['status'] = $statusValue;
                             }
                             $url = route('staff.orders.index', $urlParams);
+                            $count = $statusValue === 'all'
+                                ? array_sum($statusCounts ?? [])
+                                : ($statusCounts[$statusValue] ?? 0);
                         @endphp
                         <a
                             href="{{ $url }}"
-                            class="inline-flex items-center px-4 py-2 rounded-md text-sm font-semibold transition-colors duration-200 {{ $isActive ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-indigo-600 hover:bg-gray-200' }}"
+                            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-semibold transition-colors duration-200 {{ $isActive ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-indigo-600 hover:bg-gray-200' }}"
                         >
                             {{ $statusLabel }}
+                            @if($count > 0)
+                                <span class="px-1.5 py-0.5 text-xs font-bold rounded-full {{ $isActive ? 'bg-white/25 text-white' : 'bg-indigo-200 text-indigo-800' }}">
+                                    {{ number_format($count) }}
+                                </span>
+                            @endif
                         </a>
                     @endforeach
                 </div>
@@ -830,6 +836,19 @@
                             </div>
                             @endif
                         </div>
+                    </div>
+                    @endif
+
+                    <!-- Error Info -->
+                    @if($order->provider_last_error)
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <div class="flex items-center gap-2 mb-2">
+                            <svg class="w-4 h-4 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                            </svg>
+                            <span class="text-xs font-semibold text-red-700 uppercase">{{ __('Provider Error') }}</span>
+                        </div>
+                        <p class="text-sm text-red-800 font-mono break-all">{{ $order->provider_last_error }}</p>
                     </div>
                     @endif
                 </div>

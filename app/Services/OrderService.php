@@ -191,7 +191,7 @@ class OrderService implements OrderServiceInterface
                     'dripfeed_next_run_at' => $dripfeedEnabled ? $now : null,
                     'start_count' => null,
                     'delivered' => 0,
-                    'remains' => $row['quantity'],
+                    'remains' => Order::computeTargetQuantity($row['quantity'], $service),
                     'status' => Order::STATUS_VALIDATING,
                     'mode' => 'manual',
                 ];
@@ -313,7 +313,7 @@ class OrderService implements OrderServiceInterface
                 'dripfeed_interval_unit' => $dripfeedIntervalUnit,
                 'start_count' => null,
                 'delivered' => 0,
-                'remains' => $commentCount,
+                'remains' => Order::computeTargetQuantity($commentCount, $service),
                 'status' => Order::STATUS_VALIDATING,
                 'mode' => 'manual',
             ]);
@@ -430,6 +430,7 @@ class OrderService implements OrderServiceInterface
                 $orderData[] = [
                     'service_id' => $serviceId,
                     'quantity' => $qty,
+                    'target_quantity' => Order::computeTargetQuantity($qty, $service),
                     'charge' => $charge,
                     'cost' => $cost,
                 ];
@@ -464,7 +465,7 @@ class OrderService implements OrderServiceInterface
                     'quantity' => $row['quantity'],
                     'start_count' => null,
                     'delivered' => 0,
-                    'remains' => $row['quantity'],
+                    'remains' => $row['target_quantity'],
                     'status' => Order::STATUS_VALIDATING,
                     'mode' => 'manual',
                 ]);

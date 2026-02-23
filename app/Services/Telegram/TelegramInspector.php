@@ -14,7 +14,11 @@ class TelegramInspector
         private readonly TelegramMtprotoPoolService $mtprotoPool
     ) {}
 
-    public function inspect(string $link): array
+    /**
+     * Inspect a Telegram link.
+     * @param bool $forB2c When true, use only mtproto accounts with is_b2c=true (for InspectTelegramLinkJob).
+     */
+    public function inspect(string $link, bool $forB2c = false): array
     {
         $parsed = TelegramLinkParser::parse($link);
 
@@ -58,11 +62,15 @@ class TelegramInspector
 
             if (($probe['ok'] ?? false) === true) {
                 $type = $probe['chat']['type'] ?? null;
-
+                $chatId = $probe['chat']['id'] ?? null;
+                if ($chatId) {
+                   $memberCount = $this->botResolver->getMemberCount($chatId);
+                    $result['member_count'] = $memberCount ?? null;
+                }
             } else {
 
                 try {
-                    $mt = $this->mtprotoPool->resolveIsBotByUsername($username);
+                    $mt = $this->mtprotoPool->resolveIsBotByUsername($username, $forB2c);
 
                     if (($mt['ok'] ?? false) === true) {
                         // Normalize to same categories we need
@@ -75,9 +83,7 @@ class TelegramInspector
                             elseif ($t === 'user') $type = 'user';
                         }
                     }
-                } catch (\Throwable $e) {
-                    // ignore, we will fall back to parser_only bot
-                }
+                } catch (\Throwable $e) {}
             }
 
             // 3) Decision
@@ -123,7 +129,7 @@ class TelegramInspector
             }
 
 
-            $info = $this->mtprotoPool->getInfoByUsername($username);
+            $info = $this->mtprotoPool->getInfoByUsername($username, $forB2c);
 
             if (($info['ok'] ?? false) === true) {
 
@@ -131,7 +137,7 @@ class TelegramInspector
                 $nature  = TelegramChatType::natureFromMtprotoChat(is_array($rawChat) ? $rawChat : []);
 
                 $result['ok'] = true;
-                $result['chat_type']     = $nature['chat_type'];
+                $result['chat_type']     = $nature['chat_type'] ?? $info['type'] ?? null;
                 $result['audience_type'] = $nature['audience'];
                 $result['is_channel']    = $nature['is_channel'];
                 $result['is_group']      = $nature['is_group'];
@@ -143,7 +149,7 @@ class TelegramInspector
 
 
                 $result['member_count'] =
-                    (isset($rawChat['participants_count']) ? (int)$rawChat['participants_count'] : null);
+                    (isset($info['participants_count']) ? (int)$info['participants_count'] : null);
 
                 // paid messages check (getInfo only)
                 if (in_array($result['chat_type'], ['supergroup', 'channel'], true)) {
@@ -203,7 +209,7 @@ class TelegramInspector
                 return $this->fail($result, 'INVALID_FORMAT', 'Invite hash missing');
             }
 
-            $invite = $this->mtprotoPool->checkInvite($hash);
+            $invite = $this->mtprotoPool->checkInvite($hash, $forB2c);
 
             if (($invite['ok'] ?? false) !== true) {
                 return $this->fail(
@@ -336,7 +342,7 @@ class TelegramInspector
         // 1) Ensure we have MTProto getInfo payload
         $info = $mtprotoInfo;
         if (!$info) {
-            $info = $this->mtprotoPool->getInfoByUsername($username);
+            $info = $this->mtprotoPool->getInfoByUsername($username, false);
         }
 
         if (($info['ok'] ?? false) === true) {

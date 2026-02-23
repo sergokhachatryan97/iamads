@@ -48,7 +48,6 @@ class InspectTelegramLinkJob implements ShouldQueue
 
         if (!$order) {
             Log::warning('Order not found after claim (unexpected)', ['order_id' => $this->orderId]);
-            // Can't release claim because order row doesn't exist
             return;
         }
 
@@ -86,7 +85,34 @@ class InspectTelegramLinkJob implements ShouldQueue
             $serviceType = $order->service->service_type ?? 'default';
 
             // 2) Inspect the link
-            $inspectionResult = $inspector->inspect($order->link ?? '');
+            $inspectionResult = $inspector->inspect($order->link ?? '', forB2c: true);
+
+            $temporaryCodes = [
+                'MTPROTO_DEADLINE_EXCEEDED',
+                'MTPROTO_THROTTLE_SLOT_UNAVAILABLE',
+                'NO_AVAILABLE_ACCOUNTS',
+                'WORKER_SHUTDOWN',
+                'STREAM_CLOSED',
+                'RESOLVE_TEMPORARY_UNAVAILABLE',
+            ];
+
+
+            if (($inspectionResult['ok'] ?? false) !== true) {
+                $code = strtoupper((string)($inspectionResult['error_code'] ?? ''));
+                $message = $inspectionResult['error'] ?? 'Validation failed';
+
+                if (in_array($code, $temporaryCodes, true)) {
+                    $order->update([
+                        'status' => Order::STATUS_VALIDATING,
+                        'provider_last_error' => $message,
+                        'provider_last_error_at' => now(),
+                        'provider_payload' => $inspectionResult,
+                    ]);
+
+                    return;
+                }
+
+            }
 
             // 3) Merge inspection result into provider_payload (do NOT save yet; we will update once per branch)
             $providerPayload = $order->provider_payload ?? [];
@@ -307,9 +333,10 @@ class InspectTelegramLinkJob implements ShouldQueue
             ];
 
             $providerPayload['policy_snapshot'] = $policySnapshot;
-            // Transition to awaiting (single update)
+            // Transition to awaiting and set execution_phase for account-driven claim flow
             $order->update([
                 'status' => Order::STATUS_AWAITING,
+                'execution_phase' => Order::EXECUTION_PHASE_RUNNING,
                 'start_count' => $memberCount,
                 'provider_last_error' => null,
                 'provider_last_error_at' => null,

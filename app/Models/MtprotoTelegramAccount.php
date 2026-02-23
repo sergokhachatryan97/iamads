@@ -35,6 +35,7 @@ class MtprotoTelegramAccount extends Model
         'proxy_pass',
         'proxy_secret',
         'force_proxy',
+        'is_b2c',
     ];
 
     /**
@@ -55,6 +56,7 @@ class MtprotoTelegramAccount extends Model
             'disabled_at' => 'datetime',
             'proxy_port' => 'integer',
             'force_proxy' => 'boolean',
+            'is_b2c' => 'boolean',
         ];
     }
 

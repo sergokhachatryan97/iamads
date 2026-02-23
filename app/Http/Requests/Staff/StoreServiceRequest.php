@@ -31,6 +31,7 @@ class StoreServiceRequest extends FormRequest
             'target_type' => ['nullable', 'string', Rule::in(['bot', 'channel', 'group'])],
             'template_key' => ['nullable', 'string', Rule::in(array_keys(config('telegram_service_templates', [])))],
             'duration_days' => ['nullable', 'integer', 'min:1'],
+            'overflow_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'dripfeed_enabled' => ['nullable', 'boolean'],
             'speed_limit_enabled' => ['nullable', 'boolean'],
             'speed_multiplier_fast' => ['nullable', 'numeric', 'min:1', 'max:10'],

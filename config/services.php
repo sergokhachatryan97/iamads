@@ -64,6 +64,30 @@ return [
         'inspect_rate_limit_per_second' => env('TELEGRAM_INSPECT_RATE_LIMIT_PER_SECOND', 10),
     ],
 
+    /*
+    | External Orders API: token-based auth for external clients (no UI registration).
+    | EXTERNAL_CLIENT_TOKENS format: "clientA:token1,clientB:token2" → token => clientName.
+    | default_client_id: system client_id used for all external orders (required).
+    */
+    'external_clients' => [
+        'tokens' => array_reduce(
+            array_filter(array_map('trim', explode(',', env('EXTERNAL_CLIENT_TOKENS', '')))),
+            function (array $acc, string $pair): array {
+                $parts = explode(':', $pair, 2);
+                if (count($parts) === 2) {
+                    $name = trim($parts[0]);
+                    $token = trim($parts[1]);
+                    if ($name !== '' && $token !== '') {
+                        $acc[$token] = $name;
+                    }
+                }
+                return $acc;
+            },
+            []
+        ),
+        'default_client_id' => env('EXTERNAL_ORDERS_DEFAULT_CLIENT_ID') ? (int) env('EXTERNAL_ORDERS_DEFAULT_CLIENT_ID') : null,
+    ],
+
     'provider' => [
         'base_url' => env('PROVIDER_BASE_URL'),
         'api_key' => env('PROVIDER_API_KEY'),

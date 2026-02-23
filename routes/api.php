@@ -1,15 +1,19 @@
 <?php
 
 use App\Http\Controllers\Api\Provider\TelegramAccountSyncController;
+use App\Http\Controllers\Api\Provider\TelegramTaskClaimController;
 use App\Http\Controllers\Api\Provider\TelegramTaskPullController;
 use App\Http\Controllers\Api\Provider\TelegramTaskReportController;
-use App\Http\Controllers\ProviderWebhookController;
+use App\Http\Controllers\External\ExternalOrderController;
 use Illuminate\Support\Facades\Route;
 
-// Provider webhook endpoints (no auth required, uses HMAC signature)
+// External Orders API (X-Client-Token auth)
+Route::prefix('external')->middleware('auth.external_client')->group(function () {
+    Route::post('orders', [ExternalOrderController::class, 'store'])->name('external.orders.store');
+    Route::get('orders', [ExternalOrderController::class, 'index'])->name('external.orders.index');
+    Route::get('orders/{external_order_id}', [ExternalOrderController::class, 'show'])->name('external.orders.show');
+});
 
-Route::post('/provider/webhook/account-action', [ProviderWebhookController::class, 'accountAction'])
-    ->name('provider.webhook.account-action');
 
 // Provider pull architecture endpoints (authenticated via X-Provider-Token header)
 Route::middleware(['auth.provider'])->prefix('provider/telegram')->group(function () {
@@ -18,6 +22,9 @@ Route::middleware(['auth.provider'])->prefix('provider/telegram')->group(functio
 
     Route::post('/tasks/pull', [TelegramTaskPullController::class, 'pull'])
         ->name('provider.telegram.tasks.pull');
+
+    Route::post('/tasks/claim', [TelegramTaskClaimController::class, 'claim'])
+        ->name('provider.telegram.tasks.claim');
 
     Route::post('/tasks/report', [TelegramTaskReportController::class, 'report'])
         ->name('provider.telegram.tasks.report');

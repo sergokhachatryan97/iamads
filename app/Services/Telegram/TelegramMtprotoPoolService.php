@@ -46,8 +46,9 @@ class TelegramMtprotoPoolService
     /**
      * Main primitive: resolve username by getInfo() only.
      * Returns unified contract.
+     * @param bool $forB2c When true, only use accounts with is_b2c=true (for InspectTelegramLinkJob).
      */
-    public function getInfoByUsername(string $username): array
+    public function getInfoByUsername(string $username, bool $forB2c = false): array
     {
         $username = $this->normalizeUsername($username);
 
@@ -65,15 +66,17 @@ class TelegramMtprotoPoolService
                 'raw'       => $resolved['raw'] ?? null,        // full getInfo() payload
                 'raw_chat'  => $resolved['raw_chat'] ?? null,   // Chat/User object
                 'inputPeer' => $resolved['inputPeer'] ?? null,
+                'participants_count' => $resolved['participants_count'] ?? null,
             ]);
-        }, mode: self::MODE_INSPECT);
+        }, mode: self::MODE_INSPECT, forB2c: $forB2c);
     }
 
 
     /**
      * Determine if username is a bot (getInfo-only).
+     * @param bool $forB2c When true, only use accounts with is_b2c=true (for InspectTelegramLinkJob).
      */
-    public function resolveIsBotByUsername(string $username): array
+    public function resolveIsBotByUsername(string $username, bool $forB2c = false): array
     {
         $username = $this->normalizeUsername($username);
 
@@ -97,14 +100,16 @@ class TelegramMtprotoPoolService
                 'raw'       => $info,
                 'raw_chat'  => $resolved['raw_chat'] ?? null,
                 'inputPeer' => $resolved['inputPeer'] ?? null,
+                'participants_count' => $info['full']['participants_count'] ?? null,
             ]);
-        }, mode: self::MODE_INSPECT);
+        }, mode: self::MODE_INSPECT, forB2c: $forB2c);
     }
 
     /**
      * Check invite link using MTProto pool (messages.checkChatInvite).
+     * @param bool $forB2c When true, only use accounts with is_b2c=true (for InspectTelegramLinkJob).
      */
-    public function checkInvite(string $hash): array
+    public function checkInvite(string $hash, bool $forB2c = false): array
     {
         $hash = trim($hash);
 
@@ -112,6 +117,13 @@ class TelegramMtprotoPoolService
 
             try {
                 $result = $madeline->messages->checkChatInvite(['hash' => $hash]);
+                $participantsCount = $result['participants_count'] ?? null;
+                $userName = $result['user']['username'] ?? null;
+                if (!is_numeric($participantsCount) && $userName !== null) {
+                    $fullInfo = $madeline->getFullInfo($userName);
+                    $result['participants_count'] =  $fullInfo['full']['participants_count'] ?? null;
+                }
+
                 Log::info('checkChatInvite', ['result' => $result]);
 
             } catch (RPCErrorException $e) {
@@ -188,7 +200,7 @@ class TelegramMtprotoPoolService
             return $this->fail('MTPROTO_UNEXPECTED', 'Unexpected response constructor: ' . $type, [
                 'raw' => $result,
             ]);
-        }, mode: self::MODE_INSPECT);
+        }, mode: self::MODE_INSPECT, forB2c: $forB2c);
     }
 
     /* ============================================================
@@ -199,7 +211,8 @@ class TelegramMtprotoPoolService
     private function selectAvailableAccount(
         array $excludeIds = [],
         string $mode = self::MODE_INSPECT,
-        array $excludeProxyKeys = []
+        array $excludeProxyKeys = [],
+        bool $forB2c = false
     ): ?MtprotoTelegramAccount {
 
         $batchSize = (int) config('telegram_mtproto.selection_batch_size', 20);
@@ -224,6 +237,9 @@ class TelegramMtprotoPoolService
             });
         } else {
             $q->where('is_inspect', true);
+            if ($forB2c) {
+                $q->where('is_b2c', true);
+            }
         }
 
         if ($excludeIds !== []) {
@@ -322,7 +338,8 @@ class TelegramMtprotoPoolService
     private function getOneCandidateDroppedByProxyCooldownOnly(
         array $excludeIds,
         string $mode,
-        array $excludeProxyKeys
+        array $excludeProxyKeys,
+        bool $forB2c = false
     ): ?array {
         $batchSize = (int) config('telegram_mtproto.selection_batch_size', 20);
         $now = now();
@@ -343,6 +360,9 @@ class TelegramMtprotoPoolService
             });
         } else {
             $q->where('is_inspect', true);
+            if ($forB2c) {
+                $q->where('is_b2c', true);
+            }
         }
 
         if ($excludeIds !== []) {
@@ -462,7 +482,7 @@ class TelegramMtprotoPoolService
         $account->increment('daily_heavy_used');
     }
 
-    private function executeWithPool(callable $callback, string $mode = self::MODE_INSPECT): array
+    private function executeWithPool(callable $callback, string $mode = self::MODE_INSPECT, bool $forB2c = false): array
     {
         $this->ensureRevoltErrorHandler();
         $this->revoltErrorHandlerSetBeforeStart();
@@ -488,11 +508,11 @@ class TelegramMtprotoPoolService
                 ]);
             }
 
-            $account = $this->selectAvailableAccount($excludeIds, $mode, $excludeProxyKeys);
+            $account = $this->selectAvailableAccount($excludeIds, $mode, $excludeProxyKeys, $forB2c);
 
             if (!$account) {
                 // Helpful reason: check if we'd have candidates but they are on proxy cooldown
-                $cooldownCandidate = $this->getOneCandidateDroppedByProxyCooldownOnly($excludeIds, $mode, $excludeProxyKeys);
+                $cooldownCandidate = $this->getOneCandidateDroppedByProxyCooldownOnly($excludeIds, $mode, $excludeProxyKeys, $forB2c);
 
                 if ($cooldownCandidate !== null) {
                     $pk = $cooldownCandidate['proxy_key'];
@@ -759,7 +779,7 @@ class TelegramMtprotoPoolService
     {
         $username = $this->normalizeUsername($username);
 
-        $info = $madeline->getInfo($username);
+        $info = $madeline->getFullInfo($username);
         Log::info('info', ['result' => $info]);
 
 
@@ -778,9 +798,16 @@ class TelegramMtprotoPoolService
             ]);
         }
 
+        if ($type === 'bot'){
+            $participantsCount = $user['bot_active_users'] ?? null;
+        }else{
+            $participantsCount = $info['full']['participants_count'] ?? null;
+        }
+
         return $this->ok([
             'type'      => $type ?? 'unknown',
             'raw'       => $info,
+            'participants_count' => $participantsCount,
             'raw_chat'  => $rawChat,
             'inputPeer' => $inputPeer,
         ]);
@@ -1347,6 +1374,7 @@ class TelegramMtprotoPoolService
 
         $out = [
             'type' => $info['type'] ?? null,
+            'participants_count' => $info['full']['participants_count'] ?? null,
         ];
 
         if (is_array($chat)) {

@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 
 /**
  * Controller for provider task reporting.
- * 
+ *
  * Endpoint: POST /api/provider/telegram/tasks/report
  * Provider reports result by task_id.
  */

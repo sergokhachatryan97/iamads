@@ -39,6 +39,7 @@ class Service extends Model
         'target_type',
         'template_key',
         'duration_days',
+        'overflow_percent',
         'template_snapshot',
         'dripfeed_enabled',
         'speed_limit_enabled',

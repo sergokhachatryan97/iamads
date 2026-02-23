@@ -251,6 +251,28 @@
                                         </p>
                                     </div>
 
+                                    {{-- Overflow percent --}}
+                                    <div>
+                                        <label for="overflow_percent" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                            {{ __('Overflow (%)') }}
+                                        </label>
+                                        <input type="number"
+                                               name="overflow_percent"
+                                               id="overflow_percent"
+                                               value="{{ old('overflow_percent', isset($service) ? ($service->overflow_percent ?? '0') : '0') }}"
+                                               min="0"
+                                               max="100"
+                                               step="0.01"
+                                               class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('overflow_percent') border-red-300 @enderror"
+                                               placeholder="0">
+                                        @error('overflow_percent')
+                                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                                        @enderror
+                                        <p class="mt-1 text-xs text-gray-500">
+                                            {{ __('Extra target % above base quantity (e.g., 15 = 115% of order quantity)') }}
+                                        </p>
+                                    </div>
+
                                     {{-- Service name (auto-generated but editable) --}}
                                     <div>
                                         <label for="name" class="block text-sm font-medium text-gray-700 mb-1.5">

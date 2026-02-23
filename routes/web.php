@@ -178,6 +178,8 @@ Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSess
 
     // Orders
     Route::get('orders', [\App\Http\Controllers\Staff\OrderController::class, 'index'])->name('staff.orders.index');
+    Route::get('order-stats', [\App\Http\Controllers\Staff\OrderStatsController::class, 'index'])->name('staff.order-stats.index');
+    Route::get('order-stats/export', [\App\Http\Controllers\Staff\OrderStatsController::class, 'exportCsv'])->name('staff.order-stats.export');
     Route::post('orders/{order}/cancel', [\App\Http\Controllers\Staff\OrderController::class, 'cancelFull'])->name('staff.orders.cancelFull');
     Route::post('orders/{order}/cancel-partial', [\App\Http\Controllers\Staff\OrderController::class, 'cancelPartial'])->name('staff.orders.cancelPartial');
     Route::get('orders/eligible-ids', [\App\Http\Controllers\Staff\OrderController::class, 'getEligibleIds'])->name('staff.orders.eligible-ids');
@@ -260,8 +262,28 @@ Route::get('/oauth/google/callback', [GoogleGmailOAuthController::class, 'callba
     ->name('oauth.google.callback');
 
 Route::get('test', function () {
-    \App\Jobs\ProcessPartialOrdersJob::dispatch()->onQueue('default');
+    $a = app(\App\Services\Telegram\TelegramInspector::class);
+    $a->inspect('https://t.me/MeloGap');
 
+
+//    $a = app(\App\Http\Controllers\Api\Provider\TelegramTaskReportController::class);
+//    $b = \App\Models\TelegramTask::where('status', 'leased')->get();
+//    foreach ($b as $task) {
+//        {
+
+
+//            $request = Request::create('/fake-report', 'POST', [
+//                'headers' => ['Content-Type' => 'application/json','X-Provider-Token' =>'8fcedaf804894819ed0cffcd1aa4729478eaed1fa52228840cdb1a67e1e866ec'],
+//                'task_id' => $task->id,
+//                'state'   => 'done',
+//                'ok'      => true,
+//            ]);
+//
+//
+//            $a->report($request);
+
+//        }
+//    }
 });
 
 require __DIR__.'/auth.php';

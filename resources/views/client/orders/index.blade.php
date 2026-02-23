@@ -47,12 +47,11 @@
                         $statusButtons = [
                             'all' => __('All'),
                             \App\Models\Order::STATUS_AWAITING => __('Awaiting'),
-                            \App\Models\Order::STATUS_PENDING => __('Pending'),
                             \App\Models\Order::STATUS_IN_PROGRESS => __('In Progress'),
-                            \App\Models\Order::STATUS_PROCESSING => __('Processing'),
                             \App\Models\Order::STATUS_PARTIAL => __('Partial'),
                             \App\Models\Order::STATUS_COMPLETED => __('Completed'),
                             \App\Models\Order::STATUS_CANCELED => __('Canceled'),
+                            \App\Models\Order::STATUS_INVALID_LINK => __('Invalid Link'),
                             \App\Models\Order::STATUS_FAIL => __('Failed'),
                         ];
                     @endphp
@@ -64,12 +63,20 @@
                                 $urlParams['status'] = $statusValue;
                             }
                             $url = route('client.orders.index', $urlParams);
+                            $count = $statusValue === 'all'
+                                ? array_sum($statusCounts ?? [])
+                                : ($statusCounts[$statusValue] ?? 0);
                         @endphp
                         <a
                             href="{{ $url }}"
-                            class="inline-flex items-center px-4 py-2 rounded-md text-sm font-semibold transition-colors duration-200 {{ $isActive ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-indigo-600 hover:bg-gray-200' }}"
+                            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-semibold transition-colors duration-200 {{ $isActive ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-indigo-600 hover:bg-gray-200' }}"
                         >
                             {{ $statusLabel }}
+                            @if($count > 0)
+                                <span class="px-1.5 py-0.5 text-xs font-bold rounded-full {{ $isActive ? 'bg-white/25 text-white' : 'bg-indigo-200 text-indigo-800' }}">
+                                    {{ number_format($count) }}
+                                </span>
+                            @endif
                         </a>
                     @endforeach
                 </div>
@@ -279,6 +286,13 @@
                                                 </x-slot>
 
                                                 <x-slot name="content">
+                                                    <button
+                                                        type="button"
+                                                        onclick="window.dispatchEvent(new CustomEvent('open-modal', { detail: 'client-order-details-{{ $order->id }}' }))"
+                                                        class="block w-full px-4 py-2 text-start text-sm leading-5 text-gray-700 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 transition duration-150 ease-in-out"
+                                                    >
+                                                        {{ __('View Details') }}
+                                                    </button>
                                                     @if($canCancel && $isAwaitingOrPending)
                                                         <div x-data="{
                                                             openModal() {
@@ -365,6 +379,127 @@
                 <div class="mt-4">
                     {{ $orders->links() }}
                 </div>
+
+                {{-- Order details modals --}}
+                @foreach($orders as $order)
+                <x-modal name="client-order-details-{{ $order->id }}" maxWidth="2xl">
+                    <div class="p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-semibold text-gray-900">{{ __('Order Details') }} #{{ $order->id }}</h3>
+                            <button
+                                type="button"
+                                onclick="window.dispatchEvent(new CustomEvent('close-modal', { detail: 'client-order-details-{{ $order->id }}' }))"
+                                class="text-gray-400 hover:text-gray-500"
+                            >
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="bg-gray-50 rounded-lg p-4">
+                                    <div class="text-xs font-medium text-gray-500 uppercase mb-1">{{ __('Date') }}</div>
+                                    <div class="text-sm font-semibold text-gray-900">{{ $order->created_at->format('M d, Y H:i') }}</div>
+                                </div>
+                                <div class="bg-gray-50 rounded-lg p-4">
+                                    <div class="text-xs font-medium text-gray-500 uppercase mb-1">{{ __('Status') }}</div>
+                                    @php
+                                        $detailStatusColors = [
+                                            'awaiting' => 'bg-yellow-100 text-yellow-800',
+                                            'pending' => 'bg-blue-100 text-blue-800',
+                                            'in_progress' => 'bg-indigo-100 text-indigo-800',
+                                            'processing' => 'bg-purple-100 text-purple-800',
+                                            'partial' => 'bg-orange-100 text-orange-800',
+                                            'completed' => 'bg-green-100 text-green-800',
+                                            'canceled' => 'bg-red-100 text-red-800',
+                                            'fail' => 'bg-gray-100 text-gray-800',
+                                        ];
+                                    @endphp
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ $detailStatusColors[$order->status] ?? 'bg-gray-100 text-gray-800' }}">
+                                        {{ ucfirst(str_replace('_', ' ', $order->status)) }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <div class="text-xs font-medium text-gray-500 uppercase mb-1">{{ __('Service') }}</div>
+                                <div class="text-sm font-semibold text-gray-900">{{ $order->service->name ?? 'N/A' }}</div>
+                            </div>
+
+                            @if($order->link)
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <div class="text-xs font-medium text-gray-500 uppercase mb-1">{{ __('Link') }}</div>
+                                <div class="text-sm font-mono text-gray-900 break-all">{{ $order->link }}</div>
+                            </div>
+                            @endif
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="bg-gray-50 rounded-lg p-4">
+                                    <div class="text-xs font-medium text-gray-500 uppercase mb-2">{{ __('Quantity') }}</div>
+                                    <div class="space-y-1 text-sm">
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-600">{{ __('Ordered') }}:</span>
+                                            <span class="font-medium">{{ number_format($order->quantity) }}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-600">{{ __('Delivered') }}:</span>
+                                            <span class="font-medium">{{ number_format($order->delivered ?? 0) }}</span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-600">{{ __('Remaining') }}:</span>
+                                            <span class="font-medium">{{ number_format($order->remains) }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="bg-gray-50 rounded-lg p-4">
+                                    <div class="text-xs font-medium text-gray-500 uppercase mb-2">{{ __('Progress') }}</div>
+                                    @php
+                                        $dDelivered = $order->delivered ?? 0;
+                                        $dQuantity = $order->quantity ?? 1;
+                                        $dProgress = $dQuantity > 0 ? round(($dDelivered / $dQuantity) * 100, 1) : 0;
+                                    @endphp
+                                    <div class="flex items-center mb-2">
+                                        <div class="w-full bg-gray-200 rounded-full h-3 mr-2">
+                                            <div class="bg-indigo-600 h-3 rounded-full" style="width: {{ min(100, max(0, $dProgress)) }}%"></div>
+                                        </div>
+                                        <span class="text-sm font-semibold text-gray-900 whitespace-nowrap">{{ number_format($dProgress, 1) }}%</span>
+                                    </div>
+                                    <div class="text-xs text-gray-600">{{ number_format($dDelivered) }} / {{ number_format($dQuantity) }}</div>
+                                </div>
+                            </div>
+
+                            <div class="bg-gray-50 rounded-lg p-4">
+                                <div class="text-xs font-medium text-gray-500 uppercase mb-1">{{ __('Charge') }}</div>
+                                <div class="text-sm font-semibold text-gray-900">${{ number_format($order->charge, 2) }}</div>
+                            </div>
+
+                            @if($order->provider_last_error)
+                            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <svg class="w-4 h-4 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                                    </svg>
+                                    <span class="text-xs font-semibold text-red-700 uppercase">{{ __('Error') }}</span>
+                                </div>
+                                <p class="text-sm text-red-800 break-all">{{ $order->provider_last_error }}</p>
+                            </div>
+                            @endif
+                        </div>
+
+                        <div class="mt-6 flex justify-end">
+                            <button
+                                type="button"
+                                onclick="window.dispatchEvent(new CustomEvent('close-modal', { detail: 'client-order-details-{{ $order->id }}' }))"
+                                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                            >
+                                {{ __('Close') }}
+                            </button>
+                        </div>
+                    </div>
+                </x-modal>
+                @endforeach
             @else
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                     <div class="p-6 text-gray-900 text-center">

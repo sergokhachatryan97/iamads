@@ -27,6 +27,11 @@ return Application::configure(basePath: dirname(__DIR__))
             ->withoutOverlapping()
             ->runInBackground();
 
+        $schedule->command('orders:process-validating-with-provider-sending')
+            ->everyFiveMinutes()
+            ->withoutOverlapping()
+            ->runInBackground();
+
         // Process due unsubscribe tasks every minute
 //        $schedule->job(new \App\Jobs\ProcessTelegramUnsubscribeTasksJob())
 //            ->everyMinute()
@@ -87,6 +92,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'staff.role' => \App\Http\Middleware\EnsureStaffHasRole::class,
             'client.status' => \App\Http\Middleware\EnsureClientNotSuspended::class,
             'auth.provider' => \App\Http\Middleware\AuthenticateProvider::class,
+            'auth.external_client' => \App\Http\Middleware\AuthenticateExternalClient::class,
         ]);
 
         // Ensure UseStaffSession runs before StartSession
