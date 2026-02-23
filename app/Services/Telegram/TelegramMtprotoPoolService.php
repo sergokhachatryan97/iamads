@@ -239,6 +239,8 @@ class TelegramMtprotoPoolService
             $q->where('is_inspect', true);
             if ($forB2c) {
                 $q->where('is_b2c', true);
+            }else{
+                $q->where('is_b2c', false);
             }
         }
 
