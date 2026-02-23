@@ -25,6 +25,11 @@ class MtprotoTelegramAccountsSeeder extends Seeder
             'acc_013',
             'acc_014',
             'acc_015',
+            'acc_016',
+            'acc_017',
+            'acc_018',
+            'acc_019',
+            'acc_020',
         ];
 
         foreach ($accounts as $name) {
