@@ -19,7 +19,6 @@ class ProcessValidatingOrdersWithProviderSendingJob implements ShouldQueue
     {
         $orders = Order::query()
             ->where('status', Order::STATUS_VALIDATING)
-            ->whereNotNull('provider_sending_at')
             ->orderBy('id')
             ->get();
 

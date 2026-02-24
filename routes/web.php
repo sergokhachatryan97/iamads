@@ -262,28 +262,9 @@ Route::get('/oauth/google/callback', [GoogleGmailOAuthController::class, 'callba
     ->name('oauth.google.callback');
 
 Route::get('test', function () {
-    $a = app(\App\Services\Telegram\TelegramInspector::class);
-    $a->inspect('https://t.me/MeloGap');
+//    $a = app(\App\Services\Telegram\TelegramInspector::class);
+//    $a->inspect('https://t.me/tuiguangchanel/s/6');
 
-
-//    $a = app(\App\Http\Controllers\Api\Provider\TelegramTaskReportController::class);
-//    $b = \App\Models\TelegramTask::where('status', 'leased')->get();
-//    foreach ($b as $task) {
-//        {
-
-
-//            $request = Request::create('/fake-report', 'POST', [
-//                'headers' => ['Content-Type' => 'application/json','X-Provider-Token' =>'8fcedaf804894819ed0cffcd1aa4729478eaed1fa52228840cdb1a67e1e866ec'],
-//                'task_id' => $task->id,
-//                'state'   => 'done',
-//                'ok'      => true,
-//            ]);
-//
-//
-//            $a->report($request);
-
-//        }
-//    }
 });
 
 require __DIR__.'/auth.php';

@@ -632,7 +632,6 @@ class TelegramTaskService
         $ok = (bool) ($result['ok'] ?? false);
         $error = $result['error'] ?? null;
         $retryAfter = $result['retry_after'] ?? null;
-        $providerTaskId = $result['provider_task_id'] ?? null;
 
         // Get subject (Order or ClientServiceQuota)
         $subject = $task->subject;
@@ -748,9 +747,9 @@ class TelegramTaskService
             $task->update(['status' => TelegramTask::STATUS_FAILED]);
 
             // Handle unsubscribe task failure: revert to pending for retry
-            if ($action === 'unsubscribe') {
-                $this->handleUnsubscribeTaskFailure($order, $account, $task, $error);
-            }
+//            if ($action === 'unsubscribe') {
+//                $this->handleUnsubscribeTaskFailure($order, $account, $task, $error);
+//            }
         }
 
         return ['ok' => true];

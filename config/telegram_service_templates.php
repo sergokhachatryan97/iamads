@@ -166,6 +166,27 @@ return [
         'default_priority' => 50,
     ],
 
+    'story_repost' => [
+        'label' => 'Story Repost',
+        'action' => 'story_repost',
+        'policy_key' => 'story_repost',
+        'allowed_link_kinds' => ['story_link'],
+        'allowed_peer_types' => ['channel'],
+        'requires_duration_days' => false,
+        'requires_start_param' => false,
+        'default_priority' => 50,
+    ],
+    'story_reactions' => [
+        'label' => 'Story Reactions',
+        'action' => 'story_reactions',
+        'policy_key' => 'story_reactions',
+        'allowed_link_kinds' => ['story_link'],
+        'allowed_peer_types' => ['channel'],
+        'requires_duration_days' => false,
+        'requires_start_param' => false,
+        'default_priority' => 50,
+    ],
+
     // ------------------------------------------------------------
     // GROUP POST REACTIONS (if your parser marks group posts differently)
     // If your inspector returns kind='public_post' for group posts too, you can remove this.

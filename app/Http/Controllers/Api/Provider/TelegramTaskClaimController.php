@@ -27,17 +27,16 @@ class TelegramTaskClaimController extends Controller
     {
 
         $validated = $request->validate([
-            'phone' => ['required', 'string'],
+            'account_identity' => ['required', 'string'],
         ]);
 
-        $phone = $validated['phone'];
+        $phone = $validated['account_identity'];
 
         $tasks = $this->claimService->claimForPhone($phone, 1);
 
         return response()->json([
-            'ok' => true,
-            'tasks' => $tasks,
-            'count' => count($tasks),
+            "id" =>$tasks[0]['task_id'] ?? null,
+            "url" =>  $tasks[0]['link'] ?? null,
         ]);
     }
 }

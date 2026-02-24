@@ -60,4 +60,67 @@ class TelegramTaskReportController extends Controller
             'ok' => true,
         ]);
     }
+
+
+    public function check(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'order_id' => 'required|string',
+            'account_identity' => 'required|string'
+        ]);
+
+        $result = $this->taskService->reportTaskResult(
+            $validated['order_id'],
+            [
+                'state' => 'done',
+                'ok' => true,
+                'error' =>  null,
+                'retry_after' =>   null,
+                'provider_task_id' => null,
+                'data' =>  null,
+            ]
+        );
+
+        if (!($result['ok'] ?? false)) {
+            return response()->json([
+                'ok' => false,
+                'error' => $result['error'] ?? 'Failed to report task',
+            ], 400);
+        }
+
+        return response()->json([
+            'ok' => true,
+        ]);
+    }
+
+    public function ignore(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'order_id' => 'required|string',
+            'account_identity' => 'required|string'
+        ]);
+
+        $result = $this->taskService->reportTaskResult(
+            $validated['order_id'],
+            [
+                'state' => 'failed',
+                'ok' => false,
+                'error' =>  null,
+                'retry_after' =>   null,
+                'provider_task_id' => null,
+                'data' =>  null,
+            ]
+        );
+
+        if (!($result['ok'] ?? false)) {
+            return response()->json([
+                'ok' => false,
+                'error' => $result['error'] ?? 'Failed to report task',
+            ], 400);
+        }
+
+        return response()->json([
+            'ok' => true,
+        ]);
+    }
 }

@@ -15,7 +15,6 @@ Route::prefix('external')->middleware('auth.external_client')->group(function ()
 });
 
 
-// Provider pull architecture endpoints (authenticated via X-Provider-Token header)
 Route::middleware(['auth.provider'])->prefix('provider/telegram')->group(function () {
     Route::post('/accounts/sync', [TelegramAccountSyncController::class, 'sync'])
         ->name('provider.telegram.accounts.sync');
@@ -25,6 +24,16 @@ Route::middleware(['auth.provider'])->prefix('provider/telegram')->group(functio
 
     Route::post('/tasks/claim', [TelegramTaskClaimController::class, 'claim'])
         ->name('provider.telegram.tasks.claim');
+
+    Route::post('/getOrder', [TelegramTaskClaimController::class, 'claim'])
+        ->name('provider.telegram.tasks.getOrder');
+
+
+    Route::post('/check', [TelegramTaskReportController::class, 'check'])
+        ->name('provider.telegram.tasks.check');
+
+    Route::post('/ignore', [TelegramTaskReportController::class, 'ignore'])
+        ->name('provider.telegram.tasks.ignore');
 
     Route::post('/tasks/report', [TelegramTaskReportController::class, 'report'])
         ->name('provider.telegram.tasks.report');

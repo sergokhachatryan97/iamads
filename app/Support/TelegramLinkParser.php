@@ -70,6 +70,19 @@ final class TelegramLinkParser
         if ($host === 'resolve' && !empty($query['domain'])) {
             $username = strtolower((string) $query['domain']);
 
+            // Story link (tg://resolve?domain=<username>&story=<story_id>)
+            if (isset($query['story']) && $query['story'] !== '') {
+                $storyId = (int) $query['story'];
+                if ($storyId > 0) {
+                    return [
+                        'kind' => 'story_link',
+                        'raw' => $originalRaw,
+                        'username' => $username,
+                        'story_id' => $storyId,
+                    ];
+                }
+            }
+
             $startKey = self::firstStartKey($query);
             if ($startKey !== null) {
                 $startVal = (string) ($query[$startKey] ?? '');
@@ -129,6 +142,18 @@ final class TelegramLinkParser
         if (preg_match('#^joinchat/([a-zA-Z0-9_-]+)$#', $path, $m)) {
             return ['kind' => 'invite', 'raw' => $raw, 'hash' => (string) $m[1]];
         }
+
+        // Telegram story link: /{username}/s/{storyId}
+        // https://t.me/<username>/s/<story_id>
+        if (preg_match('#^([a-zA-Z0-9_]{3,32})/s/(\d+)$#', $path, $m)) {
+            return [
+                'kind' => 'story_link',
+                'raw' => $raw,
+                'username' => strtolower($m[1]),
+                'story_id' => (int) $m[2],
+            ];
+        }
+
 
         // public post
         if (preg_match('#^([a-zA-Z0-9_]{3,32})/(\d+)$#', $path, $m)) {

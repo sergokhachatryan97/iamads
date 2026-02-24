@@ -76,6 +76,7 @@ class TelegramInspector
                         // Normalize to same categories we need
                         if (($mt['is_bot'] ?? false) === true) {
                             $type = 'bot';
+                            $result['member_count'] =(isset($mt['participants_count']) ? (int)$mt['participants_count'] : null);
                         } else {
                             $t = (string)($mt['type'] ?? 'unknown');
                             // your resolver returns: channel|supergroup|user|unknown...
@@ -197,6 +198,116 @@ class TelegramInspector
                 ]
             );
 
+        }
+
+        if (in_array($parsed['kind'], ['story_link'], true)) {
+
+            $username = $parsed['username'] ?? null;
+
+            if (!$username) {
+                return $this->fail($result, 'INVALID_FORMAT', 'Username not found in link');
+            }
+
+
+            $storyId = (int)($parsed['story_id'] ?? 0);
+            if ($storyId <= 0) {
+                return $this->fail($result, 'INVALID_FORMAT', 'Story id missing in link');
+            }
+
+            $info = $this->mtprotoPool->getInfoByUsername($username, $forB2c);
+
+            if (($info['ok'] ?? false) !== true) {
+                return $this->fail(
+                    $result,
+                    $info['error_code'] ?? 'GETINFO_FAILED',
+                    $info['error'] ?? 'Unable to fetch peer info');
+            }
+
+// set resolved values from getInfo (keep your existing mapping)
+            $rawChat = $info['raw_chat'] ?? [];
+            $result['chat_type'] = $info['type'] ?? null;
+            $result['title'] = $rawChat['title'] ?? ($rawChat['first_name'] ?? null);
+            $result['member_count'] = $info['participants_count'] ?? null;
+            $result['audience_type'] = $info['audience_type'] ?? null;
+
+            $result['resolved'] = [
+                'mtproto' => $info,
+            ];
+
+// ✅ enforce: only PUBLIC CHANNEL stories
+            if (($info['type'] ?? null) !== 'channel') {
+                return $this->fail(
+                    $result,
+                    'NOT_CHANNEL',
+                    'Only public channel story links are allowed');
+            }
+
+            if (empty($rawChat['username'] ?? null)) {
+                return $this->fail(
+                    $result,
+                    'NOT_PUBLIC_CHANNEL',
+                    'Only public/open channel story links are allowed');
+            }
+
+            if ((bool)($rawChat['stories_unavailable'] ?? false) === true) {
+                return $this->fail(
+                    $result,
+                    'STORIES_UNAVAILABLE',
+                    'Stories are unavailable for this channel with the current account'
+                );
+            }
+
+// ✅ validate story existence + public + active using FULL INFO (already inside getInfo payload)
+            $stories = $info['full']['stories']['stories'] ?? [];
+            if (!is_array($stories) || $stories === []) {
+                return $this->fail(
+                    $result,
+                    'STORY_NOT_IN_FULLINFO',
+                    'Story not found in channel full info (may be not active or not accessible)'
+                );
+            }
+
+            $found = null;
+            foreach ($stories as $s) {
+                if (($s['_'] ?? null) === 'storyItem' && (int)($s['id'] ?? 0) === $storyId) {
+                    $found = $s;
+                    break;
+                }
+            }
+
+            if (!$found) {
+                return $this->fail(
+                    $result,
+                    'STORY_ID_MISMATCH',
+                    "Story id={$storyId} not found in channel full info",
+                    ['mtproto_getinfo' => $info]
+                );
+            }
+
+            if (!(bool)($found['public'] ?? false)) {
+                return $this->fail(
+                    $result,
+                    'STORY_NOT_PUBLIC',
+                    'Story is not public'
+                );
+            }
+
+            $expire = (int)($found['expire_date'] ?? 0);
+            if ($expire > 0 && $expire <= time()) {
+                return $this->fail(
+                    $result,
+                    'STORY_EXPIRED',
+                    'Story has expired'
+                );
+            }
+
+// ✅ SUCCESS
+            $result['ok'] = true;
+            $result['parsed']['is_story'] = true;
+            $result['parsed']['story_id'] = $storyId;
+            $result['resolved']['story'] = $found;
+
+            return $result;
         }
 
         /* ===============================

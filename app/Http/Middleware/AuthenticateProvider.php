@@ -18,7 +18,7 @@ class AuthenticateProvider
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $providedToken = $request->header('X-Provider-Token');
+        $providedToken = $request->input('api_token') ?? $request->header('api_token') ?? null;
         $expectedToken = config('services.provider.token');
 
         if (empty($expectedToken)) {
