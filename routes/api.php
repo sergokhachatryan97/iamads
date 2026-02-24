@@ -25,14 +25,14 @@ Route::middleware(['auth.provider'])->prefix('provider/telegram')->group(functio
     Route::post('/tasks/claim', [TelegramTaskClaimController::class, 'claim'])
         ->name('provider.telegram.tasks.claim');
 
-    Route::post('/getOrder', [TelegramTaskClaimController::class, 'claim'])
+    Route::get('/getOrder', [TelegramTaskClaimController::class, 'claim'])
         ->name('provider.telegram.tasks.getOrder');
 
 
-    Route::post('/check', [TelegramTaskReportController::class, 'check'])
+    Route::get('/check', [TelegramTaskReportController::class, 'check'])
         ->name('provider.telegram.tasks.check');
 
-    Route::post('/ignore', [TelegramTaskReportController::class, 'ignore'])
+    Route::get('/ignore', [TelegramTaskReportController::class, 'ignore'])
         ->name('provider.telegram.tasks.ignore');
 
     Route::post('/tasks/report', [TelegramTaskReportController::class, 'report'])
