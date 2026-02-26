@@ -17,7 +17,7 @@ return [
     // BOT START
     // ------------------------------------------------------------
     'bot_start' => [
-        'label' => 'Bot Start',
+        'label' => 'TG Bot Start',
         'action' => 'bot_start',
         'policy_key' => 'bot',
         'allowed_link_kinds' => ['bot_start', 'public_username'],
@@ -28,10 +28,21 @@ return [
     ],
 
     'bot_start_referral' => [
-        'label' => 'Bot Start (Referral Required)',
+        'label' => 'TG Bot Start With Referral',
         'action' => 'bot_start',
         'policy_key' => 'bot',
-        'allowed_link_kinds' => ['bot_start_with_referral', 'public_username'],
+        'allowed_link_kinds' => ['bot_start_with_referral', 'bot_start', 'public_username'],
+        'allowed_peer_types' => ['bot'],
+        'requires_duration_days' => false,
+        'requires_start_param' => true,
+        'default_priority' => 50,
+    ],
+
+    'bot_start_from_search' => [
+        'label' => 'TG Bot Start From Search',
+        'action' => 'bot_start',
+        'policy_key' => 'bot',
+        'allowed_link_kinds' => ['bot_start', 'public_username'],
         'allowed_peer_types' => ['bot'],
         'requires_duration_days' => false,
         'requires_start_param' => true,
@@ -44,7 +55,7 @@ return [
     'channel_subscribe' => [
         'label' => 'Channel Subscribe (Public, Live time)',
         'action' => 'subscribe',
-        'policy_key' => 'sub_public',
+        'policy_key' => 'default',
         'allowed_link_kinds' => ['public_username'],
         'allowed_peer_types' => ['channel'],
         'requires_duration_days' => false,
@@ -52,89 +63,56 @@ return [
         'default_priority' => 60,
     ],
 
-    'channel_subscribe_daily' => [
-        'label' => 'Channel Subscribe (Public, Daily)',
+    'channel_subscribe_private_public' => [
+        'label' => 'SuperFast/Fast Subscribe Private, Public TG Channel Live Time',
         'action' => 'subscribe',
-        'policy_key' => 'sub_public',
-        'allowed_link_kinds' => ['public_username'],
+        'policy_key' => 'default',
+        'allowed_link_kinds' => ['public_username','invite'],
         'allowed_peer_types' => ['channel'],
-        'requires_duration_days' => true,
+        'requires_duration_days' => false,
         'requires_start_param' => false,
         'default_priority' => 60,
     ],
 
-    // ------------------------------------------------------------
-    // SUBSCRIBE - PUBLIC GROUP/SUPERGROUP (USERNAME) (FAST)
-    // ------------------------------------------------------------
-    'group_subscribe_public' => [
-        'label' => 'Group Subscribe (Public, Live time)',
+
+    'subscribe_private_public_channel_group' => [
+        'label' => 'Subscribe Private, Public TG Channel And Group Live Time',
         'action' => 'subscribe',
-        'policy_key' => 'sub_public',
+        'policy_key' => 'default',
+        'allowed_link_kinds' => ['public_username','invite'],
+        'allowed_peer_types' => ['channel', 'group'],
+        'requires_duration_days' => false,
+        'requires_start_param' => false,
+        'default_priority' => 60,
+    ],
+
+    'real_channel_subscribe_from_search' => [
+        'label' => 'Real TG Channel Subscribe From Search Live Time',
+        'action' => 'subscribe',
+        'policy_key' => 'default',
         'allowed_link_kinds' => ['public_username'],
-        'allowed_peer_types' => ['group', 'supergroup'],
+        'allowed_peer_types' => ['channel'],
         'requires_duration_days' => false,
         'requires_start_param' => false,
-        'default_priority' => 55,
+        'default_priority' => 60,
     ],
 
-    'group_subscribe_public_daily' => [
-        'label' => 'Group Subscribe (Public, Daily)',
-        'action' => 'subscribe',
-        'policy_key' => 'sub_public',
-        'allowed_link_kinds' => ['public_username'],
-        'allowed_peer_types' => ['group', 'supergroup'],
-        'requires_duration_days' => true,
-        'requires_start_param' => false,
-        'default_priority' => 55,
-    ],
-
-    // ------------------------------------------------------------
-    // PRIVATE / INVITE GROUP (SAFE) -> policy_key=sub_private
-    // If you prefer invite link to run action=join instead of subscribe,
-    // change 'action' => 'join' here (and update execution_policy_map accordingly).
-    // ------------------------------------------------------------
-    'group_subscribe_invite' => [
-        'label' => 'Group Subscribe (Invite / Private, Live time)',
-        'action' => 'subscribe',
-        'policy_key' => 'sub_private',
-        'allowed_link_kinds' => ['invite'],
-        'allowed_peer_types' => ['group', 'supergroup'],
-        'requires_duration_days' => false,
-        'requires_start_param' => false,
-        'default_priority' => 40,
-    ],
-
-    'group_subscribe_invite_daily' => [
-        'label' => 'Group Subscribe (Invite / Private, Daily)',
-        'action' => 'subscribe',
-        'policy_key' => 'sub_private',
-        'allowed_link_kinds' => ['invite'],
-        'allowed_peer_types' => ['group', 'supergroup'],
-        'requires_duration_days' => true,
-        'requires_start_param' => false,
-        'default_priority' => 40,
-    ],
-
-    // ------------------------------------------------------------
-    // OPTIONAL: INVITE JOIN (if you want invite links to always be join)
-    // Use this instead of group_subscribe_invite if you decide semantics = join.
-    // ------------------------------------------------------------
-    'group_join_invite' => [
-        'label' => 'Group Join (Invite / Private)',
-        'action' => 'join',
-        'policy_key' => 'sub_private',
-        'allowed_link_kinds' => ['invite'],
-        'allowed_peer_types' => ['group', 'supergroup'],
-        'requires_duration_days' => false,
-        'requires_start_param' => false,
-        'default_priority' => 40,
-    ],
+//    'channel_subscribe_daily' => [
+//        'label' => 'Channel Subscribe (Public, Daily)',
+//        'action' => 'subscribe',
+//        'policy_key' => 'sub_public',
+//        'allowed_link_kinds' => ['public_username'],
+//        'allowed_peer_types' => ['channel'],
+//        'requires_duration_days' => true,
+//        'requires_start_param' => false,
+//        'default_priority' => 60,
+//    ],
 
     // ------------------------------------------------------------
     // POST VIEWS / REACTIONS / COMMENTS (PUBLIC CHANNEL POSTS)
     // ------------------------------------------------------------
     'channel_post_views' => [
-        'label' => 'Channel Post Views',
+        'label' => 'TG Channel Post Views',
         'action' => 'view',
         'policy_key' => 'views',
         'allowed_link_kinds' => ['public_post'],
@@ -145,7 +123,7 @@ return [
     ],
 
     'channel_post_reactions' => [
-        'label' => 'Channel Post Reactions',
+        'label' => 'TG Channel Post Reactions',
         'action' => 'react',
         'policy_key' => 'reaction',
         'allowed_link_kinds' => ['public_post'],
@@ -155,8 +133,41 @@ return [
         'default_priority' => 50,
     ],
 
-    'channel_post_comments' => [
-        'label' => 'Channel Post Comments',
+    'channel_poll' => [
+        'label' => 'TG Channel Poll Votes',
+        'action' => 'vote',
+        'policy_key' => 'vote',
+        'allowed_link_kinds' => ['public_post'],
+        'allowed_peer_types' => ['channel'],
+        'requires_duration_days' => false,
+        'requires_start_param' => false,
+        'default_priority' => 50,
+    ],
+
+    'channel_post_repost' => [
+        'label' => 'TG Channel Post Repost',
+        'action' => 'repost',
+        'policy_key' => 'repost',
+        'allowed_link_kinds' => ['public_post'],
+        'allowed_peer_types' => ['channel'],
+        'requires_duration_days' => false,
+        'requires_start_param' => false,
+        'default_priority' => 50,
+    ],
+
+    'channel_post_comment_reaction' => [
+        'label' => 'TG Channel Post Comment Reaction',
+        'action' => 'react',
+        'policy_key' => 'comment_reaction',
+        'allowed_link_kinds' => ['public_post_comment_reaction'],
+        'allowed_peer_types' => ['channel'],
+        'requires_duration_days' => false,
+        'requires_start_param' => false,
+        'default_priority' => 50,
+    ],
+
+    'channel_post_comment' => [
+        'label' => 'TG Channel Post Comment',
         'action' => 'comment',
         'policy_key' => 'comment',
         'allowed_link_kinds' => ['public_post'],
@@ -167,7 +178,7 @@ return [
     ],
 
     'story_repost' => [
-        'label' => 'Story Repost',
+        'label' => 'TG Channel Story Repost',
         'action' => 'story_repost',
         'policy_key' => 'story_repost',
         'allowed_link_kinds' => ['story_link'],
@@ -176,10 +187,10 @@ return [
         'requires_start_param' => false,
         'default_priority' => 50,
     ],
-    'story_reactions' => [
-        'label' => 'Story Reactions',
-        'action' => 'story_reactions',
-        'policy_key' => 'story_reactions',
+    'story_like' => [
+        'label' => 'TG Channel Story Like',
+        'action' => 'story_like',
+        'policy_key' => 'story_like',
         'allowed_link_kinds' => ['story_link'],
         'allowed_peer_types' => ['channel'],
         'requires_duration_days' => false,
@@ -187,30 +198,11 @@ return [
         'default_priority' => 50,
     ],
 
-    // ------------------------------------------------------------
-    // GROUP POST REACTIONS (if your parser marks group posts differently)
-    // If your inspector returns kind='public_post' for group posts too, you can remove this.
-    // Otherwise, adjust allowed_link_kinds to match your parser output.
-    // ------------------------------------------------------------
-    'group_post_reactions' => [
-        'label' => 'Group Post Reactions',
-        'action' => 'react',
-        'policy_key' => 'reaction',
-        'allowed_link_kinds' => ['public_post'], // change if you use a different kind for group posts
-        'allowed_peer_types' => ['group', 'supergroup'],
-        'requires_duration_days' => false,
-        'requires_start_param' => false,
-        'default_priority' => 45,
-    ],
-
-    // ------------------------------------------------------------
-    // STORY REACTIONS (via public username)
-    // ------------------------------------------------------------
-    'channel_story_reactions' => [
-        'label' => 'Channel Story Reactions',
-        'action' => 'story_react',
-        'policy_key' => 'story',
-        'allowed_link_kinds' => ['public_username'],
+    'invite_subscribers_from_other_channel' => [
+        'label' => 'Invite Subscribers From Other Channel',
+        'action' => 'invite_subscribers',
+        'policy_key' => 'invite_subscribers',
+        'allowed_link_kinds' => ['invite_subscribers'],
         'allowed_peer_types' => ['channel'],
         'requires_duration_days' => false,
         'requires_start_param' => false,

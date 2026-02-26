@@ -295,7 +295,7 @@
                                 });
                                 $targetTypeLabels = [
                                     'bot' => 'Bot Services 🤖',
-                                    'channel' => 'Channel Services',
+                                    'channel' => 'Channel/Group Services',
                                     'group' => 'Group Services',
                                     'other' => 'Other Services',
                                 ];
@@ -412,7 +412,14 @@
                                             {{ number_format($service->max_quantity ?? $service->max_order ?? 1) }}
                                         </td>
                                         <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                                            ${{ number_format($service->rate_per_1000 ?? $service->rate ?? 0, 2) }}
+                                            @if($service->speed_limit_enabled ?? false)
+                                                <div class="flex flex-col gap-0.5">
+                                                    <span>{{ __('Fast') }}: ${{ number_format((float) ($service->rate_multiplier_fast ?? 0), 2) }}</span>
+                                                    <span>{{ __('Super Fast') }}: ${{ number_format((float) ($service->rate_multiplier_super_fast ?? 0), 2) }}</span>
+                                                </div>
+                                            @else
+                                                ${{ number_format($service->rate_per_1000 ?? $service->rate ?? 0, 2) }}
+                                            @endif
                                         </td>
                                         <td class="px-4 py-2 whitespace-nowrap">
                                             @if($service->is_active ?? true)

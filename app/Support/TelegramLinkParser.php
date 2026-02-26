@@ -155,13 +155,32 @@ final class TelegramLinkParser
         }
 
 
-        // public post
+// public post (optionally comment link)
         if (preg_match('#^([a-zA-Z0-9_]{3,32})/(\d+)$#', $path, $m)) {
+            $username = strtolower($m[1]);
+            $postId = (int) $m[2];
+
+            $commentId = null;
+            if (isset($q['comment']) && ctype_digit((string) $q['comment'])) {
+                $cid = (int) $q['comment'];
+                if ($cid > 0) $commentId = $cid;
+            }
+
+            if ($commentId !== null) {
+                return [
+                    'kind' => 'public_post_comment_reaction',
+                    'raw' => $raw,
+                    'username' => $username,
+                    'post_id' => $postId,
+                    'comment_id' => $commentId,
+                ];
+            }
+
             return [
                 'kind' => 'public_post',
                 'raw' => $raw,
-                'username' => strtolower($m[1]),
-                'post_id' => (int) $m[2],
+                'username' => $username,
+                'post_id' => $postId,
             ];
         }
 

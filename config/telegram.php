@@ -142,57 +142,28 @@ return [
             ],
         ],
 
-        // ✅ NEW: public subscribe policies (fast)
-        'sub_public' => [
-            'channel' => [
-                'action' => 'subscribe',
-                'interval_seconds' => 1, // informational only; interval is recalculated
-                'per_call' => 1,
-            ],
-            'group' => [
-                'action' => 'subscribe',
-                'interval_seconds' => 1,
-                'per_call' => 1,
-            ],
-            'supergroup' => [
-                'action' => 'subscribe',
-                'interval_seconds' => 1,
-                'per_call' => 1,
-            ],
-        ],
-
-        // ✅ NEW: private/invite policies (safer)
-        'sub_private' => [
-            'group' => [
-                'action' => 'subscribe',
-                'interval_seconds' => 5,
-                'per_call' => 1,
-            ],
-            'supergroup' => [
-                'action' => 'subscribe',
-                'interval_seconds' => 5,
-                'per_call' => 1,
-            ],
-            // invite links usually map to join
-            'invite' => [
-                'action' => 'join',
-                'interval_seconds' => 5,
-                'per_call' => 1,
-            ],
-        ],
-
-        // ------------------------
-        // Other service policies
-        // ------------------------
         'reaction' => [
             'public_post' => [
                 'action' => 'react',
                 'interval_seconds' => 2,
                 'per_call' => 1,
             ],
-            // if you have group post reactions with different link_type,
-            // add it here too
-            // 'group_post' => [...]
+        ],
+
+        'vote' => [
+            'public_post' => [
+                'action' => 'vote',
+                'interval_seconds' => 2,
+                'per_call' => 1,
+            ],
+        ],
+
+        'repost' => [
+            'public_post' => [
+                'action' => 'repost',
+                'interval_seconds' => 2,
+                'per_call' => 1,
+            ],
         ],
 
         'views' => [
@@ -214,14 +185,38 @@ return [
         'comment' => [
             'public_post' => [
                 'action' => 'comment',
+                'interval_seconds' => 5,
+                'per_call' => 1,
+            ],
+        ],
+
+        'comment_reaction' => [
+            'public_post_comment_reaction' => [
+                'action' => 'react',
                 'interval_seconds' => 2,
                 'per_call' => 1,
             ],
         ],
 
-        'story' => [
-            'public_username' => [
-                'action' => 'story_react',
+        'story_like' => [
+            'public_post' => [
+                'action' => 'story_like',
+                'interval_seconds' => 2,
+                'per_call' => 1,
+            ],
+        ],
+
+        'story_repost' => [
+            'public_post' => [
+                'action' => 'story_repost',
+                'interval_seconds' => 3,
+                'per_call' => 1,
+            ],
+        ],
+
+        'invite_subscribers' => [
+            'invite_subscribers_from_other_channel' => [
+                'action' => 'invite_subscribers',
                 'interval_seconds' => 3,
                 'per_call' => 1,
             ],

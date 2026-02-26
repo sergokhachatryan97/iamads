@@ -81,8 +81,7 @@
                                     class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                                     <option value="">{{ __('Select target type') }}</option>
                                     <option value="bot">Bot</option>
-                                    <option value="channel">Channel</option>
-                                    <option value="group">Group</option>
+                                    <option value="channel">Channel/Group</option>
                                 </select>
                                 @error('target_type')
                                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -409,7 +408,6 @@
                                     @change="updateSpeedTierPrice()"
                                     required
                                     class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                                    <option value="normal">{{ __('Normal') }} (1.0x)</option>
                                     <option value="fast" x-text="'{{ __('Fast') }} (' + (selectedService?.speed_multiplier_fast || 1.50).toFixed(2) + 'x)'"></option>
                                     <option value="super_fast" x-text="'{{ __('Super Fast') }} (' + (selectedService?.speed_multiplier_super_fast || 2.00).toFixed(2) + 'x)'"></option>
                                 </select>
@@ -741,7 +739,7 @@
                 dripfeedInterval: null,
                 dripfeedIntervalUnit: null,
                 dripfeedQuantityError: '',
-                // Speed Tier
+                // Speed Tier (default 'fast' when service has speed enabled, set in updateServiceInfo)
                 speedTier: '{{ old('speed_tier', 'normal') }}',
                 // Multi-service order data
                 multiCategoryId: '{{ old('category_id', $preselectedCategoryId ?? '') }}',
@@ -877,9 +875,13 @@
                         this.dripfeedIntervalUnit = '';
                         this.dripfeedQuantityError = '';
                     }
-                    // Reset speed tier if service doesn't have speed_limit_enabled
-                    if (this.selectedService && !this.selectedService.speed_limit_enabled) {
-                        this.speedTier = 'normal';
+                    // Reset speed tier: normal when speed disabled, fast (default) when speed enabled
+                    if (this.selectedService) {
+                        if (!this.selectedService.speed_limit_enabled) {
+                            this.speedTier = 'normal';
+                        } else {
+                            this.speedTier = 'fast';
+                        }
                     }
                 },
 

@@ -60,8 +60,7 @@
                                 class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                                 <option value="">{{ __('All Target Types') }}</option>
                                 <option value="bot">Bot</option>
-                                <option value="channel">Channel</option>
-                                <option value="group">Group</option>
+                                <option value="channel">Channel/Group</option>
                             </select>
                             <p class="mt-1 text-xs text-gray-500">
                                 {{ __('Filter services by target type (optional)') }}

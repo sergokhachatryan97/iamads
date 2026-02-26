@@ -5,8 +5,6 @@ namespace App\Services\Telegram;
 
 use Amp\CancelledException;
 use App\Models\MtprotoTelegramAccount;
-use App\Services\Telegram\MtprotoClientFactory;
-use App\Services\Telegram\ProxyHealthService;
 use App\Support\TelegramChatType;
 use danog\MadelineProto\RPCErrorException;
 use Amp\SignalException;
@@ -71,6 +69,360 @@ class TelegramMtprotoPoolService
         }, mode: self::MODE_INSPECT, forB2c: $forB2c);
     }
 
+    public function getAndCheckInfoByPostId(string $username, int $postId, bool $forB2c = false): array
+    {
+        $username = $this->normalizeUsername($username);
+
+        return $this->executeWithPool(function (MtprotoTelegramAccount $account, \danog\MadelineProto\API $madeline) use ($username, $postId) {
+
+            try {
+                $res = $madeline->channels->getMessages([
+                    'channel' => $username,
+                    'id' => [
+                        ['_' => 'inputMessageID', 'id' => $postId],
+                    ],
+                ]);
+
+             Log::info('[MTProto info] ', ['result' => $res]);
+            } catch (RPCErrorException $e) {
+                return $this->fail('MTPROTO_RPC', $e->getMessage());
+            } catch (CancelledException $e) {
+                throw $e;
+            } catch (\Throwable $e) {
+                Log::info('Throwable', ['message' => $e->getMessage()]);
+                return $this->fail('Throwable', $e->getMessage(), [
+                    'username' => $username,
+                    'post_id' => $postId,
+                    'account_id' => $account->id ?? null,
+                ]);
+            }
+            $msg = $res['messages'][0] ?? null;
+            if (!is_array($msg)) {
+                return $this->fail('POST_NOT_FOUND', 'Post not found or inaccessible', [
+                    'username' => $username,
+                    'post_id' => $postId,
+                    'result_type' => $res['_'] ?? null,
+                ]);
+            }
+
+            // ✅ post view count
+            $views = isset($msg['views']) ? (int) $msg['views'] : null;
+
+            // optional flags/extra
+            $isPoll = (($msg['media']['_'] ?? null) === 'messageMediaPoll');
+
+            return $this->ok([
+                'username' => $username,
+                'post_id'  => $postId,
+                'views' => $views,
+                'is_poll' => $isPoll,
+                'raw_chat' => $res['chats'][0] ?? null,
+            ]);
+
+        }, mode: self::MODE_INSPECT, forB2c: $forB2c);
+    }
+    public function validatePostCommentLinkOptimal(string $username, int $postId, int $commentId, bool $forB2c = false): array
+    {
+        $username = $this->normalizeUsername($username);
+
+        return $this->executeWithPool(function (MtprotoTelegramAccount $account, \danog\MadelineProto\API $madeline)
+        use ($username, $postId, $commentId) {
+
+            $cacheKey = "tg:discmap:{$username}:{$postId}";
+
+            // 1) Resolve discussion mapping (discussionPeer + rootId + rootRepliesMaxId)
+            [$discussionPeer, $rootId, $rootMaxReplyId] = $this->resolveDiscussionMappingPlus($madeline, $username, $postId, $cacheKey);
+
+            if (!$discussionPeer || $rootId <= 0) {
+                return $this->fail('DISCUSSION_NOT_AVAILABLE', 'No discussion mapping available', [
+                    'username' => $username,
+                    'post_id' => $postId,
+                    'comment_id' => $commentId,
+                ]);
+            }
+
+            // 2) Fast existence sanity: if commentId is higher than max_id => cannot exist
+            if ($rootMaxReplyId > 0 && $commentId > $rootMaxReplyId) {
+                return $this->fail('COMMENT_NOT_FOUND', 'Comment id is greater than thread max reply id', [
+                    'username' => $username,
+                    'post_id' => $postId,
+                    'comment_id' => $commentId,
+                    'discussion_peer' => $discussionPeer,
+                    'root_id' => $rootId,
+                    'thread_max_reply_id' => $rootMaxReplyId,
+                ]);
+            }
+
+            // 3) Try direct fetch comment message (cheap) for reactions
+            // NOTE: direct fetch does NOT guarantee it's in thread, we only use it if later thread check passes
+            $directMsg = $this->tryFetchMessageById($madeline, $discussionPeer, $commentId);
+
+            // 4) Authoritative thread membership check via getReplies (reliable even if reply_to is missing)
+            // Optimization:
+            // - if commentId == max_id -> it's likely in the latest chunk of replies, so fetch smaller window first
+            $preferSmallWindow = ($rootMaxReplyId > 0 && $commentId === $rootMaxReplyId);
+
+            $commentMsg = $this->findCommentInThreadRepliesOptimized(
+                $madeline,
+                $discussionPeer,
+                $rootId,
+                $commentId,
+                $preferSmallWindow
+            );
+
+            if (!is_array($commentMsg)) {
+                // mapping could be stale or peer holes -> retry with cache invalidation + warmup
+                Cache::forget($cacheKey);
+
+                [$discussionPeer2, $rootId2, $rootMaxReplyId2] = $this->resolveDiscussionMappingPlus($madeline, $username, $postId, $cacheKey);
+                if ($discussionPeer2) $discussionPeer = $discussionPeer2;
+                if ($rootId2 > 0) $rootId = $rootId2;
+                if ($rootMaxReplyId2 > 0) $rootMaxReplyId = $rootMaxReplyId2;
+
+                // warm up history (helps holes/peer-db)
+                try {
+                    $madeline->messages->getHistory(['peer' => $discussionPeer, 'limit' => 20]);
+                } catch (\Throwable $e) {
+                    // ignore
+                }
+
+                // retry optimized replies search
+                $preferSmallWindow = ($rootMaxReplyId > 0 && $commentId === $rootMaxReplyId);
+                $commentMsg = $this->findCommentInThreadRepliesOptimized(
+                    $madeline,
+                    $discussionPeer,
+                    $rootId,
+                    $commentId,
+                    $preferSmallWindow
+                );
+            }
+
+            if (!is_array($commentMsg)) {
+                return $this->fail('COMMENT_NOT_IN_THREAD', 'Comment id not found in this post discussion thread (authoritative replies list)', [
+                    'username' => $username,
+                    'post_id' => $postId,
+                    'comment_id' => $commentId,
+                    'discussion_peer' => $discussionPeer,
+                    'root_id' => $rootId,
+                    'thread_max_reply_id' => $rootMaxReplyId,
+                ]);
+            }
+
+            // 5) Prefer reactions from the authoritative thread message.
+            // If for any reason it lacks reactions but direct has them, you can merge. Usually not needed.
+            $msgForReactions = $commentMsg;
+            if (
+                (!isset($msgForReactions['reactions']) || !is_array($msgForReactions['reactions'])) &&
+                is_array($directMsg) && isset($directMsg['reactions'])
+            ) {
+                $msgForReactions = $directMsg; // fallback only for reactions field
+            }
+
+            [$total, $breakdown] = $this->extractReactions($msgForReactions);
+
+            return $this->ok([
+                'type' => 'public_post_comment',
+                'username' => $username,
+                'post_id' => $postId,
+                'comment_id' => $commentId,
+                'exists' => true,
+                'reactions_total' => $total,
+                'reactions' => $breakdown,
+                // usually null for discussion comments
+                'views' => isset($msgForReactions['views']) ? (int)$msgForReactions['views'] : null,
+
+                // debug-friendly meta
+                'discussion_peer' => $discussionPeer,
+                'root_id' => $rootId,
+                'thread_max_reply_id' => $rootMaxReplyId,
+            ]);
+        }, mode: self::MODE_INSPECT, forB2c: $forB2c);
+    }
+
+    /**
+     * Resolve discussion mapping and also return thread max reply id (max_id) if present.
+     * Returns [discussionPeer, rootId, rootMaxReplyId]
+     */
+    private function resolveDiscussionMappingPlus(\danog\MadelineProto\API $madeline, string $username, int $postId, string $cacheKey): array
+    {
+        $map = Cache::get($cacheKey);
+        $peer = $map['peer'] ?? null;
+        $rootId = isset($map['root_id']) ? (int)$map['root_id'] : 0;
+        $maxId = isset($map['max_id']) ? (int)$map['max_id'] : 0;
+
+        if ($peer && $rootId > 0) {
+            return [$peer, $rootId, $maxId];
+        }
+
+        try {
+            $disc = $madeline->messages->getDiscussionMessage([
+                'peer'   => $username,
+                'msg_id' => $postId,
+            ]);
+        } catch (\Throwable $e) {
+            return [null, 0, 0];
+        }
+
+        $root = $disc['messages'][0] ?? null;
+        if (!is_array($root)) {
+            return [null, 0, 0];
+        }
+
+        // ✅ IMPORTANT: take mapping only from root message
+        $peer = $root['peer_id'] ?? null;
+        $rootId = (int)($root['id'] ?? 0);
+
+        $replies = $root['replies'] ?? [];
+        $maxId = is_array($replies) ? (int)($replies['max_id'] ?? 0) : 0;
+
+        if ($peer && $rootId > 0) {
+            Cache::put($cacheKey, ['peer' => $peer, 'root_id' => $rootId, 'max_id' => $maxId], now()->addHours(24));
+            return [$peer, $rootId, $maxId];
+        }
+
+        return [null, 0, 0];
+    }
+
+    /** Try fetch message by ID. */
+    private function tryFetchMessageById(\danog\MadelineProto\API $madeline, $peer, int $id): ?array
+    {
+        try {
+            $res = $madeline->messages->getMessages([
+                'peer' => $peer,
+                'id'   => [['_' => 'inputMessageID', 'id' => $id]],
+            ]);
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        $msg = $res['messages'][0] ?? null;
+        return is_array($msg) ? $msg : null;
+    }
+
+    /**
+     * Reliable + optimized thread membership check:
+     * - Uses messages.getReplies(peer, rootId)
+     * - First tries small window if commentId is likely newest (max_id)
+     * - Then falls back to paging up to a few iterations.
+     */
+    private function findCommentInThreadRepliesOptimized(
+        \danog\MadelineProto\API $madeline,
+                                 $discussionPeer,
+        int $rootId,
+        int $commentId,
+        bool $preferSmallWindow
+    ): ?array {
+        if ($rootId <= 0) return null;
+
+        // 1) small window attempt
+        if ($preferSmallWindow) {
+            $msg = $this->findCommentViaRepliesPaged($madeline, $discussionPeer, $rootId, $commentId, 25, 2);
+            if (is_array($msg)) return $msg;
+        }
+
+        // 2) normal attempt (a bit larger, more pages)
+        return $this->findCommentViaRepliesPaged($madeline, $discussionPeer, $rootId, $commentId, 80, 4);
+    }
+
+    /**
+     * Paged replies fetch:
+     * - offset_id is used to walk older ids
+     * - tries N pages max
+     */
+    private function findCommentViaRepliesPaged(
+        \danog\MadelineProto\API $madeline,
+                                 $discussionPeer,
+        int $rootId,
+        int $commentId,
+        int $limit,
+        int $maxPages
+    ): ?array {
+        $offsetId = 0;
+
+        for ($page = 0; $page < $maxPages; $page++) {
+            $args = [
+                'peer'   => $discussionPeer,
+                'msg_id' => $rootId,
+                'limit'  => $limit,
+            ];
+            if ($offsetId > 0) {
+                $args['offset_id'] = $offsetId;
+            }
+
+            try {
+                $replies = $madeline->messages->getReplies($args);
+            } catch (\Throwable $e) {
+                return null;
+            }
+
+            $msgs = $replies['messages'] ?? [];
+            if (!is_array($msgs) || $msgs === []) {
+                return null;
+            }
+
+            foreach ($msgs as $m) {
+                if (is_array($m) && (int)($m['id'] ?? 0) === $commentId) {
+                    return $m;
+                }
+            }
+
+            // move offset to older
+            $minId = null;
+            foreach ($msgs as $m) {
+                if (!is_array($m)) continue;
+                $id = (int)($m['id'] ?? 0);
+                if ($id > 0) $minId = $minId === null ? $id : min($minId, $id);
+            }
+
+            if (!$minId || $minId === $offsetId) {
+                break;
+            }
+            $offsetId = $minId;
+        }
+
+        return null;
+    }
+
+    /**
+     * Extract reactions from a message.
+     * Returns: [total, breakdown]
+     */
+    private function extractReactions(array $message): array
+    {
+        $total = 0;
+        $breakdown = [];
+
+        $reactions = $message['reactions'] ?? null;
+        if (!is_array($reactions)) return [0, []];
+
+        $results = $reactions['results'] ?? [];
+        if (!is_array($results)) return [0, []];
+
+        foreach ($results as $r) {
+            if (!is_array($r)) continue;
+
+            $count = (int)($r['count'] ?? 0);
+            if ($count <= 0) continue;
+
+            $reaction = $r['reaction'] ?? null;
+            $key = 'reaction';
+
+            if (is_array($reaction)) {
+                if (($reaction['_'] ?? null) === 'reactionEmoji' && isset($reaction['emoticon'])) {
+                    $key = (string)$reaction['emoticon'];
+                } elseif (($reaction['_'] ?? null) === 'reactionCustomEmoji' && isset($reaction['document_id'])) {
+                    $key = 'custom:' . (string)$reaction['document_id'];
+                } else {
+                    $key = (string)($reaction['_'] ?? 'reaction');
+                }
+            }
+
+            $total += $count;
+            $breakdown[$key] = ($breakdown[$key] ?? 0) + $count;
+        }
+
+        return [$total, $breakdown];
+    }
 
     /**
      * Determine if username is a bot (getInfo-only).
@@ -364,6 +716,8 @@ class TelegramMtprotoPoolService
             $q->where('is_inspect', true);
             if ($forB2c) {
                 $q->where('is_b2c', true);
+            }else{
+                $q->where('is_b2c', false);
             }
         }
 

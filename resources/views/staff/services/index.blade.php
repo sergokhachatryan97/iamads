@@ -148,7 +148,11 @@
             @endphp
 
             @if($statusConfig)
-                <div class="mb-4 p-4 border rounded-lg {{ $statusConfig['type'] === 'error' ? 'bg-red-50 border-red-200' : ($statusConfig['type'] === 'warning' ? 'bg-yellow-50 border-yellow-200' : 'bg-green-50 border-green-200') }}">
+                <div x-data="{ show: true }"
+                     x-init="setTimeout(() => show = false, 3000)"
+                     x-show="show"
+                     x-transition.opacity.duration.300ms
+                     class="mb-4 p-4 border rounded-lg {{ $statusConfig['type'] === 'error' ? 'bg-red-50 border-red-200' : ($statusConfig['type'] === 'warning' ? 'bg-yellow-50 border-yellow-200' : 'bg-green-50 border-green-200') }}">
                     <p class="text-sm {{ $statusConfig['type'] === 'error' ? 'text-red-800' : ($statusConfig['type'] === 'warning' ? 'text-yellow-800' : 'text-green-800') }}">{{ $statusConfig['message'] }}</p>
                 </div>
             @endif

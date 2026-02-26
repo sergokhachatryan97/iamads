@@ -51,15 +51,15 @@
         // Target type options
         $targetTypeOptions = [
             'bot' => 'Bot',
-            'channel' => 'Channel',
-            'group' => 'Group',
+            'channel' => 'Channel/Group',
+//            'group' => 'Group',
         ];
 
         // Organize templates by target_type for filtering
         $templatesByTargetType = [
             'bot' => [],
             'channel' => [],
-            'group' => [],
+//            'group' => [],
         ];
         foreach ($serviceTemplates as $key => $template) {
             $peerTypes = $template['allowed_peer_types'] ?? [];

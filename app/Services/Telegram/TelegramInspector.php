@@ -18,7 +18,7 @@ class TelegramInspector
      * Inspect a Telegram link.
      * @param bool $forB2c When true, use only mtproto accounts with is_b2c=true (for InspectTelegramLinkJob).
      */
-    public function inspect(string $link, bool $forB2c = false): array
+    public function inspect(string $link, ?array $templateKey = [], bool $forB2c = false): array
     {
         $parsed = TelegramLinkParser::parse($link);
 
@@ -37,6 +37,10 @@ class TelegramInspector
             'is_channel'    => false,
             'is_group'      => false,
         ];
+
+        if (count($templateKey) > 0 && !in_array($parsed['kind'], $templateKey, true)) {
+            return $this->fail($result, 'INVALID_FORMAT', 'Invalid Telegram link format');
+        }
 
         if (($parsed['kind'] ?? 'unknown') === 'unknown') {
             return $this->fail($result, 'INVALID_FORMAT', 'Invalid Telegram link format');
@@ -129,45 +133,62 @@ class TelegramInspector
                 return $this->fail($result, 'INVALID_FORMAT', 'Username not found in link');
             }
 
+            $postId = $parsed['post_id'] ?? null;
 
-            $info = $this->mtprotoPool->getInfoByUsername($username, $forB2c);
+            if ($postId) {
+                $info = $this->mtprotoPool->getAndCheckInfoByPostId($username, $postId, $forB2c);
+                if (($info['ok'] ?? false) === true) {
+                    $result['ok'] = true;
+                    $result['title'] = $username;
+                    $result['chat_type'] = 'channel';
+                    $result['audience_type'] = 'subscribers';
+                    $result['is_channel'] = true;
+                    $result['is_group'] = false;
+                    $result['is_poll'] = $info['is_poll'] ?? false;
+                    $result['member_count'] = $info['views'] ?? null;
 
-            if (($info['ok'] ?? false) === true) {
-
-                $rawChat = $info['raw_chat'] ?? [];
-                $nature  = TelegramChatType::natureFromMtprotoChat(is_array($rawChat) ? $rawChat : []);
-
-                $result['ok'] = true;
-                $result['chat_type']     = $nature['chat_type'] ?? $info['type'] ?? null;
-                $result['audience_type'] = $nature['audience'];
-                $result['is_channel']    = $nature['is_channel'];
-                $result['is_group']      = $nature['is_group'];
-
-                $result['title'] =
-                    ($rawChat['title'] ?? null)
-                    ?? ($rawChat['username'] ?? null)
-                    ?? ($username);
-
-
-                $result['member_count'] =
-                    (isset($info['participants_count']) ? (int)$info['participants_count'] : null);
-
-                // paid messages check (getInfo only)
-                if (in_array($result['chat_type'], ['supergroup', 'channel'], true)) {
-                    $maybeFail = $this->ensureNoPaidMessagesOrFail($result, $username, null, $info);
-                    if (is_array($maybeFail)) return $maybeFail;
+                    return $result;
                 }
+            } else {
+                $info = $this->mtprotoPool->getInfoByUsername($username, $forB2c);
 
-                $result['resolved'] = [
-                    'source' => 'mtproto_getinfo',
-                    'raw' => $info,
-                ];
+                if (($info['ok'] ?? false) === true) {
 
-                return $result;
+                    $rawChat = $info['raw_chat'] ?? [];
+                    $nature = TelegramChatType::natureFromMtprotoChat(is_array($rawChat) ? $rawChat : []);
+
+                    $result['ok'] = true;
+                    $result['chat_type'] = $nature['chat_type'] ?? $info['type'] ?? null;
+                    $result['audience_type'] = $nature['audience'];
+                    $result['is_channel'] = $nature['is_channel'];
+                    $result['is_group'] = $nature['is_group'];
+
+                    $result['title'] =
+                        ($rawChat['title'] ?? null)
+                        ?? ($rawChat['username'] ?? null)
+                        ?? ($username);
+
+
+                    $result['member_count'] =
+                        (isset($info['participants_count']) ? (int)$info['participants_count'] : null);
+
+                    // paid messages check (getInfo only)
+                    if (in_array($result['chat_type'], ['supergroup', 'channel'], true)) {
+                        $maybeFail = $this->ensureNoPaidMessagesOrFail($result, $username, null, $info);
+                        if (is_array($maybeFail)) return $maybeFail;
+                    }
+
+                    $result['resolved'] = [
+                        'source' => 'mtproto_getinfo',
+                        'raw' => $info,
+                    ];
+
+                    return $result;
+                }
             }
 
+
             $mtCode  = strtoupper((string)($info['error_code'] ?? ''));
-            Log::info(sprintf('Telegram mtCode code: %s', $mtCode), ['link' => $link]);
 
             $mtTemporary = [
                 'NO_AVAILABLE_ACCOUNTS',
@@ -175,7 +196,74 @@ class TelegramInspector
                 'WORKER_SHUTDOWN',
                 'STREAM_CLOSED',
                 'IPC_UNAVAILABLE',
-                'FLOOD_WAIT'
+                'FLOOD_WAIT',
+                'MT_CALL_FAILED',
+                'POST_NOT_FOUND'
+            ];
+
+            if (in_array($mtCode, $mtTemporary, true)) {
+                return $this->fail(
+                    $result,
+                    'RESOLVE_TEMPORARY_UNAVAILABLE',
+                    'Unable to resolve chat due to temporary infrastructure issue',
+                    [
+                        'mtproto' => $info,
+                    ]
+                );
+            }
+
+            return $this->fail(
+                $result,
+                'RESOLVE_FAILED',
+                'Chat or user does not exist',
+                [
+                    'mtproto' => $info,
+                ]
+            );
+
+        }
+
+        /* ===============================
+         * PUBLIC POST COMMENT
+         * =============================*/
+
+        if ($parsed['kind'] === 'public_post_comment_reaction') {
+
+            $username = $parsed['username'] ?? null;
+
+            if (!$username) {
+                return $this->fail($result, 'INVALID_FORMAT', 'Username not found in link');
+            }
+
+            $postId = $parsed['post_id'] ?? null;
+            $commentId = $parsed['comment_id'] ?? null;
+
+            $info = $this->mtprotoPool->validatePostCommentLinkOptimal($username, $postId, $commentId, $forB2c);
+            Log::info('post_comment', ['comment'=>$info]);
+            if (($info['ok'] ?? false) === true) {
+                $result['ok'] = true;
+                $result['title'] = $username;
+                $result['chat_type'] = 'channel';
+                $result['audience_type'] = 'subscribers';
+                $result['is_channel'] = true;
+                $result['is_group'] = false;
+                $result['member_count'] = $info['reactions_total'] ?? null;
+
+                return $result;
+            }
+
+
+            $mtCode  = strtoupper((string)($info['error_code'] ?? ''));
+
+            $mtTemporary = [
+                'NO_AVAILABLE_ACCOUNTS',
+                'MTPROTO_DEADLINE_EXCEEDED',
+                'WORKER_SHUTDOWN',
+                'STREAM_CLOSED',
+                'IPC_UNAVAILABLE',
+                'FLOOD_WAIT',
+                'MT_CALL_FAILED',
+                'POST_NOT_FOUND'
             ];
 
             if (in_array($mtCode, $mtTemporary, true)) {
@@ -227,14 +315,12 @@ class TelegramInspector
             $rawChat = $info['raw_chat'] ?? [];
             $result['chat_type'] = $info['type'] ?? null;
             $result['title'] = $rawChat['title'] ?? ($rawChat['first_name'] ?? null);
-            $result['member_count'] = $info['participants_count'] ?? null;
             $result['audience_type'] = $info['audience_type'] ?? null;
 
             $result['resolved'] = [
                 'mtproto' => $info,
             ];
 
-// ✅ enforce: only PUBLIC CHANNEL stories
             if (($info['type'] ?? null) !== 'channel') {
                 return $this->fail(
                     $result,
@@ -258,7 +344,7 @@ class TelegramInspector
             }
 
 // ✅ validate story existence + public + active using FULL INFO (already inside getInfo payload)
-            $stories = $info['full']['stories']['stories'] ?? [];
+            $stories = $info['raw']['full']['stories']['stories'] ?? [];
             if (!is_array($stories) || $stories === []) {
                 return $this->fail(
                     $result,
@@ -306,6 +392,7 @@ class TelegramInspector
             $result['parsed']['is_story'] = true;
             $result['parsed']['story_id'] = $storyId;
             $result['resolved']['story'] = $found;
+            $result['member_count'] = $stories['views']['views_count'] ?? null;
 
             return $result;
         }
@@ -388,34 +475,6 @@ class TelegramInspector
         );
     }
 
-    /**
-     * Bot API returns chat_type directly: channel|supergroup|group.
-     * This is best-effort (MTProto is the source of truth).
-     */
-    private function applyAudienceFromChatType(array &$result): void
-    {
-        $ct = $result['chat_type'] ?? null;
-
-        if ($ct === 'channel') {
-            $result['audience_type'] = 'subscribers';
-            $result['is_channel'] = true;
-            $result['is_group'] = false;
-            return;
-        }
-
-        if (in_array($ct, ['group', 'supergroup'], true)) {
-            $result['audience_type'] = 'members';
-            $result['is_channel'] = false;
-            $result['is_group'] = true;
-            return;
-        }
-
-        // bot / unknown
-        $result['audience_type'] = null;
-        $result['is_channel'] = false;
-        $result['is_group'] = false;
-    }
-
 
     private function ensureNoPaidMessagesOrFail(array $result, string $username, mixed $botPayload = null, ?array $mtprotoInfo = null): ?array
     {
@@ -453,7 +512,7 @@ class TelegramInspector
         // 1) Ensure we have MTProto getInfo payload
         $info = $mtprotoInfo;
         if (!$info) {
-            $info = $this->mtprotoPool->getInfoByUsername($username, false);
+            $info = $this->mtprotoPool->getInfoByUsername($username, forB2c: false);
         }
 
         if (($info['ok'] ?? false) === true) {
@@ -558,7 +617,6 @@ class TelegramInspector
             'is_group'   => true,
         ];
     }
-
 
 }
 

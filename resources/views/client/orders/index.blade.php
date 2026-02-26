@@ -222,7 +222,7 @@
                                             {{ number_format($order->quantity) }}
                                         </td>
                                         <td class="px-6 py-4 text-sm text-gray-900">
-                                            {{ $order->service->name }}
+                                            {{ $order?->service?->name }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             @php
