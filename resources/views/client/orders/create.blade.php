@@ -200,8 +200,75 @@
                                 @enderror
                             </div>
 
+                            <!-- Invite Subscribers (2 links: source + target) -->
+                            <div class="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4"
+                                 x-show="selectedService?.template_key === 'invite_subscribers_from_other_channel'"
+                                 x-cloak>
+                                <p class="text-sm font-medium text-amber-900 mb-3">
+                                    {{ __('Invite Subscribers From Other Channel') }}
+                                </p>
+                                <p class="text-xs text-amber-800 mb-4">
+                                    {{ __('Enter the source channel (invite FROM) and target channel/group (invite TO).') }}
+                                </p>
+                                <div class="space-y-4">
+                                    <div>
+                                        <label for="invite_source_link" class="block text-sm font-medium text-gray-700 mb-1">
+                                            {{ __('Source Channel (invite FROM)') }} <span class="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            id="invite_source_link"
+                                            name="link_2"
+                                            :disabled="selectedService?.template_key !== 'invite_subscribers_from_other_channel'"
+                                            x-model="inviteSourceLink"
+                                            @input="inviteSourceLinkValid = validateTelegramLink(inviteSourceLink)"
+                                            :class="inviteSourceLinkValid ? 'border-gray-300' : 'border-red-300'"
+                                            placeholder="https://t.me/source_channel"
+                                            :required="selectedService?.template_key === 'invite_subscribers_from_other_channel'"
+                                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                        <p x-show="!inviteSourceLinkValid && inviteSourceLink" class="mt-1 text-xs text-red-600">
+                                            {{ __('Please enter a valid Telegram link.') }}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <label for="invite_target_link" class="block text-sm font-medium text-gray-700 mb-1">
+                                            {{ __('Target Channel/Group (invite TO)') }} <span class="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            id="invite_target_link"
+                                            name="targets[0][link]"
+                                            :disabled="selectedService?.template_key !== 'invite_subscribers_from_other_channel'"
+                                            x-model="inviteTargetLink"
+                                            @input="inviteTargetLinkValid = validateTelegramLink(inviteTargetLink)"
+                                            :class="inviteTargetLinkValid ? 'border-gray-300' : 'border-red-300'"
+                                            placeholder="https://t.me/target_channel or t.me/+inviteHash"
+                                            :required="selectedService?.template_key === 'invite_subscribers_from_other_channel'"
+                                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                        <p x-show="!inviteTargetLinkValid && inviteTargetLink" class="mt-1 text-xs text-red-600">
+                                            {{ __('Please enter a valid Telegram link.') }}
+                                        </p>
+                                    </div>
+                                    <div class="w-48">
+                                        <label for="invite_quantity" class="block text-sm font-medium text-gray-700 mb-1">
+                                            {{ __('Quantity') }} <span class="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="number"
+                                            id="invite_quantity"
+                                            name="targets[0][quantity]"
+                                            :disabled="selectedService?.template_key !== 'invite_subscribers_from_other_channel'"
+                                            x-model.number="inviteQuantity"
+                                            :min="selectedService?.min_quantity || 1"
+                                            :max="selectedService?.max_quantity || null"
+                                            :required="selectedService?.template_key === 'invite_subscribers_from_other_channel'"
+                                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- Targets (Link + Quantity pairs) -->
-                            <div class="mb-6" x-show="selectedService?.service_type !== 'custom_comments'" x-cloak>
+                            <div class="mb-6" x-show="selectedService?.service_type !== 'custom_comments' && selectedService?.template_key !== 'invite_subscribers_from_other_channel'" x-cloak>
                                 <div class="flex items-center justify-between mb-2">
                                     <label class="block text-sm font-medium text-gray-700">
                                         {{ __('Links & Quantities') }} <span class="text-red-500">*</span>
@@ -232,7 +299,8 @@
                                                     @input="target.linkValid = validateTelegramLink(target.link)"
                                                     :class="target.linkValid ? 'border-gray-300' : 'border-red-300'"
                                                     placeholder="https://t.me/username or @username"
-                                                    :required="selectedService?.service_type !== 'custom_comments'"
+                                                    :required="selectedService?.service_type !== 'custom_comments' && selectedService?.template_key !== 'invite_subscribers_from_other_channel'"
+                                                    :disabled="selectedService?.template_key === 'invite_subscribers_from_other_channel'"
                                                     class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                                                 <p x-show="!target.linkValid && target.link" class="mt-1 text-xs text-red-600">
                                                     {{ __('Please enter a valid Telegram link.') }}
@@ -255,7 +323,8 @@
                                                         @wheel.prevent="stepQuantity($event.deltaY > 0 ? -1 : +1, index)"
                                                         @change="target.quantity = adjustQuantityToIncrement(target.quantity, index)"
                                                         @blur="$el.dispatchEvent(new Event('change'))"
-                                                        :required="selectedService?.service_type !== 'custom_comments'"
+                                                        :required="selectedService?.service_type !== 'custom_comments' && selectedService?.template_key !== 'invite_subscribers_from_other_channel'"
+                                                        :disabled="selectedService?.template_key === 'invite_subscribers_from_other_channel'"
                                                         class="no-spinner block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm pr-12">
                                                     <div class="absolute inset-y-0 right-0 flex flex-col justify-center">
                                                         <button
@@ -718,7 +787,7 @@
                 orderType: 'single', // 'single' or 'multi'
                 // Single service order data
                 categoryId: '{{ old('category_id', $preselectedCategoryId ?? '') }}',
-                targetType: '{{ old('target_type', '') }}',
+                targetType: '{{ old('target_type', $preselectedTargetType ?? '') }}',
                 serviceId: '{{ old('service_id', $preselectedServiceId ?? '') }}',
                 services: [],
                 selectedService: null,
@@ -741,6 +810,12 @@
                 dripfeedQuantityError: '',
                 // Speed Tier (default 'fast' when service has speed enabled, set in updateServiceInfo)
                 speedTier: '{{ old('speed_tier', 'normal') }}',
+                // Invite Subscribers (2-link service)
+                inviteSourceLink: '{{ old('link_2', '') }}',
+                inviteTargetLink: '{{ old('targets.0.link', '') }}',
+                inviteSourceLinkValid: true,
+                inviteTargetLinkValid: true,
+                inviteQuantity: {{ old('targets.0.quantity', 1) }},
                 // Multi-service order data
                 multiCategoryId: '{{ old('category_id', $preselectedCategoryId ?? '') }}',
                 multiLink: '{{ old('link', '') }}',
@@ -881,6 +956,13 @@
                             this.speedTier = 'normal';
                         } else {
                             this.speedTier = 'fast';
+                        }
+                    }
+                    // Invite subscribers: sync invite quantity with min
+                    if (this.selectedService?.template_key === 'invite_subscribers_from_other_channel') {
+                        const minQty = this.selectedService.min_quantity || 1;
+                        if (!this.inviteQuantity || this.inviteQuantity < minQty) {
+                            this.inviteQuantity = minQty;
                         }
                     }
                 },
@@ -1134,6 +1216,14 @@
                     if (this.dripfeedEnabled) {
                         this.validateDripfeedQuantity();
                         if (this.dripfeedQuantityError) {
+                            this.submitting = false;
+                            return;
+                        }
+                    }
+                    // Validate invite_subscribers 2-link mode
+                    if (this.selectedService?.template_key === 'invite_subscribers_from_other_channel') {
+                        if (!this.inviteSourceLinkValid || !this.inviteTargetLinkValid || !this.inviteSourceLink?.trim() || !this.inviteTargetLink?.trim()) {
+                            alert('{{ __('Please enter valid source and target Telegram links.') }}');
                             this.submitting = false;
                             return;
                         }

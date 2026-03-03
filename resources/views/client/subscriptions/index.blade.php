@@ -104,7 +104,7 @@
                                                         <ul class="space-y-2">
                                                             @foreach($plan->planServices as $planService)
                                                                 <li class="flex items-center justify-between text-sm">
-                                                                    <span class="text-gray-900 truncate pr-2">{{ $planService->service->name }}</span>
+                                                                    <span class="text-gray-900 truncate pr-2">{{ $planService->service?->name }}</span>
                                                                     <span class="text-gray-500 text-xs whitespace-nowrap">Qty {{ $planService->quantity }}</span>
                                                                 </li>
                                                             @endforeach
@@ -171,7 +171,7 @@
                                                         <ul class="space-y-2">
                                                             @foreach($plan->planServices as $planService)
                                                                 <li class="flex items-center justify-between text-sm">
-                                                                    <span class="text-white truncate pr-2">{{ $planService->service->name }}</span>
+                                                                    <span class="text-white truncate pr-2">{{ $planService->service?->name }}</span>
                                                                     <span class="text-blue-100 text-xs whitespace-nowrap">Qty{{ $planService->quantity }}</span>
                                                                 </li>
                                                             @endforeach
@@ -237,7 +237,7 @@
                                                         <ul class="space-y-2">
                                                             @foreach($plan->planServices as $planService)
                                                                 <li class="flex items-center justify-between text-sm">
-                                                                    <span class="text-white truncate pr-2">{{ $planService->service->name }}</span>
+                                                                    <span class="text-white truncate pr-2">{{ $planService->service?->name }}</span>
                                                                     <span class="text-blue-200 text-xs whitespace-nowrap">Qty{{ $planService->quantity }}</span>
                                                                 </li>
                                                             @endforeach

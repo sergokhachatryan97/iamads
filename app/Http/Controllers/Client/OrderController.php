@@ -99,11 +99,13 @@ class OrderController extends Controller
         // Get pre-selected category and service from query parameters
         $preselectedCategoryId = $request->get('category_id');
         $preselectedServiceId = $request->get('service_id');
+        $preselectedTargetType = $request->get('target_type');
 
         return view('client.orders.create', [
             'categories' => $categories,
             'preselectedCategoryId' => $preselectedCategoryId,
             'preselectedServiceId' => $preselectedServiceId,
+            'preselectedTargetType' => $preselectedTargetType,
         ]);
     }
 
@@ -217,6 +219,7 @@ class OrderController extends Controller
                 'speed_multiplier_fast',
                 'speed_multiplier_super_fast',
                 'target_type',
+                'template_key',
             ])
             ->map(function (Service $service) use ($clientRates, $serviceLimits, $client, $pricingService, $clientDiscount) {
 
@@ -259,6 +262,7 @@ class OrderController extends Controller
                     'id' => $service->id,
                     'name' => $service->name,
                     'target_type' => $service->target_type,
+                    'template_key' => $service->template_key,
 
                     'min_quantity' => $effectiveMinQty,
                     'max_quantity' => $effectiveMaxQty,

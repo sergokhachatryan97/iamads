@@ -239,6 +239,7 @@ class TelegramTaskService
                     'action' => $action,
                     'link' => $order->link,
                     'link_hash' => $linkHash,
+                    'link_2' => $order->link_2 ?? null,
                     'per_call' => (int) ($executionMeta['per_call'] ?? 1),
                     'executor' => $executor,
                     'template_key' => $templateKey,
@@ -310,6 +311,7 @@ class TelegramTaskService
         $meta = $params['meta'] ?? [];
         $parsed = $params['parsed'] ?? [];
         $subject = $params['subject'] ?? null;
+        $link2 = $params['link_2'] ?? null;
 
         $payload = [
             'template_key' => $templateKey,
@@ -328,6 +330,9 @@ class TelegramTaskService
         ];
         if ($subject !== null) {
             $payload['subject'] = $subject;
+        }
+        if (!empty($link2)) {
+            $payload['link_2'] = trim((string) $link2);
         }
         return $payload;
     }
@@ -513,7 +518,7 @@ class TelegramTaskService
             $account = $task->telegramAccount;
 
             $subject = $task->subject;
-            $leased[] = [
+            $leasedItem = [
                 'task_id' => $task->id,
                 'order_id' => $task->order_id,
                 'subject_type' => $subject ? get_class($subject) : null,
@@ -529,6 +534,10 @@ class TelegramTaskService
                 'link_hash' => $task->link_hash,
                 'attempt' => $task->attempt,
             ];
+            if (!empty($payload['link_2'])) {
+                $leasedItem['link_2'] = $payload['link_2'];
+            }
+            $leased[] = $leasedItem;
         }
 
         return $leased;
@@ -1685,42 +1694,43 @@ class TelegramTaskService
                         'last_error' => null,
                     ]);
                 }
-            }
-
-            if ($globalState) {
-                $globalState->update([
-                    'state' => TelegramAccountLinkState::STATE_SUBSCRIBED,
-                    'last_error' => null,
-                ]);
-            }
-            if ($membership) {
-                $membership->update([
-                    'state' => TelegramOrderMembership::STATE_SUBSCRIBED,
-                    'subscribed_at' => now(),
-                    'last_error' => null,
-                ]);
-                $perCall = max(1, (int) ($task->payload['per_call'] ?? 1));
-                $currentRemains = (int) $order->remains;
-                $deduct = min($perCall, $currentRemains);
-                $newDelivered = (int) $order->delivered + $deduct;
-                $target = $order->target_quantity;
-
-                if ($newDelivered >= $target) {
-                    $order->update([
-                        'remains' => 0,
-                        'delivered' => $newDelivered,
-                        'status' => Order::STATUS_COMPLETED,
-                        'completed_at' => $order->completed_at ?? now(),
-                        'provider_last_error' => null,
-                        'provider_last_error_at' => null,
+            } elseif (in_array($task->action, ['subscribe', 'invite_subscribers'], true)) {
+                // subscribe and invite_subscribers both increment delivered and set subscribed state
+                if ($globalState) {
+                    $globalState->update([
+                        'state' => TelegramAccountLinkState::STATE_SUBSCRIBED,
+                        'last_error' => null,
                     ]);
-                } else {
-                    $order->update([
-                        'remains' => max(0, $target - $newDelivered),
-                        'delivered' => $newDelivered,
-                        'provider_last_error' => null,
-                        'provider_last_error_at' => null,
+                }
+                if ($membership) {
+                    $membership->update([
+                        'state' => TelegramOrderMembership::STATE_SUBSCRIBED,
+                        'subscribed_at' => now(),
+                        'last_error' => null,
                     ]);
+                    $perCall = max(1, (int) ($task->payload['per_call'] ?? 1));
+                    $currentRemains = (int) $order->remains;
+                    $deduct = min($perCall, $currentRemains);
+                    $newDelivered = (int) $order->delivered + $deduct;
+                    $target = $order->target_quantity;
+
+                    if ($newDelivered >= $target) {
+                        $order->update([
+                            'remains' => 0,
+                            'delivered' => $newDelivered,
+                            'status' => Order::STATUS_COMPLETED,
+                            'completed_at' => $order->completed_at ?? now(),
+                            'provider_last_error' => null,
+                            'provider_last_error_at' => null,
+                        ]);
+                    } else {
+                        $order->update([
+                            'remains' => max(0, $target - $newDelivered),
+                            'delivered' => $newDelivered,
+                            'provider_last_error' => null,
+                            'provider_last_error_at' => null,
+                        ]);
+                    }
                 }
             }
         } else {

@@ -142,13 +142,17 @@ class TelegramTaskClaimService
                 'phone' => $phone,
             ]);
 
-            return [
+            $dto = [
                 'task_id' => $task->id,
                 'order_id' => (int) $order->id,
                 'action' => 'unsubscribe',
                 'link' => $link,
                 'link_hash' => $linkHash,
             ];
+            if (!empty($order->link_2)) {
+                $dto['link_2'] = trim((string) $order->link_2);
+            }
+            return $dto;
         });
     }
 
@@ -310,8 +314,10 @@ class TelegramTaskClaimService
                 return null;
             }
 
-            // Daily cap: do it BEFORE cooldown, so we don't set cooldown if cap is already exceeded
-            if ($this->tryIncrementPhoneDailyCap($phone, $action) === 0) {
+            // Daily cap: do it BEFORE cooldown, so we don't set cooldown if cap is already exceeded.
+            // invite_subscribers is subscribe-like: shares subscribe daily cap.
+            $capAction = $this->getCapActionForDailyCap($action);
+            if ($this->tryIncrementPhoneDailyCap($phone, $capAction) === 0) {
                 Log::debug('Claim denied: phone daily cap reached', [
                     'phone' => $phone,
                     'action' => $action,
@@ -455,13 +461,17 @@ class TelegramTaskClaimService
                 'phone' => $phone,
             ]);
 
-            return [
+            $dto = [
                 'task_id' => $task->id,
                 'order_id' => (int) $order->id,
                 'action' => $action,
                 'link' => $link,
                 'link_hash' => $linkHash,
             ];
+            if (!empty($order->link_2)) {
+                $dto['link_2'] = trim((string) $order->link_2);
+            }
+            return $dto;
         });
     }
 
@@ -530,7 +540,7 @@ class TelegramTaskClaimService
 
         $perCall = (int) ($executionMeta['per_call'] ?? 1);
 
-        return [
+        $payload = [
             'link' => $link,
             'link_hash' => $linkHash,
             'action' => $action,
@@ -540,6 +550,13 @@ class TelegramTaskClaimService
             'subject' => ['type' => 'order', 'id' => $order->id],
             'account_phone' => $phone,
         ];
+
+        // invite_subscribers: include source link (link_2) for performer to use both links
+        if (!empty($order->link_2) && in_array($action, ['subscribe', 'invite_subscribers'], true)) {
+            $payload['link_2'] = trim((string) $order->link_2);
+        }
+
+        return $payload;
     }
 
     /**
@@ -549,6 +566,14 @@ class TelegramTaskClaimService
     {
         $key = 'tg:phone:cooldown:' . $phone;
         return Cache::add($key, 1, self::PHONE_COOLDOWN_SECONDS);
+    }
+
+    /**
+     * Map action to cap bucket for daily limit. invite_subscribers is subscribe-like.
+     */
+    private function getCapActionForDailyCap(string $action): string
+    {
+        return in_array($action, ['subscribe', 'invite_subscribers'], true) ? 'subscribe' : 'unsubscribe';
     }
 
     /**

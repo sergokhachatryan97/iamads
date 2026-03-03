@@ -187,6 +187,7 @@ return [
         'requires_start_param' => false,
         'default_priority' => 50,
     ],
+
     'story_like' => [
         'label' => 'TG Channel Story Like',
         'action' => 'story_like',
@@ -202,7 +203,7 @@ return [
         'label' => 'Invite Subscribers From Other Channel',
         'action' => 'invite_subscribers',
         'policy_key' => 'invite_subscribers',
-        'allowed_link_kinds' => ['invite_subscribers'],
+        'allowed_link_kinds' => ['public_username', 'invite'],
         'allowed_peer_types' => ['channel'],
         'requires_duration_days' => false,
         'requires_start_param' => false,

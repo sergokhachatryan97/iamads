@@ -373,29 +373,34 @@
                                         </td>
                                         @endif
                                         <td class="px-6 py-4 text-sm text-gray-900">
-                                            @if($order->link)
-                                                @php
-                                                    $telegramUrl = $order->link;
-                                                    // Convert Telegram links to tg:// protocol
-                                                    if (preg_match('/^(https?:\/\/)?(t\.me|telegram\.me|telegram\.dog)\/([A-Za-z0-9_+\/\-]+)/i', $order->link, $matches)) {
-                                                        $username = $matches[3];
-                                                        // Remove query parameters if any
-                                                        $username = explode('?', $username)[0];
-                                                        $username = explode('/', $username)[0];
-                                                        $telegramUrl = 'tg://resolve?domain=' . $username;
-                                                    } elseif (preg_match('/^@([A-Za-z0-9_]{3,32})$/i', $order->link, $matches)) {
-                                                        $telegramUrl = 'tg://resolve?domain=' . $matches[1];
-                                                    }
-                                                @endphp
-                                                <a
-                                                    href="{{ $telegramUrl }}"
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    class="text-indigo-600 hover:text-indigo-900 hover:underline truncate block max-w-xs"
-                                                    title="{{ $order->link }}"
-                                                >
-                                                    {{ $order->link }}
-                                                </a>
+                                            @if($order->link || $order->link_2)
+                                                <div class="space-y-1 max-w-xs">
+                                                    @if($order->link)
+                                                        @php
+                                                            $telegramUrl = $order->link;
+                                                            if (preg_match('/^(https?:\/\/)?(t\.me|telegram\.me|telegram\.dog)\/([A-Za-z0-9_+\/\-]+)/i', $order->link, $matches)) {
+                                                                $username = explode('?', explode('/', $matches[3])[0])[0];
+                                                                $telegramUrl = 'tg://resolve?domain=' . $username;
+                                                            } elseif (preg_match('/^@([A-Za-z0-9_]{3,32})$/i', $order->link, $matches)) {
+                                                                $telegramUrl = 'tg://resolve?domain=' . $matches[1];
+                                                            }
+                                                        @endphp
+                                                        <a href="{{ $telegramUrl }}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-900 hover:underline truncate block" title="{{ $order->link }}">{{ $order->link }}</a>
+                                                    @endif
+                                                    @if($order->link_2)
+                                                        @php
+                                                            $telegramUrl2 = $order->link_2;
+                                                            if (preg_match('/^(https?:\/\/)?(t\.me|telegram\.me|telegram\.dog)\/([A-Za-z0-9_+\/\-]+)/i', $order->link_2, $matches)) {
+                                                                $username = explode('?', explode('/', $matches[3])[0])[0];
+                                                                $telegramUrl2 = 'tg://resolve?domain=' . $username;
+                                                            } elseif (preg_match('/^@([A-Za-z0-9_]{3,32})$/i', $order->link_2, $matches)) {
+                                                                $telegramUrl2 = 'tg://resolve?domain=' . $matches[1];
+                                                            }
+                                                        @endphp
+                                                        <div class="text-xs text-gray-500">{{ __('Source') }}:</div>
+                                                        <a href="{{ $telegramUrl2 }}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-900 hover:underline truncate block text-xs" title="{{ $order->link_2 }}">{{ $order->link_2 }}</a>
+                                                    @endif
+                                                </div>
                                             @else
                                                 <span class="text-gray-400">—</span>
                                             @endif
@@ -705,31 +710,42 @@
                         </div>
                     </div>
 
-                    <!-- Link -->
+                    <!-- Link(s) -->
                     <div class="bg-gray-50 rounded-lg p-4">
                         <div class="text-xs font-medium text-gray-500 uppercase mb-1">{{ __('Link') }}</div>
-                        @if($order->link)
-                            @php
-                                $telegramUrl = $order->link;
-                                // Convert Telegram links to tg:// protocol
-                                if (preg_match('/^(https?:\/\/)?(t\.me|telegram\.me|telegram\.dog)\/([A-Za-z0-9_+\/\-]+)/i', $order->link, $matches)) {
-                                    $username = $matches[3];
-                                    // Remove query parameters if any
-                                    $username = explode('?', $username)[0];
-                                    $username = explode('/', $username)[0];
-                                    $telegramUrl = 'tg://resolve?domain=' . $username;
-                                } elseif (preg_match('/^@([A-Za-z0-9_]{3,32})$/i', $order->link, $matches)) {
-                                    $telegramUrl = 'tg://resolve?domain=' . $matches[1];
-                                }
-                            @endphp
-                            <a
-                                href="{{ $telegramUrl }}"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                class="text-sm font-mono text-indigo-600 hover:text-indigo-900 hover:underline break-all"
-                            >
-                                {{ $order->link }}
-                            </a>
+                        @if($order->link || $order->link_2)
+                            <div class="space-y-3">
+                                @if($order->link)
+                                    @php
+                                        $telegramUrl = $order->link;
+                                        if (preg_match('/^(https?:\/\/)?(t\.me|telegram\.me|telegram\.dog)\/([A-Za-z0-9_+\/\-]+)/i', $order->link, $matches)) {
+                                            $username = explode('?', explode('/', $matches[3])[0])[0];
+                                            $telegramUrl = 'tg://resolve?domain=' . $username;
+                                        } elseif (preg_match('/^@([A-Za-z0-9_]{3,32})$/i', $order->link, $matches)) {
+                                            $telegramUrl = 'tg://resolve?domain=' . $matches[1];
+                                        }
+                                    @endphp
+                                    <div>
+                                        @if($order->link_2)<div class="text-xs text-gray-500 mb-0.5">{{ __('Target') }}</div>@endif
+                                        <a href="{{ $telegramUrl }}" target="_blank" rel="noopener noreferrer" class="text-sm font-mono text-indigo-600 hover:text-indigo-900 hover:underline break-all">{{ $order->link }}</a>
+                                    </div>
+                                @endif
+                                @if($order->link_2)
+                                    @php
+                                        $telegramUrl2 = $order->link_2;
+                                        if (preg_match('/^(https?:\/\/)?(t\.me|telegram\.me|telegram\.dog)\/([A-Za-z0-9_+\/\-]+)/i', $order->link_2, $matches)) {
+                                            $username = explode('?', explode('/', $matches[3])[0])[0];
+                                            $telegramUrl2 = 'tg://resolve?domain=' . $username;
+                                        } elseif (preg_match('/^@([A-Za-z0-9_]{3,32})$/i', $order->link_2, $matches)) {
+                                            $telegramUrl2 = 'tg://resolve?domain=' . $matches[1];
+                                        }
+                                    @endphp
+                                    <div>
+                                        <div class="text-xs text-gray-500 mb-0.5">{{ __('Source') }}</div>
+                                        <a href="{{ $telegramUrl2 }}" target="_blank" rel="noopener noreferrer" class="text-sm font-mono text-indigo-600 hover:text-indigo-900 hover:underline break-all">{{ $order->link_2 }}</a>
+                                    </div>
+                                @endif
+                            </div>
                         @else
                             <div class="text-sm font-mono text-gray-900">—</div>
                         @endif

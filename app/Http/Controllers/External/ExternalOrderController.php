@@ -116,7 +116,7 @@ class ExternalOrderController extends Controller
             ]);
 
             InspectTelegramLinkJob::dispatch($order->id)
-                ->onQueue('tg-inspect')
+                ->onQueue('tg-external-inspect')
                 ->afterCommit();
 
             return response()->json([

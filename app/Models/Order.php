@@ -58,6 +58,7 @@ class Order extends Model
         'category_id',
         'service_id',
         'link',
+        'link_2',
         'comment_text',
         'payment_source',
         'subscription_id',

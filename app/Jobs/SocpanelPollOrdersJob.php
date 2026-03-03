@@ -227,33 +227,6 @@ class SocpanelPollOrdersJob implements ShouldQueue
     }
 
 
-    private function dispatchValidate(ProviderOrder $order): void
-    {
-        if ($order->remains <= 0) return;
-        if ($order->status !== Order::STATUS_VALIDATING) return;
-
-        $groupKey = sha1($order->remote_service_id . '|' . $order->remote_order_id);
-        $lock = Cache::lock("socpanel:validate:{$groupKey}", 180);
-        Log::info('lock', ['lock' => $lock, 'order' => $order->remote_order_id]);
-        if (!$lock->get()) return;
-
-        try {
-            $delay = hexdec(substr($groupKey, 0, 2)) % 120;
-
-            SocpanelValidateOrderJob::dispatch(
-                $order->remote_service_id,
-                $order->link
-            )
-                ->onQueue('tg-inspect')
-                ->delay(now()->addSeconds($delay))
-                ->afterCommit();
-
-        } finally {
-            $lock->release();
-        }
-    }
-
-
     private function dispatchValidateIfNeeded(ProviderOrder $order, bool $wasCreated): bool
     {
         if ((int)$order->remains <= 0) return false;
@@ -287,7 +260,7 @@ class SocpanelPollOrdersJob implements ShouldQueue
             $delaySeconds = random_int(0, 50);
 
             SocpanelValidateOrderJob::dispatch($serviceId, $link)
-                ->onQueue('tg-inspect')
+                ->onQueue('tg-socpanel-inspect')
                 ->delay(now()->addSeconds($delaySeconds))
                 ->afterCommit();
 

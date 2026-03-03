@@ -1134,39 +1134,41 @@ class TelegramMtprotoPoolService
     private function resolveUsernameWithApi(\danog\MadelineProto\API $madeline, string $username): array
     {
         $username = $this->normalizeUsername($username);
+        try {
+            $info = $madeline->getFullInfo($username);
+//            Log::info('info', ['result' => $info]);
 
-        $info = $madeline->getFullInfo($username);
-        Log::info('info', ['result' => $info]);
+            $type = TelegramChatType::fromMadeline($info);
 
+            $chat = $info['Chat'] ?? $info['chat'] ?? null;
+            $user = $info['User'] ?? $info['user'] ?? null;
 
-        $type = TelegramChatType::fromMadeline($info);
+            $rawChat = is_array($chat) ? $chat : (is_array($user) ? $user : []);
 
-        $chat = $info['Chat'] ?? $info['chat'] ?? null;
-        $user = $info['User'] ?? $info['user'] ?? null;
+            $inputPeer = $this->extractInputPeer($info, $rawChat);
 
-        $rawChat = is_array($chat) ? $chat : (is_array($user) ? $user : []);
+            if (!$inputPeer) {
+                return $this->fail('INPUT_PEER_MISSING', 'Could not extract inputPeer from getInfo() result', [
+                    'raw' => $this->thinInfoForLogs($info),
+                ]);
+            }
 
-        $inputPeer = $this->extractInputPeer($info, $rawChat);
+            if ($type === 'bot') {
+                $participantsCount = $user['bot_active_users'] ?? null;
+            } else {
+                $participantsCount = $info['full']['participants_count'] ?? null;
+            }
 
-        if (!$inputPeer) {
-            return $this->fail('INPUT_PEER_MISSING', 'Could not extract inputPeer from getInfo() result', [
-                'raw' => $this->thinInfoForLogs($info),
+            return $this->ok([
+                'type' => $type ?? 'unknown',
+                'raw' => $info,
+                'participants_count' => $participantsCount,
+                'raw_chat' => $rawChat,
+                'inputPeer' => $inputPeer,
             ]);
+        } catch (\Throwable $e) {
+            return ['error_code' => $e->getCode(), 'message' => $e->getMessage()];
         }
-
-        if ($type === 'bot'){
-            $participantsCount = $user['bot_active_users'] ?? null;
-        }else{
-            $participantsCount = $info['full']['participants_count'] ?? null;
-        }
-
-        return $this->ok([
-            'type'      => $type ?? 'unknown',
-            'raw'       => $info,
-            'participants_count' => $participantsCount,
-            'raw_chat'  => $rawChat,
-            'inputPeer' => $inputPeer,
-        ]);
     }
 
     /* ============================================================

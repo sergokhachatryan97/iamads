@@ -101,6 +101,57 @@ class StoreOrderRequest extends FormRequest
                     }
                 },
             ];
+        } elseif ($service->template_key === 'invite_subscribers_from_other_channel') {
+            // ---------- invite_subscribers_from_other_channel (2 links: source + target) ----------
+            $rules['targets'] = ['required', 'array', 'size:1'];
+            $rules['targets.0.link'] = [
+                'required',
+                'string',
+                'max:2048',
+                function ($attribute, $value, $fail) {
+                    $parsed = TelegramLinkParser::parse(trim((string) $value));
+                    $kind = $parsed['kind'] ?? 'unknown';
+                    if ($kind === 'unknown') {
+                        $fail('Invalid target link format.');
+                        return;
+                    }
+                    if ($kind === 'special') {
+                        $fail('Target link is not a joinable chat.');
+                        return;
+                    }
+                    if ($kind === 'private_post') {
+                        $fail('Private post links are not supported.');
+                        return;
+                    }
+                },
+            ];
+            $rules['targets.0.quantity'] = ['required', 'integer', 'min:1'];
+            $rules['link_2'] = [
+                'required',
+                'string',
+                'max:2048',
+                function ($attribute, $value, $fail) {
+                    $value = trim((string) $value);
+                    if ($value === '') {
+                        $fail('Source channel link is required.');
+                        return;
+                    }
+                    $parsed = TelegramLinkParser::parse($value);
+                    $kind = $parsed['kind'] ?? 'unknown';
+                    if ($kind === 'unknown') {
+                        $fail('Invalid source channel link format.');
+                        return;
+                    }
+                    if ($kind === 'special') {
+                        $fail('Source link is not a joinable chat.');
+                        return;
+                    }
+                    if ($kind === 'private_post') {
+                        $fail('Private post links are not supported.');
+                        return;
+                    }
+                },
+            ];
         } else {
             // ---------- Regular services ----------
             $rules['targets'] = ['required', 'array', 'min:1'];
@@ -217,6 +268,10 @@ class StoreOrderRequest extends FormRequest
             }
         }
 
+        if (isset($validated['link_2'])) {
+            $payload['link_2'] = trim((string) $validated['link_2']);
+        }
+
         if (isset($validated['comments'])) {
             $payload['comments'] = $validated['comments'];
         }
@@ -231,7 +286,7 @@ class StoreOrderRequest extends FormRequest
                 ])
                 ->values()
                 ->all();
-        } else {
+        } elseif (!$service || $service->service_type === 'custom_comments') {
             $payload['targets'] = [];
         }
 

@@ -71,6 +71,24 @@ POST /api/provider/telegram/tasks/claim
 }
 ```
 
+For `invite_subscribers` action (Invite Subscribers From Other Channel), the task includes both links:
+
+```json
+{
+  "task_id": "...",
+  "order_id": 123,
+  "action": "invite_subscribers",
+  "link": "https://t.me/target_channel",
+  "link_2": "https://t.me/source_channel",
+  "link_hash": "abc123"
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `link` | Target channel/group (invite TO) |
+| `link_2` | Source channel (invite FROM) — only present for invite_subscribers |
+
 **Response `200` — no task available:**
 
 ```json

@@ -11,7 +11,7 @@
          @filter-applied.window="handleFormSubmit($event)"
          x-init="
              window.addEventListener('popstate', () => { window.location.reload(); });
-             
+
              // Initialize active filters from form inputs
              $nextTick(() => {
                  if (typeof this.updateActiveFilters === 'function') {
@@ -36,18 +36,18 @@
                         $currentCategoryId = request('category_id', '');
                         $currentFavoritesOnly = request('favorites_only', '');
                         $currentSearch = request('search', '');
-                        
+
                         // Calculate initial filter count
                         $initialFilterCount = 0;
                         if ($currentCategoryId) $initialFilterCount++;
                         if ($currentFavoritesOnly === '1') $initialFilterCount++;
                         if ($currentSearch) $initialFilterCount++;
                     @endphp
-                    
+
                     <!-- Hidden inputs for filters (initialized from URL parameters) -->
                     <input type="hidden" name="category_id" value="{{ $currentCategoryId }}">
                     <input type="hidden" name="favorites_only" value="{{ $currentFavoritesOnly === '1' ? '1' : '0' }}">
-                    
+
                     <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 mb-4 justify-end">
                         <!-- Filter Button with Badge -->
                         <x-filter-button count="activeFiltersCount">
@@ -93,7 +93,7 @@
                                     @if(isset($categoriesList) && $categoriesList)
                                         @foreach($categoriesList as $category)
                                             <button type="button"
-                                                    @click="selectFilter({{ $category->id }}, false); $dispatch('close-filter-dropdown');"
+                                                    @click="selectFilter('{{ $category->id }}', false); $dispatch('close-filter-dropdown');"
                                                     class="w-full text-left px-3 py-2 text-sm rounded-md transition-colors flex items-center gap-2"
                                                     :class="String(getActiveCategoryId()) === '{{ $category->id }}' && getActiveFavoritesOnly() !== '1' && !getActiveSearch() ? 'text-blue-500 bg-blue-50' : 'text-gray-700 hover:bg-gray-100'">
                                                 @if($category->icon)
@@ -116,7 +116,7 @@
                                 </div>
 
                                 <!-- Clear Filter Button -->
-                                <x-filter-actions 
+                                <x-filter-actions
                                     clear-route="client.services.index"
                                     :closeOnClick="false"
                                     :showApply="false"
@@ -222,7 +222,7 @@
                         const categoryInput = form.querySelector('input[name="category_id"]');
                         const favoritesInput = form.querySelector('input[name="favorites_only"]');
                         const searchInput = form.querySelector('input[name="search"]');
-                        
+
                         this.activeCategoryId = categoryInput ? categoryInput.value || '' : '';
                         this.activeFavoritesOnly = favoritesInput ? favoritesInput.value || '0' : '0';
                         this.activeSearch = searchInput ? searchInput.value || '' : '';
@@ -248,12 +248,12 @@
                 updateFilterCount() {
                     // Update active filter values first
                     this.updateActiveFilters();
-                    
+
                     let count = 0;
                     if (this.activeCategoryId) count++;
                     if (this.activeFavoritesOnly === '1') count++;
                     if (this.activeSearch) count++;
-                    
+
                     this.activeFiltersCount = count;
                 },
                 handleSearchInput(value) {
@@ -583,7 +583,7 @@
                                         class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                                     {{ __('Close') }}
                                 </button>
-                                <a href="{{ route('client.orders.create', ['category_id' => $service->category_id, 'service_id' => $service->id]) }}"
+                                <a href="{{ route('client.orders.create', ['category_id' => $service->category_id, 'service_id' => $service->id, 'target_type' => $service->target_type]) }}"
                                    class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>

@@ -52,6 +52,11 @@ class SocpanelValidateOrderJob implements ShouldQueue
 
         // ✅ public channel link only => must be subscribers too
         146 => ['mode' => 'public_channel_link', 'allow' => ['channel','supergroup'], 'audience' => 'subscribers'],
+        157 => ['mode' => 'story_link', 'allow' => ['channel'], 'audience' => null],
+        158 => ['mode' => 'story_link', 'allow' => ['channel'], 'audience' => null],
+        151 => ['mode' => 'public_post_comment_reaction', 'allow' => ['channel'], 'audience' => null],
+        156 => ['mode' => 'public_post_comment_reaction', 'allow' => ['channel'], 'audience' => null],
+        159 => ['channel_poll' => 'public_post', 'allow' => ['channel'], 'audience' => null],
     ];
 
     private function validateTelegramLinkByService(ProviderOrder $order, array $inspection): ?array
@@ -71,9 +76,10 @@ class SocpanelValidateOrderJob implements ShouldQueue
         }
 
         $parsedKind = $inspection['parsed']['kind'] ?? null; // public_username | public_post | invite | bot_start | bot_start_with_referral ...
-        $chatType   = $inspection['chat_type'] ?? null;      // channel | supergroup | group | bot
-        $hasRef     = (bool)($inspection['parsed']['has_referrer'] ?? false);
-        $audience   = $inspection['audience_type'] ?? null;
+        $chatType = $inspection['chat_type'] ?? null;      // channel | supergroup | group | bot
+        $hasRef = (bool)($inspection['parsed']['has_referrer'] ?? false);
+        $audience = $inspection['audience_type'] ?? null;
+        $isPoll = $inspection['is_poll'] ?? false;
 
         // ----------------------------
         // 1) Enforce allowed chat types
@@ -121,15 +127,18 @@ class SocpanelValidateOrderJob implements ShouldQueue
             return null;
         }
 
+        if ($mode === 'channel_poll') {
+            if ($parsedKind !== 'public_post' && !$isPoll) {
+                return ['code' => 'WRONG_LINK_FORMAT', 'message' => 'The public post link must be of the voting type'];
+            }
+            return null;
+        }
+
         if ($mode === 'channel_link') {
             if (!in_array($parsedKind, ['public_username', 'invite'], true)) {
                 return ['code' => 'WRONG_LINK_FORMAT', 'message' => 'Expected channel/group link (public username or invite), not a post/bot link'];
             }
 
-            // ✅ KEY RULE:
-            // invite + supergroup/group => private group invite => BLOCK
-            // invite + channel          => private channel invite => OK
-            // public_username + supergroup => public group link => OK
             if ($parsedKind === 'invite' && in_array($chatType, ['group', 'supergroup'], true)) {
                 return [
                     'code' => 'PRIVATE_GROUP_NOT_ALLOWED',
@@ -162,18 +171,31 @@ class SocpanelValidateOrderJob implements ShouldQueue
             return null;
         }
 
-        if ($mode === 'chat_public_or_private') {
-            if (!in_array($parsedKind, ['public_username', 'invite'], true)) {
-                return ['code' => 'WRONG_LINK_FORMAT', 'message' => 'Expected public chat link or invite link'];
-            }
-            return null;
-        }
-
         if ($mode === 'chat_link_only_public_or_private') {
             if (!in_array($parsedKind, ['public_username', 'invite'], true)) {
                 return [
                     'code' => 'WRONG_LINK_FORMAT',
                     'message' => 'For this service, only channel/group links are allowed (public username or invite). Post links are not allowed.',
+                ];
+            }
+            return null;
+        }
+
+        if ($mode === 'story_link') {
+            if (!in_array($parsedKind, ['story_link'], true)) {
+                return [
+                    'code' => 'WRONG_LINK_FORMAT',
+                    'message' => 'For this service, only allowed public channel links',
+                ];
+            }
+            return null;
+        }
+
+        if ($mode === 'public_post_comment_reaction') {
+            if (!in_array($parsedKind, ['public_post_comment_reaction'], true)) {
+                return [
+                    'code' => 'WRONG_LINK_FORMAT',
+                    'message' => 'For this service, only allowed public channel links',
                 ];
             }
             return null;
@@ -186,7 +208,6 @@ class SocpanelValidateOrderJob implements ShouldQueue
 
     public function handle(TelegramInspector $inspector): void
     {
-        Log::info('SocpanelValidateOrderJob dispatched');
         $groupKey = sha1($this->serviceId . '|' . $this->normalizedLink);
 
         // ✅ 1) hard lock՝ 1 worker per group

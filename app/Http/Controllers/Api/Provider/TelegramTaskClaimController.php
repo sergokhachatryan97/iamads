@@ -34,9 +34,23 @@ class TelegramTaskClaimController extends Controller
 
         $tasks = $this->claimService->claimForPhone($phone, 1);
 
+        if (empty($tasks)) {
+            return response()->json(['ok' => true, 'count' => 0, 'tasks' => []]);
+        }
+
+        $task = $tasks[0];
+
+        if (!empty($task['link_2'])) {
+            return response()->json([
+                'id' => $task['task_id'],
+                'url' => $task['link'],
+                'url_1' => $task['link_2'],
+            ]);
+        }
+
         return response()->json([
-            "id" =>$tasks[0]['task_id'] ?? null,
-            "url" =>  $tasks[0]['link'] ?? null,
+            'id' => $task['task_id'],
+            'url' => $task['link'],
         ]);
     }
 }
