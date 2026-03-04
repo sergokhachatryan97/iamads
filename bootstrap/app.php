@@ -58,9 +58,9 @@ return Application::configure(basePath: dirname(__DIR__))
             ->withoutOverlapping(10)
             ->onOneServer();
 //
-        $schedule->command('socpanel:cancel-invalid')
-            ->everyMinute()
-            ->withoutOverlapping(10);
+//        $schedule->command('socpanel:cancel-invalid')
+//            ->everyMinute()
+//            ->withoutOverlapping(10);
 
         $schedule->job(new \App\Jobs\SyncCompletedProviderOrdersJob())
             ->everyFiveMinutes()
