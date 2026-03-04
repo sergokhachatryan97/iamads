@@ -260,7 +260,7 @@ class SocpanelPollOrdersJob implements ShouldQueue
             $delaySeconds = random_int(0, 50);
 
             SocpanelValidateOrderJob::dispatch($serviceId, $link)
-                ->onQueue('tg-socpanel-inspect')
+                ->onQueue('tg-inspect')
                 ->delay(now()->addSeconds($delaySeconds))
                 ->afterCommit();
 
