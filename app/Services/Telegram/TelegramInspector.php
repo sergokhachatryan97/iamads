@@ -197,6 +197,7 @@ class TelegramInspector
                 'IPC_UNAVAILABLE',
                 'FLOOD_WAIT',
                 'MT_CALL_FAILED',
+                'MTPROTO_THROTTLE_SLOT_UNAVAILABLE',
             ];
 
             if (in_array($mtCode, $mtTemporary, true)) {
@@ -255,6 +256,7 @@ class TelegramInspector
             $mtTemporary = [
                 'NO_AVAILABLE_ACCOUNTS',
                 'MTPROTO_DEADLINE_EXCEEDED',
+                'MTPROTO_THROTTLE_SLOT_UNAVAILABLE',
                 'WORKER_SHUTDOWN',
                 'STREAM_CLOSED',
                 'IPC_UNAVAILABLE',
