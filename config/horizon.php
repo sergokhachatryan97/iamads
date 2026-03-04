@@ -147,7 +147,7 @@ return [
                 'queue' => ['tg-inspect'],
                 'balance' => 'auto',
                 'autoScalingStrategy' => 'time',
-                'maxProcesses' => 4,
+                'maxProcesses' => 12,
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 3,
                 'tries' => 2,
