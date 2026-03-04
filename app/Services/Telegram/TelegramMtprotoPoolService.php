@@ -1134,7 +1134,7 @@ class TelegramMtprotoPoolService
     private function resolveUsernameWithApi(\danog\MadelineProto\API $madeline, string $username): array
     {
         $username = $this->normalizeUsername($username);
-        try {
+//        try {
             $info = $madeline->getFullInfo($username);
 //            Log::info('info', ['result' => $info]);
 
@@ -1166,9 +1166,9 @@ class TelegramMtprotoPoolService
                 'raw_chat' => $rawChat,
                 'inputPeer' => $inputPeer,
             ]);
-        } catch (\Throwable $e) {
-            return ['error_code' => $e->getCode(), 'message' => $e->getMessage()];
-        }
+//        } catch (\Throwable $e) {
+//            return ['error_code' => $e->getCode(), 'message' => $e->getMessage()];
+//        }
     }
 
     /* ============================================================
