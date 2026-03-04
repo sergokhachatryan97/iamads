@@ -51,8 +51,7 @@ class SyncValidatingProviderOrdersJob implements ShouldQueue
                 ->where(function ($q) {
                     $q->where('status', $this->status )
                         ->orWhere(function ($q) {
-                            $q->where('status', Order::DEPENDS_STATUS_FAILED)
-                                ->where('remote_service_id', 76);
+                            $q->where('status', Order::DEPENDS_STATUS_FAILED);
                         });
                 })->whereNotNull('remote_order_id')
                 ->orderBy('id')
