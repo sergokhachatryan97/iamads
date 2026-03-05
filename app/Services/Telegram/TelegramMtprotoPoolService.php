@@ -24,23 +24,6 @@ class TelegramMtprotoPoolService
         private ProxyHealthService $proxyHealth
     ) {}
 
-    private function isDebugSelection(): bool
-    {
-        return (bool) config('telegram_mtproto.debug_selection', true);
-    }
-
-    private function logSelectionDebug(string $message, array $context = []): void
-    {
-        if (! $this->isDebugSelection()) {
-            return;
-        }
-        Log::debug('[MTProto selection] ' . $message, $context);
-    }
-
-    /* ============================================================
-     * PUBLIC API
-     * ============================================================ */
-
     /**
      * Main primitive: resolve username by getInfo() only.
      * Returns unified contract.
@@ -756,31 +739,6 @@ class TelegramMtprotoPoolService
         return ['account' => $first, 'proxy_key' => $proxyKey];
     }
 
-    /**
-     * Wait for proxy cooldown to expire, bounded by deadline. Returns true if cooldown expired (or nearly), false if deadline exceeded.
-     */
-    private function waitForProxyCooldownBounded(string $proxyKey, int $deadlineMs, int $startedAtMs): bool
-    {
-        $minRemainingMs = 200;
-        $chunkMaxMs = 2000;
-
-        while (true) {
-            $elapsedMs = (int) (microtime(true) * 1000) - $startedAtMs;
-            $remainingMs = $deadlineMs - $elapsedMs;
-            if ($remainingMs < $minRemainingMs) {
-                return false;
-            }
-
-            $cooldownSec = $this->proxyHealth->cooldownRemaining($proxyKey);
-            if ($cooldownSec <= 0) {
-                return true;
-            }
-
-            $waitMs = (int) min($remainingMs, $cooldownSec * 1000, $chunkMaxMs);
-            $waitMs = max(100, $waitMs);
-            $this->jitterSleepMs($waitMs, $waitMs + 100);
-        }
-    }
 
     /** Selection-only: do not write to DB. TTL from config (default 10–30 sec). */
     private function applyAccountLockPenalty(int $accountId): void
@@ -793,31 +751,6 @@ class TelegramMtprotoPoolService
     private function hasAccountPenalty(int $accountId): bool
     {
         return Cache::has(self::PENALTY_KEY_PREFIX . $accountId);
-    }
-    private function markInfraFailure(MtprotoTelegramAccount $account, string $code, int $baseMinutes = 30): void
-    {
-        // escalation ըստ fail_count
-        $fails = (int)($account->fail_count ?? 0);
-
-        $minutes = match (true) {
-            $fails >= 6 => max($baseMinutes, 180),
-            $fails >= 3 => max($baseMinutes, 60),
-            default     => $baseMinutes,
-        };
-
-        // ✅ Prefer disable + cooldown together
-        try {
-            $account->forceFill([
-                'fail_count'     => $fails + 1,
-                'cooldown_until' => now()->addMinutes($minutes),
-                'disabled_at'    => now(), // time-based disabling
-            ])->save();
-        } catch (\Throwable $x) {
-            // ignore
-        }
-
-        // if you keep recordFailure, make it lightweight (or remove)
-        try { $account->recordFailure($code); } catch (\Throwable $x) {}
     }
 
     private function ensureHeavyDailyWindow(MtprotoTelegramAccount $account): void
@@ -846,11 +779,12 @@ class TelegramMtprotoPoolService
         $rid = $this->newRid();
 
         $maxTries    = (int) config('telegram_mtproto.max_accounts_to_try_per_call', 4);
-        $deadlineMs  = (int) (
-            ($mode === self::MODE_INSPECT && (int) config('telegram_mtproto.call_deadline_inspect_ms', 0) > 0)
-                ? config('telegram_mtproto.call_deadline_inspect_ms')
-                : config('telegram_mtproto.call_deadline_ms', 30000)
-        );
+//        $deadlineMs  = (int) (
+//            ($mode === self::MODE_INSPECT && (int) config('telegram_mtproto.call_deadline_inspect_ms', 0) > 0)
+//                ? config('telegram_mtproto.call_deadline_inspect_ms')
+//                : config('telegram_mtproto.call_deadline_ms', 30000)
+//        );
+        $deadlineMs = 30000;
         $startedAtMs = (int) (microtime(true) * 1000);
 
         $excludeIds = [];
@@ -907,7 +841,7 @@ class TelegramMtprotoPoolService
             $accLockKey = "tg:mtproto:lock:{$account->id}";
             $accLock    = Cache::lock($accLockKey, $lockTtl);
 
-            if (! $accLock->get()) {
+            if (!$accLock->get()) {
                 $this->applyAccountLockPenalty($account->id);
                 $this->jitterSleepMs(8, 30);
                 continue;
@@ -961,6 +895,9 @@ class TelegramMtprotoPoolService
                         str_contains($msg, 'INTERNAL PEER DATABASE') ||
                         str_contains($msg, 'PEER IS NOT PRESENT');
 
+                    if (str_contains($msg, 'THIS PEER IS NOT PRESENT IN THE INTERNAL PEER DATABASE') ){
+                        return $this->fail('RESOLVE_FAILED', $e->getMessage());
+                    }
                     if ($isPeerDb) {
                         // ✅ 1) reset broken runtime instance
                         $this->factory->forgetRuntimeInstance($account);
@@ -1134,10 +1071,7 @@ class TelegramMtprotoPoolService
     private function resolveUsernameWithApi(\danog\MadelineProto\API $madeline, string $username): array
     {
         $username = $this->normalizeUsername($username);
-//        try {
             $info = $madeline->getFullInfo($username);
-//            Log::info('info', ['result' => $info]);
-
             $type = TelegramChatType::fromMadeline($info);
 
             $chat = $info['Chat'] ?? $info['chat'] ?? null;
@@ -1166,9 +1100,6 @@ class TelegramMtprotoPoolService
                 'raw_chat' => $rawChat,
                 'inputPeer' => $inputPeer,
             ]);
-//        } catch (\Throwable $e) {
-//            return ['error_code' => $e->getCode(), 'message' => $e->getMessage()];
-//        }
     }
 
     /* ============================================================
@@ -1636,41 +1567,6 @@ class TelegramMtprotoPoolService
         return $this->waitForProxyThrottle($account, $mode);
     }
 
-    /**
-     * Wait for proxy throttle slot respecting a deadline. Returns true if slot acquired, false if deadline exceeded.
-     * Uses same throttle key and TTL as waitForProxyThrottle (Cache::add loop with jitter).
-     */
-    private function waitForProxyThrottleBounded(
-        MtprotoTelegramAccount $account,
-        int $deadlineMs,
-        int $startedAtMs,
-        string $mode
-    ): bool {
-        $throttleKey = $this->proxyThrottleKeyForMode($account, $mode);
-        $seconds = $this->getProxyThrottleSeconds($throttleKey);
-        $cacheKey = 'tg:proxy:throttle:' . $throttleKey;
-        $minRemainingMs = 200;
-
-        while (true) {
-            $elapsedMs = (int) (microtime(true) * 1000) - $startedAtMs;
-            $remainingMs = $deadlineMs - $elapsedMs;
-            if ($remainingMs < $minRemainingMs) {
-                if ($this->isDebugSelection()) {
-                    $this->logSelectionDebug('bounded wait exceeded deadline', [
-                        'account_id' => $account->id,
-                        'mode' => $mode,
-                        'elapsed_ms' => $elapsedMs,
-                        'deadline_ms' => $deadlineMs,
-                    ]);
-                }
-                return false;
-            }
-            if (Cache::add($cacheKey, 1, $seconds)) {
-                return true;
-            }
-            $this->jitterSleepMs(150, 350);
-        }
-    }
 
     /**
      * Set Revolt/EventLoop error handler so UnhandledFutureError (e.g. stream closed) is logged as warning.
@@ -1759,27 +1655,6 @@ class TelegramMtprotoPoolService
         return $out;
     }
 
-    private function proxyCooldownKey(MtprotoTelegramAccount $account): string
-    {
-        return 'tg:proxy:cooldown:' . $this->proxyThrottleKey($account);
-    }
-
-    private function isProxyOnCooldown(MtprotoTelegramAccount $account): bool
-    {
-        return Cache::has($this->proxyCooldownKey($account));
-    }
-
-    private function putProxyCooldown(MtprotoTelegramAccount $account, int $seconds, string $reason): void
-    {
-        $seconds = max(10, $seconds);
-        $ttl = $seconds + random_int(0, (int) floor($seconds * 0.2));
-        Cache::put($this->proxyCooldownKey($account), $reason, now()->addSeconds($ttl));
-    }
-
-    private function proxyMode(): string
-    {
-        return (string) config('telegram_mtproto.proxy_mode', 'static'); // rotating|static
-    }
 
     private function newRid(): string
     {
@@ -1836,35 +1711,4 @@ class TelegramMtprotoPoolService
         }
         return null;
     }
-
-    private function withPeerDbRetryFreshRuntime(
-        MtprotoTelegramAccount $account,
-        \danog\MadelineProto\API $madeline,
-        callable $fn
-    ) {
-        try {
-            return $fn($madeline);
-        } catch (\Throwable $e) {
-            $msg = strtoupper((string) $e->getMessage());
-
-            $isPeerDb =
-                str_contains($msg, 'THIS PEER IS NOT PRESENT IN THE INTERNAL PEER DATABASE') ||
-                str_contains($msg, 'INTERNAL PEER DATABASE') ||
-                str_contains($msg, 'PEER IS NOT PRESENT');
-
-            if (! $isPeerDb) {
-                throw $e;
-            }
-
-            // ✅ fresh runtime retry once (peer DB might be busted on current runtime)
-            $this->factory->forgetRuntimeInstance($account);
-
-            $madeline2 = $this->factory->makeForRuntime($account);
-            $this->revoltErrorHandlerSetBeforeStart();
-            $madeline2->start();
-
-            return $fn($madeline2);
-        }
-    }
-
 }
