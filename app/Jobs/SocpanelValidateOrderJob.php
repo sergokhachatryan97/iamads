@@ -51,7 +51,7 @@ class SocpanelValidateOrderJob implements ShouldQueue
         77  => ['mode' => 'bot_with_ref', 'allow' => ['bot'], 'audience' => null],
 
         // ✅ public channel link only => must be subscribers too
-        146 => ['mode' => 'public_channel_link', 'allow' => ['channel','supergroup'], 'audience' => 'subscribers'],
+        146 => ['mode' => 'public_channel_link', 'allow' => ['channel','supergroup'], 'audience' => ['subscribers', 'members']],
         157 => ['mode' => 'story_link', 'allow' => ['channel'], 'audience' => null],
         158 => ['mode' => 'story_link', 'allow' => ['channel'], 'audience' => null],
         151 => ['mode' => 'public_post_comment_reaction', 'allow' => ['channel'], 'audience' => null],
@@ -151,7 +151,7 @@ class SocpanelValidateOrderJob implements ShouldQueue
 
         if ($mode === 'public_channel_link') {
             if ($parsedKind !== 'public_username') {
-                return ['code' => 'WRONG_LINK_FORMAT', 'message' => 'Expected public channel link like https://t.me/ChannelName'];
+                return ['code' => 'WRONG_LINK_FORMAT', 'message' => 'Expected public channel/group link like https://t.me/ChannelName'];
             }
             return null;
         }
