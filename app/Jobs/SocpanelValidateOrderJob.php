@@ -204,7 +204,7 @@ class SocpanelValidateOrderJob implements ShouldQueue
         return ['code' => 'RULE_ERROR', 'message' => "Unknown mode={$mode}"];
     }
 
-    public function __construct(public int $serviceId, public string $normalizedLink) {}
+    public function __construct(public int $serviceId, public string $normalizedLink, public $status = null) {}
 
     public function handle(TelegramInspector $inspector): void
     {
@@ -218,12 +218,13 @@ class SocpanelValidateOrderJob implements ShouldQueue
 
         $claimTtlMinutes = 10;
         $claimedAt = now();
+        $status = $this->status ?? Order::STATUS_VALIDATING;
 
         try {
             // ✅ 2) claim all eligible orders in this group
             // Claim criteria: validating, remains>0, and not claimed recently
             $claimedCount = ProviderOrder::query()
-                ->where('status', Order::STATUS_VALIDATING)
+                ->where('status', $status)
                 ->where('remains', '>', 0)
                 ->where('remote_service_id', $this->serviceId)
                 ->where('link', $this->normalizedLink)
@@ -241,7 +242,7 @@ class SocpanelValidateOrderJob implements ShouldQueue
             $orders = ProviderOrder::query()
                 ->where('remote_service_id', $this->serviceId)
                 ->where('link', $this->normalizedLink)
-                ->where('status', Order::STATUS_VALIDATING)
+                ->where('status', $status)
                 ->where('provider_sending_at', $claimedAt)
                 ->get(['id', 'remote_service_id', 'link', 'status', 'provider_payload']);
 
@@ -259,7 +260,7 @@ class SocpanelValidateOrderJob implements ShouldQueue
                 $inspectionResult = $inspector->inspect($this->normalizedLink);
 
                 if (($inspectionResult['ok'] ?? false) === true) {
-                    Cache::put($cacheKey, $inspectionResult, now()->addHours(6));
+                    Cache::put($cacheKey, $inspectionResult, now()->addHours(4));
                 } else {
                     Cache::put($cacheKey, $inspectionResult, now()->addMinutes(2));
                 }
@@ -307,7 +308,7 @@ class SocpanelValidateOrderJob implements ShouldQueue
                         ->whereIn('id', $orders->pluck('id'))
                         ->update([
                             // keep validating so poller will pick it up again
-                            'status' => Order::STATUS_VALIDATING,
+                            'status' => $status,
                             'provider_last_error' => $message,
                             'provider_last_error_at' => now(),
                             'provider_payload' => $inspectionResult,

@@ -38,44 +38,6 @@ return [
 
         /*
         |--------------------------------------------------------------------------
-        | TG HIGH PRIORITY QUEUES
-        |--------------------------------------------------------------------------
-        */
-
-        'tg-high' => [
-            'connection' => 'redis',
-            'queue' => ['tg-p0', 'tg-p1'],
-            'balance' => 'auto',
-            'autoScalingStrategy' => 'time',
-            'maxProcesses' => 4,
-            'balanceMaxShift' => 1,
-            'balanceCooldown' => 3,
-            'tries' => 1,
-            'timeout' => 120,
-            'memory' => 256,
-        ],
-
-        /*
-        |--------------------------------------------------------------------------
-        | TG LOW PRIORITY QUEUES
-        |--------------------------------------------------------------------------
-        */
-
-        'tg-low' => [
-            'connection' => 'redis',
-            'queue' => ['tg-p2', 'tg-p3'],
-            'balance' => 'auto',
-            'autoScalingStrategy' => 'time',
-            'maxProcesses' => 3,
-            'balanceMaxShift' => 1,
-            'balanceCooldown' => 3,
-            'tries' => 1,
-            'timeout' => 120,
-            'memory' => 256,
-        ],
-
-        /*
-        |--------------------------------------------------------------------------
         | TG INSPECT (HEAVY JOBS)
         |--------------------------------------------------------------------------
         */
@@ -116,38 +78,25 @@ return [
     'environments' => [
 
         'production' => [
-            'tg-high' => [
-                'connection' => 'redis',
-                'queue' => ['tg-p0', 'tg-p1'],
-                'balance' => 'auto',
-                'autoScalingStrategy' => 'time',
-                'maxProcesses' => 4,
-                'balanceMaxShift' => 1,
-                'balanceCooldown' => 3,
-                'tries' => 1,
-                'timeout' => 120,
-                'memory' => 256,
-            ],
-
-            'tg-low' => [
-                'connection' => 'redis',
-                'queue' => ['tg-p2', 'tg-p3'],
-                'balance' => 'auto',
-                'autoScalingStrategy' => 'time',
-                'maxProcesses' => 3,
-                'balanceMaxShift' => 1,
-                'balanceCooldown' => 3,
-                'tries' => 1,
-                'timeout' => 120,
-                'memory' => 256,
-            ],
-
             'tg-inspect' => [
                 'connection' => 'redis',
                 'queue' => ['tg-inspect'],
                 'balance' => 'auto',
                 'autoScalingStrategy' => 'time',
                 'maxProcesses' => 7,
+                'balanceMaxShift' => 1,
+                'balanceCooldown' => 3,
+                'tries' => 2,
+                'timeout' => 900,
+                'memory' => 512,
+            ],
+
+            'tg-double-check' => [
+                'connection' => 'redis',
+                'queue' => ['tg-double-check'],
+                'balance' => 'auto',
+                'autoScalingStrategy' => 'time',
+                'maxProcesses' => 4,
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 3,
                 'tries' => 2,
@@ -170,32 +119,6 @@ return [
         ],
 
         'local' => [
-            'tg-high' => [
-                'connection' => 'redis',
-                'queue' => ['tg-p0', 'tg-p1'],
-                'balance' => 'auto',
-                'autoScalingStrategy' => 'time',
-                'maxProcesses' => 4,
-                'balanceMaxShift' => 1,
-                'balanceCooldown' => 3,
-                'tries' => 1,
-                'timeout' => 120,
-                'memory' => 256,
-            ],
-
-            'tg-low' => [
-                'connection' => 'redis',
-                'queue' => ['tg-p2', 'tg-p3'],
-                'balance' => 'auto',
-                'autoScalingStrategy' => 'time',
-                'maxProcesses' => 3,
-                'balanceMaxShift' => 1,
-                'balanceCooldown' => 3,
-                'tries' => 1,
-                'timeout' => 120,
-                'memory' => 256,
-            ],
-
             'tg-inspect' => [
                 'connection' => 'redis',
                 'queue' => ['tg-inspect'],
@@ -208,7 +131,18 @@ return [
                 'timeout' => 900,
                 'memory' => 512,
             ],
-
+            'tg-double-check' => [
+                'connection' => 'redis',
+                'queue' => ['tg-double-check'],
+                'balance' => 'auto',
+                'autoScalingStrategy' => 'time',
+                'maxProcesses' => 4,
+                'balanceMaxShift' => 1,
+                'balanceCooldown' => 3,
+                'tries' => 2,
+                'timeout' => 900,
+                'memory' => 512,
+            ],
             'main' => [
                 'connection' => 'redis',
                 'queue' => ['socpanel-poll', 'providers', 'default'],

@@ -49,15 +49,15 @@ return Application::configure(basePath: dirname(__DIR__))
             ->withoutOverlapping(4);
 
         $schedule->job(new SyncValidatingProviderOrdersJob('validating'))
-            ->everyThreeMinutes()
+            ->everyTenMinutes()
             ->withoutOverlapping(10)
             ->onOneServer();
 
         $schedule->job(new SyncValidatingProviderOrdersJob('ok'))
-            ->everyFifteenMinutes()
+            ->everyFourHours()
             ->withoutOverlapping(10)
             ->onOneServer();
-//
+
         $schedule->command('socpanel:cancel-invalid')
             ->everyMinute()
             ->withoutOverlapping(10);
@@ -78,10 +78,6 @@ return Application::configure(basePath: dirname(__DIR__))
 //            ->hourly()
 //            ->withoutOverlapping(300);
 
-        // Cancel invalid Socpanel orders (invalid_link/restricted) on provider via editOrder
-//        $schedule->job(new \App\Jobs\SocpanelCancelInvalidOrderJob()
-//            ->everyFiveMinutes()
-//            ->withoutOverlapping(120);
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([

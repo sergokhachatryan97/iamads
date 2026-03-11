@@ -25,7 +25,7 @@ class SyncValidatingProviderOrdersJob implements ShouldQueue
 
     /** providerStatus(lowercase) => localStatus */
     private const STATUS_MAP = [
-        'completed' => 'ok',
+        'completed' => 'completed',
         'canceled'  => 'canceled',
     ];
     private ?string $status;
@@ -47,13 +47,31 @@ class SyncValidatingProviderOrdersJob implements ShouldQueue
 
         try {
             $orders = ProviderOrder::query()
-                ->select(['id', 'remote_order_id', 'status', 'provider_payload'])
+                ->select([
+                    'id',
+                    'remote_order_id',
+                    'status',
+                    'provider_payload',
+                    'remote_service_id',
+                    'link',
+                    'updated_at',
+                ])
                 ->where(function ($q) {
-                    $q->where('status', $this->status )
+                    $q->where(function ($q) {
+                        $q->where('status', $this->status);
+
+                        if ($this->status === 'validating') {
+                            $q->where('updated_at', '<=', now()->subMinutes(15));
+                        } elseif ($this->status === 'ok') {
+                            $q->where('updated_at', '<=', now()->subHour());
+                        }
+                    })
                         ->orWhere(function ($q) {
-                            $q->where('status', Order::DEPENDS_STATUS_FAILED);
+                            $q->where('status', Order::DEPENDS_STATUS_FAILED)
+                                ->where('updated_at', '<=', now()->subMinutes(15));
                         });
-                })->whereNotNull('remote_order_id')
+                })
+                ->whereNotNull('remote_order_id')
                 ->orderBy('id')
                 ->limit(self::BATCH_SIZE)
                 ->get();
@@ -98,17 +116,22 @@ class SyncValidatingProviderOrdersJob implements ShouldQueue
                 $providerStatus = strtolower((string) ($item['status'] ?? ''));
                 $newStatus = self::STATUS_MAP[$providerStatus] ?? null;
 
-                if ($newStatus === null) {
+                if (in_array($item['status'], ['completed', 'canceled'], true)) {
+                    $order->update([
+                        'status' => $newStatus,
+                        'remains' => $item['remains'],
+                        'provider_payload' => array_merge($order->provider_payload ?? [], $item),
+                    ]);
+
+                    $updated++;
                     continue;
                 }
 
-                $order->update([
-                    'status' => $newStatus,
-                    'remains' => $item['remains'],
-                    'provider_payload' => array_merge($order->provider_payload ?? [], $item),
-                ]);
+                if (!in_array($item['status'], ['completed', 'canceled'])) {
+                    SocpanelValidateOrderJob::dispatch($order->remote_service_id, $order->link, $this->status)
+                        ->onQueue('tg-double-check');
 
-                $updated++;
+                }
 
                 Log::debug('SyncValidatingProviderOrdersJob: updated provider order status', [
                     'provider_order_id' => $order->id,
@@ -117,12 +140,6 @@ class SyncValidatingProviderOrdersJob implements ShouldQueue
                 ]);
             }
 
-            Log::info('SyncValidatingProviderOrdersJob: run summary', [
-                'batch_size' => self::BATCH_SIZE,
-                'remote_ids_count' => count($remoteIds),
-                'orders_loaded' => $orders->count(),
-                'updated_count' => $updated,
-            ]);
         } finally {
             optional($lock)->release();
         }
