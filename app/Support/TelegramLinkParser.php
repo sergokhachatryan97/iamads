@@ -14,6 +14,11 @@ final class TelegramLinkParser
             return ['kind' => 'unknown', 'raw' => $originalRaw];
         }
 
+        // Raw only numbers (e.g. 2200701710488708) is not a valid Telegram link
+        if (ctype_digit($raw)) {
+            return ['kind' => 'unknown', 'raw' => $originalRaw];
+        }
+
         // Accept "t.me/..." without schema
         if (preg_match('#^(t\.me/|telegram\.me/)(.+)$#i', $raw, $m)) {
             $raw = 'https://t.me/' . ltrim($m[2], '/');

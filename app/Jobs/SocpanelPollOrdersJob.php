@@ -117,7 +117,6 @@ class SocpanelPollOrdersJob implements ShouldQueue
             }
 
             try {
-                // ✅ Քո իրական signature-ին համապատասխան
                 $response = $client->getOrders($providerServiceId, $status, $limit, $offset);
             } catch (\Throwable $e) {
                 Log::error('Socpanel getOrders failed', [
@@ -143,7 +142,6 @@ class SocpanelPollOrdersJob implements ShouldQueue
                 if ($validateDispatchBudget <= 0) break;
             }
 
-            // ✅ stop condition: եթե քիչ item եկավ, վերջ
             if (count($items) < $limit) {
                 break;
             }

@@ -10,8 +10,8 @@ use Illuminate\Support\Facades\Log;
 class TelegramInspector
 {
     public function __construct(
-        private readonly TelegramBotResolver $botResolver,
-        private readonly TelegramMtprotoPoolService $mtprotoPool
+        private TelegramMtprotoPoolService $mtprotoPool,
+        private TelegramLinkInspector      $telegramLinkInspector,
     ) {}
 
     /**
@@ -60,17 +60,25 @@ class TelegramInspector
                 return $this->fail($result, 'INVALID_FORMAT', 'Bot username not found in link');
             }
 
-            $probe = $this->botResolver->getChat($username);
+            $telegramLinkInspector = $this->telegramLinkInspector->inspect($link);
+            if ($telegramLinkInspector['status'] == 'ambiguous'){
+                return $this->fail(
+                    $result,
+                    'RESOLVE_FAILED',
+                    'Bot does not exist'
+                );
+            }
 
-            $type = null;
+            if ($telegramLinkInspector['status'] == 'ok'){
+                $result['ok'] = true;
+                $result['chat_type'] = 'bot';
+                $result['parsed']['kind'] = $telegramLinkInspector['entity_kind'];
+                $result['title'] = $username;
+                $result['resolved'] = [
+                    'source' => 'parser_only',
+                ];
 
-            if (($probe['ok'] ?? false) === true) {
-                $type = $probe['chat']['type'] ?? null;
-                $chatId = $probe['chat']['id'] ?? null;
-                if ($chatId) {
-                   $memberCount = $this->botResolver->getMemberCount($chatId);
-                    $result['member_count'] = $memberCount ?? null;
-                }
+                return $result;
             } else {
 
                 try {
@@ -109,13 +117,6 @@ class TelegramInspector
                 $result['resolved'] = [
                     'source' => 'parser_only',
                     'data' => $parsed,
-                    'probe' => [
-                        'bot_api' => [
-                            'ok' => (bool)($probe['ok'] ?? false),
-                            'error_code' => $probe['error_code'] ?? null,
-                        ],
-                        'final_type' => $type,
-                    ],
                 ];
 
                 return $result;
@@ -149,6 +150,26 @@ class TelegramInspector
                     return $result;
                 }
             } else {
+
+                $telegramLinkInspector = $this->telegramLinkInspector->inspect($link);
+
+                if ($telegramLinkInspector['status'] == 'ambiguous'){
+                    return $this->fail(
+                        $result,
+                        'RESOLVE_FAILED',
+                        'Chat or User does not exist'
+                    );
+                }
+
+                if ($telegramLinkInspector['status'] == 'ok'  && in_array($telegramLinkInspector['entity_kind'], ['bot_start', 'bot_start_with_referral'], true)){
+                    $result['ok'] = true;
+                    $result['chat_type'] = 'bot';
+                    $result['parsed']['kind'] = $telegramLinkInspector['entity_kind'];
+                    $result['title'] = $username;
+
+                    return $result;
+                }
+
                 $info = $this->mtprotoPool->getInfoByUsername($username, $forB2c);
 
                 if (($info['ok'] ?? false) === true) {
@@ -405,6 +426,17 @@ class TelegramInspector
                 return $this->fail($result, 'INVALID_FORMAT', 'Invite hash missing');
             }
 
+            $telegramLinkInspector = $this->telegramLinkInspector->inspect($link);
+
+            if ($telegramLinkInspector['status'] == 'ambiguous'){
+                return $this->fail(
+                    $result,
+                    'RESOLVE_FAILED',
+                    'Chat or Group does not exist'
+                );
+            }
+
+
             $invite = $this->mtprotoPool->checkInvite($hash, $forB2c);
 
             if (($invite['ok'] ?? false) !== true) {
@@ -443,7 +475,6 @@ class TelegramInspector
             $result['is_channel']    = (bool) $nature['is_channel'];
             $result['is_group']      = (bool) $nature['is_group'];
 
-// ✅ title/member_count-ի ճիշտ fallback
             $result['title'] = $invite['title']
                 ?? ($raw['title'] ?? null)
                 ?? ($rawChat['title'] ?? null);
