@@ -71,7 +71,8 @@ class TelegramInspector
 
             if ($telegramLinkInspector['status'] == 'ok'){
                 $result['ok'] = true;
-                $result['chat_type'] = 'bot';
+                $result['chat_type'] = in_array($telegramLinkInspector['entity_kind'], ['bot_start', 'bot_start_with_referral'], true) ?'bot' : $telegramLinkInspector['entity_kind'];
+                $result['is_channel'] = $telegramLinkInspector['entity_kind'] === 'channel' ?? false;
                 $result['parsed']['kind'] = $telegramLinkInspector['entity_kind'];
                 $result['title'] = $username;
                 $result['resolved'] = [
