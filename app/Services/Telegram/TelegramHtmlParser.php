@@ -173,7 +173,7 @@ class TelegramHtmlParser
             ];
         }
 
-        // 4. Invite links
+// 4. Invite links
         if ($context['link_kind'] === 'invite') {
             // 4.1 Strong private channel invite
             if (
@@ -182,8 +182,9 @@ class TelegramHtmlParser
                     'invited to the channel',
                     'tg://join?invite=',
                 ]) &&
-                $context['subscribers_count'] !== null &&
-                $hasStrongInviteSignals
+                $hasPageTitle &&
+                $hasPageAdditional &&
+                ($hasPagePhoto || $hasPageExtra || $context['subscribers_count'] !== null)
             ) {
                 $matched[] = 'private_channel_invite_strong';
 
@@ -205,8 +206,9 @@ class TelegramHtmlParser
                     'invited to a <strong>group chat</strong>',
                     'tg://join?invite=',
                 ]) &&
-                $context['members_count'] !== null &&
-                $hasStrongInviteSignals
+                $hasPageTitle &&
+                $hasPageAdditional &&
+                ($hasPagePhoto || $hasPageExtra || $context['members_count'] !== null)
             ) {
                 $matched[] = 'private_group_invite_strong';
 
@@ -627,15 +629,15 @@ class TelegramHtmlParser
         $subscribers = null;
         $monthlyUsers = null;
 
-        if (preg_match('/([\d\s.,]+(?:\s*[KMB])?)\s+members\b/ui', $html, $m)) {
+        if (preg_match('/([\d\s.,]+(?:\s*[KMB])?)\s+members?\b/ui', $html, $m)) {
             $members = $this->parseHumanInt($m[1]);
         }
 
-        if (preg_match('/([\d\s.,]+\s*[KMB]?)\s+subscribers\b/ui', $html, $m)) {
+        if (preg_match('/([\d\s.,]+(?:\s*[KMB])?)\s+subscribers?\b/ui', $html, $m)) {
             $subscribers = $this->parseHumanInt($m[1]);
         }
 
-        if (preg_match('/([\d\s.,]+\s*[KMB]?)\s+monthly users\b/ui', $html, $m)) {
+        if (preg_match('/([\d\s.,]+(?:\s*[KMB])?)\s+monthly users\b/ui', $html, $m)) {
             $monthlyUsers = $this->parseHumanInt($m[1]);
         }
 
