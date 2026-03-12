@@ -116,7 +116,21 @@ class TelegramHtmlParser
         $hasPageAdditional = $this->hasPageAdditionalBlock($html);
 
         $hasStrongUserSignals = $hasPageTitle && $hasPageExtra;
-        $hasStrongInviteSignals = $hasPageTitle || $hasPageExtra || $hasPagePhoto || $hasPageAdditional;
+
+        $actionText = $context['action_text'] ?? null;
+
+        $isJoinGroupAction = $this->actionTextIs($actionText, ['Join Group']);
+        $isJoinChannelAction = $this->actionTextIs($actionText, ['Join Channel']);
+        $isSendMessageAction = $this->actionTextIs($actionText, ['Send Message']);
+        $isStartBotAction = $this->actionTextIs($actionText, ['Start Bot']);
+        $isViewInTelegramAction = $this->actionTextIs($actionText, ['View in Telegram']);
+        $isPreviewChannelAction = $this->actionTextIs($actionText, ['Preview Channel', 'Preview channel']);
+
+        $hasInviteProto = $this->hasJoinInviteProto($html);
+        $hasResolveProto = $this->hasResolveProto($html);
+        $inputLooksLikeInvite = $this->inputLooksLikeInvite($input);
+
+        $hasInviteStructuralSignals = $hasPageTitle || $hasPageExtra || $hasPagePhoto || $hasPageAdditional;
 
         // 1. Restricted / TOS violation
         if ($this->containsAnyInsensitive($html, [
@@ -173,20 +187,18 @@ class TelegramHtmlParser
             ];
         }
 
-// 4. Invite links
-        if ($context['link_kind'] === 'invite') {
+        // 4. Invite links
+        if ($context['link_kind'] === 'invite' || $inputLooksLikeInvite || $hasInviteProto) {
+            $matched[] = 'invite_context_detected';
+
             // 4.1 Strong private channel invite
             if (
-                $this->containsAnyInsensitive($html, [
-                    'Join Channel',
-                    'invited to the channel',
-                    'tg://join?invite=',
-                ]) &&
+                $isJoinChannelAction &&
                 $hasPageTitle &&
                 $hasPageAdditional &&
-                ($hasPagePhoto || $hasPageExtra || $context['subscribers_count'] !== null)
+                ($hasPagePhoto || $hasPageExtra || $context['subscribers_count'] !== null || $hasInviteProto)
             ) {
-                $matched[] = 'private_channel_invite_strong';
+                $matched[] = 'private_channel_invite_by_action_text_strong';
 
                 return [
                     'exists' => true,
@@ -199,18 +211,12 @@ class TelegramHtmlParser
 
             // 4.2 Strong private group invite
             if (
-                $this->containsAnyInsensitive($html, [
-                    'Join Group',
-                    'group chat',
-                    'you are invited to the group',
-                    'invited to a <strong>group chat</strong>',
-                    'tg://join?invite=',
-                ]) &&
+                $isJoinGroupAction &&
                 $hasPageTitle &&
                 $hasPageAdditional &&
-                ($hasPagePhoto || $hasPageExtra || $context['members_count'] !== null)
+                ($hasPagePhoto || $hasPageExtra || $context['members_count'] !== null || $hasInviteProto)
             ) {
-                $matched[] = 'private_group_invite_strong';
+                $matched[] = 'private_group_invite_by_action_text_strong';
 
                 return [
                     'exists' => true,
@@ -221,15 +227,54 @@ class TelegramHtmlParser
                 ];
             }
 
-            // 4.3 Weak private channel invite landing page
+            // 4.3 Content-based strong private channel invite fallback
             if (
                 $this->containsAnyInsensitive($html, [
                     'Join Channel',
                     'invited to the channel',
-                    'tg://join?invite=',
-                ])
+                    'channel',
+                ]) &&
+                $hasPageTitle &&
+                $hasPageAdditional &&
+                ($hasPagePhoto || $hasPageExtra || $context['subscribers_count'] !== null || $hasInviteProto)
             ) {
-                $matched[] = 'private_channel_invite_weak';
+                $matched[] = 'private_channel_invite_content_strong';
+
+                return [
+                    'exists' => true,
+                    'status' => 'ok',
+                    'entity_kind' => 'private_channel_invite',
+                    'can_join' => true,
+                    'matched_rules' => $matched,
+                ];
+            }
+
+            // 4.4 Content-based strong private group invite fallback
+            if (
+                $this->containsAnyInsensitive($html, [
+                    'Join Group',
+                    'group chat',
+                    'you are invited to the group',
+                    'invited to a <strong>group chat</strong>',
+                ]) &&
+                $hasPageTitle &&
+                $hasPageAdditional &&
+                ($hasPagePhoto || $hasPageExtra || $context['members_count'] !== null || $hasInviteProto)
+            ) {
+                $matched[] = 'private_group_invite_content_strong';
+
+                return [
+                    'exists' => true,
+                    'status' => 'ok',
+                    'entity_kind' => 'private_group_invite',
+                    'can_join' => true,
+                    'matched_rules' => $matched,
+                ];
+            }
+
+            // 4.5 Weak private channel invite
+            if ($isJoinChannelAction) {
+                $matched[] = 'private_channel_invite_by_action_text_weak';
 
                 return [
                     'exists' => null,
@@ -240,16 +285,9 @@ class TelegramHtmlParser
                 ];
             }
 
-            // 4.4 Weak private group invite landing page
-            if (
-                $this->containsAnyInsensitive($html, [
-                    'Join Group',
-                    'group chat',
-                    'invited to a <strong>group chat</strong>',
-                    'tg://join?invite=',
-                ])
-            ) {
-                $matched[] = 'private_group_invite_weak';
+            // 4.6 Weak private group invite
+            if ($isJoinGroupAction) {
+                $matched[] = 'private_group_invite_by_action_text_weak';
 
                 return [
                     'exists' => null,
@@ -260,8 +298,21 @@ class TelegramHtmlParser
                 ];
             }
 
-            // 4.5 Generic invite proto seen, but unclear
-            if ($this->containsAnyInsensitive($html, ['tg://join?invite=', 'https://t.me/+'])) {
+            // 4.7 Generic invite proto + some structure but unclear type
+            if ($hasInviteProto && $hasInviteStructuralSignals) {
+                $matched[] = 'generic_invite_structured_unknown_type';
+
+                return [
+                    'exists' => null,
+                    'status' => 'ambiguous',
+                    'entity_kind' => 'unknown',
+                    'can_join' => null,
+                    'matched_rules' => $matched,
+                ];
+            }
+
+            // 4.8 Invite-like input but no reliable page classification
+            if ($inputLooksLikeInvite) {
                 $matched[] = 'generic_invite_unknown_state';
 
                 return [
@@ -275,10 +326,10 @@ class TelegramHtmlParser
         }
 
         // 5. Bot / referral / startapp
-        if ($this->containsAnyInsensitive($html, [
-            'Start Bot',
-            'Launch @',
-        ])) {
+        if ($isStartBotAction || $this->containsAnyInsensitive($html, [
+                'Start Bot',
+                'Launch @',
+            ])) {
             if (str_contains($input, 'startapp=')) {
                 $matched[] = 'bot_startapp';
 
@@ -356,12 +407,12 @@ class TelegramHtmlParser
         // 9. Public group
         if (
             $context['members_count'] !== null &&
-            $this->containsAnyInsensitive($html, [
-                'View in Telegram',
-                'view and join',
-                'right away',
-                'tg://resolve?domain=',
-            ])
+            ($isViewInTelegramAction || $this->containsAnyInsensitive($html, [
+                    'View in Telegram',
+                    'view and join',
+                    'right away',
+                    'tg://resolve?domain=',
+                ]))
         ) {
             $matched[] = 'public_group';
 
@@ -374,10 +425,11 @@ class TelegramHtmlParser
             ];
         }
 
-        // 9. Public channel
+        // 10. Public channel
         if (
+            $isPreviewChannelAction ||
             $this->containsAnyInsensitive($html, ['Preview channel']) ||
-            ($context['subscribers_count'] !== null && $this->containsAnyInsensitive($html, ['View in Telegram']))
+            ($context['subscribers_count'] !== null && ($isViewInTelegramAction || $hasResolveProto))
         ) {
             $matched[] = 'public_channel';
 
@@ -390,10 +442,10 @@ class TelegramHtmlParser
             ];
         }
 
-        // 10. Strong user profile page
+        // 11. Strong user profile page
         if (
-            $this->containsAnyInsensitive($html, ['Send Message']) &&
-            $this->containsAnyInsensitive($html, ['tg://resolve?domain=']) &&
+            $isSendMessageAction &&
+            $hasResolveProto &&
             $hasStrongUserSignals
         ) {
             $matched[] = 'user_strong_profile_page';
@@ -407,10 +459,10 @@ class TelegramHtmlParser
             ];
         }
 
-        // 11. Weak/generic contact landing page
+        // 12. Weak/generic contact landing page
         if (
-            $this->containsAnyInsensitive($html, ['Send Message']) &&
-            $this->containsAnyInsensitive($html, ['tg://resolve?domain=']) &&
+            $isSendMessageAction &&
+            $hasResolveProto &&
             !$hasStrongUserSignals
         ) {
             $matched[] = 'generic_contact_page';
@@ -424,8 +476,8 @@ class TelegramHtmlParser
             ];
         }
 
-        // 12. Generic public resolved entity
-        if ($this->containsAnyInsensitive($html, ['tg://resolve?domain='])) {
+        // 13. Generic public resolved entity
+        if ($hasResolveProto) {
             $matched[] = 'resolved_public_entity';
 
             if ($context['subscribers_count'] !== null) {
@@ -436,6 +488,18 @@ class TelegramHtmlParser
                     'status' => 'ok',
                     'entity_kind' => 'channel',
                     'can_join' => null,
+                    'matched_rules' => $matched,
+                ];
+            }
+
+            if ($context['members_count'] !== null) {
+                $matched[] = 'fallback_group_by_members';
+
+                return [
+                    'exists' => true,
+                    'status' => 'ok',
+                    'entity_kind' => 'group',
+                    'can_join' => true,
                     'matched_rules' => $matched,
                 ];
             }
@@ -471,7 +535,6 @@ class TelegramHtmlParser
             'matched_rules' => $matched,
         ];
     }
-
     protected function detectLinkKind(string $input, string $html): string
     {
         if ($this->extractInviteHash($input) !== null || $this->containsAnyInsensitive($html, ['tg://join?invite='])) {
@@ -817,5 +880,45 @@ class TelegramHtmlParser
     protected function hasPageAdditionalBlock(string $html): bool
     {
         return preg_match('/<div class="tgme_page_additional"[^>]*>.*?<\/div>/su', $html) === 1;
+    }
+
+
+    protected function normalizeText(?string $value): string
+    {
+        $value = html_entity_decode((string) $value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $value = preg_replace('/\s+/u', ' ', trim($value));
+
+        return mb_strtolower($value ?? '');
+    }
+
+    protected function actionTextIs(?string $actionText, array $values): bool
+    {
+        $normalized = $this->normalizeText($actionText);
+
+        foreach ($values as $value) {
+            if ($normalized === $this->normalizeText($value)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    protected function inputLooksLikeInvite(string $input): bool
+    {
+        return $this->extractInviteHash($input) !== null
+            || preg_match('~(?:https?://)?(?:www\.)?t\.me/\+[A-Za-z0-9_-]+~i', $input) === 1
+            || preg_match('~(?:https?://)?(?:www\.)?t\.me/joinchat/[A-Za-z0-9_-]+~i', $input) === 1
+            || preg_match('~tg://join\?invite=[A-Za-z0-9_-]+~i', $input) === 1;
+    }
+
+    protected function hasJoinInviteProto(string $html): bool
+    {
+        return $this->containsAnyInsensitive($html, ['tg://join?invite=']);
+    }
+
+    protected function hasResolveProto(string $html): bool
+    {
+        return $this->containsAnyInsensitive($html, ['tg://resolve?domain=']);
     }
 }
