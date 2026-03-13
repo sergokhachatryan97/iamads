@@ -26,6 +26,7 @@ class UpdateServiceRequest extends FormRequest
         $rules = [
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
+            'icon' => ['nullable', 'string'],
             'category_id' => ['required', 'integer', Rule::exists(Category::class, 'id')],
             'mode' => ['required', 'string', 'in:manual,provider'],
             'service_type' => ['nullable', 'string'],

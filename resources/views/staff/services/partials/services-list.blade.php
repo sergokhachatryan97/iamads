@@ -379,7 +379,22 @@
                                             {{ $service->id }}
                                         </td>
                                         <td class="px-4 py-2 text-sm font-medium text-gray-900">
-                                            {{ $service->name }}
+                                            <div class="flex items-center gap-2">
+                                                @if($service->icon ?? null)
+                                                    <span class="text-base flex-shrink-0">
+                                                        @if(Str::startsWith($service->icon, '<svg'))
+                                                            <span class="inline-block w-4 h-4">{!! $service->icon !!}</span>
+                                                        @elseif(Str::startsWith($service->icon, 'data:'))
+                                                            <img src="{{ $service->icon }}" alt="icon" class="w-4 h-4 object-contain">
+                                                        @elseif(Str::startsWith($service->icon, 'fas ') || Str::startsWith($service->icon, 'far ') || Str::startsWith($service->icon, 'fab ') || Str::startsWith($service->icon, 'fal ') || Str::startsWith($service->icon, 'fad '))
+                                                            <i class="{{ $service->icon }}"></i>
+                                                        @else
+                                                            <span class="inline-block">{{ $service->icon }}</span>
+                                                        @endif
+                                                    </span>
+                                                @endif
+                                                <span>{{ $service->name }}</span>
+                                            </div>
                                         </td>
                                         <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
                                             @php

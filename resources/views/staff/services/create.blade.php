@@ -158,6 +158,14 @@
                                     <span class="text-xs text-gray-500 font-normal">(Required)</span>
                                 </div>
 
+                                {{-- Icon (same pattern as category) --}}
+                                <div class="flex items-start gap-3 mb-4">
+                                    <div class="flex flex-col gap-1">
+                                        <label class="text-sm font-medium text-gray-700 whitespace-nowrap">{{ __('Add icon') }}</label>
+                                        <x-icon-picker name="icon" value="{{ old('icon', $service?->icon ?? '') }}" />
+                                    </div>
+                                </div>
+
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
 
                                     {{-- Category --}}

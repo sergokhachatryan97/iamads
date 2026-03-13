@@ -33,6 +33,7 @@ class Service extends Model
     protected $fillable = [
         'name',
         'description',
+        'icon',
         'category_id',
         'mode',
         'service_type',
