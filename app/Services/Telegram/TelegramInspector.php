@@ -427,15 +427,15 @@ class TelegramInspector
                 return $this->fail($result, 'INVALID_FORMAT', 'Invite hash missing');
             }
 
-            $telegramLinkInspector = $this->telegramLinkInspector->inspect($link);
-
-            if ($telegramLinkInspector['status'] == 'ambiguous'){
-                return $this->fail(
-                    $result,
-                    'RESOLVE_FAILED',
-                    'Chat or Group does not exist'
-                );
-            }
+//            $telegramLinkInspector = $this->telegramLinkInspector->inspect($link);
+//
+//            if ($telegramLinkInspector['status'] == 'ambiguous'){
+//                return $this->fail(
+//                    $result,
+//                    'RESOLVE_FAILED',
+//                    'Chat or Group does not exist'
+//                );
+//            }
 
 
             $invite = $this->mtprotoPool->checkInvite($hash, $forB2c);
