@@ -154,13 +154,13 @@ class TelegramInspector
 
                 $telegramLinkInspector = $this->telegramLinkInspector->inspect($link);
 
-                if ($telegramLinkInspector['status'] == 'ambiguous'){
-                    return $this->fail(
-                        $result,
-                        'RESOLVE_FAILED',
-                        'Chat or User does not exist'
-                    );
-                }
+//                if ($telegramLinkInspector['status'] == 'ambiguous'){
+//                    return $this->fail(
+//                        $result,
+//                        'RESOLVE_FAILED',
+//                        'Chat or User does not exist'
+//                    );
+//                }
 
                 if ($telegramLinkInspector['status'] == 'ok'  && in_array($telegramLinkInspector['entity_kind'], ['bot_start', 'bot_start_with_referral'], true)){
                     $result['ok'] = true;
