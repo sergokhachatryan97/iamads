@@ -88,6 +88,14 @@ return [
         'default_client_id' => env('EXTERNAL_ORDERS_DEFAULT_CLIENT_ID') ? (int) env('EXTERNAL_ORDERS_DEFAULT_CLIENT_ID') : null,
     ],
 
+    'heleket' => [
+        'base' => env('HELEKET_API_BASE', 'https://api.heleket.com'),
+        'merchant' => env('HELEKET_MERCHANT'),
+        'payment_key' => env('HELEKET_PAYMENT_KEY'),
+        'webhook_ip' => env('HELEKET_WEBHOOK_IP', '31.133.220.8'),
+        'enforce_webhook_ip' => env('HELEKET_ENFORCE_WEBHOOK_IP', true),
+    ],
+
     'provider' => [
         'base_url' => env('PROVIDER_BASE_URL'),
         'api_key' => env('PROVIDER_API_KEY'),

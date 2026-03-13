@@ -12,6 +12,25 @@
                 </div>
             @endif
 
+            {{-- Payment redirect status (balance credited only after webhook confirms) --}}
+            @if (isset($redirectStatus))
+                @if ($redirectStatus === 'success' && $payment)
+                    @if ($payment->status === 'paid')
+                        <div class="mb-4 p-4 bg-green-50 border border-green-200 rounded-md">
+                            <p class="text-sm text-green-800">{{ __('Payment confirmed. Your balance has been updated.') }}</p>
+                        </div>
+                    @else
+                        <div class="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-md">
+                            <p class="text-sm text-amber-800">{{ __('Payment received. Your balance will be updated shortly once confirmed.') }}</p>
+                        </div>
+                    @endif
+                @elseif ($redirectStatus === 'return' && $payment)
+                    <div class="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-md">
+                        <p class="text-sm text-gray-800">{{ __('You returned from the payment page. Complete the payment to add balance.') }}</p>
+                    </div>
+                @endif
+            @endif
+
             <form method="POST" action="{{ route('client.balance.store') }}" class="space-y-6">
                 @csrf
 

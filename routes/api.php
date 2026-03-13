@@ -1,11 +1,32 @@
 <?php
 
+use App\Http\Controllers\Api\Client\BalanceTopupController;
+use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\PaymentMethodsController;
+use App\Http\Controllers\Api\PaymentWebhookController;
 use App\Http\Controllers\Api\Provider\TelegramAccountSyncController;
 use App\Http\Controllers\Api\Provider\TelegramTaskClaimController;
 use App\Http\Controllers\Api\Provider\TelegramTaskPullController;
 use App\Http\Controllers\Api\Provider\TelegramTaskReportController;
 use App\Http\Controllers\External\ExternalOrderController;
 use Illuminate\Support\Facades\Route;
+
+// Payment methods (public)
+Route::get('payment-methods', [PaymentMethodsController::class, 'index'])
+    ->name('payment-methods.index');
+
+// Client balance top-up (auth:client required; client can only top up self)
+Route::post('clients/{client}/balance/topup', [BalanceTopupController::class, 'topup'])
+    ->middleware('auth:client')
+    ->name('clients.balance.topup');
+
+// Payment initiation
+Route::post('payments/{provider}/initiate', [PaymentController::class, 'initiate'])
+    ->name('payments.initiate');
+
+// Payment webhooks (no auth; validated by signature + IP)
+Route::post('webhooks/payments/{provider}', [PaymentWebhookController::class, 'handle'])
+    ->name('webhooks.payments.handle');
 
 // External Orders API (X-Client-Token auth)
 Route::prefix('external')->middleware('auth.external_client')->group(function () {
