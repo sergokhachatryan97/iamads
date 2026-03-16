@@ -271,13 +271,8 @@ class SocpanelValidateOrderJob implements ShouldQueue
                 'INVITE_HASH_INVALID',
                 'INVITE_HASH_EXPIRED',
                 'INVALID_FORMAT',
+                'PAID_MESSAGES',
             ];
-
-            if ($this->serviceId != 143){
-                $dependsFailCodes = [
-                    'PAID_MESSAGES',
-                ];
-            }
 
             $temporaryCodes = [
                 'MTPROTO_DEADLINE_EXCEEDED',
