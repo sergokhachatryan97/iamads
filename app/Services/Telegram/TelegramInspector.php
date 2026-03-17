@@ -18,7 +18,7 @@ class TelegramInspector
      * Inspect a Telegram link.
      * @param bool $forB2c When true, use only mtproto accounts with is_b2c=true (for InspectTelegramLinkJob).
      */
-    public function inspect(string $link, ?array $templateKey = [], bool $forB2c = false): array
+    public function inspect(string $link, ?array $templateKey = [], bool $forB2c = false, ?int $serviceId = null): array
     {
         $parsed = TelegramLinkParser::parse($link);
 
@@ -55,7 +55,7 @@ class TelegramInspector
          * =============================*/
         if (in_array($parsed['kind'], ['bot_start', 'bot_start_with_referral'], true)) {
             $username = $parsed['username'] ?? null;
-
+            $type = $parsed['type'] ?? null;
             if (!$username) {
                 return $this->fail($result, 'INVALID_FORMAT', 'Bot username not found in link');
             }
@@ -79,7 +79,26 @@ class TelegramInspector
                     'source' => 'parser_only',
                 ];
 
-                return $result;
+                if ($serviceId && !in_array($serviceId,[76, 77])) {
+                    try {
+                        $mt = $this->mtprotoPool->resolveIsBotByUsername($username, $forB2c);
+                        if (($mt['ok'] ?? false) === true) {
+                            // Normalize to same categories we need
+                            if (($mt['is_bot'] ?? false) === true) {
+                                $type = 'bot';
+                                $result['member_count'] =(isset($mt['participants_count']) ? (int)$mt['participants_count'] : null);
+                            } else {
+                                $t = (string)($mt['type'] ?? 'unknown');
+                                // your resolver returns: channel|supergroup|user|unknown...
+                                if (in_array($t, ['channel', 'supergroup', 'group'], true)) $type = $t;
+                                elseif ($t === 'user') $type = 'user';
+                            }
+                        }
+
+                    } catch (\Throwable $e) {}
+                }else{
+                    return $result;
+                }
             } else {
 
                 try {

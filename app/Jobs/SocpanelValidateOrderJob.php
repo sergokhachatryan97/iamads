@@ -257,7 +257,7 @@ class SocpanelValidateOrderJob implements ShouldQueue
             if (is_array($cached) && array_key_exists('ok', $cached)) {
                 $inspectionResult = $cached;
             } else {
-                $inspectionResult = $inspector->inspect($this->normalizedLink);
+                $inspectionResult = $inspector->inspect($this->normalizedLink, serviceId: $this->serviceId);
 
                 if (($inspectionResult['ok'] ?? false) === true) {
                     Cache::put($cacheKey, $inspectionResult, now()->addHours(4));
