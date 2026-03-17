@@ -24,6 +24,7 @@ class StoreCategoryRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:150', Rule::unique('categories', 'name')],
+            'link_driver' => ['required', 'string', 'in:telegram,youtube,max,whatsapp,instagram,facebook,url,generic'],
             'icon' => ['nullable', 'string'],
         ];
     }

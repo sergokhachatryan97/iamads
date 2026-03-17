@@ -257,7 +257,7 @@
                                                      class="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg py-1 border border-gray-200"
                                                      style="display: none; z-index: 9999;">
                                                     <a href="#"
-                                                       @click.prevent="openEditModal(@js(['id' => $category->id, 'name' => $category->name, 'icon' => $category->icon ?? ''])); open = false"
+                                                       @click.prevent="openEditModal(@js(['id' => $category->id, 'name' => $category->name, 'link_driver' => $category->link_driver ?? 'generic', 'icon' => $category->icon ?? ''])); open = false"
                                                        class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                                         Edit category
                                                     </a>
@@ -393,7 +393,7 @@
                                                         @endif
                                                     </span>
                                                 @endif
-                                                <span>{{ $service->name }}</span>
+                                                <span>{{ $service->getDisplayName() }}</span>
                                             </div>
                                         </td>
                                         <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">

@@ -17,6 +17,7 @@ class Category extends Model
      */
     protected $fillable = [
         'name',
+        'link_driver',
         'icon',
         'status',
     ];

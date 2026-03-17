@@ -162,6 +162,21 @@ class Service extends Model
     }
 
     /**
+     * Get the display name for tables/UI: template label if service has a template,
+     * otherwise the service name (default for that category).
+     *
+     * @return string
+     */
+    public function getDisplayName(): string
+    {
+        $template = $this->template();
+        if ($template && !empty($template['label'])) {
+            return $template['label'];
+        }
+        return $this->name ?? '';
+    }
+
+    /**
      * Determine executor for task execution: local MadelineProto vs remote provider pull.
      * manual => local_mtproto, provider => remote_provider. Default remote_provider.
      *

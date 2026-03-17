@@ -16,65 +16,7 @@
             </a>
         </div>
     </x-slot>
-
-    @php
-        $defaultMode = \App\Models\Service::MODE_DEFAULT;
-
-        $modeOptions = [
-            'manual' => 'Manual',
-            'provider' => 'Provider',
-        ];
-
-        $serviceTypeOptions = [
-            'default'         => 'Default',
-            'custom_comments' => 'Custom comments',
-        ];
-
-        $allowOptions = ['1' => 'Allow', '0' => 'Disallow'];
-        $yesNoOptions = ['1' => 'Yes', '0' => 'No'];
-
-        $countTypeOptions = [
-            'telegram_members'    => 'Telegram members',
-            'instagram_likes'     => 'Instagram likes',
-            'instagram_followers' => 'Instagram followers',
-            'youtube_views'       => 'YouTube views',
-        ];
-
-        // Get service templates for dropdown
-        $serviceTemplates = config('telegram_service_templates', []);
-
-        $templateOptions = [];
-        foreach ($serviceTemplates as $key => $template) {
-            $templateOptions[$key] = $template['label'] ?? $key;
-        }
-
-        // Target type options
-        $targetTypeOptions = [
-            'bot' => 'Bot',
-            'channel' => 'Channel/Group',
-//            'group' => 'Group',
-        ];
-
-        // Organize templates by target_type for filtering
-        $templatesByTargetType = [
-            'bot' => [],
-            'channel' => [],
-//            'group' => [],
-        ];
-        foreach ($serviceTemplates as $key => $template) {
-            $peerTypes = $template['allowed_peer_types'] ?? [];
-            if (in_array('bot', $peerTypes, true)) {
-                $templatesByTargetType['bot'][$key] = $template['label'] ?? $key;
-            }
-            if (in_array('channel', $peerTypes, true)) {
-                $templatesByTargetType['channel'][$key] = $template['label'] ?? $key;
-            }
-            if (in_array('group', $peerTypes, true) || in_array('supergroup', $peerTypes, true)) {
-                $templatesByTargetType['group'][$key] = $template['label'] ?? $key;
-            }
-        }
-    @endphp
-
+    
     <div class="py-6">
         <div class="max-w-[95%] mx-auto sm:px-6 lg:px-8">
 
@@ -183,56 +125,57 @@
                                         @enderror
                                     </div>
 
-                                    {{-- Target Type --}}
-                                    <div>
-                                        <label for="target_type" class="block text-sm font-medium text-gray-700 mb-1.5">
-                                            {{ __('Target Type') }} <span class="text-red-500">*</span>
-                                        </label>
-                                        <select
-                                            name="target_type"
-                                            id="target_type"
-                                            x-model="targetType"
-                                            @change="filterTemplatesByTargetType()"
-                                            required
-                                            class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('target_type') border-red-300 @enderror">
-                                            <option value="">{{ __('Select target type') }}</option>
-                                            @foreach($targetTypeOptions as $key => $label)
-                                                <option value="{{ $key }}" {{ old('target_type', isset($service) ? ($service->target_type ?? '') : '') == $key ? 'selected' : '' }}>
-                                                    {{ $label }}
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                        @error('target_type')
-                                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                                        @enderror
-                                        <p class="mt-1 text-xs text-gray-500">
-                                            {{ __('Select bot, channel, or group for this service') }}
-                                        </p>
-                                    </div>
+                                    {{-- Target Type & Template (only for categories with service templates, e.g. Telegram) --}}
+                                    <div x-show="categoryHasTemplates" x-cloak class="md:col-span-2 space-y-4">
+                                        <div>
+                                            <label for="target_type" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                                {{ __('Target Type') }} <span class="text-red-500">*</span>
+                                            </label>
+                                            <select
+                                                name="target_type"
+                                                id="target_type"
+                                                x-model="targetType"
+                                                @change="filterTemplatesByTargetType()"
+                                                :required="categoryHasTemplates"
+                                                class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('target_type') border-red-300 @enderror">
+                                                <option value="">{{ __('Select target type') }}</option>
+                                                @foreach($targetTypeOptions as $key => $label)
+                                                    <option value="{{ $key }}" {{ old('target_type', isset($service) ? ($service->target_type ?? '') : '') == $key ? 'selected' : '' }}>
+                                                        {{ $label }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                            @error('target_type')
+                                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                                            @enderror
+                                            <p class="mt-1 text-xs text-gray-500">
+                                                {{ __('Select bot, channel, or group for this service') }}
+                                            </p>
+                                        </div>
 
-                                    {{-- Template (required for Telegram services, filtered by target_type) --}}
-                                    <div>
-                                        <label for="template_key" class="block text-sm font-medium text-gray-700 mb-1.5">
-                                            {{ __('Service Template') }} <span class="text-red-500">*</span>
-                                        </label>
-                                        <select
-                                            name="template_key"
-                                            id="template_key"
-                                            x-model="selectedTemplate"
-                                            @change="updateTemplateInfo()"
-                                            :required="targetType"
-                                            class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('template_key') border-red-300 @enderror">
-                                            <option value="">{{ __('Select a template') }}</option>
-                                            <template x-for="[key, label] in Object.entries(filteredTemplates)" :key="key">
-                                                <option :value="key" :selected="selectedTemplate === key" x-text="label"></option>
-                                            </template>
-                                        </select>
-                                        @error('template_key')
-                                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                                        @enderror
-                                        <p class="mt-1 text-xs text-gray-500">
-                                            {{ __('Select a template that defines action and policy. Cannot be changed after creation.') }}
-                                        </p>
+                                        <div>
+                                            <label for="template_key" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                                {{ __('Service Template') }} <span class="text-red-500">*</span>
+                                            </label>
+                                            <select
+                                                name="template_key"
+                                                id="template_key"
+                                                x-model="selectedTemplate"
+                                                @change="updateTemplateInfo()"
+                                                :required="categoryHasTemplates && targetType"
+                                                class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('template_key') border-red-300 @enderror">
+                                                <option value="">{{ __('Select a template') }}</option>
+                                                <template x-for="[key, label] in Object.entries(filteredTemplates)" :key="key">
+                                                    <option :value="key" :selected="selectedTemplate === key" x-text="label"></option>
+                                                </template>
+                                            </select>
+                                            @error('template_key')
+                                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                                            @enderror
+                                            <p class="mt-1 text-xs text-gray-500">
+                                                {{ __('Select a template that defines action and policy. Cannot be changed after creation.') }}
+                                            </p>
+                                        </div>
                                     </div>
 
                                     {{-- Duration Days (conditional on template) --}}
@@ -956,6 +899,12 @@
     <script>
         function serviceCreateForm() {
             return {
+                categoryIdsWithTemplates: @js($categoryIdsWithTemplates),
+                categoryId: @js(old('category_id', isset($service) ? (string) ($service->category_id ?? '') : '')),
+                get categoryHasTemplates() {
+                    if (!this.categoryId) return false;
+                    return this.categoryIdsWithTemplates.includes(Number(this.categoryId));
+                },
                 denyDuplicates: @js(old('deny_link_duplicates', isset($service) ? (string) (int) ($service->deny_link_duplicates ?? false) : '0')),
                 parsingEnabled: @js(old('start_count_parsing_enabled', isset($service) ? (string) (int) ($service->start_count_parsing_enabled ?? false) : '0')),
                 targetType: @js(old('target_type', isset($service) ? ($service->target_type ?? '') : '')),
@@ -977,7 +926,33 @@
                 requiredSubscriptionTemplate: @js(old('required_subscription_template_key', isset($service) ? ($service->required_subscription_template_key ?? '') : '')),
                 subscriptionTemplates: {},
 
+                onCategoryChange() {
+                    const input = document.querySelector('input[name="category_id"]');
+                    const val = input ? input.value : '';
+                    this.categoryId = val || '';
+                    if (!this.categoryHasTemplates) {
+                        this.targetType = '';
+                        this.selectedTemplate = '';
+                        this.filteredTemplates = {};
+                        this.templatePreview = null;
+                        this.templateRequiresDuration = false;
+                        const targetSelect = document.getElementById('target_type');
+                        const templateSelect = document.getElementById('template_key');
+                        if (targetSelect) targetSelect.value = '';
+                        if (templateSelect) templateSelect.value = '';
+                    }
+                },
+
                 init() {
+                    // Set initial category state and listen for category changes
+                    this.$nextTick(() => {
+                        this.onCategoryChange();
+                        const catInput = document.querySelector('input[name="category_id"]');
+                        if (catInput) {
+                            catInput.addEventListener('change', () => this.onCategoryChange());
+                        }
+                    });
+
                     // Filter templates by target_type if set (important for edit mode)
                     if (this.targetType) {
                         this.filterTemplatesByTargetType();
