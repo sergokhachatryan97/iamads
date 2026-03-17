@@ -3,21 +3,18 @@
 namespace App\Jobs;
 
 use App\Models\ProviderOrder;
+use App\Models\ProviderService;
 use App\Services\Providers\SocpanelClient;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Client\ConnectionException;
 
-/**
- * Syncs completed orders from Socpanel API into provider_orders.
- * API returns { count, items } with offset/limit pagination; items have id, charge, remains, status, service_id, user.{id,login}, etc.
- */
 class SyncCompletedProviderOrdersJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
@@ -28,10 +25,11 @@ class SyncCompletedProviderOrdersJob implements ShouldQueue
 
     private const LOCK_KEY = 'jobs:sync-completed-provider-orders';
     private const LOCK_TTL = 900;
-    private const LAST_SEEN_KEY = 'socpanel:sync-completed:last_seen_id';
+
+    private const LAST_SEEN_KEY_PREFIX = 'socpanel:sync-completed:last_seen_id:';
     private const LAST_SEEN_TTL_DAYS = 30;
-    private const PAGE_LIMIT = 100;
-    private const MAX_PAGES_PER_RUN = 100;
+
+    private const PAGE_LIMIT = 50;
 
     public function handle(SocpanelClient $client): void
     {
@@ -43,78 +41,114 @@ class SyncCompletedProviderOrdersJob implements ShouldQueue
 
         try {
             $providerCode = $this->getProviderCode();
-            $lastSeenId = Cache::get(self::LAST_SEEN_KEY);
-            $dateFrom = now()->startOfDay()->format('Y-m-d');
-            $dateTo = now()->endOfDay()->format('Y-m-d');
+            $providerServices = $this->getProviderServices();
+            $todayStart = now()->startOfDay();
 
-            $pages = 0;
-            $created = 0;
-            $updated = 0;
-            $seenIds = 0;
-            $offset = 0;
-            $newestId = null;
-            $lastPage = null;
+            if ($providerServices === []) {
+                Log::info('SyncCompletedProviderOrdersJob: no active provider services found', [
+                    'provider_code' => $providerCode,
+                ]);
+                return;
+            }
 
-            while ($pages < self::MAX_PAGES_PER_RUN) {
+            $totalCreated = 0;
+            $totalUpdated = 0;
+            $totalSeenIds = 0;
+
+            foreach ($providerServices as $providerServiceId) {
+                $lastSeenKey = $this->getLastSeenCacheKey($providerServiceId);
+                $lastSeenId = Cache::get($lastSeenKey);
+
+                $created = 0;
+                $updated = 0;
+                $seenIds = 0;
+                $newestId = null;
+                $page = null;
+
                 try {
-                    $page = $client->getCompletedOrdersPage($offset, self::PAGE_LIMIT, $dateFrom, $dateTo);
+                    $page = $client->getCompletedOrdersPage(
+                        0,
+                        self::PAGE_LIMIT,
+                        $providerServiceId
+                    );
                 } catch (ConnectionException $e) {
-                    Log::warning('SyncCompletedProviderOrdersJob: Socpanel API connection failed (timeout or unreachable), job will retry', [
+                    Log::warning('SyncCompletedProviderOrdersJob: Socpanel API connection failed, job will retry', [
                         'message' => $e->getMessage(),
-                        'offset' => $offset,
+                        'provider_service_id' => $providerServiceId,
                     ]);
                     throw $e;
                 }
-                $lastPage = $page;
-                $pages++;
 
                 $items = $page['items'] ?? [];
+
                 if (! is_array($items) || $items === []) {
-                    break;
+                    Log::info('SyncCompletedProviderOrdersJob: no completed items returned for service', [
+                        'provider_code' => $providerCode,
+                        'provider_service_id' => $providerServiceId,
+                    ]);
+                    continue;
                 }
 
                 $existingMap = $this->loadExistingMap($providerCode, $items);
-                $result = $this->processItems($items, $providerCode, $existingMap, $lastSeenId, now()->startOfDay());
+
+                $result = $this->processItems(
+                    items: $items,
+                    providerCode: $providerCode,
+                    existingMap: $existingMap,
+                    lastSeenId: $lastSeenId,
+                    todayStart: $todayStart
+                );
 
                 $created += $result['created'];
                 $updated += $result['updated'];
                 $seenIds += $result['seen_ids'];
-                if ($result['newest_id'] !== null) {
-                    $newestId = $result['newest_id'];
-                }
-                if ($result['reached_before_today']) {
-                    break;
+                $newestId = $result['newest_id'];
+
+                if ($newestId !== null) {
+                    Cache::put(
+                        $lastSeenKey,
+                        (string) $newestId,
+                        now()->addDays(self::LAST_SEEN_TTL_DAYS)
+                    );
                 }
 
-                $offset += count($items);
-                if (! ($page['has_more'] ?? false)) {
-                    break;
-                }
+                $totalCreated += $created;
+                $totalUpdated += $updated;
+                $totalSeenIds += $seenIds;
+
+                Log::info('SyncCompletedProviderOrdersJob: service run summary', [
+                    'provider_code' => $providerCode,
+                    'provider_service_id' => $providerServiceId,
+                    'total_in_api' => $page['count'] ?? null,
+                    'seen_ids' => $seenIds,
+                    'created' => $created,
+                    'updated' => $updated,
+                    'last_seen_old' => $lastSeenId,
+                    'last_seen_new' => $newestId,
+                    'stopped_by_last_seen' => $result['reached_last_seen'],
+                    'stopped_before_today' => $result['reached_before_today'],
+                ]);
             }
 
-            if ($newestId !== null) {
-                Cache::put(self::LAST_SEEN_KEY, (string) $newestId, now()->addDays(self::LAST_SEEN_TTL_DAYS));
-            }
-
-            Log::info('SyncCompletedProviderOrdersJob: run summary', [
-                'pages_attempted' => $pages,
-                'total_in_api' => $lastPage['count'] ?? null,
-                'seen_ids' => $seenIds,
-                'created' => $created,
-                'updated' => $updated,
-                'last_seen_old' => $lastSeenId,
-                'last_seen_new' => $newestId,
+            Log::info('SyncCompletedProviderOrdersJob: full run summary', [
+                'provider_code' => $providerCode,
+                'services_count' => count($providerServices),
+                'seen_ids' => $totalSeenIds,
+                'created' => $totalCreated,
+                'updated' => $totalUpdated,
             ]);
         } catch (\Throwable $e) {
             Log::error('SyncCompletedProviderOrdersJob: failed', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
+
             throw $e;
         } finally {
             try {
                 $lock->release();
             } catch (\Throwable) {
+                // no-op
             }
         }
     }
@@ -125,21 +159,45 @@ class SyncCompletedProviderOrdersJob implements ShouldQueue
     }
 
     /**
+     * @return array<int, string>
+     */
+    private function getProviderServices(): array
+    {
+        return ProviderService::query()
+            ->where('provider_code', $this->getProviderCode())
+            ->where('is_active', true)
+            ->pluck('remote_service_id')
+            ->filter(fn ($id) => $id !== null && $id !== '')
+            ->map(fn ($id) => (string) $id)
+            ->values()
+            ->all();
+    }
+
+    private function getLastSeenCacheKey(string $providerServiceId): string
+    {
+        return self::LAST_SEEN_KEY_PREFIX . $providerServiceId;
+    }
+
+    /**
      * @return array<string, int> remote_order_id => id
      */
     private function loadExistingMap(string $providerCode, array $items): array
     {
         $ids = [];
+
         foreach ($items as $it) {
             if (! is_array($it)) {
                 continue;
             }
+
             $id = (string) ($it['id'] ?? '');
             if ($id !== '') {
                 $ids[] = $id;
             }
         }
+
         $ids = array_values(array_unique($ids));
+
         if ($ids === []) {
             return [];
         }
@@ -152,7 +210,14 @@ class SyncCompletedProviderOrdersJob implements ShouldQueue
     }
 
     /**
-     * @return array{created: int, updated: int, seen_ids: int, newest_id: ?string, reached_before_today: bool}
+     * @return array{
+     *     created:int,
+     *     updated:int,
+     *     seen_ids:int,
+     *     newest_id:?string,
+     *     reached_before_today:bool,
+     *     reached_last_seen:bool
+     * }
      */
     private function processItems(
         array $items,
@@ -166,6 +231,7 @@ class SyncCompletedProviderOrdersJob implements ShouldQueue
         $seenIds = 0;
         $newestId = null;
         $reachedBeforeToday = false;
+        $reachedLastSeen = false;
 
         foreach ($items as $item) {
             if (! is_array($item)) {
@@ -177,18 +243,19 @@ class SyncCompletedProviderOrdersJob implements ShouldQueue
                 continue;
             }
 
-            $itemDate = $this->orderDateFromItem($item);
-            if ($itemDate !== null && $itemDate->lt($todayStart)) {
-                $reachedBeforeToday = true;
-                break;
-            }
-
             if ($newestId === null) {
                 $newestId = $remoteOrderId;
             }
 
             if ($lastSeenId !== null && $remoteOrderId === (string) $lastSeenId) {
-                continue;
+                $reachedLastSeen = true;
+                break;
+            }
+
+            $itemDate = $this->orderDateFromItem($item);
+            if ($itemDate !== null && $itemDate->lt($todayStart)) {
+                $reachedBeforeToday = true;
+                break;
             }
 
             $payload = $this->itemToPayload($item, $providerCode);
@@ -202,6 +269,7 @@ class SyncCompletedProviderOrdersJob implements ShouldQueue
                 ProviderOrder::query()
                     ->whereKey((int) $existingMap[$remoteOrderId])
                     ->update($payload);
+
                 $updated++;
             } else {
                 ProviderOrder::query()->create($payload);
@@ -215,12 +283,13 @@ class SyncCompletedProviderOrdersJob implements ShouldQueue
             'seen_ids' => $seenIds,
             'newest_id' => $newestId,
             'reached_before_today' => $reachedBeforeToday,
+            'reached_last_seen' => $reachedLastSeen,
         ];
     }
 
     /**
-     * Build provider_orders attributes from API item. Returns null if item is invalid.
-     * API fields: id, charge (string), start_count, status, remains (string), currency, service_id, user.{id, login}
+     * Build provider_orders attributes from API item.
+     * Returns null if item is invalid.
      */
     private function itemToPayload(array $item, string $providerCode): ?array
     {
@@ -230,17 +299,24 @@ class SyncCompletedProviderOrdersJob implements ShouldQueue
         }
 
         $remains = isset($item['remains']) ? (int) $item['remains'] : 0;
-        $quantity = array_key_exists('quantity', $item) ? (int) $item['quantity'] : $remains;
+        $quantity = array_key_exists('quantity', $item)
+            ? (int) $item['quantity']
+            : $remains;
+
         $charge = (isset($item['charge']) && is_numeric($item['charge']))
             ? (float) $item['charge']
             : 0.0;
 
         $user = $item['user'] ?? [];
         $userLogin = is_array($user) ? ($user['login'] ?? null) : null;
-        $userRemoteId = is_array($user) && isset($user['id']) ? (string) $user['id'] : null;
+        $userRemoteId = is_array($user) && isset($user['id'])
+            ? (string) $user['id']
+            : null;
+
+        $status = isset($item['status']) ? (string) $item['status'] : null;
 
         return [
-            'provider_code' => 'adtag',
+            'provider_code' => $providerCode,
             'remote_order_id' => $remoteOrderId,
             'remote_service_id' => isset($item['service_id']) ? (string) $item['service_id'] : null,
             'link' => trim((string) ($item['link'] ?? '')) ?: null,
@@ -253,25 +329,29 @@ class SyncCompletedProviderOrdersJob implements ShouldQueue
             'user_remote_id' => $userRemoteId,
             'provider_payload' => $item,
             'fetched_at' => now(),
-            'status' => isset($item['status']) ? (string) $item['status'] : null,
-            'remote_status' => isset($item['status']) ? (string) $item['status'] : null,
+            'status' => $status,
+            'remote_status' => $status,
         ];
     }
 
     private function orderDateFromItem(array $item): ?Carbon
     {
         $keys = ['created_at', 'date', 'completed_at', 'updated_at', 'created'];
+
         foreach ($keys as $key) {
-            $v = $item[$key] ?? null;
-            if ($v === null || $v === '') {
+            $value = $item[$key] ?? null;
+
+            if ($value === null || $value === '') {
                 continue;
             }
+
             try {
-                return Carbon::parse($v);
+                return Carbon::parse($value);
             } catch (\Throwable) {
                 continue;
             }
         }
+
         return null;
     }
 }

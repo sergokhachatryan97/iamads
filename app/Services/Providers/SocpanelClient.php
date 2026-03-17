@@ -63,13 +63,11 @@ class SocpanelClient
      *
      * @param int $offset Pagination offset (0-based)
      * @param int $limit Page size (1–100)
-     * @param string|null $dateFrom Optional Y-m-d
-     * @param string|null $dateTo Optional Y-m-d
      * @return array{items: array, count: int, has_more: bool}
      */
-    public function getCompletedOrdersPage(int $offset = 0, int $limit = 100, ?string $dateFrom = null, ?string $dateTo = null): array
+    public function getCompletedOrdersPage(int $offset = 0, int $limit = 100, ?int $providerServiceId = null): array
     {
-        return $this->getOrdersByStatusPage('completed', $offset, $limit, $dateFrom, $dateTo);
+        return $this->getOrdersByStatusPage('completed', $offset, $limit, $providerServiceId);
     }
 
     /**
@@ -78,27 +76,19 @@ class SocpanelClient
      * @param string $status e.g. 'completed', 'partial', 'active'
      * @param int $offset Pagination offset (0-based)
      * @param int $limit Page size (1–100)
-     * @param string|null $dateFrom Optional Y-m-d
-     * @param string|null $dateTo Optional Y-m-d
      * @return array{items: array, count: int, has_more: bool}
      */
-    public function getOrdersByStatusPage(string $status, int $offset = 0, int $limit = 100, ?string $dateFrom = null, ?string $dateTo = null): array
+    public function getOrdersByStatusPage(string $status, int $offset = 0, int $limit = 100, ?int $providerServiceId = null): array
     {
         $url = $this->baseUrl . '/getOrders';
 
         $payload = [
+            'service_id' => $providerServiceId,
             'token'  => $this->token,
             'status' => $status,
             'limit'  => max(1, min($limit, 100)),
             'offset' => max(0, $offset),
         ];
-
-        if ($dateFrom !== null && $dateFrom !== '') {
-            $payload['date_from'] = $dateFrom;
-        }
-        if ($dateTo !== null && $dateTo !== '') {
-            $payload['date_to'] = $dateTo;
-        }
 
         $response = Http::timeout($this->timeout)
             ->acceptJson()
