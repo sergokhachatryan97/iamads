@@ -96,6 +96,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(prepend: [
             \App\Http\Middleware\UseStaffSession::class,
         ]);
+        $middleware->web(append: [
+            \App\Http\Middleware\SetLocale::class,
+        ]);
 
         // Trust proxies to properly detect HTTPS when behind a proxy (e.g., ngrok)
         $middleware->trustProxies(at: '*');

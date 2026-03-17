@@ -32,6 +32,7 @@
 
             <!-- Settings Dropdown -->
             <div class="hidden sm:flex sm:items-center sm:ms-6 gap-4">
+                <x-language-dropdown />
                 <!-- Balance Display in Navbar -->
                 <div class="flex items-center gap-2">
                     <a href="{{ route('client.balance.add') }}"
@@ -93,6 +94,9 @@
 
     <!-- Responsive Navigation Menu -->
     <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden">
+        <div class="px-4 py-3 border-b border-gray-200">
+            <x-language-dropdown />
+        </div>
         <div class="pt-2 pb-3 space-y-1">
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                 {{ __('Dashboard') }}
