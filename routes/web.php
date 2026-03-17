@@ -27,11 +27,19 @@ use App\Http\Controllers\Staff\Auth\StaffEmailVerificationPromptController;
 use App\Http\Controllers\Staff\Auth\StaffVerifyEmailController;
 use App\Http\Middleware\BlockClientFromStaffRoutes;
 use App\Http\Middleware\UseStaffSession;
+use App\Jobs\SocpanelPollOrdersJob;
+use App\Http\Controllers\HomeController;
+use App\Http\Controllers\LocaleController;
+use App\Jobs\SocpanelValidateOrderJob;
+use App\Jobs\SyncValidatingProviderOrdersJob;
+use App\Services\Telegram\TelegramLinkInspector;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+Route::get('locale/{locale}', [LocaleController::class, 'switch'])->name('locale.switch');
+
+Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::get('/contacts', [HomeController::class, 'contacts'])->name('contacts');
+Route::post('/order/create-from-main', [HomeController::class, 'createOrder'])->name('home.create-order');
 
 // Client Dashboard
 Route::get('/dashboard', function () {
@@ -57,6 +65,7 @@ Route::middleware('guest')->group(function () {
 
 // Client Account Management
 Route::middleware('auth:client')->group(function () {
+    Route::get('order/complete', [HomeController::class, 'completeOrder'])->name('home.complete-order');
     Route::post('logout', [ClientAuthenticatedSessionController::class, 'destroy'])->name('logout');
 
     Route::get('account', [AccountController::class, 'edit'])->name('client.account.edit');
@@ -262,9 +271,20 @@ Route::get('/oauth/google/callback', [GoogleGmailOAuthController::class, 'callba
     ->name('oauth.google.callback');
 
 Route::get('test', function () {
-//    $a = app(\App\Services\Telegram\TelegramInspector::class);
-//    $a->inspect('https://t.me/tuiguangchanel/s/6');
+    $a = app(\App\Services\Telegram\TelegramInspector::class);
 
+    dd($a->inspect('https://t.me/Tele112bot', serviceId: 72));
+//        SocpanelPollOrdersJob::dispatch('active')
+//        ->onQueue('socpanel-poll');
+//       SyncValidatingProviderOrdersJob::dispatch('validating');
+
+//    $response = Http::timeout(10)->get("https://t.me/+V00qi57EDXIyMjIy");
+//    $html = $response->body();
+//    dd($html);
+//    $a = app(TelegramLinkInspector::class);
+//    $b = $a->inspect('https://t.me/FedRussianInsiders');
+//    dd($b);
+    SocpanelValidateOrderJob::dispatch(143, 'https://t.me/vhabar');
 });
 
 require __DIR__.'/auth.php';
