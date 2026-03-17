@@ -25,7 +25,7 @@ class SocpanelValidateOrderJob implements ShouldQueue
     public array $backoff = [10, 30, 60, 120, 300];
     private const SERVICE_RULES = [
 
-        143 => ['mode' => 'chat_link_only_public_or_private', 'allow' => ['channel','supergroup','group'], 'audience' => null],
+        143 => ['mode' => 'chat_link_only_public_or_private', 'allow' => ['channel'], 'audience' => ['subscribers']],
 
         // ✅ public post links - channel/supergroup ok
         86  => ['mode' => 'public_post', 'allow' => ['channel','supergroup'], 'audience' => null],
@@ -35,8 +35,8 @@ class SocpanelValidateOrderJob implements ShouldQueue
         // ✅ channel link mode:
         // accept: public channel, private channel invite, public group
         // reject: private group invite
-        118 => ['mode' => 'channel_link', 'allow' => ['channel','supergroup', 'group'], 'audience' => ['subscribers','members']],
-        119 => ['mode' => 'channel_link', 'allow' => ['channel','supergroup', 'group'], 'audience' => ['subscribers','members']],
+        118 => ['mode' => 'channel_link', 'allow' => ['channel'], 'audience' => ['subscribers']],
+        119 => ['mode' => 'channel_link', 'allow' => ['channel'], 'audience' => ['subscribers']],
         128 => ['mode' => 'channel_link', 'allow' => ['channel','supergroup'], 'audience' => ['subscribers','members']],
         129 => ['mode' => 'channel_link', 'allow' => ['channel','supergroup'], 'audience' => ['subscribers','members']],
         130 => ['mode' => 'channel_link', 'allow' => ['channel','supergroup'], 'audience' => ['subscribers','members']],
@@ -44,7 +44,7 @@ class SocpanelValidateOrderJob implements ShouldQueue
         146 => ['mode' => 'public_channel_link', 'allow' => ['channel','supergroup'], 'audience' => ['subscribers', 'members']],
 
 
-        72  => ['mode' => 'chat_link_only_public_or_private', 'allow' => ['channel','supergroup', 'group'], 'audience' => null],
+        72  => ['mode' => 'chat_link_only_public_or_private', 'allow' => ['channel'], 'audience' => ['subscribers']],
 
         // bots
         76  => ['mode' => 'bot_no_ref', 'allow' => ['bot'], 'audience' => null],
