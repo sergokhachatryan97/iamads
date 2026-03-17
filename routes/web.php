@@ -11,7 +11,6 @@ use App\Http\Controllers\Staff\UserController;
 use App\Http\Controllers\Staff\ClientController;
 use App\Http\Controllers\Staff\ClientLoginLogController;
 use App\Http\Controllers\Staff\ServiceController;
-use App\Http\Controllers\Admin\ServicesController as AdminServicesController;
 use App\Http\Controllers\Staff\ProviderOrderStatsController;
 use App\Http\Controllers\Staff\SocpanelModerationController;
 use App\Http\Controllers\Auth\AcceptInvitationController;
@@ -37,7 +36,10 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('locale/{locale}', [LocaleController::class, 'switch'])->name('locale.switch');
 
-Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::get('/', function () {
+    return view('welcome');
+});
+//Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/contacts', [HomeController::class, 'contacts'])->name('contacts');
 Route::post('/order/create-from-main', [HomeController::class, 'createOrder'])->name('home.create-order');
 
@@ -156,13 +158,6 @@ Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSess
         Route::get('users', [UserController::class, 'index'])->name('staff.users.index');
         Route::delete('users/{user}', [UserController::class, 'destroy'])->name('staff.users.destroy');
         Route::post('users/{user}/resend-verification', [UserController::class, 'resendVerification'])->name('staff.users.resend-verification');
-
-        // Admin Services Management
-        Route::prefix('admin')->group(function () {
-            Route::get('services', [AdminServicesController::class, 'index'])->name('admin.services.index');
-            Route::post('services', [AdminServicesController::class, 'store'])->name('admin.services.store');
-            Route::put('services/{service}', [AdminServicesController::class, 'update'])->name('admin.services.update');
-        });
 
         // Socpanel moderation: provider orders table (super admin only)
         Route::get('socpanel-moderation', [SocpanelModerationController::class, 'index'])->name('staff.socpanel-moderation.index');
