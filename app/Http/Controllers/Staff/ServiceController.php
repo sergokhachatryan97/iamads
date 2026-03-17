@@ -61,17 +61,9 @@ class ServiceController extends Controller
         ]);
     }
 
-    /**
-     * Show the form for creating a new service.
-     */
     public function create(): View
     {
-        $categories = $this->categoryService->getAllCategories();
-
-        return view('staff.services.create', [
-            'categories' => $categories,
-            'service' => null,
-        ]);
+        return view('staff.services.create', $this->getServiceFormData());
     }
 
     /**
@@ -79,13 +71,9 @@ class ServiceController extends Controller
      */
     public function edit(Service $service): View
     {
-        $categories = $this->categoryService->getAllCategories();
         $service->load('category');
 
-        return view('staff.services.create', [
-            'categories' => $categories,
-            'service' => $service,
-        ]);
+        return view('staff.services.create', $this->getServiceFormData($service));
     }
 
     /**
@@ -165,8 +153,8 @@ class ServiceController extends Controller
             $this->serviceService->deleteService($service);
 
             // Check if it's an AJAX request (check multiple conditions)
-            $isAjax = $request->wantsJson() 
-                || $request->ajax() 
+            $isAjax = $request->wantsJson()
+                || $request->ajax()
                 || $request->header('X-Requested-With') === 'XMLHttpRequest'
                 || $request->expectsJson();
 
@@ -181,8 +169,8 @@ class ServiceController extends Controller
                 ->with('status', 'service-deleted');
         } catch (\Exception $e) {
             // Check if it's an AJAX request
-            $isAjax = $request->wantsJson() 
-                || $request->ajax() 
+            $isAjax = $request->wantsJson()
+                || $request->ajax()
                 || $request->header('X-Requested-With') === 'XMLHttpRequest'
                 || $request->expectsJson();
 
@@ -272,251 +260,6 @@ class ServiceController extends Controller
         ]);
     }
 
-    /**
-     * Display services list for clients (view only, no actions).
-     */
-    public function clientIndex(): View
-    {
-        $filters = [
-            'search' => request()->get('search', ''),
-            'search_by' => 'service_name', // Only search by service name for clients
-            'status' => 'active', // Clients only see active services
-            'category_id' => request()->get('category_id'),
-            'sort' => request()->get('sort', 'id'),
-            'dir' => request()->get('dir', 'asc'),
-            'favorites_only' => request()->get('favorites_only', 0),
-        ];
-
-        // Get authenticated client for favorites
-        $client = auth('client')->user();
-        $favoriteServiceIds = ($client && $client instanceof \App\Models\Client) ? $client->favoriteServices()->get()->pluck('id')->toArray() : [];
-
-        // If favorites_only filter is enabled, add it to filters
-        if ($filters['favorites_only'] && !empty($favoriteServiceIds)) {
-            $filters['favorite_service_ids'] = $favoriteServiceIds;
-        } elseif ($filters['favorites_only'] && empty($favoriteServiceIds)) {
-            // User has no favorites, return empty result
-            return view('client.services.index', [
-                'categories' => collect(),
-                'categoriesList' => $this->categoryService->getAllCategories(),
-                'filters' => $filters,
-                'favoriteServiceIds' => [],
-            ]);
-        }
-
-        $categories = $this->categoryService->getAllCategoriesWithServices($filters);
-
-        // Filter out categories with no active services
-        $categories = $categories->filter(function ($category) {
-            return $category->services->where('is_active', true)->isNotEmpty();
-        })->values();
-
-        // Apply favorites filter if enabled
-        if ($filters['favorites_only'] && !empty($favoriteServiceIds)) {
-            $categories = $categories->map(function ($category) use ($favoriteServiceIds) {
-                $category->services = $category->services->where('is_active', true)
-                    ->filter(function ($service) use ($favoriteServiceIds) {
-                        return in_array($service->id, $favoriteServiceIds);
-                    })->values();
-                return $category;
-            })->filter(function ($category) {
-                return $category->services->isNotEmpty();
-            })->values();
-        } else {
-            // Only show active services
-            $categories = $categories->map(function ($category) {
-                $category->services = $category->services->where('is_active', true)->values();
-                return $category;
-            });
-        }
-
-        // Add is_favorited flag and client pricing to each service
-        $pricingService = app(\App\Services\PricingService::class);
-        if ($client) {
-            $categories = $categories->map(function ($category) use ($favoriteServiceIds, $client, $pricingService) {
-                $category->services = $category->services->map(function ($service) use ($favoriteServiceIds, $client, $pricingService) {
-                    $service->is_favorited = in_array($service->id, $favoriteServiceIds);
-                    
-                    // Calculate client-specific price
-                    $service->client_price = $pricingService->priceForClient($service, $client);
-                    
-                    // Check if client has custom rate for this service
-                    $clientRates = is_array($client->rates) ? $client->rates : [];
-                    $rateData = $clientRates[$service->id] ?? $clientRates[(string)$service->id] ?? null;
-                    $service->has_custom_rate = false;
-                    $service->custom_rate_type = null;
-                    $service->custom_rate_value = null;
-                    
-                    if ($rateData && is_array($rateData) && isset($rateData['type']) && isset($rateData['value'])) {
-                        $service->has_custom_rate = true;
-                        $service->custom_rate_type = $rateData['type'];
-                        $service->custom_rate_value = (float)$rateData['value'];
-                    }
-                    
-                    return $service;
-                });
-                return $category;
-            });
-        }
-
-        // Get all categories and filter to only show enabled ones with active services
-        $allCategories = $this->categoryService->getAllCategories();
-        $categoriesList = $allCategories->filter(function ($category) {
-            // Only include categories that are enabled
-            if (!($category->status ?? true)) {
-                return false;
-            }
-            // Only include categories that have at least one active service
-            return $category->services()->where('is_active', true)->exists();
-        })->values();
-
-        return view('client.services.index', [
-            'categories' => $categories,
-            'categoriesList' => $categoriesList,
-            'filters' => $filters,
-            'favoriteServiceIds' => $favoriteServiceIds,
-        ]);
-    }
-
-    /**
-     * Search services for clients (AJAX).
-     */
-    public function clientSearch(Request $request): JsonResponse
-    {
-        $filters = [
-            'search' => $request->get('search', ''),
-            'search_by' => 'service_name', // Only search by service name for clients
-            'status' => 'active', // Clients only see active services
-            'category_id' => $request->get('category_id'),
-            'sort' => $request->get('sort', 'id'),
-            'dir' => $request->get('dir', 'asc'),
-            'favorites_only' => $request->get('favorites_only', 0),
-        ];
-
-        // Get authenticated client for favorites
-        $client = auth('client')->user();
-        $favoriteServiceIds = ($client && $client instanceof \App\Models\Client) ? $client->favoriteServices()->get()->pluck('id')->toArray() : [];
-
-        // If favorites_only filter is enabled, add it to filters
-        if ($filters['favorites_only'] && !empty($favoriteServiceIds)) {
-            $filters['favorite_service_ids'] = $favoriteServiceIds;
-        } elseif ($filters['favorites_only'] && empty($favoriteServiceIds)) {
-            // User has no favorites, return empty result
-            $html = view('client.services.partials.services-list', [
-                'categories' => collect(),
-                'favoriteServiceIds' => [],
-            ])->render();
-
-            return response()->json([
-                'html' => $html,
-                'count' => 0,
-            ]);
-        }
-
-        $categories = $this->categoryService->getAllCategoriesWithServices($filters);
-
-        // Filter out categories with no active services
-        $categories = $categories->filter(function ($category) {
-            return $category->services->where('is_active', true)->isNotEmpty();
-        })->values();
-
-        // Apply favorites filter if enabled
-        if ($filters['favorites_only'] && !empty($favoriteServiceIds)) {
-            $categories = $categories->map(function ($category) use ($favoriteServiceIds) {
-                $category->services = $category->services->where('is_active', true)
-                    ->filter(function ($service) use ($favoriteServiceIds) {
-                        return in_array($service->id, $favoriteServiceIds);
-                    })->values();
-                return $category;
-            })->filter(function ($category) {
-                return $category->services->isNotEmpty();
-            })->values();
-        } else {
-            // Only show active services
-            $categories = $categories->map(function ($category) {
-                $category->services = $category->services->where('is_active', true)->values();
-                return $category;
-            });
-        }
-
-        // Add is_favorited flag and client pricing to each service
-        $pricingService = app(\App\Services\PricingService::class);
-        if ($client) {
-            $categories = $categories->map(function ($category) use ($favoriteServiceIds, $client, $pricingService) {
-                $category->services = $category->services->map(function ($service) use ($favoriteServiceIds, $client, $pricingService) {
-                    $service->is_favorited = in_array($service->id, $favoriteServiceIds);
-                    
-                    // Calculate client-specific price
-                    $service->client_price = $pricingService->priceForClient($service, $client);
-                    
-                    // Check if client has custom rate for this service
-                    $clientRates = is_array($client->rates) ? $client->rates : [];
-                    $rateData = $clientRates[$service->id] ?? $clientRates[(string)$service->id] ?? null;
-                    $service->has_custom_rate = false;
-                    $service->custom_rate_type = null;
-                    $service->custom_rate_value = null;
-                    
-                    if ($rateData && is_array($rateData) && isset($rateData['type']) && isset($rateData['value'])) {
-                        $service->has_custom_rate = true;
-                        $service->custom_rate_type = $rateData['type'];
-                        $service->custom_rate_value = (float)$rateData['value'];
-                    }
-                    
-                    return $service;
-                });
-                return $category;
-            });
-        }
-
-        // Return HTML for the filtered categories/services (client view)
-        $html = view('client.services.partials.services-list', [
-            'categories' => $categories,
-            'favoriteServiceIds' => $favoriteServiceIds,
-        ])->render();
-
-        return response()->json([
-            'html' => $html,
-            'count' => $categories->sum(fn($cat) => $cat->services->count()),
-        ]);
-    }
-
-    /**
-     * Toggle favorite status for a service (Client favorites only).
-     */
-    public function toggleFavorite(Request $request, Service $service): JsonResponse
-    {
-        // Get authenticated client
-        $client = auth('client')->user();
-
-        if (!$client || !($client instanceof \App\Models\Client)) {
-            return response()->json(['ok' => false, 'error' => 'Unauthorized'], 401);
-        }
-
-        // Ensure service is active (security check)
-        if (!$service->is_active) {
-            return response()->json(['ok' => false, 'error' => 'Service is not available'], 403);
-        }
-
-        // Handle client favorites
-        $isFavorite = $client->favoriteServices()->where('service_id', $service->id)->exists();
-
-        if ($isFavorite) {
-            $client->favoriteServices()->detach($service->id);
-            $favorited = false;
-        } else {
-            $client->favoriteServices()->attach($service->id);
-            $favorited = true;
-        }
-
-        return response()->json([
-            'ok' => true,
-            'favorited' => $favorited,
-        ]);
-    }
-
-    /**
-     * Restore a soft-deleted service.
-     */
     public function restore(Request $request, int $serviceId): RedirectResponse|JsonResponse
     {
         try {
@@ -543,5 +286,89 @@ class ServiceController extends Controller
             return redirect()->route('staff.services.index')
                 ->with('error', __('Failed to restore service. Please try again.'));
         }
+    }
+
+    private function getServiceFormData(?Service $service = null): array
+    {
+        $categories = $this->categoryService->getAllCategories();
+        $serviceTemplates = config('telegram_service_templates', []);
+
+        return [
+            'categories' => $categories,
+            'service' => $service,
+            'defaultMode' => Service::MODE_DEFAULT,
+
+            'modeOptions' => [
+                'manual' => 'Manual',
+                'provider' => 'Provider',
+            ],
+
+            'serviceTypeOptions' => [
+                'default' => 'Default',
+                'custom_comments' => 'Custom comments',
+            ],
+
+            'allowOptions' => [
+                '1' => 'Allow',
+                '0' => 'Disallow',
+            ],
+
+            'yesNoOptions' => [
+                '1' => 'Yes',
+                '0' => 'No',
+            ],
+
+            'countTypeOptions' => [
+                'telegram_members' => 'Telegram members',
+                'instagram_likes' => 'Instagram likes',
+                'instagram_followers' => 'Instagram followers',
+                'youtube_views' => 'YouTube views',
+            ],
+
+            'targetTypeOptions' => [
+                'bot' => 'Bot',
+                'channel' => 'Channel/Group',
+            ],
+
+            'serviceTemplates' => $serviceTemplates,
+            'templatesByTargetType' => $this->buildTemplatesByTargetType($serviceTemplates),
+            'categoryIdsWithTemplates' => $this->getCategoryIdsWithTemplates($categories),
+        ];
+    }
+
+    private function buildTemplatesByTargetType(array $serviceTemplates): array
+    {
+        $templatesByTargetType = [
+            'bot' => [],
+            'channel' => [],
+        ];
+
+        foreach ($serviceTemplates as $key => $template) {
+            $peerTypes = $template['allowed_peer_types'] ?? [];
+
+            if (in_array('bot', $peerTypes, true)) {
+                $templatesByTargetType['bot'][$key] = $template['label'] ?? $key;
+            }
+
+            if (
+                in_array('channel', $peerTypes, true) ||
+                in_array('group', $peerTypes, true) ||
+                in_array('supergroup', $peerTypes, true)
+            ) {
+                $templatesByTargetType['channel'][$key] = $template['label'] ?? $key;
+            }
+        }
+
+        return $templatesByTargetType;
+    }
+    private function getCategoryIdsWithTemplates($categories): array
+    {
+        return collect($categories)
+            ->filter(function ($category) {
+                return stripos($category->link_driver ?? '', 'telegram') !== false;
+            })
+            ->pluck('id')
+            ->values()
+            ->all();
     }
 }

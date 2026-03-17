@@ -372,6 +372,24 @@
                                 @enderror
                             </div>
                         </div>
+
+                        <!-- Link Validation Type -->
+                        <div>
+                            <label for="category_link_driver" class="block text-sm font-medium text-gray-700 mb-1">
+                                {{ __('Link Validation Type') }} <span class="text-red-500">*</span>
+                            </label>
+                            <select name="link_driver"
+                                    id="category_link_driver"
+                                    required
+                                    class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('link_driver') border-red-300 @enderror">
+                                @foreach(['telegram' => 'telegram', 'youtube' => 'youtube', 'max' => 'max', 'whatsapp' => 'whatsapp', 'tiktok' => 'tiktok', 'instagram' => 'instagram', 'facebook' => 'facebook', 'url' => 'url', 'generic' => 'generic'] as $value => $label)
+                                    <option value="{{ $value }}" {{ old('link_driver', 'generic') === $value ? 'selected' : '' }}>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                            @error('link_driver')
+                                <p class="text-sm text-red-600 mt-1">{{ $message }}</p>
+                            @enderror
+                        </div>
                     </div>
 
                     <div class="mt-6 flex justify-end gap-3">
@@ -488,6 +506,28 @@
                                            class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                                            placeholder="{{ __('Enter category name') }}">
                                 </div>
+                            </div>
+
+                            <!-- Link Validation Type -->
+                            <div>
+                                <label for="edit_category_link_driver" class="block text-sm font-medium text-gray-700 mb-1">
+                                    {{ __('Link Validation Type') }} <span class="text-red-500">*</span>
+                                </label>
+                                <select name="link_driver"
+                                        id="edit_category_link_driver"
+                                        x-model="editingCategory.link_driver"
+                                        required
+                                        class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                    <option value="telegram">telegram</option>
+                                    <option value="youtube">youtube</option>
+                                    <option value="max">max</option>
+                                    <option value="whatsapp">whatsapp</option>
+                                    <option value="tiktok">tiktok</option>
+                                    <option value="instagram">instagram</option>
+                                    <option value="facebook">facebook</option>
+                                    <option value="url">url</option>
+                                    <option value="generic">generic</option>
+                                </select>
                             </div>
                         </div>
 
@@ -1117,6 +1157,9 @@
                     },
                 openEditModal(category) {
                     this.editingCategory = Object.assign({}, category);
+                    if (!this.editingCategory.link_driver) {
+                        this.editingCategory.link_driver = 'generic';
+                    }
                     this.openEditCategoryModal = true;
                     this.$nextTick(() => {
                         const iconInput = this.$refs.editIconPickerContainer?.querySelector('input[type=hidden][name=icon]');
