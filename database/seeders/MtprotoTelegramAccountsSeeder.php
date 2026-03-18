@@ -10,26 +10,10 @@ class MtprotoTelegramAccountsSeeder extends Seeder
     public function run(): void
     {
         $accounts = [
-            'acc_001',
-            'acc_002',
-            'acc_003',
-            'acc_004',
-            'acc_005',
-            'acc_006',
-            'acc_007',
-            'acc_008',
-            'acc_009',
-            'acc_010',
-            'acc_011',
-            'acc_012',
-            'acc_013',
-            'acc_014',
-            'acc_015',
-            'acc_016',
-            'acc_017',
-            'acc_018',
-            'acc_019',
-            'acc_020',
+            'acc_001', 'acc_002', 'acc_003', 'acc_004', 'acc_005', 'acc_006', 'acc_007', 'acc_008',
+            'acc_009', 'acc_010', 'acc_011', 'acc_012', 'acc_013', 'acc_014', 'acc_015', 'acc_016',
+            'acc_017', 'acc_018', 'acc_019', 'acc_020', 'acc_021','acc_022','acc_023','acc_024',
+            'acc_025', 'acc_026','acc_027','acc_028','acc_029', 'acc_030', 'acc_031', 'acc_032',
         ];
 
         foreach ($accounts as $name) {
