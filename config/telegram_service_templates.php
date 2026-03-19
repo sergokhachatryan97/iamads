@@ -75,16 +75,16 @@ return [
     ],
 
 
-    'subscribe_private_public_channel_group' => [
-        'label' => 'Subscribe Private, Public TG Channel And Group Live Time',
-        'action' => 'subscribe',
-        'policy_key' => 'default',
-        'allowed_link_kinds' => ['public_username','invite'],
-        'allowed_peer_types' => ['channel', 'group'],
-        'requires_duration_days' => false,
-        'requires_start_param' => false,
-        'default_priority' => 60,
-    ],
+//    'subscribe_private_public_channel_group' => [
+//        'label' => 'Subscribe Private, Public TG Channel And Group Live Time',
+//        'action' => 'subscribe',
+//        'policy_key' => 'default',
+//        'allowed_link_kinds' => ['public_username','invite'],
+//        'allowed_peer_types' => ['channel', 'group'],
+//        'requires_duration_days' => false,
+//        'requires_start_param' => false,
+//        'default_priority' => 60,
+//    ],
 
     'real_channel_subscribe_from_search' => [
         'label' => 'Real TG Channel Subscribe From Search Live Time',
@@ -97,16 +97,16 @@ return [
         'default_priority' => 60,
     ],
 
-//    'channel_subscribe_daily' => [
-//        'label' => 'Channel Subscribe (Public, Daily)',
-//        'action' => 'subscribe',
-//        'policy_key' => 'sub_public',
-//        'allowed_link_kinds' => ['public_username'],
-//        'allowed_peer_types' => ['channel'],
-//        'requires_duration_days' => true,
-//        'requires_start_param' => false,
-//        'default_priority' => 60,
-//    ],
+    'channel_subscribe_daily' => [
+        'label' => 'Channel Subscribe (Public, Daily)',
+        'action' => 'subscribe',
+        'policy_key' => 'sub_public',
+        'allowed_link_kinds' => ['public_username'],
+        'allowed_peer_types' => ['channel'],
+        'requires_duration_days' => true,
+        'requires_start_param' => false,
+        'default_priority' => 60,
+    ],
 
     // ------------------------------------------------------------
     // POST VIEWS / REACTIONS / COMMENTS (PUBLIC CHANNEL POSTS)
@@ -199,14 +199,14 @@ return [
         'default_priority' => 50,
     ],
 
-    'invite_subscribers_from_other_channel' => [
-        'label' => 'Invite Subscribers From Other Channel',
-        'action' => 'invite_subscribers',
-        'policy_key' => 'invite_subscribers',
-        'allowed_link_kinds' => ['public_username', 'invite'],
-        'allowed_peer_types' => ['channel'],
-        'requires_duration_days' => false,
-        'requires_start_param' => false,
-        'default_priority' => 50,
-    ],
+//    'invite_subscribers_from_other_channel' => [
+//        'label' => 'Invite Subscribers From Other Channel',
+//        'action' => 'invite_subscribers',
+//        'policy_key' => 'invite_subscribers',
+//        'allowed_link_kinds' => ['public_username', 'invite'],
+//        'allowed_peer_types' => ['channel'],
+//        'requires_duration_days' => false,
+//        'requires_start_param' => false,
+//        'default_priority' => 50,
+//    ],
 ];
