@@ -239,13 +239,3 @@ GET /api/provider/youtube/orders-list?api_token=your_token
 - Always call `/check` or `/ignore` when done
 
 ---
-
-## Actions
-
-| Action | Description |
-|--------|-------------|
-| `view` | Watch video (views) |
-| `subscribe` | Subscribe to channel |
-| `comment` | Post comment |
-| `react` | Add reaction (like/dislike) |
-| etc. | Other actions from order config |

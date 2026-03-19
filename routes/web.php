@@ -285,7 +285,165 @@ Route::get('test', function () {
 //    $b = $a->inspect('https://t.me/FedRussianInsiders');
 //    dd($b);
 //    SocpanelValidateOrderJob::dispatch(143, 'https://t.me/vhabar');
-
+   $a = inspectMaxLink('https://max.ru/trends_money/AZzeDxHGEqM');
+   dd($a);
 });
+
+
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
+
+function inspectMaxLink(string $input): array
+{
+    // 1. Normalize
+    $url = trim(html_entity_decode($input, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+
+    if ($url === '') {
+        return ['status' => 'invalid', 'error' => 'Empty input'];
+    }
+
+    if (!Str::startsWith($url, ['http://', 'https://'])) {
+        $url = 'https://' . ltrim($url, '/');
+    }
+
+    $result = [
+        'input' => $input,
+        'normalized_url' => $url,
+        'is_valid' => false,
+        'status' => 'invalid',
+        'link_kind' => 'unknown',
+        'entity_kind' => 'unknown',
+        'identifier' => null,
+        'payload' => null,
+        'http_status' => null,
+        'title' => null,
+        'description' => null,
+    ];
+
+    // 2. Host check
+    $host = parse_url($url, PHP_URL_HOST);
+    if (!in_array($host, ['max.ru', 'www.max.ru'])) {
+        return $result;
+    }
+
+    // 3. Detect type
+    if (preg_match('~max\.ru/([A-Za-z0-9_\.]+)\?start=([^#&]+)~i', $url, $m)) {
+        $result['link_kind'] = 'bot_start';
+        $result['entity_kind'] = 'bot';
+        $result['identifier'] = $m[1];
+        $result['payload'] = $m[2];
+    } elseif (preg_match('~max\.ru/([A-Za-z0-9_\.]+)\?startapp~i', $url, $m)) {
+        $result['link_kind'] = 'miniapp';
+        $result['entity_kind'] = 'bot';
+        $result['identifier'] = $m[1];
+    } elseif (preg_match('~max\.ru/:share~i', $url)) {
+        $result['link_kind'] = 'share';
+    } elseif (preg_match('~max\.ru/([A-Za-z0-9_\.]+)~i', $url, $m)) {
+        $result['link_kind'] = 'entity';
+        $result['identifier'] = $m[1];
+    } else {
+        return $result;
+    }
+
+    // 4. HTTP request
+    try {
+        $response = Http::timeout(15)
+            ->withHeaders([
+                'User-Agent' => 'Mozilla/5.0',
+            ])
+            ->get($url);
+
+        $result['http_status'] = $response->status();
+
+        $html = $response->body();
+        $htmlLower = mb_strtolower($html, 'UTF-8');
+
+        // 5. Extract title
+        if (preg_match('~<title[^>]*>(.*?)</title>~is', $html, $m)) {
+            $result['title'] = trim(strip_tags($m[1]));
+        }
+
+        // 6. Extract description
+        if (preg_match('~<meta[^>]+property=["\']og:description["\'][^>]+content=["\']([^"\']+)["\']~i', $html, $m)) {
+            $result['description'] = $m[1];
+        }
+
+        $combined = mb_strtolower(
+            ($result['title'] ?? '') . ' ' . ($result['description'] ?? ''),
+            'UTF-8'
+        );
+
+        // 7. ENTITY DETECTION (🔥 սա ամենակարևորն է)
+
+        if (
+            str_contains($combined, 'канал') ||
+            str_contains($combined, 'channel') ||
+            preg_match('~\d+\s*(подпис|subscriber)~i', $combined)
+        ) {
+            $result['entity_kind'] = 'channel';
+        } elseif (
+            str_contains($combined, 'бот') ||
+            str_contains($combined, 'bot') ||
+            str_contains($combined, 'start')
+        ) {
+            $result['entity_kind'] = 'bot';
+        } elseif (
+            str_contains($combined, 'звон') ||
+            str_contains($combined, 'call')
+        ) {
+            $result['entity_kind'] = 'call';
+        } elseif ($result['identifier']) {
+            $result['entity_kind'] = 'user';
+        }
+
+        // 8. STATUS DETECTION
+
+        if (in_array($result['http_status'], [404, 410])) {
+            $result['status'] = 'not_found';
+            return $result;
+        }
+
+        if (
+            str_contains($htmlLower, 'expired') ||
+            str_contains($htmlLower, 'истек') ||
+            str_contains($htmlLower, 'недейств')
+        ) {
+            $result['status'] = 'expired';
+            return $result;
+        }
+
+        if (
+            str_contains($htmlLower, 'deleted') ||
+            str_contains($htmlLower, 'удален')
+        ) {
+            $result['status'] = 'deleted';
+            return $result;
+        }
+
+        if (
+            str_contains($htmlLower, 'login') ||
+            str_contains($htmlLower, 'авториза')
+        ) {
+            $result['status'] = 'restricted';
+            return $result;
+        }
+
+        // 9. SUCCESS
+        if ($result['http_status'] === 200 && $result['title']) {
+            $result['status'] = 'ok';
+            $result['is_valid'] = true;
+            return $result;
+        }
+
+        $result['status'] = 'unknown';
+        return $result;
+
+    } catch (\Throwable $e) {
+        $result['status'] = 'unknown';
+        $result['error'] = $e->getMessage();
+        return $result;
+    }
+}
+
 
 require __DIR__.'/auth.php';

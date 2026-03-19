@@ -393,7 +393,7 @@
                                                         @endif
                                                     </span>
                                                 @endif
-                                                <span>{{ $service->getDisplayName() }}</span>
+                                                <span>{{ $service->name }}</span>
                                             </div>
                                         </td>
                                         <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">

@@ -306,7 +306,7 @@ class ServiceController extends Controller
 
             'modeOptions' => [
                 'manual' => 'Manual',
-                'provider' => 'Provider',
+//                'provider' => 'Provider',
             ],
 
             'serviceTypeOptions' => [

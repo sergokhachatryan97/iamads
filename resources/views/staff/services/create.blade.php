@@ -16,7 +16,7 @@
             </a>
         </div>
     </x-slot>
-    
+
     <div class="py-6">
         <div class="max-w-[95%] mx-auto sm:px-6 lg:px-8">
 
@@ -228,26 +228,26 @@
                                     </div>
 
                                     {{-- Overflow percent --}}
-                                    <div>
-                                        <label for="overflow_percent" class="block text-sm font-medium text-gray-700 mb-1.5">
-                                            {{ __('Overflow (%)') }}
-                                        </label>
-                                        <input type="number"
-                                               name="overflow_percent"
-                                               id="overflow_percent"
-                                               value="{{ old('overflow_percent', isset($service) ? ($service->overflow_percent ?? '0') : '0') }}"
-                                               min="0"
-                                               max="100"
-                                               step="0.01"
-                                               class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('overflow_percent') border-red-300 @enderror"
-                                               placeholder="0">
-                                        @error('overflow_percent')
-                                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                                        @enderror
-                                        <p class="mt-1 text-xs text-gray-500">
-                                            {{ __('Extra target % above base quantity (e.g., 15 = 115% of order quantity)') }}
-                                        </p>
-                                    </div>
+{{--                                    <div>--}}
+{{--                                        <label for="overflow_percent" class="block text-sm font-medium text-gray-700 mb-1.5">--}}
+{{--                                            {{ __('Overflow (%)') }}--}}
+{{--                                        </label>--}}
+{{--                                        <input type="number"--}}
+{{--                                               name="overflow_percent"--}}
+{{--                                               id="overflow_percent"--}}
+{{--                                               value="{{ old('overflow_percent', isset($service) ? ($service->overflow_percent ?? '0') : '0') }}"--}}
+{{--                                               min="0"--}}
+{{--                                               max="100"--}}
+{{--                                               step="0.01"--}}
+{{--                                               class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('overflow_percent') border-red-300 @enderror"--}}
+{{--                                               placeholder="0">--}}
+{{--                                        @error('overflow_percent')--}}
+{{--                                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>--}}
+{{--                                        @enderror--}}
+{{--                                        <p class="mt-1 text-xs text-gray-500">--}}
+{{--                                            {{ __('Extra target % above base quantity (e.g., 15 = 115% of order quantity)') }}--}}
+{{--                                        </p>--}}
+{{--                                    </div>--}}
 
                                     {{-- Service name (auto-generated but editable) --}}
                                     <div>
@@ -273,7 +273,7 @@
                                 </div>
                             </div>
 
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
                             {{-- 2) Mode & options --}}
                             <div class="border border-gray-200 rounded-lg p-5 sm:p-6 bg-white shadow-sm"
@@ -314,70 +314,87 @@
                                     </div>
 
                                     {{-- Template Preview (read-only) --}}
-                                    <div x-show="selectedTemplate" x-cloak class="mt-4 p-4 bg-indigo-50 border border-indigo-200 rounded-md">
-                                        <h4 class="text-sm font-semibold text-indigo-900 mb-3">{{ __('Template Configuration Preview') }}</h4>
-                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                                            <div>
-                                                <span class="font-medium text-gray-700">{{ __('Action') }}:</span>
-                                                <span class="text-gray-900" x-text="templatePreview?.action || 'N/A'"></span>
-                                            </div>
-                                            <div>
-                                                <span class="font-medium text-gray-700">{{ __('Policy Key') }}:</span>
-                                                <span class="text-gray-900" x-text="templatePreview?.policy_key || 'N/A'"></span>
-                                            </div>
-                                            <div>
-                                                <span class="font-medium text-gray-700">{{ __('Allowed Link Kinds') }}:</span>
-                                                <span class="text-gray-900" x-text="templatePreview?.allowed_link_kinds?.join(', ') || 'N/A'"></span>
-                                            </div>
-                                            <div>
-                                                <span class="font-medium text-gray-700">{{ __('Allowed Peer Types') }}:</span>
-                                                <span class="text-gray-900" x-text="templatePreview?.allowed_peer_types?.join(', ') || 'N/A'"></span>
-                                            </div>
-                                            <div>
-                                                <span class="font-medium text-gray-700">{{ __('Requires Start Param') }}:</span>
-                                                <span class="text-gray-900" x-text="templatePreview?.requires_start_param ? 'Yes' : 'No'"></span>
-                                            </div>
-                                            <div x-show="templatePreview?.requires_duration_days">
-                                                <span class="font-medium text-gray-700">{{ __('Requires Duration Days') }}:</span>
-                                                <span class="text-gray-900">Yes</span>
-                                            </div>
-                                            <div x-show="templatePreview?.requires_watch_time">
-                                                <span class="font-medium text-gray-700">{{ __('Requires Watch Time') }}:</span>
-                                                <span class="text-gray-900">Yes (seconds)</span>
-                                            </div>
-                                        </div>
-                                    </div>
+{{--                                    <div x-show="selectedTemplate" x-cloak class="mt-4 p-4 bg-indigo-50 border border-indigo-200 rounded-md">--}}
+{{--                                        <h4 class="text-sm font-semibold text-indigo-900 mb-3">{{ __('Template Configuration Preview') }}</h4>--}}
+{{--                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">--}}
+{{--                                            <div>--}}
+{{--                                                <span class="font-medium text-gray-700">{{ __('Action') }}:</span>--}}
+{{--                                                <span class="text-gray-900" x-text="templatePreview?.action || 'N/A'"></span>--}}
+{{--                                            </div>--}}
+{{--                                            <div>--}}
+{{--                                                <span class="font-medium text-gray-700">{{ __('Policy Key') }}:</span>--}}
+{{--                                                <span class="text-gray-900" x-text="templatePreview?.policy_key || 'N/A'"></span>--}}
+{{--                                            </div>--}}
+{{--                                            <div>--}}
+{{--                                                <span class="font-medium text-gray-700">{{ __('Allowed Link Kinds') }}:</span>--}}
+{{--                                                <span class="text-gray-900" x-text="templatePreview?.allowed_link_kinds?.join(', ') || 'N/A'"></span>--}}
+{{--                                            </div>--}}
+{{--                                            <div>--}}
+{{--                                                <span class="font-medium text-gray-700">{{ __('Allowed Peer Types') }}:</span>--}}
+{{--                                                <span class="text-gray-900" x-text="templatePreview?.allowed_peer_types?.join(', ') || 'N/A'"></span>--}}
+{{--                                            </div>--}}
+{{--                                            <div>--}}
+{{--                                                <span class="font-medium text-gray-700">{{ __('Requires Start Param') }}:</span>--}}
+{{--                                                <span class="text-gray-900" x-text="templatePreview?.requires_start_param ? 'Yes' : 'No'"></span>--}}
+{{--                                            </div>--}}
+{{--                                            <div x-show="templatePreview?.requires_duration_days">--}}
+{{--                                                <span class="font-medium text-gray-700">{{ __('Requires Duration Days') }}:</span>--}}
+{{--                                                <span class="text-gray-900">Yes</span>--}}
+{{--                                            </div>--}}
+{{--                                            <div x-show="templatePreview?.requires_watch_time">--}}
+{{--                                                <span class="font-medium text-gray-700">{{ __('Requires Watch Time') }}:</span>--}}
+{{--                                                <span class="text-gray-900">Yes (seconds)</span>--}}
+{{--                                            </div>--}}
+{{--                                        </div>--}}
+{{--                                    </div>--}}
 
                                     {{-- Manual mode only fields --}}
                                     <div x-show="mode === 'manual'" x-cloak class="mt-4 pt-4 border-t border-gray-200">
                                         <p class="text-xs font-medium text-gray-600 mb-3">{{ __('Manual Mode Settings') }}</p>
                                         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                             {{-- Service type --}}
-                                            <div>
-                                                <x-custom-select
-                                                    name="service_type"
-                                                    id="service_type"
-                                                    :value="old('service_type', isset($service) ? ($service->service_type ?? 'default') : 'default')"
-                                                    :label="__('Service type')"
-                                                    placeholder="{{ __('Select service type') }}"
-                                                    :options="$serviceTypeOptions"
-                                                />
-                                                @error('service_type')
-                                                <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                                                @enderror
-                                            </div>
+{{--                                            <div>--}}
+{{--                                                <x-custom-select--}}
+{{--                                                    name="service_type"--}}
+{{--                                                    id="service_type"--}}
+{{--                                                    :value="old('service_type', isset($service) ? ($service->service_type ?? 'default') : 'default')"--}}
+{{--                                                    :label="__('Service type')"--}}
+{{--                                                    placeholder="{{ __('Select service type') }}"--}}
+{{--                                                    :options="$serviceTypeOptions"--}}
+{{--                                                />--}}
+{{--                                                @error('service_type')--}}
+{{--                                                <p class="mt-1 text-xs text-red-600">{{ $message }}</p>--}}
+{{--                                                @enderror--}}
+{{--                                            </div>--}}
 
-                                            {{-- Drip-feed --}}
+                                            {{-- Drip-feed (toggle) --}}
                                             <div>
-                                                <div x-bind:class="{ 'opacity-50 pointer-events-none': speedLimitEnabled }">
-                                                    <x-custom-select
-                                                        name="dripfeed_enabled"
-                                                        id="dripfeed_enabled"
-                                                        :value="old('dripfeed_enabled', isset($service) ? (string) (int) ($service->dripfeed_enabled ?? false) : '0')"
-                                                        :label="__('Drip-feed')"
-                                                        placeholder="{{ __('Select') }}"
-                                                        :options="$allowOptions"
-                                                    />
+                                                <div class="flex items-center justify-between gap-3 min-h-[2.75rem]"
+                                                     x-bind:class="{ 'opacity-50 pointer-events-none': speedLimitEnabled }">
+                                                    <div class="flex-1 min-w-0 pr-2">
+                                                        <span class="text-sm font-medium text-gray-700">{{ __('Drip-feed') }}</span>
+                                                        <p class="mt-0.5 text-xs text-gray-500">{{ __('Deliver orders gradually over time') }}</p>
+                                                    </div>
+                                                    <button type="button"
+                                                            role="switch"
+                                                            :aria-checked="dripfeedEnabled ? 'true' : 'false'"
+                                                            @click="
+                                                                if (speedLimitEnabled) return;
+                                                                dripfeedEnabled = !dripfeedEnabled;
+                                                                if (dripfeedEnabled) {
+                                                                    speedLimitEnabled = false;
+                                                                    const sl = document.querySelector('input[name=\'speed_limit_enabled\']');
+                                                                    if (sl) sl.checked = false;
+                                                                }
+                                                            "
+                                                            :class="dripfeedEnabled ? 'bg-indigo-600' : 'bg-gray-200'"
+                                                            class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                                                        <span class="sr-only">{{ __('Toggle drip-feed') }}</span>
+                                                        <span aria-hidden="true"
+                                                              :class="dripfeedEnabled ? 'translate-x-5' : 'translate-x-1'"
+                                                              class="pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+                                                    </button>
+                                                    <input type="hidden" name="dripfeed_enabled" :value="dripfeedEnabled ? '1' : '0'">
                                                 </div>
                                                 @error('dripfeed_enabled')
                                                 <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
@@ -387,16 +404,26 @@
                                                 </p>
                                             </div>
 
-                                            {{-- Cancel option --}}
+                                            {{-- Cancel option (toggle) --}}
                                             <div>
-                                                <x-custom-select
-                                                    name="user_can_cancel"
-                                                    id="user_can_cancel"
-                                                    :value="old('user_can_cancel', isset($service) ? (string) (int) ($service->user_can_cancel ?? false) : '0')"
-                                                    :label="__('Cancel option')"
-                                                    placeholder="{{ __('Select') }}"
-                                                    :options="$allowOptions"
-                                                />
+                                                <div class="flex items-center justify-between gap-3 min-h-[2.75rem]">
+                                                    <div class="flex-1 min-w-0 pr-2">
+                                                        <span class="text-sm font-medium text-gray-700">{{ __('Cancel option') }}</span>
+                                                        <p class="mt-0.5 text-xs text-gray-500">{{ __('Allow clients to cancel orders for this service') }}</p>
+                                                    </div>
+                                                    <button type="button"
+                                                            role="switch"
+                                                            :aria-checked="userCanCancel ? 'true' : 'false'"
+                                                            @click="userCanCancel = !userCanCancel"
+                                                            :class="userCanCancel ? 'bg-indigo-600' : 'bg-gray-200'"
+                                                            class="relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                                                        <span class="sr-only">{{ __('Toggle cancel option') }}</span>
+                                                        <span aria-hidden="true"
+                                                              :class="userCanCancel ? 'translate-x-5' : 'translate-x-1'"
+                                                              class="pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+                                                    </button>
+                                                    <input type="hidden" name="user_can_cancel" :value="userCanCancel ? '1' : '0'">
+                                                </div>
                                                 @error('user_can_cancel')
                                                 <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                                                 @enderror
@@ -539,53 +566,53 @@
                                 </div>
 
                                 {{-- Dependency Settings --}}
-                                <div x-show="mode === 'manual'" x-cloak class="mt-4 pt-4 border-t border-gray-200">
-                                    <p class="text-xs font-medium text-gray-600 mb-3">{{ __('Dependency Settings') }}</p>
-                                    <div class="space-y-4">
-                                        <div>
-                                            <label class="flex items-center gap-3">
-                                                <input
-                                                    type="checkbox"
-                                                    name="requires_subscription"
-                                                    id="requires_subscription"
-                                                    x-model="requiresSubscription"
-                                                    @change="handleRequiresSubscriptionToggle()"
-                                                    value="1"
-                                                    {{ old('requires_subscription', isset($service) ? ($service->requires_subscription ?? false) : false) ? 'checked' : '' }}
-                                                    class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                                >
-                                                <span class="text-sm font-medium text-gray-700">{{ __('Requires Subscription Before This Service') }}</span>
-                                            </label>
-                                            <p class="mt-1 text-xs text-gray-500">
-                                                {{ __('Orders for this service will require a subscription order to be completed first') }}
-                                            </p>
-                                            @error('requires_subscription')
-                                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                                            @enderror
-                                        </div>
+{{--                                <div x-show="mode === 'manual'" x-cloak class="mt-4 pt-4 border-t border-gray-200">--}}
+{{--                                    <p class="text-xs font-medium text-gray-600 mb-3">{{ __('Dependency Settings') }}</p>--}}
+{{--                                    <div class="space-y-4">--}}
+{{--                                        <div>--}}
+{{--                                            <label class="flex items-center gap-3">--}}
+{{--                                                <input--}}
+{{--                                                    type="checkbox"--}}
+{{--                                                    name="requires_subscription"--}}
+{{--                                                    id="requires_subscription"--}}
+{{--                                                    x-model="requiresSubscription"--}}
+{{--                                                    @change="handleRequiresSubscriptionToggle()"--}}
+{{--                                                    value="1"--}}
+{{--                                                    {{ old('requires_subscription', isset($service) ? ($service->requires_subscription ?? false) : false) ? 'checked' : '' }}--}}
+{{--                                                    class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"--}}
+{{--                                                >--}}
+{{--                                                <span class="text-sm font-medium text-gray-700">{{ __('Requires Subscription Before This Service') }}</span>--}}
+{{--                                            </label>--}}
+{{--                                            <p class="mt-1 text-xs text-gray-500">--}}
+{{--                                                {{ __('Orders for this service will require a subscription order to be completed first') }}--}}
+{{--                                            </p>--}}
+{{--                                            @error('requires_subscription')--}}
+{{--                                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>--}}
+{{--                                            @enderror--}}
+{{--                                        </div>--}}
 
-                                        <div x-show="requiresSubscription" x-cloak class="pl-6 border-l-2 border-indigo-200">
-                                            <label for="required_subscription_template_key" class="block text-sm font-medium text-gray-700 mb-1.5">
-                                                {{ __('Required Subscription Template') }} <span class="text-red-500">*</span>
-                                            </label>
-                                            <select
-                                                name="required_subscription_template_key"
-                                                id="required_subscription_template_key"
-                                                x-model="requiredSubscriptionTemplate"
-                                                :required="requiresSubscription"
-                                                class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('required_subscription_template_key') border-red-300 @enderror">
-                                                <option value="">{{ __('Select subscription template') }}</option>
-                                                <template x-for="[key, label] in Object.entries(subscriptionTemplates)" :key="key">
-                                                    <option :value="key" x-text="label"></option>
-                                                </template>
-                                            </select>
-                                            @error('required_subscription_template_key')
-                                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                                            @enderror
-                                            <p class="mt-1 text-xs text-gray-500">{{ __('Template for the required subscription service (e.g., channel_subscribe)') }}</p>
-                                        </div>
-                                    </div>
-                                </div>
+{{--                                        <div x-show="requiresSubscription" x-cloak class="pl-6 border-l-2 border-indigo-200">--}}
+{{--                                            <label for="required_subscription_template_key" class="block text-sm font-medium text-gray-700 mb-1.5">--}}
+{{--                                                {{ __('Required Subscription Template') }} <span class="text-red-500">*</span>--}}
+{{--                                            </label>--}}
+{{--                                            <select--}}
+{{--                                                name="required_subscription_template_key"--}}
+{{--                                                id="required_subscription_template_key"--}}
+{{--                                                x-model="requiredSubscriptionTemplate"--}}
+{{--                                                :required="requiresSubscription"--}}
+{{--                                                class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('required_subscription_template_key') border-red-300 @enderror">--}}
+{{--                                                <option value="">{{ __('Select subscription template') }}</option>--}}
+{{--                                                <template x-for="[key, label] in Object.entries(subscriptionTemplates)" :key="key">--}}
+{{--                                                    <option :value="key" x-text="label"></option>--}}
+{{--                                                </template>--}}
+{{--                                            </select>--}}
+{{--                                            @error('required_subscription_template_key')--}}
+{{--                                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>--}}
+{{--                                            @enderror--}}
+{{--                                            <p class="mt-1 text-xs text-gray-500">{{ __('Template for the required subscription service (e.g., channel_subscribe)') }}</p>--}}
+{{--                                        </div>--}}
+{{--                                    </div>--}}
+{{--                                </div>--}}
 
                                 <div x-show="mode === 'provider'" x-cloak class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
                                     <p class="text-xs text-blue-800 flex items-start gap-2">
@@ -608,7 +635,6 @@
                                 <p class="text-xs text-gray-500 mb-4">
                                     {{ __('Set the service rate per 100 units') }}
                                 </p>
-
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label for="rate_per_1000" class="block text-sm font-medium text-gray-700 mb-1.5">
@@ -633,41 +659,8 @@
                                         <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                                         @enderror
                                     </div>
-
-                                    <div>
-                                        <label for="service_cost_per_1000" class="block text-sm font-medium text-gray-700 mb-1.5">
-                                            {{ __('Service Cost') }}
-                                            <span class="text-xs font-normal text-gray-400">(optional)</span>
-                                            <span class="text-xs font-normal text-gray-500">(per 100)</span>
-                                        </label>
-                                        <div class="relative">
-                                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                <span class="text-gray-500 sm:text-sm">$</span>
-                                            </div>
-                                            <input type="number"
-                                                   name="service_cost_per_1000"
-                                                   id="service_cost_per_1000"
-                                                   value="{{ old('service_cost_per_1000', isset($service) ? $service->service_cost_per_1000 : '') }}"
-                                                   min="0"
-                                                   step="0.0001"
-                                                   class="block w-full pl-7 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('service_cost_per_1000') border-red-300 @enderror"
-                                                   placeholder="3.50">
-                                        </div>
-                                        @error('service_cost_per_1000')
-                                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                                        @enderror
-                                        <p class="mt-1.5 text-xs text-gray-500 flex items-start gap-1">
-                                            <svg class="w-3 h-3 mt-0.5 text-gray-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
-                                            </svg>
-                                            <span>{{ __("Used for profit calculation. Leave empty if not needed.") }}</span>
-                                        </p>
-                                    </div>
                                 </div>
-                            </div>
-
-                            {{-- 4) Quantity limits --}}
-                            <div class="border border-gray-200 rounded-lg p-5 sm:p-6 bg-white shadow-sm">
+                                <div class="mt-3">
                                 <h3 class="text-base font-semibold text-gray-900 mb-1 flex items-center gap-2">
                                     <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
@@ -711,161 +704,6 @@
                                         @enderror
                                     </div>
                                 </div>
-                            </div>
-
-                            {{-- 5) Advanced Settings --}}
-                            <div class="border border-gray-200 rounded-lg p-5 sm:p-6 bg-white shadow-sm">
-                                <h3 class="text-base font-semibold text-gray-900 mb-1 flex items-center gap-2">
-                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
-                                    </svg>
-                                    {{ __('Advanced Settings') }}
-                                </h3>
-                                <p class="text-xs text-gray-500 mb-4">{{ __('Optional configuration options') }}</p>
-
-                                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                    {{-- Deny link duplicates --}}
-                                    <div>
-                                            <x-custom-select
-                                                name="deny_link_duplicates"
-                                                id="deny_link_duplicates"
-                                                :value="old('deny_link_duplicates', isset($service) ? (string) (int) ($service->deny_link_duplicates ?? false) : '0')"
-                                                :label="__('Deny Link Duplicates')"
-                                                placeholder="{{ __('Select') }}"
-                                                :options="$yesNoOptions"
-                                                x-model="denyDuplicates"
-                                            />
-                                            @error('deny_link_duplicates')
-                                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                                            @enderror
-                                        </div>
-
-                                    <div x-show="denyDuplicates === '1'" x-cloak class="transition-all">
-                                        <label for="deny_duplicates_days" class="block text-sm font-medium text-gray-700 mb-1.5">
-                                            {{ __('Days to Check') }}
-                                        </label>
-                                        <input type="number"
-                                               name="deny_duplicates_days"
-                                               id="deny_duplicates_days"
-                                               value="{{ old('deny_duplicates_days', isset($service) ? ($service->deny_duplicates_days ?? 90) : '90') }}"
-                                               min="1"
-                                               max="3650"
-                                               class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('deny_duplicates_days') border-red-300 @enderror"
-                                               placeholder="90">
-                                        @error('deny_duplicates_days')
-                                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                                        @enderror
-                                        <p class="mt-1 text-xs text-gray-500">{{ __('Check for duplicate links within this period') }}</p>
-                                    </div>
-
-                                    {{-- Increment --}}
-                                    <div>
-                                        <label for="increment" class="block text-sm font-medium text-gray-700 mb-1.5">
-                                            {{ __('Order Increment') }}
-                                        </label>
-                                        <input type="number"
-                                               name="increment"
-                                               id="increment"
-                                               value="{{ old('increment', isset($service) ? ($service->increment ?? 0) : '0') }}"
-                                               min="0"
-                                               class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('increment') border-red-300 @enderror"
-                                               placeholder="0">
-                                        @error('increment')
-                                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                                        @enderror
-                                        <p class="mt-1.5 text-xs text-gray-500 flex items-start gap-1">
-                                            <svg class="w-3 h-3 mt-0.5 text-gray-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
-                                            </svg>
-                                            <span>{{ __('Orders must be multiples of this value. Set 0 to disable.') }}</span>
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {{-- 6) Parsing & Automation --}}
-                            <div class="border border-gray-200 rounded-lg p-5 sm:p-6 bg-white shadow-sm">
-                                <h3 class="text-base font-semibold text-gray-900 mb-1 flex items-center gap-2">
-                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                                    </svg>
-                                    {{ __('Parsing & Automation') }}
-                                </h3>
-                                <p class="text-xs text-gray-500 mb-4">{{ __('Configure automatic count parsing and completion') }}</p>
-
-                                <div class="space-y-4">
-                                    <div>
-                                        <x-custom-select
-                                            name="start_count_parsing_enabled"
-                                            id="start_count_parsing_enabled"
-                                            :value="old('start_count_parsing_enabled', isset($service) ? (string) (int) ($service->start_count_parsing_enabled ?? false) : '0')"
-                                            :label="__('Start Count Parsing')"
-                                            placeholder="{{ __('Select') }}"
-                                            :options="$allowOptions"
-                                        />
-                                        @error('start_count_parsing_enabled')
-                                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                                        @enderror
-                                    </div>
-
-                                    <div x-show="parsingEnabled === '1'" x-cloak class="transition-all pt-4 border-t border-gray-200">
-                                        <x-custom-select
-                                            name="count_type"
-                                            id="count_type"
-                                            :value="old('count_type', isset($service) ? $service->count_type : '')"
-                                            :label="__('Count Type') . ' *'"
-                                            placeholder="{{ __('Select count type') }}"
-                                            :options="$countTypeOptions"
-                                        />
-                                        @error('count_type')
-                                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                                        @enderror
-                                        <p class="mt-1.5 text-xs text-gray-500">
-                                            {{ __('Select the type of count to parse from the service URL') }}
-                                        </p>
-                                    </div>
-
-                                    <div>
-                                        <x-custom-select
-                                            name="auto_complete_enabled"
-                                            id="auto_complete_enabled"
-                                            :value="old('auto_complete_enabled', isset($service) ? (string) (int) ($service->auto_complete_enabled ?? false) : '0')"
-                                            :label="__('Auto Complete')"
-                                            placeholder="{{ __('Select') }}"
-                                            :options="$allowOptions"
-                                        />
-                                        <div x-show="parsingEnabled !== '1'" class="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
-                                            {{ __('Enable Start count parsing to use Auto Complete.') }}
-                                        </div>
-                                        @error('auto_complete_enabled')
-                                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                                        @enderror
-                                    </div>
-                                </div>
-                            </div>
-
-                            {{-- 7) Refill --}}
-                            <div class="border border-gray-200 rounded-lg p-5 sm:p-6 bg-white shadow-sm">
-                                <h3 class="text-base font-semibold text-gray-900 mb-1 flex items-center gap-2">
-                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                                    </svg>
-                                    {{ __('Refill') }}
-                                </h3>
-                                <p class="text-xs text-gray-500 mb-4">{{ __('Enable automatic refill for orders') }}</p>
-
-                                <div>
-                                    <x-custom-select
-                                        name="refill_enabled"
-                                        id="refill_enabled"
-                                        :value="old('refill_enabled', isset($service) ? (string) (int) ($service->refill_enabled ?? false) : '0')"
-                                        :label="__('Enable Refill')"
-                                        placeholder="{{ __('Select') }}"
-                                        :options="$allowOptions"
-                                    />
-                                    @error('refill_enabled')
-                                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                                    @enderror
                                 </div>
                             </div>
 
@@ -952,7 +790,8 @@
                 filteredTemplates: {},
                 allTemplates: @js($templatesByTargetType),
                 isEditing: @js(isset($service) && !empty($service->template_key)),
-                dripfeedEnabled: @js(old('dripfeed_enabled', isset($service) ? ($service->dripfeed_enabled ?? false) : false)),
+                dripfeedEnabled: @json((bool) (int) old('dripfeed_enabled', isset($service) ? ($service->dripfeed_enabled ? 1 : 0) : 0)),
+                userCanCancel: @json((bool) (int) old('user_can_cancel', isset($service) ? ($service->user_can_cancel ? 1 : 0) : 0)),
                 speedLimitEnabled: @js(old('speed_limit_enabled', isset($service) ? ($service->speed_limit_enabled ?? false) : false)),
                 speedMultiplierFast: @js(old('speed_multiplier_fast', isset($service) ? ($service->speed_multiplier_fast ?? 1.50) : 1.50)),
                 speedMultiplierSuperFast: @js(old('speed_multiplier_super_fast', isset($service) ? ($service->speed_multiplier_super_fast ?? 2.00) : 2.00)),
@@ -1048,52 +887,6 @@
                             });
                         }
 
-                        // Watch for dripfeed changes (bidirectional mutual exclusivity)
-                        const dripfeedInput = document.querySelector('input[name="dripfeed_enabled"][type="hidden"]');
-                        if (dripfeedInput) {
-                            // Set initial value
-                            this.dripfeedEnabled = dripfeedInput.value === '1';
-
-                            // Watch for changes
-                            dripfeedInput.addEventListener('change', () => {
-                                const newValue = dripfeedInput.value === '1';
-                                this.dripfeedEnabled = newValue;
-
-                                // If dripfeed enabled, disable speed limit
-                                if (newValue && this.speedLimitEnabled) {
-                                    this.speedLimitEnabled = false;
-                                    const speedLimitCheckbox = document.querySelector('input[name="speed_limit_enabled"]');
-                                    if (speedLimitCheckbox) {
-                                        speedLimitCheckbox.checked = false;
-                                        speedLimitCheckbox.dispatchEvent(new Event('change'));
-                                    }
-                                }
-                            });
-                        }
-
-                        // Watch for speed limit checkbox changes (bidirectional mutual exclusivity)
-                        const speedLimitCheckbox = document.querySelector('input[name="speed_limit_enabled"]');
-                        if (speedLimitCheckbox) {
-                            speedLimitCheckbox.addEventListener('change', () => {
-                                this.speedLimitEnabled = speedLimitCheckbox.checked;
-
-                                // If speed limit enabled, disable dripfeed
-                                if (this.speedLimitEnabled && this.dripfeedEnabled) {
-                                    this.dripfeedEnabled = false;
-                                    if (dripfeedInput) {
-                                        dripfeedInput.value = '0';
-                                        // Update custom-select component
-                                        const customSelectContainer = dripfeedInput.closest('[x-data]');
-                                        if (customSelectContainer && window.Alpine) {
-                                            const selectData = Alpine.$data(customSelectContainer);
-                                            if (selectData && typeof selectData.selectOption === 'function') {
-                                                selectData.selectOption({ value: '0', label: 'Disallow' });
-                                            }
-                                        }
-                                    }
-                                }
-                            });
-                        }
                     });
 
                     // Initial guard check
@@ -1158,25 +951,8 @@
                 },
 
                 handleSpeedLimitToggle() {
-                    // When speed limit is enabled, disable dripfeed
-                    if (this.speedLimitEnabled) {
-                        this.$nextTick(() => {
-                            const dripfeedInput = document.querySelector('input[name="dripfeed_enabled"][type="hidden"]');
-
-                            // Speed limit enabled: set dripfeed to 0 and update the custom-select
-                            if (dripfeedInput && dripfeedInput.value === '1') {
-                                this.dripfeedEnabled = false;
-                                dripfeedInput.value = '0';
-                                // Update custom-select component via Alpine
-                                const customSelectContainer = dripfeedInput.closest('[x-data]');
-                                if (customSelectContainer && window.Alpine) {
-                                    const selectData = Alpine.$data(customSelectContainer);
-                                    if (selectData && typeof selectData.selectOption === 'function') {
-                                        selectData.selectOption({ value: '0', label: 'Disallow' });
-                                    }
-                                }
-                            }
-                        });
+                    if (this.speedLimitEnabled && this.dripfeedEnabled) {
+                        this.dripfeedEnabled = false;
                     }
                 },
 
