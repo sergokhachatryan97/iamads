@@ -4,6 +4,7 @@ namespace App\Services\Providers;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Log;
 
 /**
  * HTTP client for Socpanel private API.
@@ -15,11 +16,15 @@ class SocpanelClient
     private string $token;
     private int $timeout;
 
-    public function __construct(?string $baseUrl = null, ?string $token = null, ?int $timeout = null)
+    public function __construct(?string $baseUrl = null, ?string $token = null, ?int $timeout = null, ?string $provider = null)
     {
+        if ($provider === 'memberpro') {
+            $this->token = config('providers.socpanel.member_pro_token');
+        } else {
+            $this->token = $token ?? (string)config('providers.socpanel.token');
+        }
         $this->baseUrl = rtrim($baseUrl ?? config('providers.socpanel.base_url', 'https://socpanel.com/privateApi'), '/');
-        $this->token = $token ?? (string) config('providers.socpanel.token');
-        $this->timeout = $timeout ?? (int) config('providers.socpanel.timeout', 60);
+        $this->timeout = $timeout ?? (int)config('providers.socpanel.timeout', 60);
     }
 
     public function getOrders(
@@ -41,7 +46,7 @@ class SocpanelClient
         $response = Http::timeout($this->timeout)
             ->acceptJson()
             ->get($url, $query);
-
+Log::info('Socpanel getOrders', ['response' => $response, 'query' => $query]);
         if (!$response->successful()) {
             throw new \RuntimeException(
                 'Socpanel getOrders failed: ' . $response->body()

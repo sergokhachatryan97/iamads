@@ -32,15 +32,15 @@ class YouTubeDataApiService
      */
     public function getVideo(string $videoId): array
     {
-        $cacheTtl = config('youtube.api_cache_ttl_seconds', 3600);
-        $cacheKey = 'yt:video:' . $videoId;
-
-        if ($cacheTtl > 0) {
-            $cached = Cache::get($cacheKey);
-            if ($cached !== null) {
-                return $cached;
-            }
-        }
+//        $cacheTtl = config('youtube.api_cache_ttl_seconds', 3600);
+//        $cacheKey = 'yt:video:' . $videoId;
+//
+//        if ($cacheTtl > 0) {
+//            $cached = Cache::get($cacheKey);
+//            if ($cached !== null) {
+//                return $cached;
+//            }
+//        }
 
         if (!$this->hasApiKey()) {
             return [
@@ -115,9 +115,9 @@ class YouTubeDataApiService
             ],
         ];
 
-        if ($cacheTtl > 0) {
-            Cache::put($cacheKey, $result, $cacheTtl);
-        }
+//        if ($cacheTtl > 0) {
+//            Cache::put($cacheKey, $result, $cacheTtl);
+//        }
 
         return $result;
     }
@@ -129,15 +129,15 @@ class YouTubeDataApiService
      */
     public function getChannel(string $channelId): array
     {
-        $cacheTtl = config('youtube.api_cache_ttl_seconds', 3600);
-        $cacheKey = 'yt:channel:' . $channelId;
-
-        if ($cacheTtl > 0) {
-            $cached = Cache::get($cacheKey);
-            if ($cached !== null) {
-                return $cached;
-            }
-        }
+//        $cacheTtl = config('youtube.api_cache_ttl_seconds', 3600);
+//        $cacheKey = 'yt:channel:' . $channelId;
+//
+//        if ($cacheTtl > 0) {
+//            $cached = Cache::get($cacheKey);
+//            if ($cached !== null) {
+//                return $cached;
+//            }
+//        }
 
         if (!$this->hasApiKey()) {
             return [
@@ -192,9 +192,9 @@ class YouTubeDataApiService
             ],
         ];
 
-        if ($cacheTtl > 0) {
-            Cache::put($cacheKey, $result, $cacheTtl);
-        }
+//        if ($cacheTtl > 0) {
+//            Cache::put($cacheKey, $result, $cacheTtl);
+//        }
 
         return $result;
     }

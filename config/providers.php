@@ -15,6 +15,7 @@ return [
         'name' => 'adtag',
         'base_url' => env('SOCPANEL_BASE_URL', 'https://socpanel.com/privateApi'),
         'token' => env('SOCPANEL_TOKEN'),
+        'member_pro_token' => env('MEMBER_PRO_TOKEN'),
         // HTTP timeout in seconds for API calls (default 60; increase if getOrders/completed often times out)
         'timeout' => (int) env('SOCPANEL_TIMEOUT', 60),
         // Comma-separated list of provider service IDs to poll (e.g. "123,456,789")
