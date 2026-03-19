@@ -61,7 +61,7 @@ class ClientRegisteredUserController extends Controller
         // Create login log entry for registration
         $this->clientLoginLogService->createLoginLogFromRequest($client, $request);
 
-        return redirect(route('dashboard', absolute: false));
+        return redirect()->intended(route('dashboard', absolute: false));
     }
 
 }

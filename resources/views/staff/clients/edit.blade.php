@@ -24,6 +24,38 @@
 
             <div class="bg-white shadow-sm sm:rounded-lg" style="overflow: visible;">
                 <div class="p-6 text-gray-900" style="position: relative;">
+
+                        <!-- Balance & Manual Add (standalone form - must be outside main form) -->
+                        <div class="mb-6 pb-6 border-b border-gray-200">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                {{ __('Client Balance') }}
+                            </label>
+                            <div class="flex flex-wrap items-end gap-4">
+                                <div class="text-lg font-semibold text-gray-900">
+                                    ${{ number_format((float) $client->balance, 2) }}
+                                </div>
+                                <form method="POST" action="{{ route('staff.clients.add-balance', $client) }}" class="flex flex-wrap items-end gap-2">
+                                    @csrf
+                                    <div>
+                                        <label for="add_balance_amount" class="sr-only">{{ __('Amount') }}</label>
+                                        <input type="number" id="add_balance_amount" name="amount" step="0.01" min="0.01" max="999999.99"
+                                            placeholder="{{ __('Amount') }}" required
+                                            class="block w-32 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                                    </div>
+                                    <div>
+                                        <label for="add_balance_description" class="sr-only">{{ __('Description (optional)') }}</label>
+                                        <input type="text" id="add_balance_description" name="description" maxlength="255"
+                                            placeholder="{{ __('Description (optional)') }}"
+                                            class="block w-48 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                                    </div>
+                                    <button type="submit" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                        {{ __('Add Balance') }}
+                                    </button>
+                                </form>
+                            </div>
+                            <p class="mt-2 text-sm text-gray-500">{{ __('Manually add balance for this client. A transaction record will be created.') }}</p>
+                        </div>
+
                     <form method="POST" action="{{ route('staff.clients.update', $client) }}">
                         @csrf
                         @method('PATCH')
@@ -78,6 +110,95 @@
                                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                     @enderror
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- Payment History & Transaction History -->
+                        <div class="mb-6 pb-6 border-b border-gray-200">
+                            <h3 class="text-sm font-medium text-gray-700 mb-3">{{ __('Payment History') }}</h3>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200 text-sm">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">{{ __('Order ID') }}</th>
+                                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">{{ __('Provider') }}</th>
+                                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">{{ __('Amount') }}</th>
+                                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">{{ __('Status') }}</th>
+                                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">{{ __('Created') }}</th>
+                                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">{{ __('Actions') }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        @forelse ($payments as $payment)
+                                            <tr>
+                                                <td class="px-3 py-2 text-gray-600">{{ $payment->order_id }}</td>
+                                                <td class="px-3 py-2 text-gray-600">{{ $payment->provider }}</td>
+                                                <td class="px-3 py-2 text-gray-900">{{ $payment->amount }} {{ $payment->currency ?? 'USD' }}</td>
+                                                <td class="px-3 py-2">
+                                                    <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium
+                                                        @if ($payment->status === 'paid') bg-green-100 text-green-800
+                                                        @elseif (in_array($payment->status, ['failed', 'expired'])) bg-red-100 text-red-800
+                                                        @else bg-yellow-100 text-yellow-800
+                                                        @endif">
+                                                        {{ $payment->status }}
+                                                    </span>
+                                                </td>
+                                                <td class="px-3 py-2 text-gray-600">{{ $payment->created_at?->format('Y-m-d H:i') }}</td>
+                                                <td class="px-3 py-2">
+                                                    @if (in_array($payment->status, ['pending', 'new']))
+                                                        <form method="POST" action="{{ route('staff.payments.update-status', $payment) }}" class="inline-flex gap-1">
+                                                            @csrf
+                                                            <input type="hidden" name="status" value="paid" />
+                                                            <button type="submit" class="text-xs font-medium text-green-700 hover:text-green-800">{{ __('Mark as Paid') }}</button>
+                                                        </form>
+                                                        <span class="text-gray-300">|</span>
+                                                        <form method="POST" action="{{ route('staff.payments.update-status', $payment) }}" class="inline" onsubmit="return confirm('{{ __('Reject this payment?') }}');">
+                                                            @csrf
+                                                            <input type="hidden" name="status" value="failed" />
+                                                            <button type="submit" class="text-xs font-medium text-red-700 hover:text-red-800">{{ __('Reject') }}</button>
+                                                        </form>
+                                                    @else
+                                                        —
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                        @empty
+                                            <tr>
+                                                <td colspan="6" class="px-3 py-4 text-center text-gray-500">{{ __('No payments.') }}</td>
+                                            </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <h3 class="text-sm font-medium text-gray-700 mb-3 mt-6">{{ __('Transaction History') }}</h3>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200 text-sm">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">{{ __('Date') }}</th>
+                                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">{{ __('Type') }}</th>
+                                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">{{ __('Amount') }}</th>
+                                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">{{ __('Description') }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        @forelse ($clientTransactions as $tx)
+                                            <tr>
+                                                <td class="px-3 py-2 text-gray-600">{{ $tx->created_at?->format('Y-m-d H:i') }}</td>
+                                                <td class="px-3 py-2 text-gray-600">{{ str_replace('_', ' ', $tx->type) }}</td>
+                                                <td class="px-3 py-2 {{ $tx->amount >= 0 ? 'text-green-700' : 'text-red-700' }}">
+                                                    {{ $tx->amount >= 0 ? '+' : '' }}${{ number_format((float) $tx->amount, 2) }}
+                                                </td>
+                                                <td class="px-3 py-2 text-gray-600">{{ $tx->description ?? '—' }}</td>
+                                            </tr>
+                                        @empty
+                                            <tr>
+                                                <td colspan="4" class="px-3 py-4 text-center text-gray-500">{{ __('No transactions.') }}</td>
+                                            </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
 

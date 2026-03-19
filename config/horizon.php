@@ -55,6 +55,19 @@ return [
             'memory' => 512,
         ],
 
+        'yt-inspect' => [
+            'connection' => 'redis',
+            'queue' => ['yt-inspect'],
+            'balance' => 'auto',
+            'autoScalingStrategy' => 'time',
+            'maxProcesses' => 2,
+            'balanceMaxShift' => 1,
+            'balanceCooldown' => 3,
+            'tries' => 3,
+            'timeout' => 60,
+            'memory' => 128,
+        ],
+
         /*
         |--------------------------------------------------------------------------
         | MAIN SYSTEM QUEUES
@@ -89,6 +102,19 @@ return [
                 'tries' => 2,
                 'timeout' => 900,
                 'memory' => 512,
+            ],
+
+            'yt-inspect' => [
+                'connection' => 'redis',
+                'queue' => ['yt-inspect'],
+                'balance' => 'auto',
+                'autoScalingStrategy' => 'time',
+                'maxProcesses' => 3,
+                'balanceMaxShift' => 1,
+                'balanceCooldown' => 3,
+                'tries' => 3,
+                'timeout' => 60,
+                'memory' => 128,
             ],
 
             'tg-double-check' => [
@@ -130,6 +156,18 @@ return [
                 'tries' => 2,
                 'timeout' => 900,
                 'memory' => 512,
+            ],
+            'yt-inspect' => [
+                'connection' => 'redis',
+                'queue' => ['yt-inspect'],
+                'balance' => 'auto',
+                'autoScalingStrategy' => 'time',
+                'maxProcesses' => 2,
+                'balanceMaxShift' => 1,
+                'balanceCooldown' => 3,
+                'tries' => 3,
+                'timeout' => 60,
+                'memory' => 128,
             ],
             'tg-double-check' => [
                 'connection' => 'redis',

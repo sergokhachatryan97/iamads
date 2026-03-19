@@ -30,8 +30,11 @@ class UpdateServiceRequest extends FormRequest
             'category_id' => ['required', 'integer', Rule::exists(Category::class, 'id')],
             'mode' => ['required', 'string', 'in:manual,provider'],
             'service_type' => ['nullable', 'string'],
-            'target_type' => ['nullable', 'string', Rule::in(['bot', 'channel', 'group'])],
-            'template_key' => ['nullable', 'string', Rule::in(array_keys(config('telegram_service_templates', [])))],
+            'target_type' => ['nullable', 'string', Rule::in(['bot', 'channel', 'group', 'youtube'])],
+            'template_key' => ['nullable', 'string', Rule::in(array_merge(
+                array_keys(config('telegram_service_templates', [])),
+                array_keys(config('youtube_service_templates', []))
+            ))],
             'duration_days' => ['nullable', 'integer', 'min:1'],
             'overflow_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'dripfeed_enabled' => ['nullable', 'boolean'],
@@ -50,18 +53,24 @@ class UpdateServiceRequest extends FormRequest
             'deny_link_duplicates' => ['nullable', 'boolean'],
             'deny_duplicates_days' => ['required_if:deny_link_duplicates,1', 'nullable', 'integer', 'min:0', 'max:65535'],
             'increment' => ['nullable', 'integer', 'min:0'],
+            'watch_time_seconds' => ['nullable', 'integer', 'min:1', 'max:7200'],
             'start_count_parsing_enabled' => ['nullable', 'boolean'],
             'count_type' => ['required_if:start_count_parsing_enabled,1', 'nullable', 'string'],
             'auto_complete_enabled' => ['nullable', 'boolean'],
             'refill_enabled' => ['nullable', 'boolean'],
         ];
 
-        // Validate duration_days if template requires it
+        // Validate duration_days / watch_time_seconds if template requires them
         $templateKey = $this->input('template_key');
         if ($templateKey) {
-            $template = config("telegram_service_templates.{$templateKey}");
-            if ($template && ($template['requires_duration_days'] ?? false)) {
-                $rules['duration_days'] = ['required', 'integer', 'min:1'];
+            $template = config("telegram_service_templates.{$templateKey}") ?? config("youtube_service_templates.{$templateKey}");
+            if ($template) {
+                if ($template['requires_duration_days'] ?? false) {
+                    $rules['duration_days'] = ['required', 'integer', 'min:1'];
+                }
+                if ($template['requires_watch_time'] ?? false) {
+                    $rules['watch_time_seconds'] = ['required', 'integer', 'min:1', 'max:7200'];
+                }
             }
         }
 

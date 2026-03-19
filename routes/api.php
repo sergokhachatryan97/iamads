@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Client\BalanceTopupController;
+use App\Http\Controllers\Api\FastOrderController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\PaymentMethodsController;
 use App\Http\Controllers\Api\PaymentWebhookController;
@@ -8,8 +9,19 @@ use App\Http\Controllers\Api\Provider\TelegramAccountSyncController;
 use App\Http\Controllers\Api\Provider\TelegramTaskClaimController;
 use App\Http\Controllers\Api\Provider\TelegramTaskPullController;
 use App\Http\Controllers\Api\Provider\TelegramTaskReportController;
+use App\Http\Controllers\Api\Provider\YouTubeAwaitingOrdersController;
+use App\Http\Controllers\Api\Provider\YouTubeTaskClaimController;
+use App\Http\Controllers\Api\Provider\YouTubeTaskReportController;
 use App\Http\Controllers\External\ExternalOrderController;
 use Illuminate\Support\Facades\Route;
+
+// Fast orders (guest checkout; no auth)
+Route::prefix('fast-orders')->group(function () {
+    Route::post('/', [FastOrderController::class, 'store'])->name('fast-orders.store');
+    Route::get('{uuid}', [FastOrderController::class, 'show'])->name('fast-orders.show');
+    Route::post('{uuid}/payment-method', [FastOrderController::class, 'setPaymentMethod'])->name('fast-orders.payment-method');
+    Route::post('{uuid}/simulate-payment-success', [FastOrderController::class, 'simulatePaymentSuccess'])->name('fast-orders.simulate-payment-success');
+});
 
 // Payment methods (public)
 Route::get('payment-methods', [PaymentMethodsController::class, 'index'])
@@ -58,4 +70,16 @@ Route::middleware(['auth.provider'])->prefix('provider/telegram')->group(functio
 
     Route::post('/tasks/report', [TelegramTaskReportController::class, 'report'])
         ->name('provider.telegram.tasks.report');
+});
+
+// YouTube performer (same structure as Telegram: getOrder, check, ignore)
+Route::middleware(['auth.provider'])->prefix('provider/youtube')->group(function () {
+    Route::get('/orders-list', [YouTubeAwaitingOrdersController::class, 'index'])
+        ->name('provider.youtube.awaiting-orders');
+    Route::get('/getOrder', [YouTubeTaskClaimController::class, 'claim'])
+        ->name('provider.youtube.tasks.getOrder');
+    Route::get('/check', [YouTubeTaskReportController::class, 'check'])
+        ->name('provider.youtube.tasks.check');
+    Route::get('/ignore', [YouTubeTaskReportController::class, 'ignore'])
+        ->name('provider.youtube.tasks.ignore');
 });

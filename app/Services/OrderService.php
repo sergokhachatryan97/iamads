@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Jobs\InspectTelegramLinkJob;
 use App\Models\Category;
 use App\Models\Client;
 use App\Models\Order;
@@ -10,7 +9,8 @@ use App\Models\Service;
 use App\Models\ClientTransaction;
 use App\Models\ClientServiceLimit;
 use App\Models\TelegramAccount;
-use App\Support\TelegramLinkParser;
+use App\Services\Order\OrderInspectionDispatcher;
+use App\Services\Order\OrderLinkDedupeKeyResolver;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -21,7 +21,9 @@ class OrderService implements OrderServiceInterface
 {
     public function __construct(
         private ServiceServiceInterface $serviceService,
-        private PricingService $pricingService
+        private PricingService $pricingService,
+        private OrderInspectionDispatcher $orderInspectionDispatcher,
+        private OrderLinkDedupeKeyResolver $orderLinkDedupeKeyResolver
     ) {}
 
     /**
@@ -48,8 +50,7 @@ class OrderService implements OrderServiceInterface
 
             // 3) Normalize targets
             $targets = $this->normalizeTargets($data['targets'] ?? []);
-
-            $this->validateUniqueLinksInRequest($targets);
+            $this->validateUniqueLinksInRequest($targets, $service);
 
             // 4) Dripfeed toggle
             $clientDripfeedEnabled = (bool) ($data['dripfeed_enabled'] ?? false);
@@ -199,10 +200,22 @@ class OrderService implements OrderServiceInterface
                 ];
 
                 // Merge provider_payload
-                $orderData['provider_payload'] = array_merge(
+                $providerPayload = array_merge(
                     $orderData['provider_payload'] ?? [],
                     ['pricing_snapshot' => $pricingSnapshot]
                 );
+                $ytTpl = $service->template();
+                if ($ytTpl && ($ytTpl['requires_watch_time'] ?? false)) {
+                    $providerPayload['watch_time_seconds'] = (int) (
+                        $service->watch_time_seconds
+                        ?? $ytTpl['default_watch_time_seconds']
+                        ?? config('youtube.default_watch_time_seconds', 30)
+                    );
+                    if ($providerPayload['watch_time_seconds'] < 1) {
+                        $providerPayload['watch_time_seconds'] = (int) ($ytTpl['default_watch_time_seconds'] ?? config('youtube.default_watch_time_seconds', 30));
+                    }
+                }
+                $orderData['provider_payload'] = $providerPayload;
 
                 $orders[] = Order::create($orderData);
             }
@@ -219,9 +232,7 @@ class OrderService implements OrderServiceInterface
 
 
             foreach ($orders as $order) {
-                InspectTelegramLinkJob::dispatch($order->id)
-                    ->onQueue('tg-inspect')
-                    ->afterCommit();
+                $this->orderInspectionDispatcher->dispatch($order);
             }
 
             return Collection::make($orders)->load(['service', 'category']);
@@ -330,9 +341,7 @@ class OrderService implements OrderServiceInterface
                 ]);
             }
 
-            InspectTelegramLinkJob::dispatch($order->id)
-                ->onQueue('tg-inspect')
-                ->afterCommit();
+            $this->orderInspectionDispatcher->dispatch($order);
 
             return Collection::make([$order])->load(['service', 'category']);
         });
@@ -483,9 +492,7 @@ class OrderService implements OrderServiceInterface
             }
 
             foreach ($orders as $order) {
-                InspectTelegramLinkJob::dispatch($order->id)
-                    ->onQueue('tg-inspect')
-                    ->afterCommit();
+                $this->orderInspectionDispatcher->dispatch($order);
             }
 
             return new Collection($orders);
@@ -886,35 +893,19 @@ class OrderService implements OrderServiceInterface
         }
     }
 
-    private function validateUniqueLinksInRequest(array $targets): void
+    private function validateUniqueLinksInRequest(array $targets, Service $service): void
     {
+        $driver = $service->category?->link_driver ?? 'generic';
         $seen = [];
 
         foreach ($targets as $i => $t) {
-            $raw = trim((string)($t['link'] ?? ''));
+            $raw = trim((string) ($t['link'] ?? ''));
 
-            $parsed = TelegramLinkParser::parse($raw);
-
-            // եթե format-ը սխալ է՝ թող validation-ը բռնի, բայց ապահով key տանք
-            $kind = $parsed['kind'] ?? 'unknown';
-
-            // canonical key by kind
-            $key = match ($kind) {
-                'public_username', 'public_post', 'bot_start' =>
-                    $kind . ':' . strtolower((string)($parsed['username'] ?? '')),
-
-                'invite' =>
-                    $kind . ':' . (string)($parsed['hash'] ?? ''),
-
-                // fallback to raw
-                default =>
-                    'raw:' . strtolower($raw),
-            };
-
+            $key = $this->orderLinkDedupeKeyResolver->getKey($driver, $raw);
             if (isset($seen[$key])) {
                 $firstIndex = $seen[$key];
 
-                throw \Illuminate\Validation\ValidationException::withMessages([
+                throw ValidationException::withMessages([
                     "targets.{$i}.link" => "Duplicate link in this order (same as row " . ($firstIndex + 1) . ").",
                 ]);
             }

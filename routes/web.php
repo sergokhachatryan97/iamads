@@ -10,6 +10,7 @@ use App\Http\Controllers\Staff\SubscriptionPlanController;
 use App\Http\Controllers\Staff\UserController;
 use App\Http\Controllers\Staff\ClientController;
 use App\Http\Controllers\Staff\ClientLoginLogController;
+use App\Http\Controllers\Staff\PaymentController;
 use App\Http\Controllers\Staff\ServiceController;
 use App\Http\Controllers\Staff\ProviderOrderStatsController;
 use App\Http\Controllers\Staff\SocpanelModerationController;
@@ -170,6 +171,7 @@ Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSess
     // Clients Management (accessible to all authenticated staff, filtered by role)
     Route::get('clients', [ClientController::class, 'index'])->name('staff.clients.index');
     Route::get('clients/{client}/edit', [ClientController::class, 'edit'])->name('staff.clients.edit');
+    Route::post('clients/{client}/add-balance', [ClientController::class, 'addBalance'])->name('staff.clients.add-balance');
     Route::patch('clients/{client}', [ClientController::class, 'update'])->name('staff.clients.update');
     Route::delete('clients/{client}', [ClientController::class, 'destroy'])->name('staff.clients.destroy');
     Route::post('clients/{client}/suspend', [ClientController::class, 'suspend'])->name('staff.clients.suspend');
@@ -179,6 +181,9 @@ Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSess
     Route::post('clients/{client}/assign-staff', [ClientController::class, 'assignStaff'])->name('staff.clients.assign-staff');
     Route::get('clients/{client}/sign-ins', [ClientLoginLogController::class, 'index'])->name('staff.clients.sign-ins');
     Route::get('clients/{client}/sign-ins/matching-ips', [ClientLoginLogController::class, 'matchingIps'])->name('staff.clients.sign-ins.matching-ips');
+
+    Route::get('payments', [PaymentController::class, 'index'])->name('staff.payments.index');
+    Route::post('payments/{payment}/update-status', [PaymentController::class, 'updateStatus'])->name('staff.payments.update-status');
 
     // Orders
     Route::get('orders', [\App\Http\Controllers\Staff\OrderController::class, 'index'])->name('staff.orders.index');
@@ -266,9 +271,9 @@ Route::get('/oauth/google/callback', [GoogleGmailOAuthController::class, 'callba
     ->name('oauth.google.callback');
 
 Route::get('test', function () {
-    $a = app(\App\Services\Telegram\TelegramInspector::class);
+//    $a = app(\App\Services\Telegram\TelegramInspector::class);
 
-    dd($a->inspect('https://t.me/Tele112bot', serviceId: 72));
+//    dd($a->inspect('https://t.me/Tele112bot', serviceId: 72));
 //        SocpanelPollOrdersJob::dispatch('active')
 //        ->onQueue('socpanel-poll');
 //       SyncValidatingProviderOrdersJob::dispatch('validating');
@@ -279,7 +284,8 @@ Route::get('test', function () {
 //    $a = app(TelegramLinkInspector::class);
 //    $b = $a->inspect('https://t.me/FedRussianInsiders');
 //    dd($b);
-    SocpanelValidateOrderJob::dispatch(143, 'https://t.me/vhabar');
+//    SocpanelValidateOrderJob::dispatch(143, 'https://t.me/vhabar');
+
 });
 
 require __DIR__.'/auth.php';

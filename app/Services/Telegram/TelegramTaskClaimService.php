@@ -77,7 +77,12 @@ class TelegramTaskClaimService
                 ->where('state', TelegramOrderMembership::STATE_SUBSCRIBED)
                 ->whereNull('unsubscribed_at')
                 ->whereHas('order', function ($q) {
-                    $q->where('execution_phase', Order::EXECUTION_PHASE_UNSUBSCRIBING);
+                    $q->where('execution_phase', Order::EXECUTION_PHASE_UNSUBSCRIBING)
+                        ->whereHas('service', function ($q2) {
+                            $q2->whereHas('category', function ($q3) {
+                                $q3->where('link_driver', 'telegram');
+                            });
+                        });
                 })
                 ->lockForUpdate()
                 ->first();
@@ -169,6 +174,11 @@ class TelegramTaskClaimService
                 $q->whereNull('execution_phase')->orWhere('execution_phase', Order::EXECUTION_PHASE_RUNNING);
             })
             ->where('remains', '>', 0)
+            ->whereHas('service', function ($q) {
+                $q->whereHas('category', function ($q2) {
+                    $q2->where('link_driver', 'telegram');
+                });
+            })
             ->orderBy('id')
             ->limit(200)
             ->get();
@@ -201,6 +211,11 @@ class TelegramTaskClaimService
             $order = Order::query()
                 ->where('id', $orderId)
                 ->where('remains', '>', 0)
+                ->whereHas('service', function ($q) {
+                    $q->whereHas('category', function ($q2) {
+                        $q2->where('link_driver', 'telegram');
+                    });
+                })
                 ->lockForUpdate()
                 ->first();
 

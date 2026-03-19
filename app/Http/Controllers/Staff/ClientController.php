@@ -8,6 +8,7 @@ use App\Http\Requests\Staff\UpdateClientRequest;
 use App\Models\Category;
 use App\Models\Client;
 use App\Models\ClientServiceLimit;
+use App\Models\ClientTransaction;
 use App\Models\Service;
 use App\Services\ClientServiceInterface;
 use App\Services\PricingService;
@@ -131,6 +132,45 @@ class ClientController extends Controller
 
         return redirect()->back()
             ->with('success', 'User activated successfully.');
+    }
+
+    /**
+     * Add balance manually for a client (admin).
+     */
+    public function addBalance(Request $request, Client $client): RedirectResponse
+    {
+        $currentUser = Auth::guard('staff')->user();
+
+        if ($currentUser && !$currentUser->hasRole('super_admin') && $client->staff_id !== $currentUser->id) {
+            return redirect()->back()
+                ->withErrors(['error' => 'You do not have permission to add balance for this client.']);
+        }
+
+        $validated = $request->validate([
+            'amount' => ['required', 'numeric', 'min:0.01', 'max:999999.99'],
+            'description' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $amount = (float) $validated['amount'];
+        $description = trim($validated['description'] ?? '') ?: 'Manual balance adjustment by staff';
+
+        DB::transaction(function () use ($client, $amount, $description) {
+            $client = Client::query()->where('id', $client->id)->lockForUpdate()->firstOrFail();
+            $client->balance = (float) $client->balance + $amount;
+            $client->save();
+
+            ClientTransaction::create([
+                'client_id' => $client->id,
+                'order_id' => null,
+                'payment_id' => null,
+                'amount' => $amount,
+                'type' => ClientTransaction::TYPE_MANUAL_CREDIT,
+                'description' => $description,
+            ]);
+        });
+
+        return redirect()->route('staff.clients.edit', $client)
+            ->with('success', 'Balance added successfully. New balance: $' . number_format((float) $client->fresh()->balance, 2));
     }
 
     /**
@@ -381,6 +421,16 @@ class ClientController extends Controller
             ->values()
             ->all();
 
+        $clientTransactions = $client->transactions()
+            ->orderByDesc('created_at')
+            ->limit(50)
+            ->get();
+
+        $payments = $client->payments()
+            ->orderByDesc('created_at')
+            ->limit(50)
+            ->get();
+
         return view('staff.clients.edit', [
             'client' => $client,
             'categories' => $categories,
@@ -393,6 +443,8 @@ class ClientController extends Controller
             'serviceLimits' => $serviceLimits,
             'serviceLimitsCategoriesData' => $serviceLimitsCategoriesData,
             'disabledServiceLimitIds' => $disabledServiceLimitIds,
+            'clientTransactions' => $clientTransactions,
+            'payments' => $payments,
         ]);
     }
 

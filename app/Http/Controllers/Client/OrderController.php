@@ -96,6 +96,16 @@ class OrderController extends Controller
     {
         $categories = $this->categoryService->getAllCategories(true);
 
+        // Categories that show Target Type (e.g. Telegram) – by link_driver
+        $categoryIdsWithTargetType = collect($categories)->filter(function ($c) {
+            return ($c->link_driver ?? 'generic') === 'telegram';
+        })->pluck('id')->values()->all();
+
+        // Link driver per category for frontend validation (telegram, youtube, tiktok, instagram, facebook, url, generic)
+        $categoryLinkTypes = collect($categories)->mapWithKeys(function ($c) {
+            return [(int) $c->id => $c->link_driver ?? 'generic'];
+        })->all();
+
         // Get pre-selected category and service from query parameters
         $preselectedCategoryId = $request->get('category_id');
         $preselectedServiceId = $request->get('service_id');
@@ -103,6 +113,8 @@ class OrderController extends Controller
 
         return view('client.orders.create', [
             'categories' => $categories,
+            'categoryIdsWithTargetType' => $categoryIdsWithTargetType,
+            'categoryLinkTypes' => $categoryLinkTypes,
             'preselectedCategoryId' => $preselectedCategoryId,
             'preselectedServiceId' => $preselectedServiceId,
             'preselectedTargetType' => $preselectedTargetType,
@@ -150,6 +162,10 @@ class OrderController extends Controller
                 ->route('client.orders.index')
                 ->with('success', $count === 1 ? 'Order created successfully.' : "{$count} orders created successfully.");
         } catch (ValidationException $e) {
+            if ($e->validator->errors()->has('balance')) {
+                return redirect()->route('client.balance.add', ['return_to' => 'order'])
+                    ->with('info', __('Insufficient balance. Please add funds to complete your order.'));
+            }
             return back()->withErrors($e->errors())->withInput();
         } catch (Throwable $e) {
             report($e);
@@ -303,6 +319,14 @@ class OrderController extends Controller
                     'speed_limit_enabled' => (bool) ($service->speed_limit_enabled ?? false),
                     'speed_multiplier_fast' => $service->speed_multiplier_fast !== null ? (float) $service->speed_multiplier_fast : 1.50,
                     'speed_multiplier_super_fast' => $service->speed_multiplier_super_fast !== null ? (float) $service->speed_multiplier_super_fast : 2.00,
+
+                    // YouTube watch-time (yt_watch_time): client chooses seconds per order
+                    'youtube_requires_watch_time' => (bool) (config("youtube_service_templates.{$service->template_key}.requires_watch_time") ?? false),
+                    'default_watch_time_seconds' => max(1, (int) (
+                        $service->watch_time_seconds
+                        ?? config("youtube_service_templates.{$service->template_key}.default_watch_time_seconds")
+                        ?? config('youtube.default_watch_time_seconds', 30)
+                    )),
                 ];
             })
             ->values();

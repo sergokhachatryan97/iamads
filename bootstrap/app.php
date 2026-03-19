@@ -62,6 +62,10 @@ return Application::configure(basePath: dirname(__DIR__))
             ->everyMinute()
             ->withoutOverlapping(10);
 
+        $schedule->job(new \App\Jobs\CleanExpiredYouTubeTasksJob())
+            ->everyMinute()
+            ->withoutOverlapping(2);
+
         $schedule->job(new \App\Jobs\SyncCompletedProviderOrdersJob())
             ->everyFiveMinutes()
             ->withoutOverlapping(30)

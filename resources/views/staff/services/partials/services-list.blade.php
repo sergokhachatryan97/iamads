@@ -301,7 +301,7 @@
                                 ];
                             @endphp
 
-                            @foreach(['bot', 'channel', 'group', 'other'] as $targetType)
+                            @foreach(['bot', 'channel', 'group', 'other', 'youtube'] as $targetType)
                                 @if($servicesByTargetType->has($targetType) && $servicesByTargetType->get($targetType)->isNotEmpty())
                                     @php
                                         $targetServices = $servicesByTargetType->get($targetType);
@@ -408,6 +408,7 @@
                                                     'bot' => 'Bot',
                                                     'channel' => 'Channel',
                                                     'group' => 'Group',
+                                                    'youtube' => 'YouTube',
                                                 ];
                                             @endphp
                                             <div class="flex flex-col gap-1">

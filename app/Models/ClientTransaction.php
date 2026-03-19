@@ -14,6 +14,8 @@ class ClientTransaction extends Model
     public const TYPE_ORDER_CHARGE = 'order_charge';
     public const TYPE_REFUND = 'refund';
     public const TYPE_SUBSCRIPTION_CHARGE = 'subscription_charge';
+    public const TYPE_BALANCE_TOPUP = 'balance_topup';
+    public const TYPE_MANUAL_CREDIT = 'manual_credit';
 
     /**
      * The attributes that are mass assignable.
@@ -23,6 +25,7 @@ class ClientTransaction extends Model
     protected $fillable = [
         'client_id',
         'order_id',
+        'payment_id',
         'amount',
         'type',
         'description',
@@ -54,5 +57,13 @@ class ClientTransaction extends Model
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
+    }
+
+    /**
+     * Get the payment associated with this transaction (for balance top-up).
+     */
+    public function payment(): BelongsTo
+    {
+        return $this->belongsTo(Payment::class);
     }
 }

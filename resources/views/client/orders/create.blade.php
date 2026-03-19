@@ -54,7 +54,7 @@
                                     id="category_id"
                                     name="category_id"
                                     x-model="categoryId"
-                                    @change="targetType = ''; if (categoryId) loadServices()"
+                                    @change="onCategoryChange(); if (categoryId) loadServices()"
                                     required
                                     class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                                     <option value="">{{ __('Select a category') }}</option>
@@ -67,8 +67,8 @@
                                 @enderror
                             </div>
 
-                            <!-- Target Type -->
-                            <div class="mb-6" x-show="categoryId" x-cloak>
+                            <!-- Target Type (only for Telegram-like categories) -->
+                            <div class="mb-6" x-show="categoryId && categoryHasTargetType" x-cloak>
                                 <label for="target_type" class="block text-sm font-medium text-gray-700 mb-2">
                                     {{ __('Target Type') }} <span class="text-red-500">*</span>
                                 </label>
@@ -77,7 +77,7 @@
                                     name="target_type"
                                     x-model="targetType"
                                     @change="loadServices()"
-                                    :required="categoryId"
+                                    :required="categoryHasTargetType"
                                     class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                                     <option value="">{{ __('Select target type') }}</option>
                                     <option value="bot">Bot</option>
@@ -101,8 +101,8 @@
                                     name="service_id"
                                     x-model="serviceId"
                                     @change="updateServiceInfo"
-                                    :disabled="!categoryId || !targetType || loading"
-                                    :required="categoryId && targetType"
+                                    :disabled="!categoryId || (categoryHasTargetType && !targetType) || loading"
+                                    :required="categoryId && (!categoryHasTargetType || targetType)"
                                     class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed">
                                     <option value="" x-text="loading ? '{{ __('Loading...') }}' : '{{ __('Select a service') }}'"></option>
                                     <template x-for="service in (Array.isArray(services) ? services : [])" :key="'service-' + service.id">
@@ -187,7 +187,7 @@
                                     x-model="commentsLink"
                                     @input="commentsLinkValid = validateTelegramLink(commentsLink)"
                                     :class="commentsLinkValid ? 'border-gray-300' : 'border-red-300'"
-                                    placeholder="https://t.me/username or @username"
+                                    :placeholder="linkPlaceholder('telegram')"
                                     class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                                 <p x-show="!commentsLinkValid && commentsLink" class="mt-1 text-xs text-red-600">
                                     {{ __('Please enter a valid Telegram link.') }}
@@ -296,15 +296,13 @@
                                                     :id="'targets_' + index + '_link'"
                                                     :name="'targets[' + index + '][link]'"
                                                     x-model="target.link"
-                                                    @input="target.linkValid = validateTelegramLink(target.link)"
+                                                    @input="target.linkValid = validateLink(target.link)"
                                                     :class="target.linkValid ? 'border-gray-300' : 'border-red-300'"
-                                                    placeholder="https://t.me/username or @username"
+                                                    :placeholder="linkPlaceholder()"
                                                     :required="selectedService?.service_type !== 'custom_comments' && selectedService?.template_key !== 'invite_subscribers_from_other_channel'"
                                                     :disabled="selectedService?.template_key === 'invite_subscribers_from_other_channel'"
                                                     class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                                                <p x-show="!target.linkValid && target.link" class="mt-1 text-xs text-red-600">
-                                                    {{ __('Please enter a valid Telegram link.') }}
-                                                </p>
+                                                <p x-show="!target.linkValid && target.link" class="mt-1 text-xs text-red-600" x-text="linkErrorMessage"></p>
                                             </div>
                                             <div class="w-32">
                                                 <label :for="'targets_' + index + '_quantity'" class="block text-xs font-medium text-gray-700 mb-1">
@@ -561,7 +559,7 @@
                                     type="submit"
                                     :disabled="submitting"
                                     class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition ease-in-out duration-150">
-                                    <span x-show="!submitting">{{ __('Create Order') }}</span>
+                                    <span x-show="!submitting">Create</span>
                                     <span x-show="submitting">{{ __('Creating...') }}</span>
                                 </button>
                             </div>
@@ -598,24 +596,19 @@
                             <!-- Link (Single) -->
                             <div class="mb-6">
                                 <label for="multi_link" class="block text-sm font-medium text-gray-700 mb-2">
-                                    {{ __('Telegram Link') }} <span class="text-red-500">*</span>
+                                    {{ __('Link') }} <span class="text-red-500">*</span>
                                 </label>
                                 <input
                                     type="text"
                                     id="multi_link"
                                     name="link"
                                     x-model="multiLink"
-                                    @input="multiLinkValid = validateTelegramLink(multiLink)"
+                                    @input="multiLinkValid = validateLink(multiLink, multiLinkType)"
                                     :class="multiLinkValid ? 'border-gray-300' : 'border-red-300'"
-                                    placeholder="https://t.me/username or @username"
+                                    :placeholder="linkPlaceholder(multiLinkType)"
                                     required
                                     class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                                <p x-show="!multiLinkValid && multiLink" class="mt-1 text-sm text-red-600">
-                                    {{ __('Please enter a valid Telegram link.') }}
-                                </p>
-                                <p class="mt-1 text-xs text-gray-500">
-                                    {{ __('Enter a Telegram channel, group, or user link.') }}
-                                </p>
+                                <p x-show="!multiLinkValid && multiLink" class="mt-1 text-sm text-red-600" x-text="multiLinkErrorMessage"></p>
                                 @error('link')
                                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                 @enderror
@@ -646,7 +639,7 @@
                                 <div class="space-y-3" x-show="!multiLoading && multiServices.length > 0">
                                     <template x-for="(serviceRow, index) in multiSelectedServices" :key="index">
                                         <div class="flex gap-3 items-start p-3 bg-gray-50 rounded-md border border-gray-200">
-                                            <div class="w-32">
+                                            <div class="w-32" x-show="multiCategoryHasTargetType" x-cloak>
                                                 <label :for="'multi_target_type_' + index" class="block text-sm font-medium text-gray-700 mb-1">
                                                     {{ __('Target Type') }}
                                                 </label>
@@ -770,7 +763,7 @@
                                     type="submit"
                                     :disabled="submitting || multiSelectedServices.length === 0"
                                     class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition ease-in-out duration-150">
-                                    <span x-show="!submitting">{{ __('Create Orders') }}</span>
+                                    <span x-show="!submitting">{{ __('Place Orders') }}</span>
                                     <span x-show="submitting">{{ __('Creating...') }}</span>
                                 </button>
                             </div>
@@ -785,6 +778,41 @@
         function orderForm() {
             return {
                 orderType: 'single', // 'single' or 'multi'
+                categoryIdsWithTargetType: @js($categoryIdsWithTargetType ?? []),
+                categoryLinkTypes: @js($categoryLinkTypes ?? []),
+                get categoryHasTargetType() {
+                    if (!this.categoryId) return false;
+                    const id = Number(this.categoryId);
+                    return Array.isArray(this.categoryIdsWithTargetType) && (this.categoryIdsWithTargetType.includes(id) || this.categoryIdsWithTargetType.includes(String(this.categoryId)));
+                },
+                get linkType() {
+                    const id = this.categoryId;
+                    return (id && (this.categoryLinkTypes[id] ?? this.categoryLinkTypes[Number(id)])) || 'generic';
+                },
+                get multiLinkType() {
+                    const id = this.multiCategoryId;
+                    return (id && (this.categoryLinkTypes[id] ?? this.categoryLinkTypes[Number(id)])) || 'generic';
+                },
+                get linkErrorMessage() {
+                    return this.linkErrorForType(this.linkType);
+                },
+                get multiLinkErrorMessage() {
+                    return this.linkErrorForType(this.multiLinkType);
+                },
+                linkErrorForType(type) {
+                    const m = {
+                        telegram: @json(__('common.link_error_telegram')),
+                        youtube: @json(__('common.link_error_youtube')),
+                        max: @json(__('common.link_error_max')),
+                        whatsapp: @json(__('common.link_error_whatsapp')),
+                        tiktok: @json(__('common.link_error_generic')),
+                        instagram: @json(__('common.link_error_generic')),
+                        facebook: @json(__('common.link_error_generic')),
+                        url: @json(__('common.link_error_generic')),
+                        generic: @json(__('common.link_error_generic')),
+                    };
+                    return m[type] || m.generic;
+                },
                 // Single service order data
                 categoryId: '{{ old('category_id', $preselectedCategoryId ?? '') }}',
                 targetType: '{{ old('target_type', $preselectedTargetType ?? '') }}',
@@ -818,6 +846,11 @@
                 inviteQuantity: {{ old('targets.0.quantity', 1) }},
                 // Multi-service order data
                 multiCategoryId: '{{ old('category_id', $preselectedCategoryId ?? '') }}',
+                get multiCategoryHasTargetType() {
+                    if (!this.multiCategoryId) return false;
+                    const id = Number(this.multiCategoryId);
+                    return Array.isArray(this.categoryIdsWithTargetType) && (this.categoryIdsWithTargetType.includes(id) || this.categoryIdsWithTargetType.includes(String(this.multiCategoryId)));
+                },
                 multiLink: '{{ old('link', '') }}',
                 multiLinkValid: true,
                 multiServices: [],
@@ -835,7 +868,7 @@
                     if (!Array.isArray(this.multiSelectedServices)) {
                         this.multiSelectedServices = [];
                     }
-                    if (this.categoryId && this.targetType) {
+                    if (this.categoryId && (!this.categoryHasTargetType || this.targetType)) {
                         this.loadServices().then(() => {
                             if (this.serviceId && this.services.length > 0) {
                                 this.$nextTick(() => {
@@ -862,7 +895,7 @@
                     } else {
                         this.targets.forEach((target, index) => {
                             if (target.linkValid === undefined) {
-                                target.linkValid = !target.link || this.validateTelegramLink(target.link);
+                                target.linkValid = !target.link || this.validateLink(target.link);
                             }
                             if (!target.quantity || target.quantity < 1) {
                                 target.quantity = 1;
@@ -871,7 +904,7 @@
                     }
                     // Validate multi link on init
                     if (this.multiLink) {
-                        this.multiLinkValid = this.validateTelegramLink(this.multiLink);
+                        this.multiLinkValid = this.validateLink(this.multiLink, this.multiLinkType);
                     }
                     // Validate comments link on init
                     if (this.commentsLink) {
@@ -885,28 +918,94 @@
                     }
                 },
 
+                onCategoryChange() {
+                    if (!this.categoryHasTargetType) this.targetType = '';
+                },
+
                 validateTelegramLink(link) {
-                    if (!link || link.trim() === '') {
-                        return true;
-                    }
+                    if (!link || link.trim() === '') return true;
                     const regex = /^(https?:\/\/)?(t\.me|telegram\.me|telegram\.dog)\/([A-Za-z0-9_+\/\-]+(\?[A-Za-z0-9=&_%\-]+)?)$|^@[A-Za-z0-9_]{3,32}$/i;
                     return regex.test(link.trim());
+                },
+                validateYoutubeLink(link) {
+                    if (!link || link.trim() === '') return true;
+                    const v = link.trim();
+                    return /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|shorts\/|embed\/)[A-Za-z0-9_\-]+|youtube\.com\/@[A-Za-z0-9_.\-]+|youtube\.com\/channel\/UC[A-Za-z0-9_\-]+|youtube\.com\/c\/[A-Za-z0-9_.\-]+|youtu\.be\/[A-Za-z0-9_\-]+)/i.test(v);
+                },
+                validateMaxLink(link) {
+                    if (!link || link.trim() === '') return true;
+                    const v = link.trim();
+                    return /^(https?:\/\/)?(www\.)?(max\.ru\/[^\s]+|maxapp\.ru\/[^\s]+|web\.maxapp\.ru\/[^\s]+)/i.test(v);
+                },
+                validateWhatsAppLink(link) {
+                    if (!link || link.trim() === '') return true;
+                    const v = link.trim();
+                    return /^(https?:\/\/)?(www\.)?(wa\.me\/\d+[?\d\w\-=]*|chat\.whatsapp\.com\/[A-Za-z0-9_-]+|api\.whatsapp\.com\/send\?[^\s]+)/i.test(v);
+                },
+                validateTiktokLink(link) {
+                    if (!link || link.trim() === '') return true;
+                    const v = link.trim();
+                    return /^(https?:\/\/)?(www\.)?(tiktok\.com\/|vm\.tiktok\.com\/|vt\.tiktok\.com\/)[^\s]+/i.test(v);
+                },
+                validateInstagramLink(link) {
+                    if (!link || link.trim() === '') return true;
+                    const v = link.trim();
+                    return /^(https?:\/\/)?(www\.)?(instagram\.com\/|instagr\.am\/)[^\s]+/i.test(v);
+                },
+                validateFacebookLink(link) {
+                    if (!link || link.trim() === '') return true;
+                    const v = link.trim();
+                    return /^(https?:\/\/)?(www\.|m\.)?(facebook\.com\/|fb\.com\/|fb\.watch\/|fb\.me\/)[^\s]+/i.test(v);
+                },
+                validateGenericLink(link) {
+                    if (!link || link.trim() === '') return true;
+                    const v = link.trim();
+                    return v.length >= 5 && (/^https?:\/\//i.test(v) || /^[a-zA-Z0-9][a-zA-Z0-9.-]*\.[a-zA-Z]{2,}/.test(v));
+                },
+                validateLink(link, type) {
+                    const t = type || this.linkType;
+                    if (t === 'youtube') return this.validateYoutubeLink(link);
+                    if (t === 'max') return this.validateMaxLink(link);
+                    if (t === 'whatsapp') return this.validateWhatsAppLink(link);
+                    if (t === 'tiktok') return this.validateTiktokLink(link);
+                    if (t === 'instagram') return this.validateInstagramLink(link);
+                    if (t === 'facebook') return this.validateFacebookLink(link);
+                    if (t === 'url' || t === 'generic') return this.validateGenericLink(link);
+                    return this.validateTelegramLink(link);
+                },
+                linkPlaceholder(type) {
+                    const t = type || this.linkType;
+                    const placeholders = {
+                        telegram: @json(__('home.link_placeholder_tg')),
+                        youtube: @json(__('home.link_placeholder_youtube')),
+                        max: @json(__('home.link_placeholder_max')),
+                        whatsapp: @json(__('home.link_placeholder_tg')),
+                        tiktok: @json(__('home.link_placeholder_tg')),
+                        instagram: @json(__('home.link_placeholder_tg')),
+                        facebook: @json(__('home.link_placeholder_tg')),
+                        url: @json(__('home.link_placeholder_tg')),
+                        generic: @json(__('home.link_placeholder_tg')),
+                    };
+                    return placeholders[t] || placeholders.generic;
                 },
 
                 // Single service order methods
                 async loadServices() {
-                    if (!this.categoryId || !this.targetType) {
+                    if (!this.categoryId) {
                         this.services = [];
-                        if (!this.targetType) {
-                            this.serviceId = '';
-                            this.selectedService = null;
-                        }
+                        return Promise.resolve();
+                    }
+                    if (this.categoryHasTargetType && !this.targetType) {
+                        this.services = [];
+                        this.serviceId = '';
+                        this.selectedService = null;
                         return Promise.resolve();
                     }
 
                     this.loading = true;
                     try {
-                        const response = await fetch(`{{ route('client.orders.services.by-category') }}?category_id=${this.categoryId}&target_type=${this.targetType}`);
+                        const targetParam = this.categoryHasTargetType ? `&target_type=${this.targetType}` : '';
+                        const response = await fetch(`{{ route('client.orders.services.by-category') }}?category_id=${this.categoryId}${targetParam}`);
                         const data = await response.json();
                         this.services = Array.isArray(data) ? data : [];
                         // Clear selected service if not in filtered list
@@ -1283,7 +1382,7 @@
                     if (!serviceRow || !Array.isArray(this.multiServices)) {
                         return [];
                     }
-                    if (!serviceRow.target_type) {
+                    if (!this.multiCategoryHasTargetType || !serviceRow.target_type) {
                         return this.multiServices;
                     }
                     return this.multiServices.filter(service => service.target_type === serviceRow.target_type);

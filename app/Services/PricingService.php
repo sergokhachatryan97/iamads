@@ -8,6 +8,14 @@ use App\Models\Service;
 class PricingService
 {
     /**
+     * Default price for a service (no client – e.g. guest fast order).
+     */
+    public function priceForGuest(Service $service): float
+    {
+        return max(0, (float) ($service->rate_per_1000 ?? 0));
+    }
+
+    /**
      * Calculate the price for a service for a specific client.
      *
      * Priority:

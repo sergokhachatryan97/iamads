@@ -38,6 +38,9 @@
                         <x-nav-link :href="route('staff.clients.index')" :active="request()->routeIs('staff.clients.*')">
                             {{ __('Users') }}
                         </x-nav-link>
+                        <x-nav-link :href="route('staff.payments.index')" :active="request()->routeIs('staff.payments.*')">
+                            {{ __('Payments') }}
+                        </x-nav-link>
                     @endif
                     @if(Auth::guard('staff')->check())
                         <x-nav-link :href="route('staff.services.index')" :active="request()->routeIs('staff.services.*')">
@@ -140,6 +143,9 @@
                 </x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('staff.clients.index')" :active="request()->routeIs('staff.clients.*')">
                     {{ __('Clients') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('staff.payments.index')" :active="request()->routeIs('staff.payments.*')">
+                    {{ __('Payments') }}
                 </x-responsive-nav-link>
             @endif
 

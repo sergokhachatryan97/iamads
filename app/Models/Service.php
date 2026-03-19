@@ -40,6 +40,7 @@ class Service extends Model
         'target_type',
         'template_key',
         'duration_days',
+        'watch_time_seconds',
         'overflow_percent',
         'template_snapshot',
         'dripfeed_enabled',
@@ -88,6 +89,7 @@ class Service extends Model
         'provider_service_id' => 'integer',
         'is_active' => 'boolean',
         'duration_days' => 'integer',
+        'watch_time_seconds' => 'integer',
         'speed_multiplier_fast' => 'decimal:2',
         'speed_multiplier_super_fast' => 'decimal:2',
         'rate_multiplier_fast' => 'decimal:3',
@@ -123,6 +125,7 @@ class Service extends Model
     /**
      * Get the template configuration for this service.
      * Returns template from config or template_snapshot if available.
+     * For YouTube category uses youtube_service_templates; otherwise telegram_service_templates.
      *
      * @return array|null
      */
@@ -134,6 +137,18 @@ class Service extends Model
 
         if (!$this->template_key) {
             return null;
+        }
+
+        // YouTube template keys always start with yt_ – resolve without loading category
+        if (str_starts_with($this->template_key, 'yt_')) {
+            return config("youtube_service_templates.{$this->template_key}");
+        }
+
+        $category = $this->relationLoaded('category') ? $this->category : $this->category()->first();
+        $driver = $category?->link_driver ?? 'generic';
+
+        if ($driver === 'youtube') {
+            return config("youtube_service_templates.{$this->template_key}");
         }
 
         return config("telegram_service_templates.{$this->template_key}");

@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\Service;
+use App\Support\Links\LinkInspectorManager;
 use App\Support\TelegramLinkParser;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
@@ -23,7 +24,7 @@ class StoreOrderRequest extends FormRequest
         }
 
         $id = $this->input('service_id');
-        $this->cachedService = $id ? Service::find($id) : null;
+        $this->cachedService = $id ? Service::with('category')->find($id) : null;
 
         return $this->cachedService;
     }
@@ -153,28 +154,20 @@ class StoreOrderRequest extends FormRequest
                 },
             ];
         } else {
-            // ---------- Regular services ----------
+            // ---------- Regular services (link validation by category link_driver) ----------
             $rules['targets'] = ['required', 'array', 'min:1'];
+
+            $driver = $service->category?->link_driver ?? 'generic';
+            $manager = app(LinkInspectorManager::class);
 
             $rules['targets.*.link'] = [
                 'required',
                 'string',
                 'max:2048',
-                function ($attribute, $value, $fail) {
-                    $parsed = TelegramLinkParser::parse(trim((string) $value));
-                    $kind = $parsed['kind'] ?? 'unknown';
-
-                    if ($kind === 'unknown') {
-                        $fail('Invalid Telegram link format.');
-                        return;
-                    }
-                    if ($kind === 'special') {
-                        $fail('Link is not a joinable chat.');
-                        return;
-                    }
-                    if ($kind === 'private_post') {
-                        $fail('Private post links are not supported.');
-                        return;
+                function ($attribute, $value, $fail) use ($driver, $manager) {
+                    $result = $manager->inspect($driver, trim((string) $value));
+                    if (!$result['valid'] && $result['error'] !== null) {
+                        $fail($result['error']);
                     }
                 },
             ];
@@ -260,7 +253,6 @@ class StoreOrderRequest extends FormRequest
             'service_id'  => (int) $validated['service_id'],
         ];
 
-        // link-ը միայն եթե կա ու ոչ դատարկ
         if (isset($validated['link'])) {
             $link = trim((string) $validated['link']);
             if ($link !== '') {

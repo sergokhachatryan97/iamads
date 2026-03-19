@@ -291,7 +291,13 @@ class ServiceController extends Controller
     private function getServiceFormData(?Service $service = null): array
     {
         $categories = $this->categoryService->getAllCategories();
-        $serviceTemplates = config('telegram_service_templates', []);
+        $telegramTemplates = config('telegram_service_templates', []);
+        $youtubeTemplates = config('youtube_service_templates', []);
+        $serviceTemplates = array_merge($telegramTemplates, $youtubeTemplates);
+
+        $templatesByTargetType = $this->buildTemplatesByTargetType($telegramTemplates, $youtubeTemplates);
+        $categoryIdsWithTemplates = $this->getCategoryIdsWithTemplates($categories);
+        $categoryLinkDrivers = collect($categories)->pluck('link_driver', 'id')->toArray();
 
         return [
             'categories' => $categories,
@@ -331,19 +337,22 @@ class ServiceController extends Controller
             ],
 
             'serviceTemplates' => $serviceTemplates,
-            'templatesByTargetType' => $this->buildTemplatesByTargetType($serviceTemplates),
-            'categoryIdsWithTemplates' => $this->getCategoryIdsWithTemplates($categories),
+            'templatesByTargetType' => $templatesByTargetType,
+            'youtubeTemplates' => collect($youtubeTemplates)->mapWithKeys(fn ($t, $k) => [$k => $t['label'] ?? $k])->all(),
+            'categoryIdsWithTemplates' => $categoryIdsWithTemplates,
+            'categoryLinkDrivers' => $categoryLinkDrivers,
         ];
     }
 
-    private function buildTemplatesByTargetType(array $serviceTemplates): array
+    private function buildTemplatesByTargetType(array $telegramTemplates, array $youtubeTemplates): array
     {
         $templatesByTargetType = [
             'bot' => [],
             'channel' => [],
+            'youtube' => [],
         ];
 
-        foreach ($serviceTemplates as $key => $template) {
+        foreach ($telegramTemplates as $key => $template) {
             $peerTypes = $template['allowed_peer_types'] ?? [];
 
             if (in_array('bot', $peerTypes, true)) {
@@ -359,13 +368,19 @@ class ServiceController extends Controller
             }
         }
 
+        foreach ($youtubeTemplates as $key => $template) {
+            $templatesByTargetType['youtube'][$key] = $template['label'] ?? $key;
+        }
+
         return $templatesByTargetType;
     }
+
     private function getCategoryIdsWithTemplates($categories): array
     {
         return collect($categories)
             ->filter(function ($category) {
-                return stripos($category->link_driver ?? '', 'telegram') !== false;
+                $driver = $category->link_driver ?? '';
+                return stripos($driver, 'telegram') !== false || $driver === 'youtube';
             })
             ->pluck('id')
             ->values()

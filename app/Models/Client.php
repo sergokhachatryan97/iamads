@@ -111,6 +111,14 @@ class Client extends Authenticatable
     }
 
     /**
+     * Get the payments for this client.
+     */
+    public function payments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    /**
      * Get the service quotas for this client.
      */
     public function serviceQuotas(): \Illuminate\Database\Eloquent\Relations\HasMany

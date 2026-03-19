@@ -125,9 +125,11 @@
                                         @enderror
                                     </div>
 
-                                    {{-- Target Type & Template (only for categories with service templates, e.g. Telegram) --}}
+                                    {{-- Target Type & Template (only for categories with service templates, e.g. Telegram, YouTube) --}}
                                     <div x-show="categoryHasTemplates" x-cloak class="md:col-span-2 space-y-4">
-                                        <div>
+                                        {{-- Target Type (Telegram: bot/channel; YouTube: single template list, value set to youtube) --}}
+                                        <div x-show="categoryHasTemplates && !categoryIsYoutube"
+                                             x-cloak>
                                             <label for="target_type" class="block text-sm font-medium text-gray-700 mb-1.5">
                                                 {{ __('Target Type') }} <span class="text-red-500">*</span>
                                             </label>
@@ -136,7 +138,7 @@
                                                 id="target_type"
                                                 x-model="targetType"
                                                 @change="filterTemplatesByTargetType()"
-                                                :required="categoryHasTemplates"
+                                                :required="categoryHasTemplates && !categoryIsYoutube"
                                                 class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('target_type') border-red-300 @enderror">
                                                 <option value="">{{ __('Select target type') }}</option>
                                                 @foreach($targetTypeOptions as $key => $label)
@@ -162,7 +164,7 @@
                                                 id="template_key"
                                                 x-model="selectedTemplate"
                                                 @change="updateTemplateInfo()"
-                                                :required="categoryHasTemplates && targetType"
+                                                :required="categoryHasTemplates && (categoryIsYoutube || targetType)"
                                                 class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('template_key') border-red-300 @enderror">
                                                 <option value="">{{ __('Select a template') }}</option>
                                                 <template x-for="[key, label] in Object.entries(filteredTemplates)" :key="key">
@@ -199,6 +201,29 @@
                                         @enderror
                                         <p class="mt-1 text-xs text-gray-500">
                                             {{ __('Subscription duration in days (e.g., 14, 30, 90)') }}
+                                        </p>
+                                    </div>
+
+                                    {{-- Watch Time seconds (YouTube watch-time template) --}}
+                                    <div x-show="selectedTemplate && templateRequiresWatchTime" x-cloak>
+                                        <label for="watch_time_seconds" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                            {{ __('Watch Time (seconds)') }} <span class="text-red-500">*</span>
+                                        </label>
+                                        <input type="number"
+                                               name="watch_time_seconds"
+                                               id="watch_time_seconds"
+                                               x-model.number="watchTimeSeconds"
+                                               value="{{ old('watch_time_seconds', isset($service) ? ($service->watch_time_seconds ?? '') : '30') }}"
+                                               :required="templateRequiresWatchTime"
+                                               min="1"
+                                               max="7200"
+                                               class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('watch_time_seconds') border-red-300 @enderror"
+                                               placeholder="30">
+                                        @error('watch_time_seconds')
+                                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                                        @enderror
+                                        <p class="mt-1 text-xs text-gray-500">
+                                            {{ __('Minimum watch duration per view in seconds (e.g., 30, 60). Max 7200 (2 hours).') }}
                                         </p>
                                     </div>
 
@@ -315,6 +340,10 @@
                                             <div x-show="templatePreview?.requires_duration_days">
                                                 <span class="font-medium text-gray-700">{{ __('Requires Duration Days') }}:</span>
                                                 <span class="text-gray-900">Yes</span>
+                                            </div>
+                                            <div x-show="templatePreview?.requires_watch_time">
+                                                <span class="font-medium text-gray-700">{{ __('Requires Watch Time') }}:</span>
+                                                <span class="text-gray-900">Yes (seconds)</span>
                                             </div>
                                         </div>
                                     </div>
@@ -900,10 +929,15 @@
         function serviceCreateForm() {
             return {
                 categoryIdsWithTemplates: @js($categoryIdsWithTemplates),
+                categoryLinkDrivers: @js($categoryLinkDrivers ?? []),
                 categoryId: @js(old('category_id', isset($service) ? (string) ($service->category_id ?? '') : '')),
                 get categoryHasTemplates() {
                     if (!this.categoryId) return false;
                     return this.categoryIdsWithTemplates.includes(Number(this.categoryId));
+                },
+                get categoryIsYoutube() {
+                    if (!this.categoryId) return false;
+                    return (this.categoryLinkDrivers[this.categoryId] || '') === 'youtube';
                 },
                 denyDuplicates: @js(old('deny_link_duplicates', isset($service) ? (string) (int) ($service->deny_link_duplicates ?? false) : '0')),
                 parsingEnabled: @js(old('start_count_parsing_enabled', isset($service) ? (string) (int) ($service->start_count_parsing_enabled ?? false) : '0')),
@@ -913,6 +947,8 @@
                 serviceName: @js(old('name', isset($service) ? ($service->name ?? '') : '')),
                 templatePreview: null,
                 templateRequiresDuration: false,
+                templateRequiresWatchTime: false,
+                watchTimeSeconds: @js(old('watch_time_seconds', isset($service) ? ($service->watch_time_seconds ?? 30) : 30)),
                 filteredTemplates: {},
                 allTemplates: @js($templatesByTargetType),
                 isEditing: @js(isset($service) && !empty($service->template_key)),
@@ -936,10 +972,24 @@
                         this.filteredTemplates = {};
                         this.templatePreview = null;
                         this.templateRequiresDuration = false;
+                        this.templateRequiresWatchTime = false;
                         const targetSelect = document.getElementById('target_type');
                         const templateSelect = document.getElementById('template_key');
                         if (targetSelect) targetSelect.value = '';
                         if (templateSelect) templateSelect.value = '';
+                    } else if (this.categoryIsYoutube) {
+                        this.targetType = 'youtube';
+                        this.filteredTemplates = @js($youtubeTemplates ?? []);
+                        if (!this.filteredTemplates[this.selectedTemplate]) {
+                            this.selectedTemplate = '';
+                            this.templatePreview = null;
+                            this.templateRequiresDuration = false;
+                            this.templateRequiresWatchTime = false;
+                        }
+                        const templateSelect = document.getElementById('template_key');
+                        if (templateSelect) templateSelect.value = this.selectedTemplate;
+                    } else {
+                        this.filterTemplatesByTargetType();
                     }
                 },
 
@@ -951,12 +1001,14 @@
                         if (catInput) {
                             catInput.addEventListener('change', () => this.onCategoryChange());
                         }
+                        // When editing a YouTube service, ensure template list and target type are set
+                        if (this.categoryIsYoutube) {
+                            this.targetType = 'youtube';
+                            this.filterTemplatesByTargetType();
+                        } else if (this.targetType) {
+                            this.filterTemplatesByTargetType();
+                        }
                     });
-
-                    // Filter templates by target_type if set (important for edit mode)
-                    if (this.targetType) {
-                        this.filterTemplatesByTargetType();
-                    }
 
                     // Load template data if template is selected (after filtering)
                     if (this.selectedTemplate) {
@@ -1049,6 +1101,10 @@
                 },
 
                 filterTemplatesByTargetType() {
+                    if (this.categoryIsYoutube) {
+                        this.filteredTemplates = this.allTemplates['youtube'] || {};
+                        return;
+                    }
                     if (!this.targetType) {
                         this.filteredTemplates = {};
                         // Don't reset selectedTemplate in edit mode
@@ -1079,6 +1135,7 @@
                     if (!this.selectedTemplate) {
                         this.templatePreview = null;
                         this.templateRequiresDuration = false;
+                        this.templateRequiresWatchTime = false;
                         return;
                     }
 
@@ -1089,6 +1146,7 @@
                     if (template) {
                         this.templatePreview = template;
                         this.templateRequiresDuration = template.requires_duration_days || false;
+                        this.templateRequiresWatchTime = template.requires_watch_time || false;
 
                         // Auto-generate name if service name is empty
                         if (!this.serviceName || this.serviceName.trim() === '') {
