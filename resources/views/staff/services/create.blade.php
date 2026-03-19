@@ -96,7 +96,7 @@
                                     <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                     </svg>
-                                    <h3 class="text-lg font-semibold text-gray-900">{{ __('Essential Information') }}</h3>
+                                    <h3 class="text-lg font-semibold text-gray-900">{{ __('Service Information') }}</h3>
                                     <span class="text-xs text-gray-500 font-normal">(Required)</span>
                                 </div>
 
@@ -125,8 +125,30 @@
                                         @enderror
                                     </div>
 
+                                    {{-- Service name (auto-generated but editable) --}}
+                                    <div>
+                                        <label for="name" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                            {{ __('Service Name') }} <span class="text-red-500">*</span>
+                                        </label>
+                                        <input type="text"
+                                               name="name"
+                                               id="name"
+                                               x-model="serviceName"
+                                               value="{{ old('name', $service->name ?? '') }}"
+                                               required
+                                               maxlength="255"
+                                               class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('name') border-red-300 @enderror"
+                                               placeholder="{{ __('Auto-generated from template') }}">
+                                        @error('name')
+                                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                                        @enderror
+                                        <p class="mt-1 text-xs text-gray-500">
+                                            {{ __('Auto-generated from template, but can be customized') }}
+                                        </p>
+                                    </div>
+
                                     {{-- Target Type & Template (only for categories with service templates, e.g. Telegram, YouTube) --}}
-                                    <div x-show="categoryHasTemplates" x-cloak class="md:col-span-2 space-y-4">
+                                    <div x-show="categoryHasTemplates" x-cloak>
                                         {{-- Target Type (Telegram: bot/channel; YouTube: single template list, value set to youtube) --}}
                                         <div x-show="categoryHasTemplates && !categoryIsYoutube"
                                              x-cloak>
@@ -248,28 +270,6 @@
 {{--                                            {{ __('Extra target % above base quantity (e.g., 15 = 115% of order quantity)') }}--}}
 {{--                                        </p>--}}
 {{--                                    </div>--}}
-
-                                    {{-- Service name (auto-generated but editable) --}}
-                                    <div>
-                                        <label for="name" class="block text-sm font-medium text-gray-700 mb-1.5">
-                                            {{ __('Service Name') }} <span class="text-red-500">*</span>
-                                        </label>
-                                        <input type="text"
-                                               name="name"
-                                               id="name"
-                                               x-model="serviceName"
-                                               value="{{ old('name', $service->name ?? '') }}"
-                                               required
-                                               maxlength="255"
-                                               class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('name') border-red-300 @enderror"
-                                               placeholder="{{ __('Auto-generated from template') }}">
-                                        @error('name')
-                                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                                        @enderror
-                                        <p class="mt-1 text-xs text-gray-500">
-                                            {{ __('Auto-generated from template, but can be customized') }}
-                                        </p>
-                                    </div>
                                 </div>
                             </div>
 
@@ -630,13 +630,13 @@
                                     <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                                     </svg>
-                                    {{ __('Pricing') }}
+                                    {{ __('Pricing') }} & {{ __('Quantity Limits') }}
                                 </h3>
                                 <p class="text-xs text-gray-500 mb-4">
                                     {{ __('Set the service rate per 100 units') }}
                                 </p>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
+                                <div class="row">
+                                    <div class="col-4">
                                         <label for="rate_per_1000" class="block text-sm font-medium text-gray-700 mb-1.5">
                                             {{ __('Service Rate') }} <span class="text-red-500">*</span>
                                             <span class="text-xs font-normal text-gray-500">(per 100)</span>
@@ -659,80 +659,68 @@
                                         <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                                         @enderror
                                     </div>
+                                    <div class="row col-8">
+                                        <div class="col-6">
+                                            <label for="min_quantity" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                                {{ __('Minimum Order') }} <span class="text-red-500">*</span>
+                                            </label>
+                                            <input type="number"
+                                                   name="min_quantity"
+                                                   id="min_quantity"
+                                                   value="{{ old('min_quantity', isset($service) ? ($service->min_quantity ?? $service->min_order ?? 1) : '1') }}"
+                                                   required
+                                                   min="1"
+                                                   class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('min_quantity') border-red-300 @enderror"
+                                                   placeholder="1">
+                                            @error('min_quantity')
+                                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                                            @enderror
+                                        </div>
+                                        <div class="col-6">
+                                            <label for="max_quantity" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                                {{ __('Maximum Order') }} <span class="text-red-500">*</span>
+                                            </label>
+                                            <input type="number"
+                                                   name="max_quantity"
+                                                   id="max_quantity"
+                                                   value="{{ old('max_quantity', isset($service) ? ($service->max_quantity ?? $service->max_order ?? 100) : '100') }}"
+                                                   required
+                                                   min="100"
+                                                   class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('max_quantity') border-red-300 @enderror"
+                                                   placeholder="10000">
+                                            @error('max_quantity')
+                                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                                            @enderror
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="mt-3">
-                                <h3 class="text-base font-semibold text-gray-900 mb-1 flex items-center gap-2">
-                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-                                    </svg>
-                                    {{ __('Quantity Limits') }}
-                                </h3>
-                                <p class="text-xs text-gray-500 mb-4">{{ __('Set minimum and maximum order quantities') }}</p>
+                                <div class="row" style="margin-top: 60px">
+                                    <h3 class="text-base font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                                        <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                        </svg>
+                                        {{ __('Additional Information') }}
+                                    </h3>
+                                    <p class="text-xs text-gray-500 mb-4">{{ __('Service description') }}</p>
 
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
-                                        <label for="min_quantity" class="block text-sm font-medium text-gray-700 mb-1.5">
-                                            {{ __('Minimum Order') }} <span class="text-red-500">*</span>
+                                        <label for="description" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                            {{ __('Description') }}
+                                            <span class="text-xs font-normal text-gray-400">(optional)</span>
                                         </label>
-                                        <input type="number"
-                                               name="min_quantity"
-                                               id="min_quantity"
-                                               value="{{ old('min_quantity', isset($service) ? ($service->min_quantity ?? $service->min_order ?? 1) : '1') }}"
-                                               required
-                                               min="1"
-                                               class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('min_quantity') border-red-300 @enderror"
-                                               placeholder="1">
-                                        @error('min_quantity')
+                                        <textarea name="description"
+                                                  id="description"
+                                                  rows="3"
+                                                  class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('description') border-red-300 @enderror"
+                                                  placeholder="{{ __('Write a short description for this service...') }}">{{ old('description', isset($service) ? $service->description : '') }}</textarea>
+                                        @error('description')
                                         <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                                         @enderror
                                     </div>
-
-                                    <div>
-                                        <label for="max_quantity" class="block text-sm font-medium text-gray-700 mb-1.5">
-                                            {{ __('Maximum Order') }} <span class="text-red-500">*</span>
-                                        </label>
-                                        <input type="number"
-                                               name="max_quantity"
-                                               id="max_quantity"
-                                               value="{{ old('max_quantity', isset($service) ? ($service->max_quantity ?? $service->max_order ?? 1) : '1') }}"
-                                               required
-                                               min="1"
-                                               class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('max_quantity') border-red-300 @enderror"
-                                               placeholder="10000">
-                                        @error('max_quantity')
-                                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                                        @enderror
-                                    </div>
-                                </div>
                                 </div>
                             </div>
 
                             {{-- 8) Description --}}
-                            <div class="border border-gray-200 rounded-lg p-5 sm:p-6 bg-white shadow-sm lg:col-span-2">
-                                <h3 class="text-base font-semibold text-gray-900 mb-1 flex items-center gap-2">
-                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                    </svg>
-                                    {{ __('Additional Information') }}
-                                </h3>
-                                <p class="text-xs text-gray-500 mb-4">{{ __('Service description') }}</p>
-
-                                <div>
-                                    <label for="description" class="block text-sm font-medium text-gray-700 mb-1.5">
-                                        {{ __('Description') }}
-                                        <span class="text-xs font-normal text-gray-400">(optional)</span>
-                                    </label>
-                                    <textarea name="description"
-                                              id="description"
-                                              rows="3"
-                                              class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('description') border-red-300 @enderror"
-                                              placeholder="{{ __('Write a short description for this service...') }}">{{ old('description', isset($service) ? $service->description : '') }}</textarea>
-                                    @error('description')
-                                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                                    @enderror
-                                </div>
-                            </div>
-
                         </div>
 
                         </div>
