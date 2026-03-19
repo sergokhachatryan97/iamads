@@ -1289,7 +1289,7 @@
                     const totalQty = this.getTotalQuantity();
                     const rate = Number(this.selectedService.rate_per_1000) || 0;
                     const multiplier = this.getSpeedMultiplier();
-                    return (Math.round((totalQty / 100) * rate * multiplier * 100) / 100).toFixed(2);
+                    return (((totalQty / 100) * rate * multiplier * 100) / 100);
                 },
 
                 submitForm(event) {
