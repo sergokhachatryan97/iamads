@@ -172,8 +172,26 @@ class InspectYouTubeLinkJob implements ShouldQueue
             }
             $providerPayload['execution_meta'] = $executionMeta;
 
+            $startCount = 0;
+            if ($targetType ==='video') {
+                if (in_array($template['policy_key'], ['view', 'live'])){
+                    $startCount = $inspectionResult['statistics']['views'] ?? 0;
+                }elseif ($template['policy_key'] === 'react') {
+                    $startCount = $inspectionResult['statistics']['likes'] ?? 0;
+                }elseif ($template['policy_key'] === 'comment') {
+                    $startCount = $inspectionResult['statistics']['comments'] ?? 0;
+                }
+            }
+
+            if ($targetType ==='channel') {
+                if ($template['policy_key'] === 'subscribe') {
+                    $startCount = $inspectionResult['subscriber_count'] ?? 0;
+                }
+            }
+
             $order->update([
                 'status' => Order::STATUS_AWAITING,
+                'start_count' => $startCount,
                 'execution_phase' => Order::EXECUTION_PHASE_RUNNING,
                 'provider_last_error' => null,
                 'provider_last_error_at' => null,
