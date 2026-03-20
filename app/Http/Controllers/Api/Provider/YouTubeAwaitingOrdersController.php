@@ -20,7 +20,7 @@ class YouTubeAwaitingOrdersController extends Controller
     public function index(): JsonResponse
     {
         $orders = Order::query()
-            ->where('status', Order::STATUS_AWAITING)
+            ->whereIn('status', [Order::STATUS_AWAITING, Order::STATUS_IN_PROGRESS])
             ->whereHas('service', function ($q) {
                 $q->whereHas('category', function ($q2) {
                     $q2->where('link_driver', 'youtube');
