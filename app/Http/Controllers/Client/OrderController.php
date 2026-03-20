@@ -33,11 +33,53 @@ class OrderController extends Controller
      */
     public function index(Request $request): View
     {
-        $query = Order::where('client_id', $this->client->id)->with(['service']);
+        $query = Order::where('client_id', $this->client->id)->with(['service', 'category']);
 
         // Status filter
         if ($request->filled('status') && $request->status !== 'all') {
             $query->where('status', $request->status);
+        }
+
+        // Source filter (web / api)
+        if ($request->filled('source') && in_array($request->source, ['web', 'api'], true)) {
+            $query->where('source', $request->source);
+        }
+
+        // Category filter
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+
+        // Service filter
+        if ($request->filled('service_id')) {
+            $query->where('service_id', $request->service_id);
+        }
+
+        // Search filter (URL or order ID - single field)
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+            if (is_numeric($search)) {
+                $query->where('id', (int) $search);
+            } else {
+                $query->where('link', 'like', '%' . addcslashes($search, '%_\\') . '%');
+            }
+        } elseif ($request->filled('link')) {
+            $query->where('link', 'like', '%' . addcslashes($request->link, '%_\\') . '%');
+        } elseif ($request->filled('order_id')) {
+            $orderId = trim($request->order_id);
+            if (is_numeric($orderId)) {
+                $query->where('id', (int) $orderId);
+            } else {
+                $query->whereRaw('CAST(id AS CHAR) LIKE ?', ['%' . addcslashes($orderId, '%_\\') . '%']);
+            }
+        }
+
+        // Date range filter
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->date_to);
         }
 
         // Sorting
@@ -59,8 +101,41 @@ class OrderController extends Controller
 
         $orders = $query->paginate(20)->withQueryString();
 
-        // Per-status counts for this client
-        $statusCounts = Order::where('client_id', $this->client->id)
+        // Per-status counts for this client (respect filters)
+        $countQuery = Order::where('client_id', $this->client->id);
+        if ($request->filled('source') && in_array($request->source, ['web', 'api'], true)) {
+            $countQuery->where('source', $request->source);
+        }
+        if ($request->filled('category_id')) {
+            $countQuery->where('category_id', $request->category_id);
+        }
+        if ($request->filled('service_id')) {
+            $countQuery->where('service_id', $request->service_id);
+        }
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+            if (is_numeric($search)) {
+                $countQuery->where('id', (int) $search);
+            } else {
+                $countQuery->where('link', 'like', '%' . addcslashes($search, '%_\\') . '%');
+            }
+        } elseif ($request->filled('link')) {
+            $countQuery->where('link', 'like', '%' . addcslashes($request->link, '%_\\') . '%');
+        } elseif ($request->filled('order_id')) {
+            $orderId = trim($request->order_id);
+            if (is_numeric($orderId)) {
+                $countQuery->where('id', (int) $orderId);
+            } else {
+                $countQuery->whereRaw('CAST(id AS CHAR) LIKE ?', ['%' . addcslashes($orderId, '%_\\') . '%']);
+            }
+        }
+        if ($request->filled('date_from')) {
+            $countQuery->whereDate('created_at', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $countQuery->whereDate('created_at', '<=', $request->date_to);
+        }
+        $statusCounts = $countQuery
             ->selectRaw('status, COUNT(*) as cnt')
             ->groupBy('status')
             ->pluck('cnt', 'status')
@@ -79,13 +154,28 @@ class OrderController extends Controller
             Order::STATUS_FAIL => __('Failed'),
         ];
 
+        $categories = $this->categoryService->getAllCategories(true);
+        $services = Service::query()
+            ->where('is_active', true)
+            ->when($request->filled('category_id'), fn ($q) => $q->where('category_id', $request->category_id))
+            ->orderBy('name')
+            ->get(['id', 'name', 'category_id']);
+
         return view('client.orders.index', [
             'orders' => $orders,
             'statuses' => $statuses,
             'statusCounts' => $statusCounts,
             'currentStatus' => $request->get('status', 'all'),
+            'currentSource' => $request->get('source', 'all'),
             'sortBy' => $sortBy,
             'sortDir' => $sortDir,
+            'categories' => $categories,
+            'services' => $services,
+            'filterCategoryId' => $request->get('category_id'),
+            'filterServiceId' => $request->get('service_id'),
+            'filterDateFrom' => $request->get('date_from'),
+            'filterDateTo' => $request->get('date_to'),
+            'filterSearch' => $request->get('search', $request->get('link', $request->get('order_id'))),
         ]);
     }
 

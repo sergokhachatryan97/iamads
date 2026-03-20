@@ -56,6 +56,25 @@ class OrderQueryBuilder
             $query->where('service_id', $filters['service_id']);
         }
 
+        // Search filter (URL or order ID)
+        if (!empty($filters['search'])) {
+            $search = trim($filters['search']);
+            if (is_numeric($search)) {
+                $query->where('id', (int) $search);
+            } else {
+                $query->where('link', 'like', '%' . addcslashes($search, '%_\\') . '%');
+            }
+        } elseif (!empty($filters['link'])) {
+            $query->where('link', 'like', '%' . addcslashes($filters['link'], '%_\\') . '%');
+        } elseif (!empty($filters['order_id'])) {
+            $orderId = trim($filters['order_id']);
+            if (is_numeric($orderId)) {
+                $query->where('id', (int) $orderId);
+            } else {
+                $query->whereRaw('CAST(id AS CHAR) LIKE ?', ['%' . addcslashes($orderId, '%_\\') . '%']);
+            }
+        }
+
         // Category filter
         if (!empty($filters['category_id'])) {
             $query->where('category_id', $filters['category_id']);

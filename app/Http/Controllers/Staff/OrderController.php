@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Staff;
 use App\Helpers\OrderQueryBuilder;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\BulkOrderActionRequest;
+use App\Models\Category;
 use App\Models\Order;
+use App\Models\Service;
 use App\Services\OrderServiceInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -45,6 +47,43 @@ class OrderController extends Controller
             $query->where('status', $request->status);
         }
 
+        // Category filter
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+
+        // Service filter
+        if ($request->filled('service_id')) {
+            $query->where('service_id', $request->service_id);
+        }
+
+        // Search filter (URL or order ID)
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+            if (is_numeric($search)) {
+                $query->where('id', (int) $search);
+            } else {
+                $query->where('link', 'like', '%' . addcslashes($search, '%_\\') . '%');
+            }
+        } elseif ($request->filled('link')) {
+            $query->where('link', 'like', '%' . addcslashes($request->link, '%_\\') . '%');
+        } elseif ($request->filled('order_id')) {
+            $orderId = trim($request->order_id);
+            if (is_numeric($orderId)) {
+                $query->where('id', (int) $orderId);
+            } else {
+                $query->whereRaw('CAST(id AS CHAR) LIKE ?', ['%' . addcslashes($orderId, '%_\\') . '%']);
+            }
+        }
+
+        // Date range filter
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->date_to);
+        }
+
         // Sorting
         $sortBy = $request->get('sort_by', 'created_at');
         $sortDir = $request->get('sort_dir', 'desc');
@@ -66,12 +105,41 @@ class OrderController extends Controller
 
         $orders = $query->paginate(20)->withQueryString();
 
-        // Per-status counts (unfiltered by status, but filtered by staff)
+        // Per-status counts (filtered by staff and other filters, but not by status)
         $countBase = Order::query();
         if (!$isSuperAdmin) {
             $countBase->whereHas('client', function ($q) use ($user) {
                 $q->where('staff_id', $user->id);
             });
+        }
+        if ($request->filled('category_id')) {
+            $countBase->where('category_id', $request->category_id);
+        }
+        if ($request->filled('service_id')) {
+            $countBase->where('service_id', $request->service_id);
+        }
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+            if (is_numeric($search)) {
+                $countBase->where('id', (int) $search);
+            } else {
+                $countBase->where('link', 'like', '%' . addcslashes($search, '%_\\') . '%');
+            }
+        } elseif ($request->filled('link')) {
+            $countBase->where('link', 'like', '%' . addcslashes($request->link, '%_\\') . '%');
+        } elseif ($request->filled('order_id')) {
+            $orderId = trim($request->order_id);
+            if (is_numeric($orderId)) {
+                $countBase->where('id', (int) $orderId);
+            } else {
+                $countBase->whereRaw('CAST(id AS CHAR) LIKE ?', ['%' . addcslashes($orderId, '%_\\') . '%']);
+            }
+        }
+        if ($request->filled('date_from')) {
+            $countBase->whereDate('created_at', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $countBase->whereDate('created_at', '<=', $request->date_to);
         }
         $statusCounts = (clone $countBase)
             ->selectRaw('status, COUNT(*) as cnt')
@@ -92,6 +160,13 @@ class OrderController extends Controller
             Order::STATUS_FAIL => __('Failed'),
         ];
 
+        $categories = Category::query()->where('status', true)->orderBy('name')->get(['id', 'name']);
+        $services = Service::query()
+            ->where('is_active', true)
+            ->when($request->filled('category_id'), fn ($q) => $q->where('category_id', $request->category_id))
+            ->orderBy('name')
+            ->get(['id', 'name', 'category_id']);
+
         return view('staff.orders.index', [
             'orders' => $orders,
             'ordersIds' => $ordersIds,
@@ -101,6 +176,13 @@ class OrderController extends Controller
             'sortBy' => $sortBy,
             'sortDir' => $sortDir,
             'isSuperAdmin' => $isSuperAdmin,
+            'categories' => $categories,
+            'services' => $services,
+            'filterCategoryId' => $request->get('category_id'),
+            'filterServiceId' => $request->get('service_id'),
+            'filterDateFrom' => $request->get('date_from'),
+            'filterDateTo' => $request->get('date_to'),
+            'filterSearch' => $request->get('search', $request->get('link', $request->get('order_id'))),
         ]);
     }
 
@@ -189,6 +271,37 @@ class OrderController extends Controller
         // Status filter from request
         if ($request->filled('status') && $request->status !== 'all') {
             $query->where('status', $request->status);
+        }
+
+        // Category, service, date filters
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+        if ($request->filled('service_id')) {
+            $query->where('service_id', $request->service_id);
+        }
+        if ($request->filled('search')) {
+            $search = trim($request->search);
+            if (is_numeric($search)) {
+                $query->where('id', (int) $search);
+            } else {
+                $query->where('link', 'like', '%' . addcslashes($search, '%_\\') . '%');
+            }
+        } elseif ($request->filled('link')) {
+            $query->where('link', 'like', '%' . addcslashes($request->link, '%_\\') . '%');
+        } elseif ($request->filled('order_id')) {
+            $orderId = trim($request->order_id);
+            if (is_numeric($orderId)) {
+                $query->where('id', (int) $orderId);
+            } else {
+                $query->whereRaw('CAST(id AS CHAR) LIKE ?', ['%' . addcslashes($orderId, '%_\\') . '%']);
+            }
+        }
+        if ($request->filled('date_from')) {
+            $query->whereDate('created_at', '>=', $request->date_from);
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('created_at', '<=', $request->date_to);
         }
 
         // Filter by action type

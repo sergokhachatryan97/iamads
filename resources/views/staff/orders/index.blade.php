@@ -100,7 +100,7 @@
             <div class="mb-4 flex justify-end">
                 <a
                     href="{{ route('staff.exports.index', ['module' => 'orders']) }}"
-                    class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 >
                     <svg class="mr-2 h-5 w-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
@@ -109,47 +109,136 @@
                 </a>
             </div>
 
-            <!-- Status Filter Tabs -->
-            <div class="mb-4">
-                <div class="flex flex-wrap gap-2 border-b border-indigo-200 pb-2">
-                    @php
-                        $statusButtons = [
-                            'all' => __('All'),
-                            \App\Models\Order::STATUS_VALIDATING => __('Validating'),
-                            \App\Models\Order::STATUS_INVALID_LINK => __('Invalid Link'),
-                            \App\Models\Order::STATUS_RESTRICTED => __('Restricted'),
-                            \App\Models\Order::STATUS_AWAITING => __('Awaiting'),
-                            \App\Models\Order::STATUS_IN_PROGRESS => __('In Progress'),
-                            \App\Models\Order::STATUS_PARTIAL => __('Partial'),
-                            \App\Models\Order::STATUS_COMPLETED => __('Completed'),
-                            \App\Models\Order::STATUS_CANCELED => __('Canceled'),
-                            \App\Models\Order::STATUS_FAIL => __('Failed'),
-                        ];
-                    @endphp
-                    @foreach($statusButtons as $statusValue => $statusLabel)
+            <!-- Filter Bar -->
+            <div class="mb-4 rounded-xl bg-white border border-gray-200 shadow-sm p-4"
+                 x-data="staffOrdersFilters({
+                     filtersOpen: {{ ($filterCategoryId || $filterServiceId || $filterDateFrom || $filterDateTo || ($filterSearch ?? null)) ? 'true' : 'false' }},
+                     searchValue: @js($filterSearch ?? ''),
+                     indexUrl: '{{ route('staff.orders.index') }}',
+                 })"
+                 @submit.capture.prevent="fetchOrdersFromForm($event.target)">
+                {{-- Row 1: Burger + Status Tabs + Search --}}
+                <form method="GET" action="{{ route('staff.orders.index') }}" class="staff-orders-filter-form flex flex-wrap items-center gap-3">
+                    @if(request()->has('status') && request('status') !== 'all')
+                        <input type="hidden" name="status" value="{{ request('status') }}">
+                    @endif
+                    <button type="button"
+                            @click="filtersOpen = !filtersOpen"
+                            :class="filtersOpen ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+                            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+                        </svg>
+                    </button>
+
+                    <div class="flex flex-wrap items-center gap-1.5">
                         @php
-                            $isActive = $currentStatus === $statusValue;
-                            $urlParams = request()->except(['status', 'page']);
-                            if ($statusValue !== 'all') {
-                                $urlParams['status'] = $statusValue;
-                            }
-                            $url = route('staff.orders.index', $urlParams);
-                            $count = $statusValue === 'all'
-                                ? array_sum($statusCounts ?? [])
-                                : ($statusCounts[$statusValue] ?? 0);
+                            $statusButtons = [
+                                'all' => __('All'),
+                                \App\Models\Order::STATUS_VALIDATING => __('Validating'),
+                                \App\Models\Order::STATUS_INVALID_LINK => __('Invalid Link'),
+                                \App\Models\Order::STATUS_RESTRICTED => __('Restricted'),
+                                \App\Models\Order::STATUS_AWAITING => __('Awaiting'),
+                                \App\Models\Order::STATUS_IN_PROGRESS => __('In Progress'),
+                                \App\Models\Order::STATUS_PARTIAL => __('Partial'),
+                                \App\Models\Order::STATUS_COMPLETED => __('Completed'),
+                                \App\Models\Order::STATUS_CANCELED => __('Canceled'),
+                                \App\Models\Order::STATUS_FAIL => __('Failed'),
+                            ];
                         @endphp
-                        <a
-                            href="{{ $url }}"
-                            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-semibold transition-colors duration-200 {{ $isActive ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-indigo-600 hover:bg-gray-200' }}"
-                        >
-                            {{ $statusLabel }}
-                            @if($count > 0)
-                                <span class="px-1.5 py-0.5 text-xs font-bold rounded-full {{ $isActive ? 'bg-white/25 text-white' : 'bg-indigo-200 text-indigo-800' }}">
-                                    {{ number_format($count) }}
-                                </span>
-                            @endif
-                        </a>
-                    @endforeach
+                        @foreach($statusButtons as $statusValue => $statusLabel)
+                            @php
+                                $isActive = $currentStatus === $statusValue;
+                                $urlParams = request()->except(['status', 'page']);
+                                if ($statusValue !== 'all') $urlParams['status'] = $statusValue;
+                                $url = route('staff.orders.index', $urlParams);
+                                $count = $statusValue === 'all' ? array_sum($statusCounts ?? []) : ($statusCounts[$statusValue] ?? 0);
+                            @endphp
+                            <a href="{{ $url }}"
+                               class="staff-orders-ajax-link inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors {{ $isActive ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:text-gray-900' }}"
+                               @click.prevent="fetchOrdersByUrl('{{ $url }}')">
+                                {{ $statusLabel }}
+                                @if($count > 0)
+                                    <span class="rounded-full px-1.5 py-0.5 text-xs font-bold {{ $isActive ? 'bg-white/25 text-white' : 'bg-gray-200 text-gray-700' }}">{{ number_format($count) }}</span>
+                                @endif
+                            </a>
+                        @endforeach
+                    </div>
+
+                    <div class="ml-auto flex-1 min-w-[200px] max-w-md">
+                        <div class="relative">
+                            <svg class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                            </svg>
+                            <input type="text" name="search" x-model="searchValue"
+                                   @input.debounce.400ms="fetchOrdersFromForm($event.target.closest('form'))"
+                                   placeholder="{{ __('URL or order id') }}"
+                                   class="w-full rounded-full border border-gray-300 bg-gray-50 py-2 pl-10 pr-10 text-sm text-gray-900 placeholder-gray-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500">
+                            <button type="button" x-show="searchValue"
+                                    @click="searchValue = ''; fetchOrdersFromForm($event.target.closest('form'))"
+                                    x-cloak
+                                    class="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-gray-400 hover:bg-gray-200 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+
+                <div x-show="filtersOpen"
+                     x-transition:enter="transition ease-out duration-200"
+                     x-transition:enter-start="opacity-0 -translate-y-2"
+                     x-transition:enter-end="opacity-100 translate-y-0"
+                     x-transition:leave="transition ease-in duration-150"
+                     x-transition:leave-start="opacity-100 translate-y-0"
+                     x-transition:leave-end="opacity-0 -translate-y-2"
+                     x-cloak
+                     class="mt-4 border-t border-gray-200 pt-4">
+                    <form method="GET" action="{{ route('staff.orders.index') }}" class="staff-orders-filter-form flex flex-wrap items-end gap-4">
+                        @if(request()->has('status') && request('status') !== 'all')
+                            <input type="hidden" name="status" value="{{ request('status') }}">
+                        @endif
+                        <div>
+                            <label for="filter-category" class="mb-1 block text-xs font-medium text-gray-500">{{ __('Category') }}</label>
+                            <select name="category_id" id="filter-category" class="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500">
+                                <option value="">{{ __('All') }}</option>
+                                @foreach($categories ?? [] as $cat)
+                                    <option value="{{ $cat->id }}" {{ ($filterCategoryId ?? '') == $cat->id ? 'selected' : '' }}>{{ $cat->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label for="filter-service" class="mb-1 block text-xs font-medium text-gray-500">{{ __('Service') }}</label>
+                            <select name="service_id" id="filter-service" class="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500">
+                                <option value="">{{ __('All') }}</option>
+                                @foreach($services ?? [] as $svc)
+                                    <option value="{{ $svc->id }}" {{ ($filterServiceId ?? '') == $svc->id ? 'selected' : '' }}>ID{{ $svc->id }} - {{ Str::limit($svc->name, 40) }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label for="filter-date-from" class="mb-1 block text-xs font-medium text-gray-500">{{ __('Date') }}</label>
+                            <div class="flex gap-2">
+                                <input type="date" name="date_from" id="filter-date-from" value="{{ $filterDateFrom ?? '' }}"
+                                       class="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500">
+                                <input type="date" name="date_to" id="filter-date-to" value="{{ $filterDateTo ?? '' }}"
+                                       class="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500">
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="submit" class="rounded-full bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                                {{ __('Apply') }}
+                            </button>
+                            <a href="{{ route('staff.orders.index', array_filter(['status' => request('status') !== 'all' ? request('status') : null])) }}"
+                               class="inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                </svg>
+                                {{ __('Reset filter') }}
+                            </a>
+                        </div>
+                    </form>
                 </div>
             </div>
 
@@ -975,6 +1064,7 @@
                         category_id: urlParams.get('category_id') || '',
                         date_from: urlParams.get('date_from') || '',
                         date_to: urlParams.get('date_to') || '',
+                        search: urlParams.get('search') || '',
                     };
                 },
 
@@ -1025,7 +1115,31 @@
             }
         }
 
-        function fetchOrdersPage(page, sortByParam = null, sortDirParam = null) {
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('staffOrdersFilters', (config) => ({
+                filtersOpen: config.filtersOpen,
+                searchValue: config.searchValue,
+                indexUrl: config.indexUrl,
+
+                fetchOrdersFromForm(form) {
+                    const params = new URLSearchParams();
+                    document.querySelectorAll('.staff-orders-filter-form').forEach(f => {
+                        new FormData(f).forEach((val, key) => {
+                            if (key !== 'search' && val) params.set(key, val);
+                        });
+                    });
+                    if (this.searchValue) params.set('search', this.searchValue);
+                    const url = this.indexUrl + (params.toString() ? '?' + params.toString() : '');
+                    this.fetchOrdersByUrl(url);
+                },
+
+                fetchOrdersByUrl(url) {
+                    fetchOrdersPage(1, null, null, url);
+                }
+            }));
+        });
+
+        function fetchOrdersPage(page, sortByParam = null, sortDirParam = null, customUrl = null) {
             // Get Alpine instance (we need it to re-sync checkboxes after DOM swap)
             const tableContainer = document.querySelector('[x-data*="bulkOrderSelection"]');
             const alpineData = tableContainer?.__x?.$data;
@@ -1034,11 +1148,11 @@
             let sortBy = sortByParam || alpineData?.sortBy || null;
             let sortDir = sortDirParam || alpineData?.sortDir || null;
 
-            const url = new URL(window.location);
+            const url = customUrl ? new URL(customUrl, window.location.origin) : new URL(window.location);
             url.searchParams.set('page', page);
 
-            // preserve params except page/sort
-            const currentParams = new URLSearchParams(window.location.search);
+            // preserve params except page/sort (from url when custom, else from location)
+            const currentParams = new URLSearchParams(url.search);
             for (const [key, value] of currentParams.entries()) {
                 if (!['page', 'sort_by', 'sort_dir'].includes(key)) {
                     url.searchParams.set(key, value);
@@ -1060,17 +1174,20 @@
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(html, 'text/html');
 
-                    // 1) replace tbody
+                    // 1) replace tbody (fallback to full reload if structure differs, e.g. 0 orders vs some orders)
                     const newTbody = doc.querySelector('#orders-table tbody');
                     const currentTbody = document.querySelector('#orders-table tbody');
 
-                    if (newTbody && currentTbody) {
-                        currentTbody.innerHTML = newTbody.innerHTML;
+                    if (!newTbody || !currentTbody) {
+                        window.location.href = url.toString();
+                        return;
+                    }
 
-                        // IMPORTANT: re-init Alpine bindings on replaced DOM
-                        if (window.Alpine && typeof window.Alpine.initTree === 'function') {
-                            window.Alpine.initTree(currentTbody);
-                        }
+                    currentTbody.innerHTML = newTbody.innerHTML;
+
+                    // IMPORTANT: re-init Alpine bindings on replaced DOM
+                    if (window.Alpine && typeof window.Alpine.initTree === 'function') {
+                        window.Alpine.initTree(currentTbody);
                     }
 
                     // 2) replace pagination slot (optional but recommended)
