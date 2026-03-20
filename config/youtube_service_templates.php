@@ -48,6 +48,14 @@ return [
         'default_priority' => 50,
     ],
 
+    'yt_comment_react' => [
+        'label' => 'YouTube Comment + Reaction',
+        'action' => 'comment-react',
+        'policy_key' => 'comment_react',
+        'allowed_link_kinds' => ['video'],
+        'default_priority' => 50,
+    ],
+
     'yt_share' => [
         'label' => 'YouTube Video Share',
         'action' => 'share',
