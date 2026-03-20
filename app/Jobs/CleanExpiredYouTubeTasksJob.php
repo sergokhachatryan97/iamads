@@ -25,10 +25,7 @@ class CleanExpiredYouTubeTasksJob implements ShouldQueue
         $count = YouTubeTask::query()
             ->where('status', YouTubeTask::STATUS_LEASED)
             ->where('leased_until', '<', now())
-            ->update([
-                'status' => YouTubeTask::STATUS_PENDING,
-                'leased_until' => null,
-            ]);
+            ->delete();
 
         Log::info('CleanExpiredYouTubeTasksJob', [
             'reset_count' => $count,
