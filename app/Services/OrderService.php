@@ -9,6 +9,7 @@ use App\Models\Service;
 use App\Models\ClientTransaction;
 use App\Models\ClientServiceLimit;
 use App\Models\TelegramAccount;
+use App\Services\Order\ApiOrderResult;
 use App\Services\Order\OrderInspectionDispatcher;
 use App\Services\Order\OrderLinkDedupeKeyResolver;
 use Carbon\Carbon;
@@ -236,6 +237,139 @@ class OrderService implements OrderServiceInterface
             }
 
             return Collection::make($orders)->load(['service', 'category']);
+        });
+    }
+
+    /**
+     * Create a single order from API request. Idempotent by (client_id, external_order_id).
+     */
+    public function createApiOrder(Client $client, array $data): ApiOrderResult
+    {
+        return DB::transaction(function () use ($client, $data) {
+            $client = Client::lockForUpdate()->findOrFail($client->id);
+            $externalOrderId = (string) $data['external_order_id'];
+            $serviceId = (int) $data['service_id'];
+            $link = trim((string) $data['link']);
+            $quantity = (int) $data['quantity'];
+            $speedTier = $data['speed_tier'] ?? 'normal';
+            $meta = $data['meta'] ?? [];
+
+            $existing = Order::query()
+                ->where('client_id', $client->id)
+                ->where('external_order_id', $externalOrderId)
+                ->first();
+
+            if ($existing) {
+                return new ApiOrderResult($existing, true);
+            }
+
+            $service = $this->serviceService->getServiceById($serviceId);
+            if (!$service || !$service->is_active) {
+                throw ValidationException::withMessages([
+                    'service' => 'Service not found or inactive.',
+                ]);
+            }
+
+            $categoryId = (int) $service->category_id;
+            $service = $this->serviceService->getServicesByIdAndCategoryId($serviceId, $categoryId);
+
+            if ($service->service_type === 'custom_comments') {
+                throw ValidationException::withMessages([
+                    'service' => 'Custom comments service is not supported via API.',
+                ]);
+            }
+
+            $serviceLimit = ClientServiceLimit::query()
+                ->where('client_id', $client->id)
+                ->where('service_id', $service->id)
+                ->first();
+
+            $effectiveMinQty = $serviceLimit?->min_quantity ?? $service->min_quantity;
+            $effectiveMaxQty = $serviceLimit?->max_quantity ?? ($service->max_quantity ?? null);
+            $effectiveIncrement = $serviceLimit?->increment ?? ($service->increment ?? 0);
+
+            $this->validateServiceQuantityRules(
+                $quantity,
+                0,
+                (int) $effectiveMinQty,
+                $effectiveMaxQty !== null ? (int) $effectiveMaxQty : null,
+                (int) $effectiveIncrement
+            );
+
+            if ($service->deny_link_duplicates) {
+                $this->validateNoDuplicateLink($service, $link);
+            }
+
+            $effectiveRate = (float) $this->pricingService->priceForClient($service, $client);
+            $rateMultiplier = $service->speed_limit_enabled ? $service->getSpeedMultiplier($speedTier) : 1.0;
+            $charge = round(($quantity / 100) * $effectiveRate * $rateMultiplier, 2);
+            $cost = $service->service_cost_per_1000 !== null
+                ? round(($quantity / 100) * (float) $service->service_cost_per_1000 * $rateMultiplier, 2)
+                : null;
+
+            if ($client->balance < $charge) {
+                throw ValidationException::withMessages([
+                    'balance' => 'Insufficient balance. Please top up.',
+                ]);
+            }
+
+            $client->balance -= $charge;
+            $client->save();
+
+            $pricingSnapshot = [
+                'speed_tier' => $speedTier,
+                'base_rate_per_100' => $effectiveRate,
+                'rate_multiplier' => $rateMultiplier,
+                'external_order_id' => $externalOrderId,
+                'meta' => $meta,
+            ];
+
+            $providerPayload = ['pricing_snapshot' => $pricingSnapshot];
+            $ytTpl = $service->template();
+            if ($ytTpl && ($ytTpl['requires_watch_time'] ?? false)) {
+                $providerPayload['watch_time_seconds'] = (int) (
+                    $service->watch_time_seconds
+                    ?? $ytTpl['default_watch_time_seconds']
+                    ?? config('youtube.default_watch_time_seconds', 30)
+                );
+            }
+
+            $order = Order::create([
+                'batch_id' => (string) \Illuminate\Support\Str::uuid(),
+                'client_id' => $client->id,
+                'created_by' => null,
+                'source' => Order::SOURCE_API,
+                'external_order_id' => $externalOrderId,
+                'category_id' => $service->category_id,
+                'service_id' => $service->id,
+                'link' => $link,
+                'payment_source' => Order::PAYMENT_SOURCE_BALANCE,
+                'subscription_id' => null,
+                'charge' => $charge,
+                'cost' => $cost,
+                'quantity' => $quantity,
+                'speed_tier' => $service->speed_limit_enabled ? $speedTier : null,
+                'speed_multiplier' => $service->getSpeedMultiplier($speedTier),
+                'delivered' => 0,
+                'remains' => Order::computeTargetQuantity($quantity, $service),
+                'status' => Order::STATUS_VALIDATING,
+                'mode' => Service::MODE_MANUAL,
+                'provider_payload' => $providerPayload,
+                'execution_phase' => Order::EXECUTION_PHASE_RUNNING,
+            ]);
+
+            if ($charge > 0) {
+                ClientTransaction::create([
+                    'client_id' => $client->id,
+                    'order_id' => $order->id,
+                    'amount' => -$charge,
+                    'type' => ClientTransaction::TYPE_ORDER_CHARGE,
+                ]);
+            }
+
+            $this->orderInspectionDispatcher->dispatch($order);
+
+            return new ApiOrderResult($order->load(['service', 'category']), false);
         });
     }
 

@@ -40,10 +40,12 @@ Route::post('payments/{provider}/initiate', [PaymentController::class, 'initiate
 Route::post('webhooks/payments/{provider}', [PaymentWebhookController::class, 'handle'])
     ->name('webhooks.payments.handle');
 
-// External Orders API (X-Client-Token auth)
-Route::prefix('external')->middleware('auth.external_client')->group(function () {
+// External Orders API (Bearer api_key auth – client account)
+Route::prefix('external')->middleware('auth.api_client')->group(function () {
+    Route::get('services', [\App\Http\Controllers\External\ExternalServiceController::class, 'index'])->name('external.services.index');
     Route::post('orders', [ExternalOrderController::class, 'store'])->name('external.orders.store');
     Route::get('orders', [ExternalOrderController::class, 'index'])->name('external.orders.index');
+    Route::post('orders/statuses', [ExternalOrderController::class, 'statuses'])->name('external.orders.statuses');
     Route::get('orders/{external_order_id}', [ExternalOrderController::class, 'show'])->name('external.orders.show');
 });
 

@@ -51,9 +51,14 @@ class Order extends Model
      *
      * @var list<string>
      */
+    public const SOURCE_WEB = 'web';
+    public const SOURCE_API = 'api';
+
     protected $fillable = [
         'batch_id',
         'client_id',
+        'source',
+        'external_order_id',
         'created_by',
         'category_id',
         'service_id',

@@ -97,6 +97,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'client.status' => \App\Http\Middleware\EnsureClientNotSuspended::class,
             'auth.provider' => \App\Http\Middleware\AuthenticateProvider::class,
             'auth.external_client' => \App\Http\Middleware\AuthenticateExternalClient::class,
+            'auth.api_client' => \App\Http\Middleware\AuthenticateApiClient::class,
         ]);
 
         // Ensure UseStaffSession runs before StartSession

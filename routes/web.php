@@ -96,6 +96,12 @@ Route::middleware('auth:client')->group(function () {
     Route::get('orders/services/by-category', [OrderController::class, 'servicesByCategory'])->name('client.orders.services.by-category');
     Route::post('orders/{order}/cancel', [OrderController::class, 'cancelFull'])->name('client.orders.cancelFull');
     Route::post('orders/{order}/cancel-partial', [OrderController::class, 'cancelPartial'])->name('client.orders.cancelPartial');
+
+    // API Access
+    Route::get('api', [\App\Http\Controllers\Client\ApiController::class, 'index'])->name('client.api.index');
+    Route::post('api/toggle', [\App\Http\Controllers\Client\ApiController::class, 'toggle'])->name('client.api.toggle');
+    Route::post('api/regenerate', [\App\Http\Controllers\Client\ApiController::class, 'regenerate'])->name('client.api.regenerate');
+    Route::get('api/reveal-key', [\App\Http\Controllers\Client\ApiController::class, 'revealKey'])->name('client.api.reveal-key');
 });
 
 
@@ -272,6 +278,8 @@ Route::get('/oauth/google/callback', [GoogleGmailOAuthController::class, 'callba
 
 Route::get('test', function () {
 //    $a = app(\App\Services\Telegram\TelegramInspector::class);
+   $a = app(\App\Services\YouTube\YouTubeLinkParser::class);
+   dd($a->parse('https://www.youtube.com/channel/UC8e0fq6U9jg2LPDBwPi6PJA'));
 
 //    dd($a->inspect('https://t.me/Tele112bot', serviceId: 72));
 //        SocpanelPollOrdersJob::dispatch('active')
@@ -285,8 +293,8 @@ Route::get('test', function () {
 //    $b = $a->inspect('https://t.me/FedRussianInsiders');
 //    dd($b);
 //    SocpanelValidateOrderJob::dispatch(143, 'https://t.me/vhabar');
-   $a = inspectMaxLink('https://max.ru/trends_money/AZzeDxHGEqM');
-   dd($a);
+//   $a = inspectMaxLink('https://max.ru/trends_money/AZzeDxHGEqM');
+//   dd($a);
 });
 
 

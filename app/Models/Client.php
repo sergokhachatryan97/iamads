@@ -21,6 +21,10 @@ class Client extends Authenticatable
         'name',
         'email',
         'password',
+        'api_enabled',
+        'api_key',
+        'api_key_generated_at',
+        'api_last_used_at',
         'balance',
         'spent',
         'discount',
@@ -45,6 +49,7 @@ class Client extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'api_key',
     ];
 
     /**
@@ -65,6 +70,9 @@ class Client extends Authenticatable
             'suspended_at' => 'datetime',
             'malicious_at' => 'datetime',
             'social_media' => 'array',
+            'api_enabled' => 'boolean',
+            'api_key_generated_at' => 'datetime',
+            'api_last_used_at' => 'datetime',
         ];
     }
 

@@ -20,6 +20,13 @@ interface OrderServiceInterface
     public function create(Client $client, array $data, ?int $createdBy = null): Collection;
 
     /**
+     * Create a single order from API. Idempotent by (client_id, external_order_id).
+     *
+     * @return \App\Services\Order\ApiOrderResult
+     */
+    public function createApiOrder(Client $client, array $data): \App\Services\Order\ApiOrderResult;
+
+    /**
      * Process a refund for an order.
      *
      * @param Order $order

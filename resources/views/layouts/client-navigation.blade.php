@@ -27,6 +27,9 @@
                     <x-nav-link :href="route('client.services.index')" :active="request()->routeIs('client.services.*')">
                         {{ __('Services') }}
                     </x-nav-link>
+{{--                    <x-nav-link :href="route('client.api.index')" :active="request()->routeIs('client.api.*')">--}}
+{{--                        {{ __('API') }}--}}
+{{--                    </x-nav-link>--}}
                 </div>
             </div>
 
@@ -106,6 +109,9 @@
             </x-responsive-nav-link>
             <x-responsive-nav-link :href="route('client.services.index')" :active="request()->routeIs('client.services.*')">
                 {{ __('Services') }}
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('client.api.index')" :active="request()->routeIs('client.api.*')">
+                {{ __('API') }}
             </x-responsive-nav-link>
             <x-responsive-nav-link :href="route('client.subscriptions.index')" :active="request()->routeIs('client.subscriptions.index')">
                 {{ __('Subscription Plans') }}
