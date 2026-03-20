@@ -67,30 +67,6 @@
                                 @enderror
                             </div>
 
-                            <!-- Target Type (only for Telegram-like categories) -->
-                            <div class="mb-6" x-show="categoryId && categoryHasTargetType" x-cloak>
-                                <label for="target_type" class="block text-sm font-medium text-gray-700 mb-2">
-                                    {{ __('Target Type') }} <span class="text-red-500">*</span>
-                                </label>
-                                <select
-                                    id="target_type"
-                                    name="target_type"
-                                    x-model="targetType"
-                                    @change="loadServices()"
-                                    :required="categoryHasTargetType"
-                                    class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                                    <option value="">{{ __('Select target type') }}</option>
-                                    <option value="bot">Bot</option>
-                                    <option value="channel">Channel/Group</option>
-                                </select>
-                                @error('target_type')
-                                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                                @enderror
-                                <p class="mt-1 text-xs text-gray-500">
-                                    {{ __('Select bot, channel, or group to filter services') }}
-                                </p>
-                            </div>
-
                             <!-- Service -->
                             <div class="mb-6">
                                 <label for="service_id" class="block text-sm font-medium text-gray-700 mb-2">
@@ -101,8 +77,8 @@
                                     name="service_id"
                                     x-model="serviceId"
                                     @change="updateServiceInfo"
-                                    :disabled="!categoryId || (categoryHasTargetType && !targetType) || loading"
-                                    :required="categoryId && (!categoryHasTargetType || targetType)"
+                                    :disabled="!categoryId || loading"
+                                    :required="categoryId"
                                     class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed">
                                     <option value="" x-text="loading ? '{{ __('Loading...') }}' : '{{ __('Select a service') }}'"></option>
                                     <template x-for="service in (Array.isArray(services) ? services : [])" :key="'service-' + service.id">
@@ -639,22 +615,6 @@
                                 <div class="space-y-3" x-show="!multiLoading && multiServices.length > 0">
                                     <template x-for="(serviceRow, index) in multiSelectedServices" :key="index">
                                         <div class="flex gap-3 items-start p-3 bg-gray-50 rounded-md border border-gray-200">
-                                            <div class="w-32" x-show="multiCategoryHasTargetType" x-cloak>
-                                                <label :for="'multi_target_type_' + index" class="block text-sm font-medium text-gray-700 mb-1">
-                                                    {{ __('Target Type') }}
-                                                </label>
-                                                <select
-                                                    :id="'multi_target_type_' + index"
-                                                    :name="'services[' + index + '][target_type]'"
-                                                    x-model="serviceRow.target_type"
-                                                    @change="filterServicesForRow(index)"
-                                                    class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                                                    <option value="">{{ __('All') }}</option>
-                                                    <option value="bot">Bot</option>
-                                                    <option value="channel">Channel</option>
-                                                    <option value="group">Group</option>
-                                                </select>
-                                            </div>
                                             <div class="flex-1">
                                                 <label :for="'multi_service_' + index" class="block text-sm font-medium text-gray-700 mb-1">
                                                     {{ __('Service') }} <span class="text-red-500">*</span>
@@ -846,11 +806,6 @@
                 inviteQuantity: {{ old('targets.0.quantity', 1) }},
                 // Multi-service order data
                 multiCategoryId: '{{ old('category_id', $preselectedCategoryId ?? '') }}',
-                get multiCategoryHasTargetType() {
-                    if (!this.multiCategoryId) return false;
-                    const id = Number(this.multiCategoryId);
-                    return Array.isArray(this.categoryIdsWithTargetType) && (this.categoryIdsWithTargetType.includes(id) || this.categoryIdsWithTargetType.includes(String(this.multiCategoryId)));
-                },
                 multiLink: '{{ old('link', '') }}',
                 multiLinkValid: true,
                 multiServices: [],
@@ -868,7 +823,7 @@
                     if (!Array.isArray(this.multiSelectedServices)) {
                         this.multiSelectedServices = [];
                     }
-                    if (this.categoryId && (!this.categoryHasTargetType || this.targetType)) {
+                    if (this.categoryId) {
                         this.loadServices().then(() => {
                             if (this.serviceId && this.services.length > 0) {
                                 this.$nextTick(() => {
@@ -918,9 +873,7 @@
                     }
                 },
 
-                onCategoryChange() {
-                    if (!this.categoryHasTargetType) this.targetType = '';
-                },
+                onCategoryChange() {},
 
                 validateTelegramLink(link) {
                     if (!link || link.trim() === '') return true;
@@ -995,17 +948,10 @@
                         this.services = [];
                         return Promise.resolve();
                     }
-                    if (this.categoryHasTargetType && !this.targetType) {
-                        this.services = [];
-                        this.serviceId = '';
-                        this.selectedService = null;
-                        return Promise.resolve();
-                    }
 
                     this.loading = true;
                     try {
-                        const targetParam = this.categoryHasTargetType ? `&target_type=${this.targetType}` : '';
-                        const response = await fetch(`{{ route('client.orders.services.by-category') }}?category_id=${this.categoryId}${targetParam}`);
+                        const response = await fetch(`{{ route('client.orders.services.by-category') }}?category_id=${this.categoryId}`);
                         const data = await response.json();
                         this.services = Array.isArray(data) ? data : [];
                         // Clear selected service if not in filtered list
@@ -1378,30 +1324,7 @@
                 },
 
                 getFilteredServicesForRow(index) {
-                    const serviceRow = this.multiSelectedServices[index];
-                    if (!serviceRow || !Array.isArray(this.multiServices)) {
-                        return [];
-                    }
-                    if (!this.multiCategoryHasTargetType || !serviceRow.target_type) {
-                        return this.multiServices;
-                    }
-                    return this.multiServices.filter(service => service.target_type === serviceRow.target_type);
-                },
-
-                filterServicesForRow(index) {
-                    const serviceRow = this.multiSelectedServices[index];
-                    // Clear service selection when target type changes if the selected service doesn't match
-                    if (serviceRow.service_id) {
-                        const selectedService = this.multiServices.find(s => s.id == serviceRow.service_id);
-                        if (selectedService && serviceRow.target_type && selectedService.target_type !== serviceRow.target_type) {
-                            serviceRow.service_id = '';
-                            serviceRow.min_quantity = 1;
-                            serviceRow.max_quantity = null;
-                            serviceRow.increment = 0;
-                            serviceRow.rate_per_1000 = 0;
-                            serviceRow.quantity = 1;
-                        }
-                    }
+                    return Array.isArray(this.multiServices) ? this.multiServices : [];
                 },
 
                 updateMultiServiceInfo(index) {

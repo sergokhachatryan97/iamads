@@ -147,36 +147,9 @@
                                         </p>
                                     </div>
 
-                                    {{-- Target Type & Template (only for categories with service templates, e.g. Telegram, YouTube) --}}
+                                    {{-- Service Template (only for categories with service templates, e.g. Telegram, YouTube) --}}
                                     <div x-show="categoryHasTemplates" x-cloak>
-                                        {{-- Target Type (Telegram: bot/channel; YouTube: single template list, value set to youtube) --}}
-                                        <div x-show="categoryHasTemplates && !categoryIsYoutube"
-                                             x-cloak>
-                                            <label for="target_type" class="block text-sm font-medium text-gray-700 mb-1.5">
-                                                {{ __('Target Type') }} <span class="text-red-500">*</span>
-                                            </label>
-                                            <select
-                                                name="target_type"
-                                                id="target_type"
-                                                x-model="targetType"
-                                                @change="filterTemplatesByTargetType()"
-                                                :required="categoryHasTemplates && !categoryIsYoutube"
-                                                class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('target_type') border-red-300 @enderror">
-                                                <option value="">{{ __('Select target type') }}</option>
-                                                @foreach($targetTypeOptions as $key => $label)
-                                                    <option value="{{ $key }}" {{ old('target_type', isset($service) ? ($service->target_type ?? '') : '') == $key ? 'selected' : '' }}>
-                                                        {{ $label }}
-                                                    </option>
-                                                @endforeach
-                                            </select>
-                                            @error('target_type')
-                                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                                            @enderror
-                                            <p class="mt-1 text-xs text-gray-500">
-                                                {{ __('Select bot, channel, or group for this service') }}
-                                            </p>
-                                        </div>
-
+                                        <input type="hidden" name="target_type" value="{{ isset($service) ? ($service->target_type ?? '') : '' }}">
                                         <div>
                                             <label for="template_key" class="block text-sm font-medium text-gray-700 mb-1.5">
                                                 {{ __('Service Template') }} <span class="text-red-500">*</span>
@@ -186,7 +159,7 @@
                                                 id="template_key"
                                                 x-model="selectedTemplate"
                                                 @change="updateTemplateInfo()"
-                                                :required="categoryHasTemplates && (categoryIsYoutube || targetType)"
+                                                :required="categoryHasTemplates"
                                                 class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('template_key') border-red-300 @enderror">
                                                 <option value="">{{ __('Select a template') }}</option>
                                                 <template x-for="[key, label] in Object.entries(filteredTemplates)" :key="key">
@@ -767,7 +740,6 @@
                 },
                 denyDuplicates: @js(old('deny_link_duplicates', isset($service) ? (string) (int) ($service->deny_link_duplicates ?? false) : '0')),
                 parsingEnabled: @js(old('start_count_parsing_enabled', isset($service) ? (string) (int) ($service->start_count_parsing_enabled ?? false) : '0')),
-                targetType: @js(old('target_type', isset($service) ? ($service->target_type ?? '') : '')),
                 selectedTemplate: @js(old('template_key', isset($service) ? ($service->template_key ?? '') : '')),
                 durationDays: @js(old('duration_days', isset($service) ? ($service->duration_days ?? null) : null)),
                 serviceName: @js(old('name', isset($service) ? ($service->name ?? '') : '')),
@@ -794,19 +766,15 @@
                     const val = input ? input.value : '';
                     this.categoryId = val || '';
                     if (!this.categoryHasTemplates) {
-                        this.targetType = '';
                         this.selectedTemplate = '';
                         this.filteredTemplates = {};
                         this.templatePreview = null;
                         this.templateRequiresDuration = false;
                         this.templateRequiresWatchTime = false;
-                        const targetSelect = document.getElementById('target_type');
                         const templateSelect = document.getElementById('template_key');
-                        if (targetSelect) targetSelect.value = '';
                         if (templateSelect) templateSelect.value = '';
-                    } else if (this.categoryIsYoutube) {
-                        this.targetType = 'youtube';
-                        this.filteredTemplates = @js($youtubeTemplates ?? []);
+                    } else {
+                        this.loadTemplatesByCategory();
                         if (!this.filteredTemplates[this.selectedTemplate]) {
                             this.selectedTemplate = '';
                             this.templatePreview = null;
@@ -815,8 +783,6 @@
                         }
                         const templateSelect = document.getElementById('template_key');
                         if (templateSelect) templateSelect.value = this.selectedTemplate;
-                    } else {
-                        this.filterTemplatesByTargetType();
                     }
                 },
 
@@ -828,12 +794,9 @@
                         if (catInput) {
                             catInput.addEventListener('change', () => this.onCategoryChange());
                         }
-                        // When editing a YouTube service, ensure template list and target type are set
-                        if (this.categoryIsYoutube) {
-                            this.targetType = 'youtube';
-                            this.filterTemplatesByTargetType();
-                        } else if (this.targetType) {
-                            this.filterTemplatesByTargetType();
+                        // When editing, ensure template list is loaded for category
+                        if (this.categoryHasTemplates) {
+                            this.loadTemplatesByCategory();
                         }
                     });
 
@@ -881,31 +844,24 @@
                     this.guardAutoComplete(this.parsingEnabled);
                 },
 
-                filterTemplatesByTargetType() {
+                loadTemplatesByCategory() {
                     if (this.categoryIsYoutube) {
                         this.filteredTemplates = this.allTemplates['youtube'] || {};
-                        return;
+                    } else {
+                        // Merge all templates for Telegram category (bot + channel)
+                        const bot = this.allTemplates['bot'] || {};
+                        const channel = this.allTemplates['channel'] || {};
+                        this.filteredTemplates = { ...bot, ...channel };
                     }
-                    if (!this.targetType) {
-                        this.filteredTemplates = {};
-                        // Don't reset selectedTemplate in edit mode
-                        if (!this.isEditing) {
-                            this.selectedTemplate = '';
-                        }
-                        return;
-                    }
-                    this.filteredTemplates = this.allTemplates[this.targetType] || {};
 
-                    // In edit mode, ensure selected template is in filtered list (even if target_type changed)
+                    // In edit mode, ensure selected template is in filtered list
                     if (this.isEditing && this.selectedTemplate && !this.filteredTemplates[this.selectedTemplate]) {
-                        // Template doesn't match target_type, but show it anyway in edit mode
                         const allTemplates = @js($serviceTemplates);
                         if (allTemplates[this.selectedTemplate]) {
                             this.filteredTemplates[this.selectedTemplate] = allTemplates[this.selectedTemplate].label || this.selectedTemplate;
                         }
                     }
 
-                    // Reset template if current selection is not in filtered list (only in create mode)
                     if (!this.isEditing && this.selectedTemplate && !this.filteredTemplates[this.selectedTemplate]) {
                         this.selectedTemplate = '';
                         this.updateTemplateInfo();
