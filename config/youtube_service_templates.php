@@ -49,7 +49,7 @@ return [
     ],
 
     'yt_comment_react' => [
-        'label' => 'YouTube Comment + Reaction',
+        'label' => "YouTube Comment's + Reaction",
         'action' => 'comment-react',
         'policy_key' => 'comment_react',
         'allowed_link_kinds' => ['video'],
@@ -87,14 +87,6 @@ return [
         'label' => 'YouTube Live Reaction',
         'action' => 'react',
         'policy_key' => 'react',
-        'allowed_link_kinds' => ['live'],
-        'default_priority' => 50,
-    ],
-
-    'yt_live_comment_react' => [
-        'label' => 'YouTube Live Comment + Reaction',
-        'action' => 'comment-react',
-        'policy_key' => 'comment_react',
         'allowed_link_kinds' => ['live'],
         'default_priority' => 50,
     ],

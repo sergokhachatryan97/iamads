@@ -16,7 +16,7 @@ class YouTubePolicy
     public static function allowedActionsByTargetType(): array
     {
         return config('youtube.allowed_actions', [
-            'video' => ['view', 'react', 'comment', 'share'],
+            'video' => ['view', 'react', 'comment', 'share', 'comment-react'],
             'live' => ['view', 'react', 'comment-react', 'comment'],
             'channel' => ['subscribe'],
         ]);

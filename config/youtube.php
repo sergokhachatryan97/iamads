@@ -22,8 +22,8 @@ return [
     */
 
     'allowed_actions' => [
-        'video' => ['view', 'react', 'comment', 'share', 'watch'],
-        'live' => ['view', 'react', 'comment-react', 'comment'],
+        'video' => ['view', 'react', 'comment', 'share', 'watch', 'comment-react'],
+        'live' => ['view', 'react', 'comment'],
         'channel' => ['subscribe'],
     ],
 
