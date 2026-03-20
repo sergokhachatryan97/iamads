@@ -18,8 +18,7 @@ class ExternalOrderStoreRequest extends FormRequest
     {
         return [
             'external_order_id' => ['required', 'string', 'max:255'],
-            'service_key' => ['required_without:service_id', 'nullable', 'string', 'max:100'],
-            'service_id' => ['required_without:service_key', 'nullable', 'integer', 'min:1'],
+            'service_id' => ['required', 'integer', 'min:1'],
             'link' => ['required', 'string', 'max:2048'],
             'quantity' => ['required', 'integer', 'min:1', 'max:100000000'],
             'speed_tier' => ['nullable', 'string', 'max:50'],

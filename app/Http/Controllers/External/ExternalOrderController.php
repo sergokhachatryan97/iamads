@@ -32,7 +32,6 @@ class ExternalOrderController extends Controller
     {
         $clientName = (string) $request->attributes->get('external_client');
         $externalOrderId = $request->validated('external_order_id');
-        $serviceKey = $request->validated('service_key');
         $serviceId = $request->validated('service_id');
         $link = $request->validated('link');
         $quantity = (int) $request->validated('quantity');
@@ -47,7 +46,7 @@ class ExternalOrderController extends Controller
             ], 500);
         }
 
-        $service = $this->resolveService($serviceKey, $serviceId);
+        $service = $this->resolveService($serviceId);
 
         if (!$service) {
             return response()->json([
@@ -56,12 +55,9 @@ class ExternalOrderController extends Controller
             ], 422);
         }
 
-        $resolvedServiceKey = $serviceKey ?? (string) $service->template_key;
-
         return DB::transaction(function () use (
             $clientName,
             $externalOrderId,
-            $resolvedServiceKey,
             $service,
             $link,
             $quantity,
@@ -103,7 +99,6 @@ class ExternalOrderController extends Controller
                 'speed_tier' => $speedTier,
                 'provider_payload' => [
                     'external_order_id' => $externalOrderId,
-                    'service_key' => $resolvedServiceKey,
                     'speed_tier' => $speedTier,
                     'meta' => $meta,
                 ],
@@ -316,14 +311,8 @@ class ExternalOrderController extends Controller
         return null;
     }
 
-    private function resolveService(?string $serviceKey, ?int $serviceId): ?Service
+    private function resolveService(?int $serviceId): ?Service
     {
-        if ($serviceKey !== null && $serviceKey !== '') {
-            return Service::query()
-                ->where('template_key', $serviceKey)
-                ->where('is_active', true)
-                ->first();
-        }
         if ($serviceId !== null && $serviceId > 0) {
             return Service::query()
                 ->where('id', $serviceId)
