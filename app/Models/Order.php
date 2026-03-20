@@ -151,7 +151,6 @@ class Order extends Model
     protected function casts(): array
     {
         return [
-            'charge' => 'decimal:2',
             'cost' => 'decimal:2',
             'quantity' => 'integer',
             'dripfeed_enabled' => 'boolean',

@@ -406,7 +406,7 @@
                                             @endif
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            ${{ number_format($order->charge, 2) }}
+                                            ${{ $order->charge }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                             {{ $order->start_count ?? '—' }}
@@ -517,7 +517,7 @@
                                                             <x-confirm-modal
                                                                 name="cancel-full-{{ $order->id }}"
                                                                 title="{{ __('Cancel Order') }}"
-                                                                :message="__('Are you sure you want to cancel this order? A full refund of $:amount will be processed.', ['amount' => number_format($order->charge, 2)])"
+                                                                :message="__('Are you sure you want to cancel this order? A full refund of $:amount will be processed.', ['amount' => $order->charge])"
                                                                 confirm-text="{{ __('Yes, Cancel Order') }}"
                                                                 cancel-text="{{ __('No, Keep Order') }}"
                                                                 confirm-button-class="bg-red-600 hover:bg-red-700"
@@ -806,7 +806,7 @@
                         <div class="grid grid-cols-2 gap-4 text-sm">
                             <div>
                                 <span class="text-gray-600">{{ __('Charge') }}:</span>
-                                <span class="font-medium text-gray-900 ml-2">${{ number_format($order->charge, 2) }}</span>
+                                <span class="font-medium text-gray-900 ml-2">${{ $order->charge }}</span>
                             </div>
                             @if($order->cost !== null)
                             <div>

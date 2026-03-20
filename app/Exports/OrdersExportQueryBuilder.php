@@ -113,7 +113,7 @@ class OrdersExportQueryBuilder implements ExportQueryBuilderInterface
             'client_name' => $order->client?->name ?? "Client #{$order->client_id}",
             'staff_name' => $order->client?->staff?->name ?? '—',
             'link' => $order->link ?? '—',
-            'charge' => number_format($order->charge, 2),
+            'charge' => $order->charge,
             'cost' => $order->cost !== null ? number_format($order->cost, 2) : '—',
             'start_count' => $order->start_count ?? '—',
             'quantity' => number_format($order->quantity),

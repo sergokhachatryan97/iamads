@@ -101,11 +101,11 @@ class OrderService implements OrderServiceInterface
                 );
 
                 // Calculate charge using final rate (base * rate multiplier)
-                $charge = round(($qty / 100) * $finalRate, 2);
+                $charge =($qty / 100) * $finalRate;
 
                 // Cost also uses rate multiplier if service_cost_per_1000 exists
                 $cost = $service->service_cost_per_1000 !== null
-                    ? round(($qty / 100) * (float) $service->service_cost_per_1000 * $finalRate, 2)
+                    ? ($qty / 100) * (float) $service->service_cost_per_1000 * $finalRate
                     : null;
 
                 $rowCharges[] = [
@@ -563,7 +563,7 @@ class OrderService implements OrderServiceInterface
                 : max(0, $order->quantity - $delivered);
 
             if ($order->payment_source === Order::PAYMENT_SOURCE_BALANCE && $order->quantity > 0) {
-                $refund = round($order->charge * ($undelivered / $order->quantity), 2);
+                $refund = $order->charge * ($undelivered / $order->quantity);
 
                 if ($refund > 0) {
                     $client->balance += $refund;
@@ -668,7 +668,7 @@ class OrderService implements OrderServiceInterface
 
             $refund = 0.0;
             if ($undelivered > 0 && $order->quantity > 0) {
-                $refund = round($order->charge * ($undelivered / $order->quantity), 2);
+                $refund = $order->charge * ($undelivered / $order->quantity);
             }
 
             $order->update([

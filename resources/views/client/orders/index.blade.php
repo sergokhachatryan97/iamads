@@ -218,7 +218,7 @@
                                             @endif
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            ${{ number_format($order->charge, 2) }}
+                                            ${{ $order->charge }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                             {{ $order->start_count ?? '—' }}
@@ -318,7 +318,7 @@
                                                             <x-confirm-modal
                                                                 name="cancel-full-{{ $order->id }}"
                                                                 title="{{ __('Cancel Order') }}"
-                                                                :message="__('Are you sure you want to cancel this order? A full refund of $:amount will be processed.', ['amount' => number_format($order->charge, 2)])"
+                                                                :message="__('Are you sure you want to cancel this order? A full refund of $:amount will be processed.', ['amount' => $order->charge])"
                                                                 confirm-text="{{ __('Yes, Cancel Order') }}"
                                                                 cancel-text="{{ __('No, Keep Order') }}"
                                                                 confirm-button-class="bg-red-600 hover:bg-red-700"
@@ -504,7 +504,7 @@
 
                             <div class="bg-gray-50 rounded-lg p-4">
                                 <div class="text-xs font-medium text-gray-500 uppercase mb-1">{{ __('Charge') }}</div>
-                                <div class="text-sm font-semibold text-gray-900">${{ number_format($order->charge, 2) }}</div>
+                                <div class="text-sm font-semibold text-gray-900">${{ $order->charge }}</div>
                             </div>
 
                             @if($order->provider_last_error)
