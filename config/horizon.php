@@ -76,7 +76,7 @@ return [
 
         'main' => [
             'connection' => 'redis',
-            'queue' => ['socpanel-poll', 'providers', 'default'],
+            'queue' => ['socpanel-poll', 'memberpro-poll', 'providers', 'default'],
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',
             'maxProcesses' => 3,
@@ -132,7 +132,7 @@ return [
 
             'main' => [
                 'connection' => 'redis',
-                'queue' => ['socpanel-poll', 'providers', 'default'],
+                'queue' => ['socpanel-poll', 'memberpro-poll', 'providers', 'default'],
                 'balance' => 'auto',
                 'autoScalingStrategy' => 'time',
                 'maxProcesses' => 3,
@@ -183,7 +183,7 @@ return [
             ],
             'main' => [
                 'connection' => 'redis',
-                'queue' => ['socpanel-poll', 'providers', 'default'],
+                'queue' => ['socpanel-poll', 'memberpro-poll', 'providers', 'default'],
                 'balance' => 'auto',
                 'autoScalingStrategy' => 'time',
                 'maxProcesses' => 3,
