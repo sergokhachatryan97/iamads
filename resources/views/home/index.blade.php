@@ -806,7 +806,7 @@
         if (!v || v.length < 3) return false;
         const t = (linkType || 'generic').trim();
         if (t === 'youtube') {
-            return /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|shorts\/|embed\/)[A-Za-z0-9_\-]+|youtube\.com\/@[A-Za-z0-9_.\-]+|youtube\.com\/channel\/UC[A-Za-z0-9_\-]+|youtube\.com\/c\/[A-Za-z0-9_.\-]+|youtu\.be\/[A-Za-z0-9_\-]+)/i.test(v);
+            return /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=[A-Za-z0-9_\-]+(\&[^&\s#]+)*|shorts\/[A-Za-z0-9_\-]+|embed\/[A-Za-z0-9_\-]+|live\/[A-Za-z0-9_\-]+)|youtube\.com\/@[A-Za-z0-9_.\-]+|youtube\.com\/channel\/UC[A-Za-z0-9_\-]+|youtube\.com\/c\/[A-Za-z0-9_.\-]+|youtu\.be\/[A-Za-z0-9_\-]+(\?[^\s#]*)?)/i.test(v);
         }
         if (t === 'max') {
             return /^(https?:\/\/)?(www\.)?(max\.ru\/[^\s]+|maxapp\.ru\/[^\s]+|web\.maxapp\.ru\/[^\s]+)/i.test(v);

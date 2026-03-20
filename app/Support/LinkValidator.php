@@ -78,7 +78,7 @@ final class LinkValidator
     private static function validateYoutube(string $link): array
     {
         $ok = (bool) preg_match(
-            '#^(https?://)?(www\.)?(youtube\.com/(watch\?v=|shorts/|embed/)[A-Za-z0-9_\-]+|youtube\.com/@[A-Za-z0-9_.\-]+|youtube\.com/channel/UC[A-Za-z0-9_\-]+|youtube\.com/c/[A-Za-z0-9_.\-]+|youtu\.be/[A-Za-z0-9_\-]+)#i',
+            '~^(https?://)?(www\.)?(youtube\.com/(watch\?v=[A-Za-z0-9_\-]+(\&[^&\s#]+)*|shorts/[A-Za-z0-9_\-]+|embed/[A-Za-z0-9_\-]+|live/[A-Za-z0-9_\-]+)|youtube\.com/@[A-Za-z0-9_.\-]+|youtube\.com/channel/UC[A-Za-z0-9_\-]+|youtube\.com/c/[A-Za-z0-9_.\-]+|youtu\.be/[A-Za-z0-9_\-]+(\?[^\s#]*)?)~i',
             $link
         );
         return $ok
