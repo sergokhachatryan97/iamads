@@ -39,7 +39,7 @@ class ClientTransaction extends Model
     protected function casts(): array
     {
         return [
-            'amount' => 'decimal:2',
+            'amount' => 'decimal:4',
         ];
     }
 

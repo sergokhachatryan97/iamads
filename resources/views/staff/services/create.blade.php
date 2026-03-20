@@ -221,28 +221,6 @@
                                             {{ __('Minimum watch duration per view in seconds (e.g., 30, 60). Max 7200 (2 hours).') }}
                                         </p>
                                     </div>
-
-                                    {{-- Overflow percent --}}
-{{--                                    <div>--}}
-{{--                                        <label for="overflow_percent" class="block text-sm font-medium text-gray-700 mb-1.5">--}}
-{{--                                            {{ __('Overflow (%)') }}--}}
-{{--                                        </label>--}}
-{{--                                        <input type="number"--}}
-{{--                                               name="overflow_percent"--}}
-{{--                                               id="overflow_percent"--}}
-{{--                                               value="{{ old('overflow_percent', isset($service) ? ($service->overflow_percent ?? '0') : '0') }}"--}}
-{{--                                               min="0"--}}
-{{--                                               max="100"--}}
-{{--                                               step="0.01"--}}
-{{--                                               class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('overflow_percent') border-red-300 @enderror"--}}
-{{--                                               placeholder="0">--}}
-{{--                                        @error('overflow_percent')--}}
-{{--                                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>--}}
-{{--                                        @enderror--}}
-{{--                                        <p class="mt-1 text-xs text-gray-500">--}}
-{{--                                            {{ __('Extra target % above base quantity (e.g., 15 = 115% of order quantity)') }}--}}
-{{--                                        </p>--}}
-{{--                                    </div>--}}
                                 </div>
                             </div>
 
@@ -609,7 +587,7 @@
                                     {{ __('Set the service rate per 100 units') }}
                                 </p>
                                 <div class="row">
-                                    <div class="col-4">
+                                    <div class="col-3">
                                         <label for="rate_per_1000" class="block text-sm font-medium text-gray-700 mb-1.5">
                                             {{ __('Service Rate') }} <span class="text-red-500">*</span>
                                             <span class="text-xs font-normal text-gray-500">(per 100)</span>
@@ -632,8 +610,8 @@
                                         <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                                         @enderror
                                     </div>
-                                    <div class="row col-8">
-                                        <div class="col-6">
+                                    <div class="row col-9">
+                                        <div class="col-4">
                                             <label for="min_quantity" class="block text-sm font-medium text-gray-700 mb-1.5">
                                                 {{ __('Minimum Order') }} <span class="text-red-500">*</span>
                                             </label>
@@ -649,7 +627,7 @@
                                             <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                                             @enderror
                                         </div>
-                                        <div class="col-6">
+                                        <div class="col-4">
                                             <label for="max_quantity" class="block text-sm font-medium text-gray-700 mb-1.5">
                                                 {{ __('Maximum Order') }} <span class="text-red-500">*</span>
                                             </label>
@@ -665,7 +643,30 @@
                                             <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                                             @enderror
                                         </div>
+                                        <div  class="col-3">
+                                            <label for="overflow_percent" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                                {{ __('Overflow (%)') }}
+                                            </label>
+                                            <input type="number"
+                                                   name="overflow_percent"
+                                                   id="overflow_percent"
+                                                   value="{{ old('overflow_percent', isset($service) ? ($service->overflow_percent ?? '0') : '0') }}"
+                                                   min="0"
+                                                   max="100"
+                                                   step="0.01"
+                                                   class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('overflow_percent') border-red-300 @enderror"
+                                                   placeholder="0">
+                                            @error('overflow_percent')
+                                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                                            @enderror
+                                            <p class="mt-1 text-xs text-gray-500">
+                                                {{ __('Extra target % above base quantity (e.g., 15 = 115% of order quantity)') }}
+                                            </p>
+                                        </div>
+
                                     </div>
+
+                                    {{-- Overflow percent --}}
                                 </div>
                                 <div class="row" style="margin-top: 60px">
                                     <h3 class="text-base font-semibold text-gray-900 mb-1 flex items-center gap-2">

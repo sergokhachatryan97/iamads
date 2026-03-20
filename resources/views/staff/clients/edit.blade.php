@@ -188,7 +188,7 @@
                                                 <td class="px-3 py-2 text-gray-600">{{ $tx->created_at?->format('Y-m-d H:i') }}</td>
                                                 <td class="px-3 py-2 text-gray-600">{{ str_replace('_', ' ', $tx->type) }}</td>
                                                 <td class="px-3 py-2 {{ $tx->amount >= 0 ? 'text-green-700' : 'text-red-700' }}">
-                                                    {{ $tx->amount >= 0 ? '+' : '' }}${{ number_format((float) $tx->amount, 2) }}
+                                                    {{ $tx->amount >= 0 ? '+' : '' }}${{ number_format((float) $tx->amount, 4) }}
                                                 </td>
                                                 <td class="px-3 py-2 text-gray-600">{{ $tx->description ?? '—' }}</td>
                                             </tr>
@@ -2278,13 +2278,13 @@
             // Create new row HTML
             const newRow = document.createElement('div');
             newRow.className = 'flex gap-3 items-start social-media-row border border-gray-200 rounded-lg p-4 bg-gray-50';
-            
+
             let optionsHtml = '<option value="">' + selectPlatformLabel + '</option>';
             for (const [value, label] of Object.entries(platformOptions)) {
                 optionsHtml += '<option value="' + value + '">' + label + '</option>';
             }
-            
-            newRow.innerHTML = 
+
+            newRow.innerHTML =
                 '<div class="flex-1">' +
                     '<label class="block text-sm font-medium text-gray-700 mb-1">' + platformLabel + '</label>' +
                     '<select name="social_media[' + newIndex + '][platform]" id="social_platform_' + newIndex + '" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">' +
@@ -2306,7 +2306,7 @@
             const row = button.closest('.social-media-row');
             if (row) {
                 row.remove();
-                
+
                 // Re-index remaining rows to ensure sequential array indices
                 const container = document.getElementById('social-media-container');
                 if (container) {
@@ -2318,7 +2318,7 @@
                             platformSelect.name = 'social_media[' + index + '][platform]';
                             platformSelect.id = 'social_platform_' + index;
                         }
-                        
+
                         // Update username input name and id
                         const usernameInput = r.querySelector('input[name*="[username]"]');
                         if (usernameInput) {

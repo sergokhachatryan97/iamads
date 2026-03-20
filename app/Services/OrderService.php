@@ -544,6 +544,28 @@ class OrderService implements OrderServiceInterface
 
     // ----------------- EXISTING REFUND/CANCEL METHODS (unchanged) -----------------
 
+    /**
+     * Compute refund amount for partial/cancel, including overflow_percent.
+     * If service has overflow_percent (e.g. 7), refund = charge * (undelivered + overflow_units) / quantity.
+     * Example: qty=100, overflow=7%, delivered=50 → refund for 50+7=57 units.
+     */
+    private function computeRefundWithOverflow(Order $order, int $undelivered): float
+    {
+        if ($undelivered <= 0 || $order->quantity <= 0) {
+            return 0.0;
+        }
+
+        $service = $order->relationLoaded('service') ? $order->service : $order->service()->first();
+        $overflowUnits = 0.0;
+        if ($service && isset($service->overflow_percent) && (float) $service->overflow_percent > 0) {
+            $overflowUnits = $order->quantity * ((float) $service->overflow_percent / 100);
+        }
+
+        $refundableUnits = $undelivered + $overflowUnits;
+
+        return (float) ($order->charge * ($refundableUnits / $order->quantity));
+    }
+
     public function refund(Order $order, int $newDelivered, string $newStatus): Order
     {
         if (!in_array($newStatus, [Order::STATUS_PARTIAL, Order::STATUS_CANCELED], true)) {
@@ -563,7 +585,7 @@ class OrderService implements OrderServiceInterface
                 : max(0, $order->quantity - $delivered);
 
             if ($order->payment_source === Order::PAYMENT_SOURCE_BALANCE && $order->quantity > 0) {
-                $refund = $order->charge * ($undelivered / $order->quantity);
+                $refund = $this->computeRefundWithOverflow($order, $undelivered);
 
                 if ($refund > 0) {
                     $client->balance += $refund;
@@ -665,11 +687,7 @@ class OrderService implements OrderServiceInterface
             $order = Order::lockForUpdate()->findOrFail($order->id);
 
             $undelivered = max(0, $order->quantity - $order->delivered);
-
-            $refund = 0.0;
-            if ($undelivered > 0 && $order->quantity > 0) {
-                $refund = $order->charge * ($undelivered / $order->quantity);
-            }
+            $refund = $this->computeRefundWithOverflow($order, $undelivered);
 
             $order->update([
                 'status' => Order::STATUS_PARTIAL,
