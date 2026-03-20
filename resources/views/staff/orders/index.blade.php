@@ -114,6 +114,7 @@
                  x-data="staffOrdersFilters({
                      filtersOpen: {{ ($filterCategoryId || $filterServiceId || $filterDateFrom || $filterDateTo || ($filterSearch ?? null)) ? 'true' : 'false' }},
                      searchValue: @js($filterSearch ?? ''),
+                     currentStatus: @js($currentStatus ?? 'all'),
                      indexUrl: '{{ route('staff.orders.index') }}',
                  })"
                  @submit.capture.prevent="fetchOrdersFromForm($event.target)">
@@ -122,22 +123,32 @@
                     @if(request()->has('status') && request('status') !== 'all')
                         <input type="hidden" name="status" value="{{ request('status') }}">
                     @endif
-                    <button type="button"
-                            @click="filtersOpen = !filtersOpen"
-                            :class="filtersOpen ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
-                            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
-                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
-                        </svg>
-                    </button>
+                        <div style="width: 100%; display: flex; justify-content: end">
+                            <div class="relative">
+                                <svg class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                </svg>
+                                <input type="text" name="search" x-model="searchValue"
+                                       @input.debounce.400ms="fetchOrdersFromForm($event.target.closest('form'))"
+                                       placeholder="{{ __('URL or order id') }}"
+                                       class="w-full rounded-full border border-gray-300 bg-gray-50 py-2 pl-10 pr-10 text-sm text-gray-900 placeholder-gray-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500">
+                                <button type="button" x-show="searchValue"
+                                        @click="searchValue = ''; fetchOrdersFromForm($event.target.closest('form'))"
+                                        x-cloak
+                                        class="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-gray-400 hover:bg-gray-200 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
 
-                    <div class="flex flex-wrap items-center gap-1.5">
+                        <div class="flex flex-wrap items-center gap-1.5">
                         @php
                             $statusButtons = [
                                 'all' => __('All'),
                                 \App\Models\Order::STATUS_VALIDATING => __('Validating'),
                                 \App\Models\Order::STATUS_INVALID_LINK => __('Invalid Link'),
-                                \App\Models\Order::STATUS_RESTRICTED => __('Restricted'),
                                 \App\Models\Order::STATUS_AWAITING => __('Awaiting'),
                                 \App\Models\Order::STATUS_IN_PROGRESS => __('In Progress'),
                                 \App\Models\Order::STATUS_PARTIAL => __('Partial'),
@@ -146,44 +157,34 @@
                                 \App\Models\Order::STATUS_FAIL => __('Failed'),
                             ];
                         @endphp
+                            <button type="button"
+                                    @click="filtersOpen = !filtersOpen"
+                                    :class="filtersOpen ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+                                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+                                </svg>
+                            </button>
                         @foreach($statusButtons as $statusValue => $statusLabel)
                             @php
-                                $isActive = $currentStatus === $statusValue;
                                 $urlParams = request()->except(['status', 'page']);
                                 if ($statusValue !== 'all') $urlParams['status'] = $statusValue;
                                 $url = route('staff.orders.index', $urlParams);
                                 $count = $statusValue === 'all' ? array_sum($statusCounts ?? []) : ($statusCounts[$statusValue] ?? 0);
                             @endphp
                             <a href="{{ $url }}"
-                               class="staff-orders-ajax-link inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors {{ $isActive ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:text-gray-900' }}"
+                               class="staff-orders-ajax-link inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
+                               :class="currentStatus === @js($statusValue) ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:text-gray-900'"
                                @click.prevent="fetchOrdersByUrl('{{ $url }}')">
                                 {{ $statusLabel }}
                                 @if($count > 0)
-                                    <span class="rounded-full px-1.5 py-0.5 text-xs font-bold {{ $isActive ? 'bg-white/25 text-white' : 'bg-gray-200 text-gray-700' }}">{{ number_format($count) }}</span>
+                                    <span class="rounded-full px-1.5 py-0.5 text-xs font-bold"
+                                          :class="currentStatus === @js($statusValue) ? 'bg-white/25 text-white' : 'bg-gray-200 text-gray-700'">{{ number_format($count) }}</span>
                                 @endif
                             </a>
                         @endforeach
                     </div>
 
-                    <div class="ml-auto flex-1 min-w-[200px] max-w-md">
-                        <div class="relative">
-                            <svg class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                            </svg>
-                            <input type="text" name="search" x-model="searchValue"
-                                   @input.debounce.400ms="fetchOrdersFromForm($event.target.closest('form'))"
-                                   placeholder="{{ __('URL or order id') }}"
-                                   class="w-full rounded-full border border-gray-300 bg-gray-50 py-2 pl-10 pr-10 text-sm text-gray-900 placeholder-gray-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500">
-                            <button type="button" x-show="searchValue"
-                                    @click="searchValue = ''; fetchOrdersFromForm($event.target.closest('form'))"
-                                    x-cloak
-                                    class="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-gray-400 hover:bg-gray-200 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
                 </form>
 
                 <div x-show="filtersOpen"
@@ -511,7 +512,6 @@
                                                 $statusColors = [
                                                     'validating' => 'bg-cyan-100 text-cyan-800',
                                                     'invalid_link' => 'bg-red-100 text-red-800',
-                                                    'restricted' => 'bg-orange-100 text-orange-800',
                                                     'awaiting' => 'bg-yellow-100 text-yellow-800',
                                                     'pending' => 'bg-blue-100 text-blue-800',
                                                     'in_progress' => 'bg-indigo-100 text-indigo-800',
@@ -1119,6 +1119,7 @@
             Alpine.data('staffOrdersFilters', (config) => ({
                 filtersOpen: config.filtersOpen,
                 searchValue: config.searchValue,
+                currentStatus: config.currentStatus,
                 indexUrl: config.indexUrl,
 
                 fetchOrdersFromForm(form) {
@@ -1134,6 +1135,8 @@
                 },
 
                 fetchOrdersByUrl(url) {
+                    const status = new URL(url, window.location.origin).searchParams.get('status');
+                    this.currentStatus = status || 'all';
                     fetchOrdersPage(1, null, null, url);
                 }
             }));

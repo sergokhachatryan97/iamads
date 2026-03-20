@@ -145,7 +145,6 @@ class OrderController extends Controller
         $statuses = [
             'all' => __('All Statuses'),
             Order::STATUS_AWAITING => __('Awaiting'),
-            Order::STATUS_PENDING => __('Pending'),
             Order::STATUS_IN_PROGRESS => __('In Progress'),
             Order::STATUS_PROCESSING => __('Processing'),
             Order::STATUS_PARTIAL => __('Partial'),
@@ -165,7 +164,7 @@ class OrderController extends Controller
             'orders' => $orders,
             'statuses' => $statuses,
             'statusCounts' => $statusCounts,
-            'currentStatus' => $request->get('status', 'all'),
+            'currentStatus' => ($request->filled('status') && $request->status !== 'all') ? $request->status : 'all',
             'currentSource' => $request->get('source', 'all'),
             'sortBy' => $sortBy,
             'sortDir' => $sortDir,

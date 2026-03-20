@@ -45,6 +45,7 @@
                  x-data="clientOrdersFilters({
                      filtersOpen: {{ ($filterCategoryId || $filterServiceId || $filterDateFrom || $filterDateTo || ($filterSearch ?? null)) ? 'true' : 'false' }},
                      searchValue: @js($filterSearch ?? ''),
+                     currentStatus: @js($currentStatus ?? 'all'),
                      indexUrl: '{{ route('client.orders.index') }}',
                  })"
                  @fetch-client-orders.window="fetchOrdersByUrl($event.detail.url)"
@@ -83,18 +84,19 @@
                         @endphp
                         @foreach($statusButtons as $statusValue => $statusLabel)
                             @php
-                                $isActive = $currentStatus === $statusValue;
                                 $urlParams = request()->except(['status', 'page']);
                                 if ($statusValue !== 'all') $urlParams['status'] = $statusValue;
                                 $url = route('client.orders.index', $urlParams);
                                 $count = $statusValue === 'all' ? array_sum($statusCounts ?? []) : ($statusCounts[$statusValue] ?? 0);
                             @endphp
                             <a href="{{ $url }}"
-                               class="orders-ajax-link inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors {{ $isActive ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:text-gray-900' }}"
+                               class="orders-ajax-link inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
+                               :class="currentStatus === @js($statusValue) ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:text-gray-900'"
                                @click.prevent="fetchOrdersByUrl('{{ $url }}')">
                                 {{ $statusLabel }}
                                 @if($count > 0)
-                                    <span class="rounded-full px-1.5 py-0.5 text-xs font-bold {{ $isActive ? 'bg-white/25 text-white' : 'bg-gray-200 text-gray-700' }}">{{ number_format($count) }}</span>
+                                    <span class="rounded-full px-1.5 py-0.5 text-xs font-bold"
+                                          :class="currentStatus === @js($statusValue) ? 'bg-white/25 text-white' : 'bg-gray-200 text-gray-700'">{{ number_format($count) }}</span>
                                 @endif
                             </a>
                         @endforeach
@@ -240,9 +242,9 @@
                                             {!! getSortIcon('created_at', $sortBy, $sortDir) !!}
                                         </a>
                                     </th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        {{ __('Source') }}
-                                    </th>
+{{--                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">--}}
+{{--                                        {{ __('Source') }}--}}
+{{--                                    </th>--}}
                                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         {{ __('Link') }}
                                     </th>
@@ -293,14 +295,14 @@
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                             {{ $order->created_at->format('Y-m-d H:i:s') }}
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            @php
-                                                $orderSource = $order->source ?? 'web';
-                                            @endphp
-                                            <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium {{ $orderSource === 'api' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-700' }}">
-                                                {{ $orderSource === 'api' ? __('API') : __('Web') }}
-                                            </span>
-                                        </td>
+{{--                                        <td class="px-6 py-4 whitespace-nowrap">--}}
+{{--                                            @php--}}
+{{--                                                $orderSource = $order->source ?? 'web';--}}
+{{--                                            @endphp--}}
+{{--                                            <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium {{ $orderSource === 'api' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-700' }}">--}}
+{{--                                                {{ $orderSource === 'api' ? __('API') : __('Web') }}--}}
+{{--                                            </span>--}}
+{{--                                        </td>--}}
                                         <td class="px-6 py-4 text-sm text-gray-900">
                                             @if($order->link || $order->link_2)
                                                 <div class="space-y-1 max-w-xs">
@@ -696,6 +698,7 @@
             Alpine.data('clientOrdersFilters', (config) => ({
                 filtersOpen: config.filtersOpen,
                 searchValue: config.searchValue,
+                currentStatus: config.currentStatus ?? 'all',
                 indexUrl: config.indexUrl,
 
                 fetchOrdersFromForm(form) {
@@ -712,6 +715,8 @@
                 },
 
                 async fetchOrdersByUrl(url) {
+                    const status = new URL(url, window.location.origin).searchParams.get('status');
+                    this.currentStatus = status || 'all';
                     const container = document.getElementById('client-orders-container');
                     if (!container) return;
                     container.style.opacity = '0.6';

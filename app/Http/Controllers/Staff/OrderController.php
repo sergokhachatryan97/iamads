@@ -172,7 +172,7 @@ class OrderController extends Controller
             'ordersIds' => $ordersIds,
             'statuses' => $statuses,
             'statusCounts' => $statusCounts,
-            'currentStatus' => $request->get('status', 'all'),
+            'currentStatus' => ($request->filled('status') && $request->status !== 'all') ? $request->status : 'all',
             'sortBy' => $sortBy,
             'sortDir' => $sortDir,
             'isSuperAdmin' => $isSuperAdmin,
