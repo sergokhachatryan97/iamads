@@ -134,7 +134,7 @@
                      x-transition:leave-end="opacity-0 -translate-y-2"
                      x-cloak
                      class="mt-4 border-t border-gray-200 pt-4">
-                    <form method="GET" action="{{ route('client.orders.index') }}" class="client-orders-filter-form flex flex-wrap items-end gap-4">
+                    <form method="GET" action="{{ route('client.orders.index') }}" class="client-orders-filter-form flex">
                         @if(request()->has('status') && request('status') !== 'all')
                             <input type="hidden" name="status" value="{{ request('status') }}">
                         @endif
@@ -150,7 +150,7 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div>
+                        <div style="padding: 0 10px 0 10px">
                             <label for="filter-service" class="mb-1 block text-xs font-medium text-gray-500">{{ __('Service') }}</label>
                             <select name="service_id" id="filter-service" class="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500">
                                 <option value="">{{ __('All') }}</option>
@@ -170,7 +170,7 @@
                                        class="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500">
                             </div>
                         </div>
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-2" style="margin-top: 19px; padding-left: 10px">
                             <button type="submit" class="rounded-full bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
                                 {{ __('Apply') }}
                             </button>
