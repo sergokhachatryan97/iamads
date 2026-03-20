@@ -109,7 +109,7 @@ class YouTubeLinkParser
 
         // youtube.com/channel/UCxxxx
         if (preg_match('#^/channel/(UC[\w-]{10,})#i', $path, $m)) {
-            $channelId = strtoupper($m[1]);
+            $channelId = $m[1];
             return [
                 'ok' => true,
                 'link_type' => self::LINK_TYPE_CHANNEL,

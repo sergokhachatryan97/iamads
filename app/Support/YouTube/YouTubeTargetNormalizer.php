@@ -23,7 +23,7 @@ class YouTubeTargetNormalizer
 
         $channelId = $yt['channel_id'] ?? $meta['youtube_channel_id'] ?? null;
         if (is_string($channelId) && preg_match('/^UC[\w-]{10,}$/', trim($channelId))) {
-            $id = strtoupper(trim($channelId));
+            $id = trim($channelId);
             return [
                 'target_type' => 'channel_id',
                 'normalized_target' => $id,
@@ -70,7 +70,7 @@ class YouTubeTargetNormalizer
         $path = '/' . trim($path, '/');
 
         if (preg_match('#^/channel/(UC[\w-]{10,})#i', $path, $m)) {
-            $id = strtoupper($m[1]);
+            $id = $m[1];
             return [
                 'target_type' => 'channel_id',
                 'normalized_target' => $id,
