@@ -120,6 +120,8 @@ class YouTubeInspector
                 'target_hash' => $targetHash,
                 'video_id' => $videoId,
                 'channel_id' => $video['channel_id'] ?? null,
+                "is_comment_link" => $parsed['is_comment_link'] ?? false,
+                "comment_id" => $parsed['comment_id'] ?? null,
             ],
         ];
         if (!empty($parsed['is_stream'])) {

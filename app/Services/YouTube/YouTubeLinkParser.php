@@ -183,6 +183,8 @@ class YouTubeLinkParser
                     'video_id' => $v,
                     'normalized_url' => 'https://www.youtube.com/watch?v=' . $v,
                     'is_stream' => false,
+                    'is_comment_link' => isset($queryParams['lc']),
+                    'comment_id' => $queryParams['lc'] ?? null,
                 ];
             }
         }
@@ -196,6 +198,8 @@ class YouTubeLinkParser
                 'video_id' => $m[1],
                 'normalized_url' => 'https://www.youtube.com/watch?v=' . $m[1],
                 'is_stream' => false,
+                'is_comment_link' => isset($queryParams['lc']),
+                'comment_id' => $queryParams['lc'] ?? null,
             ];
         }
         if (preg_match('#^/embed/([\w-]{11})#i', $path, $m)) {
