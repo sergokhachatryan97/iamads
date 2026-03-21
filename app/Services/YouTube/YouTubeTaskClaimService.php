@@ -143,7 +143,7 @@ class YouTubeTaskClaimService
 
             $inFlight = YouTubeTask::query()
                 ->where('order_id', $order->id)
-                ->whereIn('status', [YouTubeTask::STATUS_LEASED, YouTubeTask::STATUS_PENDING])
+                ->whereIn('status', [YouTubeTask::STATUS_LEASED])
                 ->count();
 
             $target = $order->target_quantity;
