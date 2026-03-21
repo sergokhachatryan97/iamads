@@ -33,6 +33,7 @@ class Service extends Model
     protected $fillable = [
         'name',
         'description',
+        'description_for_performer',
         'icon',
         'category_id',
         'mode',
@@ -45,6 +46,7 @@ class Service extends Model
         'template_snapshot',
         'dripfeed_enabled',
         'speed_limit_enabled',
+        'speed_limit_tier_mode',
         'speed_multiplier_fast',
         'speed_multiplier_super_fast',
         'rate_multiplier_fast',

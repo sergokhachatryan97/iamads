@@ -149,10 +149,10 @@
                                 @enderror
                             </div>
 
-                            <!-- Link field for custom_comments (optional, can be in targets or here) -->
+                            <!-- Link field for custom_comments (uses category link type) -->
                             <div class="mb-6" x-show="selectedService?.service_type === 'custom_comments'">
                                 <label for="comments_link" class="block text-sm font-medium text-gray-700 mb-2">
-                                    {{ __('Telegram Link') }}
+                                    {{ __('Link') }}
                                     <span class="text-red-500">*</span>
                                 </label>
                                 <input
@@ -161,15 +161,13 @@
                                     :required="selectedService?.service_type === 'custom_comments'"
                                     name="link"
                                     x-model="commentsLink"
-                                    @input="commentsLinkValid = validateTelegramLink(commentsLink)"
+                                    @input="commentsLinkValid = validateLink(commentsLink)"
                                     :class="commentsLinkValid ? 'border-gray-300' : 'border-red-300'"
-                                    :placeholder="linkPlaceholder('telegram')"
+                                    :placeholder="linkPlaceholder()"
                                     class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                                <p x-show="!commentsLinkValid && commentsLink" class="mt-1 text-xs text-red-600">
-                                    {{ __('Please enter a valid Telegram link.') }}
-                                </p>
+                                <p x-show="!commentsLinkValid && commentsLink" class="mt-1 text-xs text-red-600" x-text="linkErrorMessage"></p>
                                 <p class="mt-1 text-xs text-gray-500">
-                                    {{ __('Optional: Enter a Telegram link. If not provided, link from targets will be used.') }}
+                                    {{ __('Enter the target link for comments. Format depends on the selected category.') }}
                                 </p>
                                 @error('link')
                                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -439,24 +437,31 @@
                                 </div>
                             </div>
 
-                            <!-- Speed Tier (only when service has speed_limit_enabled) -->
+                            <!-- Speed Tier: when both tiers, show selector; when single tier, use hidden (no selection needed) -->
                             <div class="mb-6" x-show="selectedService?.speed_limit_enabled === true" x-cloak>
-                                <label for="speed_tier" class="block text-sm font-medium text-gray-700 mb-2">
-                                    {{ __('Speed Tier') }} <span class="text-red-500">*</span>
-                                </label>
-                                <select
-                                    id="speed_tier"
-                                    name="speed_tier"
-                                    x-model="speedTier"
-                                    @change="updateSpeedTierPrice()"
-                                    required
-                                    class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                                    <option value="fast" x-text="'{{ __('Fast') }} (' + (selectedService?.speed_multiplier_fast || 1.50).toFixed(2) + 'x)'"></option>
-                                    <option value="super_fast" x-text="'{{ __('Super Fast') }} (' + (selectedService?.speed_multiplier_super_fast || 2.00).toFixed(2) + 'x)'"></option>
-                                </select>
-                                <p class="mt-1 text-xs text-gray-500">
-                                    {{ __('Select delivery speed. Faster speeds have higher prices.') }}
-                                </p>
+                                <template x-if="(selectedService?.speed_limit_tier_mode || 'both') === 'both'">
+                                    <div>
+                                        <label for="speed_tier" class="block text-sm font-medium text-gray-700 mb-2">
+                                            {{ __('Speed Tier') }} <span class="text-red-500">*</span>
+                                        </label>
+                                        <select
+                                            id="speed_tier"
+                                            name="speed_tier"
+                                            x-model="speedTier"
+                                            @change="updateSpeedTierPrice()"
+                                            required
+                                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                            <option value="fast" x-text="'{{ __('Fast') }} (' + (selectedService?.speed_multiplier_fast || 1.50).toFixed(2) + 'x)'"></option>
+                                            <option value="super_fast" x-text="'{{ __('Super Fast') }} (' + (selectedService?.speed_multiplier_super_fast || 2.00).toFixed(2) + 'x)'"></option>
+                                        </select>
+                                        <p class="mt-1 text-xs text-gray-500">
+                                            {{ __('Select delivery speed. Faster speeds have higher prices.') }}
+                                        </p>
+                                    </div>
+                                </template>
+                                <template x-if="(selectedService?.speed_limit_tier_mode || 'both') !== 'both'">
+                                    <input type="hidden" name="speed_tier" :value="speedTier">
+                                </template>
                                 @error('speed_tier')
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                 @enderror
@@ -863,7 +868,7 @@
                     }
                     // Validate comments link on init
                     if (this.commentsLink) {
-                        this.commentsLinkValid = this.validateTelegramLink(this.commentsLink);
+                        this.commentsLinkValid = this.validateLink(this.commentsLink);
                     }
                     // Calculate comments total on init if comments exist
                     if (this.comments) {
@@ -995,13 +1000,15 @@
                         this.dripfeedIntervalUnit = '';
                         this.dripfeedQuantityError = '';
                     }
-                    // Reset speed tier: normal when speed disabled, fast (default) when speed enabled
+                    // Reset speed tier: normal when speed disabled; when speed enabled, use tier_mode
                     if (this.selectedService) {
                         if (!this.selectedService.speed_limit_enabled) {
                             this.speedTier = 'normal';
                         } else {
-                            this.speedTier = 'fast';
+                            const tierMode = this.selectedService.speed_limit_tier_mode || 'both';
+                            this.speedTier = (tierMode === 'fast' || tierMode === 'super_fast') ? tierMode : 'fast';
                         }
+                        this.updateSpeedTierPrice();
                     }
                     // Invite subscribers: sync invite quantity with min
                     if (this.selectedService?.template_key === 'invite_subscribers_from_other_channel') {
@@ -1235,6 +1242,7 @@
                     const totalQty = this.getTotalQuantity();
                     const rate = Number(this.selectedService.rate_per_1000) || 0;
                     const multiplier = this.getSpeedMultiplier();
+                    console.log(totalQty, rate, multiplier)
                     return (((totalQty / 100) * rate * multiplier * 100) / 100);
                 },
 

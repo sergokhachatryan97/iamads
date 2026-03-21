@@ -304,19 +304,19 @@
                                         <p class="text-xs font-medium text-gray-600 mb-3">{{ __('Manual Mode Settings') }}</p>
                                         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                             {{-- Service type --}}
-{{--                                            <div>--}}
-{{--                                                <x-custom-select--}}
-{{--                                                    name="service_type"--}}
-{{--                                                    id="service_type"--}}
-{{--                                                    :value="old('service_type', isset($service) ? ($service->service_type ?? 'default') : 'default')"--}}
-{{--                                                    :label="__('Service type')"--}}
-{{--                                                    placeholder="{{ __('Select service type') }}"--}}
-{{--                                                    :options="$serviceTypeOptions"--}}
-{{--                                                />--}}
-{{--                                                @error('service_type')--}}
-{{--                                                <p class="mt-1 text-xs text-red-600">{{ $message }}</p>--}}
-{{--                                                @enderror--}}
-{{--                                            </div>--}}
+                                            <div>
+                                                <x-custom-select
+                                                    name="service_type"
+                                                    id="service_type"
+                                                    :value="old('service_type', isset($service) ? ($service->service_type ?? 'default') : 'default')"
+                                                    :label="__('Service type')"
+                                                    placeholder="{{ __('Select service type') }}"
+                                                    :options="$serviceTypeOptions"
+                                                />
+                                                @error('service_type')
+                                                <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                                                @enderror
+                                            </div>
 
                                             {{-- Drip-feed (toggle) --}}
                                             <div>
@@ -414,101 +414,125 @@
                                             @enderror
                                         </div>
 
-                                        <div x-show="speedLimitEnabled" x-cloak class="grid grid-cols-1 md:grid-cols-2 gap-4 pl-6 border-l-2 border-indigo-200">
-                                            <div>
-                                                <label for="speed_multiplier_fast" class="block text-sm font-medium text-gray-700 mb-1.5">
-                                                    {{ __('Fast Multiplier') }} <span class="text-red-500">*</span>
-                                                </label>
-                                                <input
-                                                    type="number"
-                                                    name="speed_multiplier_fast"
-                                                    id="speed_multiplier_fast"
-                                                    x-model.number="speedMultiplierFast"
-                                                    value="{{ old('speed_multiplier_fast', isset($service) ? ($service->speed_multiplier_fast ?? 1.50) : 1.50) }}"
-                                                    :required="speedLimitEnabled"
-                                                    min="1"
-                                                    max="10"
-                                                    step="0.01"
-                                                    class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('speed_multiplier_fast') border-red-300 @enderror"
-                                                    placeholder="1.50">
-                                                @error('speed_multiplier_fast')
-                                                <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                                                @enderror
-                                                <p class="mt-1 text-xs text-gray-500">{{ __('Price multiplier for fast tier (e.g., 1.50 = 50% increase)') }}</p>
+                                        {{-- Speed tier mode: both (client chooses) or single (fast/super_fast only) --}}
+                                        <div x-show="speedLimitEnabled" x-cloak class="pl-6 border-l-2 border-indigo-200">
+                                            <div class="mb-4">
+                                                <label class="block text-sm font-medium text-gray-700 mb-2">{{ __('Speed Tier Mode') }}</label>
+                                                <div class="flex flex-wrap gap-4">
+                                                    <label class="flex items-center gap-2">
+                                                        <input type="radio" name="speed_limit_tier_mode" value="both" x-model="speedLimitTierMode"
+                                                               class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                                        <span class="text-sm text-gray-700">{{ __('Both tiers (client chooses fast or super fast)') }}</span>
+                                                    </label>
+                                                    <label class="flex items-center gap-2">
+                                                        <input type="radio" name="speed_limit_tier_mode" value="fast" x-model="speedLimitTierMode"
+                                                               class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                                        <span class="text-sm text-gray-700">{{ __('Fast only (no selection needed)') }}</span>
+                                                    </label>
+                                                    <label class="flex items-center gap-2">
+                                                        <input type="radio" name="speed_limit_tier_mode" value="super_fast" x-model="speedLimitTierMode"
+                                                               class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                                        <span class="text-sm text-gray-700">{{ __('Super fast only (no selection needed)') }}</span>
+                                                    </label>
+                                                </div>
                                             </div>
 
-                                            <div>
-                                                <label for="speed_multiplier_super_fast" class="block text-sm font-medium text-gray-700 mb-1.5">
-                                                    {{ __('Super Fast Speed Multiplier') }} <span class="text-red-500">*</span>
-                                                </label>
-                                                <input
-                                                    type="number"
-                                                    name="speed_multiplier_super_fast"
-                                                    id="speed_multiplier_super_fast"
-                                                    x-model.number="speedMultiplierSuperFast"
-                                                    value="{{ old('speed_multiplier_super_fast', isset($service) ? ($service->speed_multiplier_super_fast ?? 2.00) : 2.00) }}"
-                                                    :required="speedLimitEnabled"
-                                                    min="1"
-                                                    max="10"
-                                                    step="0.01"
-                                                    class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('speed_multiplier_super_fast') border-red-300 @enderror"
-                                                    placeholder="2.00">
-                                                @error('speed_multiplier_super_fast')
-                                                <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                                                @enderror
-                                                <p class="mt-1 text-xs text-gray-500">{{ __('Execution speed multiplier for super fast tier (e.g., 2.00 = 2x faster)') }}</p>
-                                            </div>
+                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4" :class="{ 'md:grid-cols-1': speedLimitTierMode !== 'both' }">
+                                                <div x-show="speedLimitTierMode === 'both' || speedLimitTierMode === 'fast'" x-cloak>
+                                                    <label for="speed_multiplier_fast" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                                        {{ __('Fast Multiplier') }} <span class="text-red-500">*</span>
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        name="speed_multiplier_fast"
+                                                        id="speed_multiplier_fast"
+                                                        x-model.number="speedMultiplierFast"
+                                                        value="{{ old('speed_multiplier_fast', isset($service) ? ($service->speed_multiplier_fast ?? 1.50) : 1.50) }}"
+                                                        :required="speedLimitEnabled && (speedLimitTierMode === 'both' || speedLimitTierMode === 'fast')"
+                                                        min="1"
+                                                        max="10"
+                                                        step="0.01"
+                                                        class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('speed_multiplier_fast') border-red-300 @enderror"
+                                                        placeholder="1.50">
+                                                    @error('speed_multiplier_fast')
+                                                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                                                    @enderror
+                                                    <p class="mt-1 text-xs text-gray-500">{{ __('Price multiplier for fast tier (e.g., 1.50 = 50% increase)') }}</p>
+                                                </div>
 
-                                            {{-- Rate Multipliers (for pricing) --}}
-                                            <div class="col-span-2 mt-4 pt-4 border-t border-gray-200">
-                                                <p class="text-xs font-medium text-gray-600 mb-3">{{ __('Rate Multipliers (Pricing)') }}</p>
-                                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    <div>
-                                                        <label for="rate_multiplier_fast" class="block text-sm font-medium text-gray-700 mb-1.5">
-                                                            {{ __('Fast Rate Multiplier') }} <span class="text-red-500">*</span>
-                                                        </label>
-                                                        <input
-                                                            type="number"
-                                                            name="rate_multiplier_fast"
-                                                            id="rate_multiplier_fast"
-                                                            x-model.number="rateMultiplierFast"
-                                                            value="{{ old('rate_multiplier_fast', isset($service) ? ($service->rate_multiplier_fast ?? 1.000) : 1.000) }}"
-                                                            :required="speedLimitEnabled"
-                                                            :disabled="!speedLimitEnabled"
-                                                            min="1"
-                                                            max="10"
-                                                            step="0.001"
-                                                            class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('rate_multiplier_fast') border-red-300 @enderror"
-                                                            :class="!speedLimitEnabled ? 'opacity-50 cursor-not-allowed' : ''"
-                                                            placeholder="1.000">
-                                                        @error('rate_multiplier_fast')
-                                                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                                                        @enderror
-                                                        <p class="mt-1 text-xs text-gray-500">{{ __('Price multiplier for fast tier (e.g., 1.500 = 50% increase)') }}</p>
-                                                    </div>
+                                                <div x-show="speedLimitTierMode === 'both' || speedLimitTierMode === 'super_fast'" x-cloak>
+                                                    <label for="speed_multiplier_super_fast" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                                        {{ __('Super Fast Speed Multiplier') }} <span class="text-red-500">*</span>
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        name="speed_multiplier_super_fast"
+                                                        id="speed_multiplier_super_fast"
+                                                        x-model.number="speedMultiplierSuperFast"
+                                                        value="{{ old('speed_multiplier_super_fast', isset($service) ? ($service->speed_multiplier_super_fast ?? 2.00) : 2.00) }}"
+                                                        :required="speedLimitEnabled && (speedLimitTierMode === 'both' || speedLimitTierMode === 'super_fast')"
+                                                        min="1"
+                                                        max="10"
+                                                        step="0.01"
+                                                        class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('speed_multiplier_super_fast') border-red-300 @enderror"
+                                                        placeholder="2.00">
+                                                    @error('speed_multiplier_super_fast')
+                                                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                                                    @enderror
+                                                    <p class="mt-1 text-xs text-gray-500">{{ __('Execution speed multiplier for super fast tier (e.g., 2.00 = 2x faster)') }}</p>
+                                                </div>
 
-                                                    <div>
-                                                        <label for="rate_multiplier_super_fast" class="block text-sm font-medium text-gray-700 mb-1.5">
-                                                            {{ __('Super Fast Rate Multiplier') }} <span class="text-red-500">*</span>
-                                                        </label>
-                                                        <input
-                                                            type="number"
-                                                            name="rate_multiplier_super_fast"
-                                                            id="rate_multiplier_super_fast"
-                                                            x-model.number="rateMultiplierSuperFast"
-                                                            value="{{ old('rate_multiplier_super_fast', isset($service) ? ($service->rate_multiplier_super_fast ?? 1.000) : 1.000) }}"
-                                                            :required="speedLimitEnabled"
-                                                            :disabled="!speedLimitEnabled"
-                                                            min="1"
-                                                            max="10"
-                                                            step="0.001"
-                                                            class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('rate_multiplier_super_fast') border-red-300 @enderror"
-                                                            :class="!speedLimitEnabled ? 'opacity-50 cursor-not-allowed' : ''"
-                                                            placeholder="1.000">
-                                                        @error('rate_multiplier_super_fast')
-                                                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                                                        @enderror
-                                                        <p class="mt-1 text-xs text-gray-500">{{ __('Price multiplier for super fast tier (e.g., 2.000 = 100% increase)') }}</p>
+                                                {{-- Rate Multipliers (for pricing) --}}
+                                                <div class="col-span-2 mt-4 pt-4 border-t border-gray-200">
+                                                    <p class="text-xs font-medium text-gray-600 mb-3">{{ __('Rate Multipliers (Pricing)') }}</p>
+                                                    <div class="grid grid-cols-1 gap-4" :class="{ 'md:grid-cols-2': speedLimitTierMode === 'both' }">
+                                                        <div x-show="speedLimitTierMode === 'both' || speedLimitTierMode === 'fast'" x-cloak>
+                                                            <label for="rate_multiplier_fast" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                                                {{ __('Fast Rate Multiplier') }} <span class="text-red-500">*</span>
+                                                            </label>
+                                                            <input
+                                                                type="number"
+                                                                name="rate_multiplier_fast"
+                                                                id="rate_multiplier_fast"
+                                                                x-model.number="rateMultiplierFast"
+                                                                value="{{ old('rate_multiplier_fast', isset($service) ? ($service->rate_multiplier_fast ?? 1.0) : 1.0) }}"
+                                                                :required="speedLimitEnabled && (speedLimitTierMode === 'both' || speedLimitTierMode === 'fast')"
+                                                                :disabled="!speedLimitEnabled"
+                                                                min="1"
+                                                                max="10"
+                                                                step="0.001"
+                                                                class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('rate_multiplier_fast') border-red-300 @enderror"
+                                                                :class="!speedLimitEnabled ? 'opacity-50 cursor-not-allowed' : ''"
+                                                                placeholder="1.000">
+                                                            @error('rate_multiplier_fast')
+                                                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                                                            @enderror
+                                                            <p class="mt-1 text-xs text-gray-500">{{ __('Price multiplier for fast tier (e.g., 1.500 = 50% increase)') }}</p>
+                                                        </div>
+
+                                                        <div x-show="speedLimitTierMode === 'both' || speedLimitTierMode === 'super_fast'" x-cloak>
+                                                            <label for="rate_multiplier_super_fast" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                                                {{ __('Super Fast Rate Multiplier') }} <span class="text-red-500">*</span>
+                                                            </label>
+                                                            <input
+                                                                type="number"
+                                                                name="rate_multiplier_super_fast"
+                                                                id="rate_multiplier_super_fast"
+                                                                x-model.number="rateMultiplierSuperFast"
+                                                                value="{{ old('rate_multiplier_super_fast', isset($service) ? ($service->rate_multiplier_super_fast ?? 1.0) : 1.0) }}"
+                                                                :required="speedLimitEnabled && (speedLimitTierMode === 'both' || speedLimitTierMode === 'super_fast')"
+                                                                :disabled="!speedLimitEnabled"
+                                                                min="1"
+                                                                max="10"
+                                                                step="0.001"
+                                                                class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('rate_multiplier_super_fast') border-red-300 @enderror"
+                                                                :class="!speedLimitEnabled ? 'opacity-50 cursor-not-allowed' : ''"
+                                                                placeholder="1.000">
+                                                            @error('rate_multiplier_super_fast')
+                                                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                                                            @enderror
+                                                            <p class="mt-1 text-xs text-gray-500">{{ __('Price multiplier for super fast tier (e.g., 2.000 = 100% increase)') }}</p>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -677,7 +701,7 @@
                                     </h3>
                                     <p class="text-xs text-gray-500 mb-4">{{ __('Service description') }}</p>
 
-                                    <div>
+                                    <div class="mb-4">
                                         <label for="description" class="block text-sm font-medium text-gray-700 mb-1.5">
                                             {{ __('Description') }}
                                             <span class="text-xs font-normal text-gray-400">(optional)</span>
@@ -688,6 +712,21 @@
                                                   class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('description') border-red-300 @enderror"
                                                   placeholder="{{ __('Write a short description for this service...') }}">{{ old('description', isset($service) ? $service->description : '') }}</textarea>
                                         @error('description')
+                                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+
+                                    <div>
+                                        <label for="description_for_performer" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                            {{ __('Description for Performer') }}
+                                            <span class="text-xs font-normal text-gray-400">(optional)</span>
+                                        </label>
+                                        <textarea name="description_for_performer"
+                                                  id="description_for_performer"
+                                                  rows="3"
+                                                  class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('description_for_performer') border-red-300 @enderror"
+                                                  placeholder="{{ __('Instructions or notes for the performer...') }}">{{ old('description_for_performer', isset($service) ? $service->description_for_performer : '') }}</textarea>
+                                        @error('description_for_performer')
                                         <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                                         @enderror
                                     </div>
@@ -754,6 +793,7 @@
                 dripfeedEnabled: @json((bool) (int) old('dripfeed_enabled', isset($service) ? ($service->dripfeed_enabled ? 1 : 0) : 0)),
                 userCanCancel: @json((bool) (int) old('user_can_cancel', isset($service) ? ($service->user_can_cancel ? 1 : 0) : 0)),
                 speedLimitEnabled: @js(old('speed_limit_enabled', isset($service) ? ($service->speed_limit_enabled ?? false) : false)),
+                speedLimitTierMode: @js(old('speed_limit_tier_mode', isset($service) ? ($service->speed_limit_tier_mode ?? 'both') : 'both')),
                 speedMultiplierFast: @js(old('speed_multiplier_fast', isset($service) ? ($service->speed_multiplier_fast ?? 1.50) : 1.50)),
                 speedMultiplierSuperFast: @js(old('speed_multiplier_super_fast', isset($service) ? ($service->speed_multiplier_super_fast ?? 2.00) : 2.00)),
                 rateMultiplierFast: @js(old('rate_multiplier_fast', isset($service) ? ($service->rate_multiplier_fast ?? 1.000) : 1.000)),

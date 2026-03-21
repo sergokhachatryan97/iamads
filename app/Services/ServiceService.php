@@ -114,6 +114,18 @@ class ServiceService implements ServiceServiceInterface
             $data['rate_multiplier_super_fast'] = 1.000;
         }
 
+        // Single tier mode: use placeholder for unused multiplier (columns are NOT NULL)
+        $tierMode = $data['speed_limit_tier_mode'] ?? 'both';
+        if (!empty($data['speed_limit_enabled']) && $tierMode !== 'both') {
+            if ($tierMode === 'fast') {
+                $data['speed_multiplier_super_fast'] = 1.00;
+                $data['rate_multiplier_super_fast'] = 1.000;
+            } else {
+                $data['speed_multiplier_fast'] = 1.00;
+                $data['rate_multiplier_fast'] = 1.000;
+            }
+        }
+
         return $this->serviceRepository->create($data);
     }
 
@@ -221,6 +233,18 @@ class ServiceService implements ServiceServiceInterface
         if (isset($data['speed_limit_enabled']) && !$data['speed_limit_enabled']) {
             $data['rate_multiplier_fast'] = 1.000;
             $data['rate_multiplier_super_fast'] = 1.000;
+        }
+
+        // Single tier mode: use placeholder for unused multiplier (columns are NOT NULL)
+        $tierMode = $data['speed_limit_tier_mode'] ?? 'both';
+        if (!empty($data['speed_limit_enabled']) && $tierMode !== 'both') {
+            if ($tierMode === 'fast') {
+                $data['speed_multiplier_super_fast'] = 1.00;
+                $data['rate_multiplier_super_fast'] = 1.000;
+            } else {
+                $data['speed_multiplier_fast'] = 1.00;
+                $data['rate_multiplier_fast'] = 1.000;
+            }
         }
 
         return $this->serviceRepository->update($service, $data);

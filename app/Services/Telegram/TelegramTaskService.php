@@ -235,7 +235,17 @@ class TelegramTaskService
                 $postId = $parsed['post_id'] ?? null;
                 $startParam = $parsed['start'] ?? null;
 
-                $payload = $this->buildTaskPayload([
+                // For comment action: pick one comment from comment_text (one per task)
+                $commentTextForTask = null;
+                if ($action === 'comment' && !empty(trim((string) ($order->comment_text ?? '')))) {
+                    $comments = array_values(array_filter(array_map('trim', explode("\n", (string) $order->comment_text))));
+                    $index = (int) $order->delivered;
+                    if ($index < count($comments)) {
+                        $commentTextForTask = $comments[$index];
+                    }
+                }
+
+                $payloadParams = [
                     'action' => $action,
                     'link' => $order->link,
                     'link_hash' => $linkHash,
@@ -251,7 +261,11 @@ class TelegramTaskService
                     'meta' => $executionMeta,
                     'parsed' => $parsed,
                     'subject' => ['type' => 'order', 'id' => $order->id],
-                ]);
+                ];
+                if ($commentTextForTask !== null) {
+                    $payloadParams['comment_text'] = $commentTextForTask;
+                }
+                $payload = $this->buildTaskPayload($payloadParams);
 
                 $task = TelegramTask::create([
                     'order_id' => $order->id,
@@ -312,6 +326,7 @@ class TelegramTaskService
         $parsed = $params['parsed'] ?? [];
         $subject = $params['subject'] ?? null;
         $link2 = $params['link_2'] ?? null;
+        $commentText = $params['comment_text'] ?? null;
 
         $payload = [
             'template_key' => $templateKey,
@@ -333,6 +348,9 @@ class TelegramTaskService
         }
         if (!empty($link2)) {
             $payload['link_2'] = trim((string) $link2);
+        }
+        if ($commentText !== null && $commentText !== '') {
+            $payload['comment_text'] = (string) $commentText;
         }
         return $payload;
     }

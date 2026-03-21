@@ -39,7 +39,7 @@ class YouTubeTaskClaimController extends Controller
             ]);
         }
 
-        return response()->json([
+        $response = [
             'ok' => true,
             'count' => 1,
             'task_id' => $payload['task_id'],
@@ -60,6 +60,10 @@ class YouTubeTaskClaimController extends Controller
                 'category' => $payload['category'] ?? null,
             ],
             'service' => $payload['service'] ?? null,
-        ]);
+        ];
+        if (!empty($payload['comment_text'])) {
+            $response['comment_text'] = $payload['comment_text'];
+        }
+        return response()->json($response);
     }
 }

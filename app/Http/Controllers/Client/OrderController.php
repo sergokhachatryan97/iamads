@@ -321,6 +321,7 @@ class OrderController extends Controller
                 'service_type',
                 'dripfeed_enabled',
                 'speed_limit_enabled',
+                'speed_limit_tier_mode',
                 'speed_multiplier_fast',
                 'speed_multiplier_super_fast',
                 'target_type',
@@ -406,6 +407,7 @@ class OrderController extends Controller
 
                     // Speed limit settings
                     'speed_limit_enabled' => (bool) ($service->speed_limit_enabled ?? false),
+                    'speed_limit_tier_mode' => $service->speed_limit_tier_mode ?? 'both',
                     'speed_multiplier_fast' => $service->speed_multiplier_fast !== null ? (float) $service->speed_multiplier_fast : 1.50,
                     'speed_multiplier_super_fast' => $service->speed_multiplier_super_fast !== null ? (float) $service->speed_multiplier_super_fast : 2.00,
 

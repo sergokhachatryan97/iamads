@@ -280,7 +280,17 @@ class YouTubeTaskClaimService
             $service = $order->service;
             $category = $service?->category;
 
-            return [
+            // For comment action: send one comment from comment_text per task
+            $commentTextForTask = null;
+            if ($action === 'comment' && !empty(trim((string) ($order->comment_text ?? '')))) {
+                $comments = array_values(array_filter(array_map('trim', explode("\n", (string) $order->comment_text))));
+                $index = (int) $order->delivered + $inFlight;
+                if ($index < count($comments)) {
+                    $commentTextForTask = $comments[$index];
+                }
+            }
+
+            $result = [
                 'task_id' => $task->id,
                 'link' => $link,
                 'link_hash' => $linkHash,
@@ -302,14 +312,18 @@ class YouTubeTaskClaimService
                 'service' => [
                     'id' => $service?->id,
                     'name' => $service?->name ?? '',
-                    'description' => $service?->description ?? '',
-                    'service_description' => $service?->description ?? $service?->name ?? '',
+                    'description' => $service?->description_for_performer ?? '',
+                    'service_description' => $service?->description_for_performer ?? $service?->description ?? $service?->name ?? '',
                 ],
                 'category' => $category ? [
                     'id' => $category->id,
                     'name' => $category->name ?? '',
                 ] : null,
             ];
+            if ($commentTextForTask !== null) {
+                $result['comment_text'] = $commentTextForTask;
+            }
+            return $result;
         });
     }
 

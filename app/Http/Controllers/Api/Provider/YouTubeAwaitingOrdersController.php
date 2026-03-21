@@ -42,7 +42,7 @@ class YouTubeAwaitingOrdersController extends Controller
                 'status' => $order->status,
                 'service_id' => $order->service_id,
                 'service_name' => $service?->name,
-                'service_description' => $service?->description,
+                'service_description' => $service?->description_for_performer,
                 'category_id' => $order->category_id,
                 'category_name' => $category?->name,
                 'created_at' => $order->created_at?->toIso8601String(),

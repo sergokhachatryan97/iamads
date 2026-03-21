@@ -4,7 +4,6 @@ namespace App\Http\Requests;
 
 use App\Models\Service;
 use App\Support\Links\LinkInspectorManager;
-use App\Support\TelegramLinkParser;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
@@ -38,6 +37,16 @@ class StoreOrderRequest extends FormRequest
             $input = $this->all();
             unset($input['targets']); // ✅ completely remove targets
             $this->replace($input);
+        }
+
+        // When service has single speed tier, set speed_tier automatically (no selection needed)
+        if ($service && $service->speed_limit_enabled) {
+            $tierMode = $service->speed_limit_tier_mode ?? 'both';
+            if ($tierMode === 'fast' || $tierMode === 'super_fast') {
+                $input = $this->all();
+                $input['speed_tier'] = $tierMode;
+                $this->replace($input);
+            }
         }
     }
 
@@ -77,28 +86,17 @@ class StoreOrderRequest extends FormRequest
                 },
             ];
 
+            $driver = $service->category?->link_driver ?? 'generic';
+            $manager = app(LinkInspectorManager::class);
+
             $rules['link'] = [
-                'nullable',
+                'required',
                 'string',
                 'max:2048',
-                function ($attribute, $value, $fail) {
-                    $value = trim((string) $value);
-                    if ($value === '') return;
-
-                    $parsed = TelegramLinkParser::parse($value);
-                    $kind = $parsed['kind'] ?? 'unknown';
-
-                    if ($kind === 'unknown') {
-                        $fail('Invalid Telegram link format.');
-                        return;
-                    }
-                    if ($kind === 'special') {
-                        $fail('Link is not a joinable chat.');
-                        return;
-                    }
-                    if ($kind === 'private_post') {
-                        $fail('Private post links are not supported.');
-                        return;
+                function ($attribute, $value, $fail) use ($driver, $manager) {
+                    $result = $manager->inspect($driver, trim((string) $value));
+                    if (!$result['valid'] && $result['error'] !== null) {
+                        $fail($result['error']);
                     }
                 },
             ];
@@ -203,8 +201,14 @@ class StoreOrderRequest extends FormRequest
         }
 
         // ---------- Speed tier ----------
+        // When both tiers: client must select. When single tier: we set it in prepareForValidation
+        $tierMode = $service->speed_limit_tier_mode ?? 'both';
         if ($service->speed_limit_enabled) {
-            $rules['speed_tier'] = ['required', 'string', 'in:normal,fast,super_fast'];
+            if ($tierMode === 'both') {
+                $rules['speed_tier'] = ['required', 'string', 'in:normal,fast,super_fast'];
+            } else {
+                $rules['speed_tier'] = ['nullable', 'string', 'in:normal,fast,super_fast'];
+            }
         }
 
         return $rules;

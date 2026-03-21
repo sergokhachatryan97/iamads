@@ -71,18 +71,18 @@ class StoreFastOrderRequest extends FormRequest
                     }
                 },
             ];
+            $driver = $service->category?->link_driver ?? 'generic';
+            $manager = app(LinkInspectorManager::class);
+
             $rules['link'] = [
-                'nullable',
+                'required',
                 'string',
                 'max:2048',
-                function ($attribute, $value, $fail) {
-                    $value = trim((string) $value);
-                    if ($value === '') return;
-                    $parsed = TelegramLinkParser::parse($value);
-                    $kind = $parsed['kind'] ?? 'unknown';
-                    if ($kind === 'unknown') $fail('Invalid Telegram link format.');
-                    elseif ($kind === 'special') $fail('Link is not a joinable chat.');
-                    elseif ($kind === 'private_post') $fail('Private post links are not supported.');
+                function ($attribute, $value, $fail) use ($driver, $manager) {
+                    $result = $manager->inspect($driver, trim((string) $value));
+                    if (!$result['valid'] && $result['error'] !== null) {
+                        $fail($result['error']);
+                    }
                 },
             ];
         } elseif ($service->template_key === 'invite_subscribers_from_other_channel') {

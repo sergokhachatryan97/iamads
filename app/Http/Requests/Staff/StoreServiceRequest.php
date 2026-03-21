@@ -25,6 +25,7 @@ class StoreServiceRequest extends FormRequest
         $rules = [
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
+            'description_for_performer' => ['nullable', 'string', 'max:65535'],
             'icon' => ['nullable', 'string'],
             'category_id' => ['required', 'integer', 'exists:categories,id'],
             'mode' => ['required', 'string', 'in:manual,auto'],
@@ -38,6 +39,7 @@ class StoreServiceRequest extends FormRequest
             'overflow_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'dripfeed_enabled' => ['nullable', 'boolean'],
             'speed_limit_enabled' => ['nullable', 'boolean'],
+            'speed_limit_tier_mode' => ['nullable', 'string', 'in:both,fast,super_fast'],
             'speed_multiplier_fast' => ['nullable', 'numeric', 'min:1', 'max:10'],
             'speed_multiplier_super_fast' => ['nullable', 'numeric', 'min:1', 'max:10'],
             'rate_multiplier_fast' => ['nullable', 'numeric', 'min:1', 'max:10'],
@@ -74,12 +76,22 @@ class StoreServiceRequest extends FormRequest
         }
 
         // Validate speed multipliers if speed limit is enabled
+        $tierMode = $this->input('speed_limit_tier_mode', 'both');
         if ($this->boolean('speed_limit_enabled')) {
-            $rules['speed_multiplier_fast'] = ['required', 'numeric', 'min:1', 'max:10'];
-            $rules['speed_multiplier_super_fast'] = ['required', 'numeric', 'min:1', 'max:10'];
-            // Rate multipliers are always required (default to 1.000)
-            $rules['rate_multiplier_fast'] = ['required', 'numeric', 'min:1', 'max:10'];
-            $rules['rate_multiplier_super_fast'] = ['required', 'numeric', 'min:1', 'max:10'];
+            if ($tierMode === 'fast' || $tierMode === 'super_fast') {
+                if ($tierMode === 'fast') {
+                    $rules['speed_multiplier_fast'] = ['required', 'numeric', 'min:1', 'max:10'];
+                    $rules['rate_multiplier_fast'] = ['required', 'numeric', 'min:1', 'max:10'];
+                } else {
+                    $rules['speed_multiplier_super_fast'] = ['required', 'numeric', 'min:1', 'max:10'];
+                    $rules['rate_multiplier_super_fast'] = ['required', 'numeric', 'min:1', 'max:10'];
+                }
+            } else {
+                $rules['speed_multiplier_fast'] = ['required', 'numeric', 'min:1', 'max:10'];
+                $rules['speed_multiplier_super_fast'] = ['required', 'numeric', 'min:1', 'max:10'];
+                $rules['rate_multiplier_fast'] = ['required', 'numeric', 'min:1', 'max:10'];
+                $rules['rate_multiplier_super_fast'] = ['required', 'numeric', 'min:1', 'max:10'];
+            }
         } else {
             // If speed limit disabled, force rate multipliers to 1.000
             $rules['rate_multiplier_fast'] = ['nullable', 'numeric', 'min:1', 'max:10'];
