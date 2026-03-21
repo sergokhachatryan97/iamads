@@ -37,10 +37,6 @@ class YouTubeResourceClassifier
             return self::LINK_TYPE_UPCOMING_LIVE_STREAM;
         }
 
-        // 3) Finished stream replay: had liveStreamingDetails and actualEndTime (content may be 'none')
-        if ($liveDetails !== null && !empty($liveDetails['actual_end_time'])) {
-            return self::LINK_TYPE_FINISHED_STREAM_REPLAY;
-        }
 
         // 4) Shorts: URL pattern is /shorts/...
         if ($urlPattern === YouTubeLinkParser::URL_PATTERN_SHORTS) {
