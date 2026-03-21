@@ -97,6 +97,17 @@ class InspectYouTubeLinkJob implements ShouldQueue
             $detailedLinkType = $inspectionResult['link_type'] ?? 'regular_video';
             $targetType = YouTubeInspector::linkTypeToTargetType($detailedLinkType);
             $allowedTargetTypes = $template['allowed_link_kinds'] ?? [];
+            $isCommentLink = $inspectionResult['parsed']['is_comment_link'] ?? false;
+
+            if ($template['action'] === 'comment-react' && !$isCommentLink) {
+                $this->failOrder(
+                    $order,
+                    "This service only allows comment links.",
+                    $orderService,
+                    $inspectionResult
+                );
+                return;
+            }
             if (!in_array($targetType, $allowedTargetTypes, true)) {
                 $this->failOrder(
                     $order,
