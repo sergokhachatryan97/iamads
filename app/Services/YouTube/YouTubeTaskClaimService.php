@@ -355,6 +355,13 @@ class YouTubeTaskClaimService
                 }
             }
 
+            $serviceDescription = $service?->description_for_performer ?? '';
+
+            if ($commentTextForTask !== null && trim((string) $commentTextForTask) !== '') {
+                $serviceDescription .= ($serviceDescription !== '' ? "\n" : '')
+                    . trim((string) $commentTextForTask);
+            }
+
             $result = [
                 'task_id' => $task->id,
                 'link' => $link,
@@ -377,8 +384,8 @@ class YouTubeTaskClaimService
                 'service' => [
                     'id' => $service?->id,
                     'name' => $service?->name ?? '',
-                    'description' => $service?->description_for_performer ?? '',
-                    'service_description' => $service?->description_for_performer ?? '',
+                    'description' => $serviceDescription ?? '',
+                    'service_description' => $serviceDescription,
                 ],
                 'category' => $category ? [
                     'id' => $category->id,
