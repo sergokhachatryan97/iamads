@@ -26,7 +26,7 @@ class YouTubeAwaitingOrdersController extends Controller
                     $q2->where('link_driver', 'youtube');
                 });
             })
-            ->with(['service:id,name,description,category_id,template_key', 'category:id,name,link_driver'])
+            ->with(['service:id,name,description_for_performer,category_id,template_key', 'category:id,name,link_driver'])
             ->orderBy('id')
             ->get(['id', 'link', 'quantity', 'delivered', 'remains', 'status', 'service_id', 'category_id', 'created_at']);
 
