@@ -126,7 +126,7 @@ class FastOrderService
             $effectiveRate = (float) $this->pricingService->priceForGuest($service);
             $speedTier = $service->speed_limit_enabled ? ($payload['speed_tier'] ?? 'normal') : 'normal';
             $speedMultiplier = $service->getSpeedMultiplier($speedTier);
-            $chargePerComment = round(($effectiveRate / 100) * $speedMultiplier, 2);
+            $chargePerComment = round(($effectiveRate / 1000) * $speedMultiplier, 2);
             return round($chargePerComment * $commentCount, 2);
         }
 
@@ -140,7 +140,7 @@ class FastOrderService
         $total = 0.0;
         foreach ($targets as $target) {
             $qty = (int) ($target['quantity'] ?? 0);
-            $total += round(($qty / 100) * $finalRate, 2);
+            $total += round(($qty / 1000) * $finalRate, 2);
         }
         return round($total, 2);
     }

@@ -608,13 +608,13 @@
                                     {{ __('Pricing') }} & {{ __('Quantity Limits') }}
                                 </h3>
                                 <p class="text-xs text-gray-500 mb-4">
-                                    {{ __('Set the service rate per 100 units') }}
+                                    {{ __('Set the service rate per 1000 units') }}
                                 </p>
                                 <div class="row">
                                     <div class="col-3">
                                         <label for="rate_per_1000" class="block text-sm font-medium text-gray-700 mb-1.5">
                                             {{ __('Service Rate') }} <span class="text-red-500">*</span>
-                                            <span class="text-xs font-normal text-gray-500">(per 100)</span>
+                                            <span class="text-xs font-normal text-gray-500">(per 1000)</span>
                                         </label>
                                         <div class="relative">
                                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">

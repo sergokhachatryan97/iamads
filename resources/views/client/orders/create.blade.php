@@ -173,7 +173,7 @@
                                         </div>
                                         <div class="text-sm text-gray-700">
                                             <span class="font-medium">{{ __('Rate') }}:</span>
-                                            <span>$<span x-text="(selectedService?.rate_per_1000 || 0).toFixed(2)"></span> {{ __('per 100') }}</span>
+                                            <span>$<span x-text="(selectedService?.rate_per_1000 || 0).toFixed(2)"></span> {{ __('per 1000') }}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -534,7 +534,7 @@
                                 <!-- Rate Info -->
                                 <div class="text-xs text-gray-600 mb-2">
                                     <span class="font-medium">{{ __('Default Rate') }}:</span>
-                                    <span>$<span x-text="(selectedService?.default_rate_per_1000 || 0).toFixed(2)"></span> {{ __('per 100') }}</span>
+                                    <span>$<span x-text="(selectedService?.default_rate_per_1000 || 0).toFixed(2)"></span> {{ __('per 1000') }}</span>
                                 </div>
 
                                 <!-- Discount Info -->
@@ -542,7 +542,7 @@
                                     <span class="font-medium">{{ __('Discount Applied') }}:</span>
                                     <span x-text="selectedService?.client_discount || 0"></span>% {{ __('discount') }}
                                     <span class="text-gray-500">
-                                        ({{ __('Final Rate') }}: $<span x-text="(selectedService?.rate_per_1000 || 0).toFixed(2)"></span> {{ __('per 100') }})
+                                        ({{ __('Final Rate') }}: $<span x-text="(selectedService?.rate_per_1000 || 0).toFixed(2)"></span> {{ __('per 1000') }})
                                     </span>
                                 </div>
 
@@ -551,19 +551,19 @@
                                     <span class="font-medium">{{ __('Custom Rate Applied') }}:</span>
                                     <span class="text-gray-500 text-xs">({{ __('Discounts do not apply to services with custom rates') }})</span>
                                     <span x-show="selectedService?.custom_rate?.type === 'fixed'">
-                                        <br>$<span x-text="(selectedService?.custom_rate?.value || 0).toFixed(2)"></span> {{ __('per 100') }} ({{ __('Fixed') }})
+                                        <br>$<span x-text="(selectedService?.custom_rate?.value || 0).toFixed(2)"></span> {{ __('per 1000') }} ({{ __('Fixed') }})
                                     </span>
                                     <span x-show="selectedService?.custom_rate?.type === 'percent'">
                                         <br><span x-text="selectedService?.custom_rate?.value || 0"></span>% {{ __('of default') }}
                                         ({{ __('Default') }}: $<span x-text="(selectedService?.default_rate_per_1000 || 0).toFixed(2)"></span>)
-                                        <br>{{ __('Final Rate') }}: $<span x-text="(selectedService?.rate_per_1000 || 0).toFixed(2)"></span> {{ __('per 100') }}
+                                        <br>{{ __('Final Rate') }}: $<span x-text="(selectedService?.rate_per_1000 || 0).toFixed(2)"></span> {{ __('per 1000') }}
                                     </span>
                                 </div>
 
                                 <!-- Final Rate (when no custom rate and no discount) -->
                                 <div class="text-xs text-gray-600 mb-2" x-show="!selectedService?.has_custom_rate && !selectedService?.discount_applies">
                                     <span class="font-medium">{{ __('Rate') }}:</span>
-                                    <span>$<span x-text="(selectedService?.rate_per_1000 || 0).toFixed(2)"></span> {{ __('per 100') }}</span>
+                                    <span>$<span x-text="(selectedService?.rate_per_1000 || 0).toFixed(2)"></span> {{ __('per 1000') }}</span>
                                 </div>
                             </div>
 
@@ -1124,10 +1124,10 @@
                         return;
                     }
 
-                    // Calculate charge per comment: rate_per_1000 / 100 * speed multiplier
+                    // Calculate charge per comment: rate_per_1000 / 1000 * speed multiplier
                     const rate = parseFloat(this.selectedService.rate_per_1000) || 0;
                     const multiplier = this.getSpeedMultiplier();
-                    this.chargePerComment = Math.round((rate / 100) * multiplier * 100) / 100;
+                    this.chargePerComment = Math.round((rate / 1000) * multiplier * 100) / 100;
 
                     // Total charge = charge per comment * number of comments
                     this.commentsTotalCharge = Math.round(this.chargePerComment * this.commentsCount * 100) / 100;
@@ -1322,7 +1322,7 @@
                     const totalQty = this.getTotalQuantity();
                     const rate = Number(this.selectedService.rate_per_1000) || 0;
                     const multiplier = this.getSpeedMultiplier();
-                    return (totalQty * rate * multiplier)/100;
+                    return (totalQty * rate * multiplier) / 1000;
                 },
 
                 submitForm(event) {
@@ -1534,7 +1534,7 @@
                     if (!serviceRow || !serviceRow.service_id) return 0;
                     const qty = Number(serviceRow.quantity) || 0;
                     const rate = Number(serviceRow.rate_per_1000) || 0;
-                    return Math.round((qty / 100) * rate * 100) / 100;
+                    return Math.round((qty / 1000) * rate * 100) / 100;
                 },
 
                 calculateMultiTotalCharge() {
@@ -1542,7 +1542,7 @@
                         if (!serviceRow.service_id) return sum;
                         const qty = Number(serviceRow.quantity) || 0;
                         const rate = Number(serviceRow.rate_per_1000) || 0;
-                        const charge = Math.round((qty / 100) * rate * 100) / 100;
+                        const charge = Math.round((qty / 1000) * rate * 100) / 100;
                         return sum + charge;
                     }, 0);
                 },

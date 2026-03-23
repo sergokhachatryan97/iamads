@@ -155,7 +155,7 @@
                             <select name="service_id" id="filter-service" class="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500">
                                 <option value="">{{ __('All') }}</option>
                                 @foreach($services ?? [] as $svc)
-                                    <option value="{{ $svc->id }}" {{ ($filterServiceId ?? '') == $svc->id ? 'selected' : '' }}>ID{{ $svc->id }} - {{ Str::limit($svc->name, 40) }}</option>
+                                    <option value="{{ $svc->id }}" {{ ($filterServiceId ?? '') == $svc->id ? 'selected' : '' }}>ID{{ $svc->id }} - {{ Str::limit($svc->name, 30) }}</option>
                                 @endforeach
                             </select>
                         </div>
@@ -316,7 +316,7 @@
                                                                 $telegramUrl = 'tg://resolve?domain=' . $matches[1];
                                                             }
                                                         @endphp
-                                                        <a href="{{ $telegramUrl }}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-900 hover:underline truncate block" title="{{ $order->link }}">{{ $order->link }}</a>
+                                                        <a href="{{ $telegramUrl }}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-900 hover:underline truncate block" title="{{ $order->link }}">{{ Str::limit($order->link, 30) }}</a>
                                                     @endif
                                                     @if($order->link_2)
                                                         @php
@@ -329,7 +329,7 @@
                                                             }
                                                         @endphp
                                                         <div class="text-xs text-gray-500">{{ __('Source') }}:</div>
-                                                        <a href="{{ $telegramUrl2 }}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-900 hover:underline truncate block text-xs" title="{{ $order->link_2 }}">{{ $order->link_2 }}</a>
+                                                        <a href="{{ $telegramUrl2 }}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-900 hover:underline truncate block text-xs" title="{{ $order->link_2 }}">{{ Str::limit($order->link_2, 30) }}</a>
                                                     @endif
                                                 </div>
                                             @else
@@ -587,7 +587,7 @@
                                             }
                                         @endphp
                                         @if($order->link_2)<div class="text-xs text-gray-500">{{ __('Target') }}</div>@endif
-                                        <a href="{{ $telegramUrl }}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:underline">{{ $order->link }}</a>
+                                        <a href="{{ $telegramUrl }}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:underline">{{ Str::limit($order->link, 30) }}</a>
                                     @endif
                                     @if($order->link_2)
                                         @php
@@ -600,7 +600,7 @@
                                             }
                                         @endphp
                                         <div class="text-xs text-gray-500">{{ __('Source') }}</div>
-                                        <a href="{{ $telegramUrl2 }}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:underline">{{ $order->link_2 }}</a>
+                                        <a href="{{ $telegramUrl2 }}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:underline">{{ Str::limit($order->link_2, 30) }}</a>
                                     @endif
                                 </div>
                             </div>

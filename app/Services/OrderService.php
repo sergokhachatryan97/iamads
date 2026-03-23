@@ -101,12 +101,12 @@ class OrderService implements OrderServiceInterface
                     (int) $effectiveIncrement
                 );
 
-                // Calculate charge using final rate (base * rate multiplier)
-                $charge =($qty / 100) * $finalRate;
+                // Calculate charge using final rate (base * rate multiplier), rate is per 1000
+                $charge = ($qty / 1000) * $finalRate;
 
                 // Cost also uses rate multiplier if service_cost_per_1000 exists
                 $cost = $service->service_cost_per_1000 !== null
-                    ? ($qty / 100) * (float) $service->service_cost_per_1000 * $finalRate
+                    ? ($qty / 1000) * (float) $service->service_cost_per_1000 * $finalRate
                     : null;
 
                 $rowCharges[] = [
@@ -303,9 +303,9 @@ class OrderService implements OrderServiceInterface
 
             $effectiveRate = (float) $this->pricingService->priceForClient($service, $client);
             $rateMultiplier = $service->speed_limit_enabled ? $service->getSpeedMultiplier($speedTier) : 1.0;
-            $charge = round(($quantity / 100) * $effectiveRate * $rateMultiplier, 2);
+            $charge = round(($quantity / 1000) * $effectiveRate * $rateMultiplier, 2);
             $cost = $service->service_cost_per_1000 !== null
-                ? round(($quantity / 100) * (float) $service->service_cost_per_1000 * $rateMultiplier, 2)
+                ? round(($quantity / 1000) * (float) $service->service_cost_per_1000 * $rateMultiplier, 2)
                 : null;
 
             if ($client->balance < $charge) {
@@ -417,9 +417,9 @@ class OrderService implements OrderServiceInterface
             $speedTier = $service->speed_limit_enabled ? ($data['speed_tier'] ?? 'normal') : 'normal';
             $speedMultiplier = $service->getSpeedMultiplier($speedTier);
 
-            $chargePerComment = round(($effectiveRate / 100) * $speedMultiplier, 2);
+            $chargePerComment = round(($effectiveRate / 1000) * $speedMultiplier, 2);
             $costPerComment = $service->service_cost_per_1000 !== null
-                ? round(((float) $service->service_cost_per_1000 / 100) * $speedMultiplier, 2)
+                ? round(((float) $service->service_cost_per_1000 / 1000) * $speedMultiplier, 2)
                 : null;
 
             $commentCount = count($comments);
@@ -566,9 +566,9 @@ class OrderService implements OrderServiceInterface
 
                 $effectiveRate = (float) $this->pricingService->priceForClient($service, $client);
 
-                $charge = round(($qty / 100) * $effectiveRate, 2);
+                $charge = round(($qty / 1000) * $effectiveRate, 2);
                 $cost = $service->service_cost_per_1000 !== null
-                    ? round(($qty / 100) * (float) $service->service_cost_per_1000, 2)
+                    ? round(($qty / 1000) * (float) $service->service_cost_per_1000, 2)
                     : null;
 
                 $totalBalanceCharge += $charge;
