@@ -21,6 +21,14 @@ class StoreFastOrderRequest extends FormRequest
         return true;
     }
 
+    private function ensureLinkHasScheme(string $link): string
+    {
+        if ($link === '' || preg_match('#^https?://#i', $link)) {
+            return $link;
+        }
+        return 'https://' . $link;
+    }
+
     private function service(): ?Service
     {
         if ($this->cachedService !== null) {
@@ -33,6 +41,22 @@ class StoreFastOrderRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $input = $this->all();
+        if (!empty($input['link'])) {
+            $input['link'] = $this->ensureLinkHasScheme(trim((string) $input['link']));
+        }
+        if (!empty($input['link_2'])) {
+            $input['link_2'] = $this->ensureLinkHasScheme(trim((string) $input['link_2']));
+        }
+        if (isset($input['targets']) && is_array($input['targets'])) {
+            foreach ($input['targets'] as $i => $t) {
+                if (!empty($t['link'])) {
+                    $input['targets'][$i]['link'] = $this->ensureLinkHasScheme(trim((string) $t['link']));
+                }
+            }
+        }
+        $this->replace($input);
+
         $service = $this->service();
         if ($service && $service->service_type === 'custom_comments') {
             $input = $this->all();

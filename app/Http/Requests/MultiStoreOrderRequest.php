@@ -8,6 +8,22 @@ use Illuminate\Validation\Validator;
 
 class MultiStoreOrderRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        $link = $this->input('link');
+        if (!empty($link)) {
+            $this->merge(['link' => $this->ensureLinkHasScheme(trim((string) $link))]);
+        }
+    }
+
+    private function ensureLinkHasScheme(string $link): string
+    {
+        if ($link === '' || preg_match('#^https?://#i', $link)) {
+            return $link;
+        }
+        return 'https://' . $link;
+    }
+
     /**
      * Determine if the user is authorized to make this request.
      */

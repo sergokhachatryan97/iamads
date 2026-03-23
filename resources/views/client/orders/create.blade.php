@@ -10,10 +10,43 @@
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
                     @if ($errors->any())
+                        @php
+                            $errorLabels = [
+                                'targets' => __('Links & Quantities'),
+                                'services' => __('Services'),
+                                'link' => __('Link'),
+                                'link_2' => __('Source Channel'),
+                                'comments' => __('Comments'),
+                                'comment_text' => __('Custom Comment'),
+                                'category_id' => __('Category'),
+                                'service_id' => __('Service'),
+                                'dripfeed_quantity' => __('Dripfeed Quantity'),
+                                'dripfeed_interval' => __('Dripfeed Interval'),
+                                'dripfeed_interval_unit' => __('Dripfeed Interval Unit'),
+                                'speed_tier' => __('Speed Tier'),
+                            ];
+                            $formatErrorKey = function ($key) use ($errorLabels) {
+                                if (preg_match('/^targets\.(\d+)\.link$/', $key, $m)) {
+                                    return __('Link') . ' ' . ((int)$m[1] + 1);
+                                }
+                                if (preg_match('/^targets\.(\d+)\.quantity$/', $key, $m)) {
+                                    return __('Link') . ' ' . ((int)$m[1] + 1) . ' – ' . __('Quantity');
+                                }
+                                if (preg_match('/^services\.(\d+)\.service_id$/', $key, $m)) {
+                                    return __('Service') . ' ' . ((int)$m[1] + 1);
+                                }
+                                if (preg_match('/^services\.(\d+)\.quantity$/', $key, $m)) {
+                                    return __('Service') . ' ' . ((int)$m[1] + 1) . ' – ' . __('Quantity');
+                                }
+                                return $errorLabels[$key] ?? $key;
+                            };
+                        @endphp
                         <div class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
                             <ul class="list-disc list-inside">
-                                @foreach ($errors->all() as $error)
-                                    <li>{{ $error }}</li>
+                                @foreach ($errors->messages() as $key => $messages)
+                                    @foreach ($messages as $message)
+                                        <li><strong>{{ $formatErrorKey($key) }}:</strong> {{ $message }}</li>
+                                    @endforeach
                                 @endforeach
                             </ul>
                         </div>
@@ -44,6 +77,7 @@
                               x-show="orderType === 'single'"
                               @submit.prevent="submitForm">
                             @csrf
+                            <input type="hidden" name="form_type" value="single">
 
                             <!-- Category -->
                             <div class="mb-6">
@@ -196,13 +230,16 @@
                                             :disabled="selectedService?.template_key !== 'invite_subscribers_from_other_channel'"
                                             x-model="inviteSourceLink"
                                             @input="inviteSourceLinkValid = validateTelegramLink(inviteSourceLink)"
-                                            :class="inviteSourceLinkValid ? 'border-gray-300' : 'border-red-300'"
+                                            :class="(inviteSourceLinkValid && !getFieldError('link_2')) ? 'border-gray-300' : 'border-red-300'"
                                             placeholder="https://t.me/source_channel"
                                             :required="selectedService?.template_key === 'invite_subscribers_from_other_channel'"
                                             class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                                         <p x-show="!inviteSourceLinkValid && inviteSourceLink" class="mt-1 text-xs text-red-600">
                                             {{ __('Please enter a valid Telegram link.') }}
                                         </p>
+                                        @error('link_2')
+                                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                                        @enderror
                                     </div>
                                     <div>
                                         <label for="invite_target_link" class="block text-sm font-medium text-gray-700 mb-1">
@@ -215,13 +252,16 @@
                                             :disabled="selectedService?.template_key !== 'invite_subscribers_from_other_channel'"
                                             x-model="inviteTargetLink"
                                             @input="inviteTargetLinkValid = validateTelegramLink(inviteTargetLink)"
-                                            :class="inviteTargetLinkValid ? 'border-gray-300' : 'border-red-300'"
+                                            :class="(inviteTargetLinkValid && !getFieldError('targets.0.link')) ? 'border-gray-300' : 'border-red-300'"
                                             placeholder="https://t.me/target_channel or t.me/+inviteHash"
                                             :required="selectedService?.template_key === 'invite_subscribers_from_other_channel'"
                                             class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                                         <p x-show="!inviteTargetLinkValid && inviteTargetLink" class="mt-1 text-xs text-red-600">
                                             {{ __('Please enter a valid Telegram link.') }}
                                         </p>
+                                        @error('targets.0.link')
+                                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                                        @enderror
                                     </div>
                                     <div class="w-48">
                                         <label for="invite_quantity" class="block text-sm font-medium text-gray-700 mb-1">
@@ -236,7 +276,11 @@
                                             :min="selectedService?.min_quantity || 1"
                                             :max="selectedService?.max_quantity || null"
                                             :required="selectedService?.template_key === 'invite_subscribers_from_other_channel'"
-                                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                            :class="getFieldError('targets.0.quantity') ? 'border-red-300' : 'border-gray-300'"
+                                            class="block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                        @error('targets.0.quantity')
+                                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                                        @enderror
                                     </div>
                                 </div>
                             </div>
@@ -260,10 +304,11 @@
 
                                 <div class="space-y-3">
                                     <template x-for="(target, index) in targets" :key="index">
-                                        <div class="flex gap-3 items-start">
+                                        <div class="flex gap-3 items-start"
+                                             :class="getTargetError(index, 'link') || getTargetError(index, 'quantity') ? 'p-3 rounded-md border-2 border-red-300 bg-red-50' : ''">
                                             <div class="flex-1">
                                                 <label :for="'targets_' + index + '_link'" class="block text-xs font-medium text-gray-700 mb-1">
-                                                    {{ __('Link') }} <span class="text-red-500">*</span>
+                                                    {{ __('Link') }} <span x-text="index + 1"></span> <span class="text-red-500">*</span>
                                                 </label>
                                                 <input
                                                     type="text"
@@ -271,12 +316,13 @@
                                                     :name="'targets[' + index + '][link]'"
                                                     x-model="target.link"
                                                     @input="target.linkValid = validateLink(target.link)"
-                                                    :class="target.linkValid ? 'border-gray-300' : 'border-red-300'"
+                                                    :class="(target.linkValid && !getTargetError(index, 'link')) ? 'border-gray-300' : 'border-red-300'"
                                                     :placeholder="linkPlaceholder()"
                                                     :required="selectedService?.service_type !== 'custom_comments' && selectedService?.template_key !== 'invite_subscribers_from_other_channel'"
                                                     :disabled="selectedService?.template_key === 'invite_subscribers_from_other_channel'"
                                                     class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                                                 <p x-show="!target.linkValid && target.link" class="mt-1 text-xs text-red-600" x-text="linkErrorMessage"></p>
+                                                <p x-show="getTargetError(index, 'link')" class="mt-1 text-xs text-red-600" x-text="getTargetError(index, 'link')"></p>
                                             </div>
                                             <div class="w-32">
                                                 <label :for="'targets_' + index + '_quantity'" class="block text-xs font-medium text-gray-700 mb-1">
@@ -297,7 +343,8 @@
                                                         @blur="$el.dispatchEvent(new Event('change'))"
                                                         :required="selectedService?.service_type !== 'custom_comments' && selectedService?.template_key !== 'invite_subscribers_from_other_channel'"
                                                         :disabled="selectedService?.template_key === 'invite_subscribers_from_other_channel'"
-                                                        class="no-spinner block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm pr-12">
+                                                        :class="getTargetError(index, 'quantity') ? 'border-red-300' : 'border-gray-300'"
+                                                        class="no-spinner block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm pr-12">
                                                     <div class="absolute inset-y-0 right-0 flex flex-col justify-center">
                                                         <button
                                                             type="button"
@@ -321,6 +368,7 @@
                                                         </button>
                                                     </div>
                                                 </div>
+                                                <p x-show="getTargetError(index, 'quantity')" class="mt-1 text-xs text-red-600" x-text="getTargetError(index, 'quantity')"></p>
                                             </div>
                                             <div class="pt-6">
                                                 <button
@@ -551,6 +599,7 @@
                               x-show="orderType === 'multi'"
                               @submit.prevent="submitMultiForm">
                             @csrf
+                            <input type="hidden" name="form_type" value="multi">
 
                             <!-- Category -->
                             <div class="mb-6">
@@ -619,7 +668,8 @@
                                 </div>
                                 <div class="space-y-3" x-show="!multiLoading && multiServices.length > 0">
                                     <template x-for="(serviceRow, index) in multiSelectedServices" :key="index">
-                                        <div class="flex gap-3 items-start p-3 bg-gray-50 rounded-md border border-gray-200">
+                                        <div class="flex gap-3 items-start p-3 rounded-md border-2"
+                                             :class="getServiceError(index, 'service_id') || getServiceError(index, 'quantity') ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50'">
                                             <div class="flex-1">
                                                 <label :for="'multi_service_' + index" class="block text-sm font-medium text-gray-700 mb-1">
                                                     {{ __('Service') }} <span class="text-red-500">*</span>
@@ -630,7 +680,8 @@
                                                     x-model="serviceRow.service_id"
                                                     @change="updateMultiServiceInfo(index)"
                                                     required
-                                                    class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                                    :class="getServiceError(index, 'service_id') ? 'border-red-300' : 'border-gray-300'"
+                                                    class="block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                                                     <option value="">{{ __('Select a service') }}</option>
                                                     <template x-for="service in getFilteredServicesForRow(index)" :key="'multi-service-' + service.id">
                                                         <option :value="service.id" x-text="service.name"></option>
@@ -655,7 +706,8 @@
                                                         @change="serviceRow.quantity = adjustMultiQuantityToIncrement(serviceRow.quantity, index)"
                                                         @blur="$el.dispatchEvent(new Event('change'))"
                                                         required
-                                                        class="no-spinner block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm pr-12">
+                                                        :class="getServiceError(index, 'quantity') ? 'border-red-300' : 'border-gray-300'"
+                                                        class="no-spinner block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm pr-12">
                                                     <div class="absolute inset-y-0 right-0 flex flex-col justify-center">
                                                         <button
                                                             type="button"
@@ -679,6 +731,7 @@
                                                         </button>
                                                     </div>
                                                 </div>
+                                                <p x-show="getServiceError(index, 'quantity')" class="mt-1 text-xs text-red-600" x-text="getServiceError(index, 'quantity')"></p>
                                             </div>
                                             <div class="w-32 pt-6">
                                                 <button
@@ -742,7 +795,7 @@
     <script>
         function orderForm() {
             return {
-                orderType: 'single', // 'single' or 'multi'
+                orderType: @json(old('form_type') === 'multi' ? 'multi' : 'single'),
                 categoryIdsWithTargetType: @js($categoryIdsWithTargetType ?? []),
                 categoryLinkTypes: @js($categoryLinkTypes ?? []),
                 get categoryHasTargetType() {
@@ -788,8 +841,8 @@
                 loading: false,
                 submitting: false,
                 // Custom comments
-                comments: '',
-                commentsLink: '{{ old('link', '') }}',
+                comments: @json(old('comments', '')),
+                commentsLink: @json(old('link', '')),
                 commentsLinkValid: true,
                 commentsCount: 0,
                 commentsTotalCharge: 0,
@@ -797,24 +850,40 @@
                 commentsCountError: '',
                 // Dripfeed
                 dripfeedEnabled: {{ old('dripfeed_enabled', 'false') === 'true' ? 'true' : 'false' }},
-                dripfeedQuantity: null,
-                dripfeedInterval: null,
-                dripfeedIntervalUnit: null,
+                dripfeedQuantity: @json(old('dripfeed_quantity')),
+                dripfeedInterval: @json(old('dripfeed_interval')),
+                dripfeedIntervalUnit: @json(old('dripfeed_interval_unit')),
                 dripfeedQuantityError: '',
                 // Speed Tier (default 'fast' when service has speed enabled, set in updateServiceInfo)
                 speedTier: '{{ old('speed_tier', 'normal') }}',
+                // YouTube combo custom comment
+                commentText: @json(old('comment_text', '')),
+                commentTextError: '',
                 // Invite Subscribers (2-link service)
-                inviteSourceLink: '{{ old('link_2', '') }}',
-                inviteTargetLink: '{{ old('targets.0.link', '') }}',
+                inviteSourceLink: @json(old('link_2', '')),
+                inviteTargetLink: @json(old('targets.0.link', '')),
                 inviteSourceLinkValid: true,
                 inviteTargetLinkValid: true,
                 inviteQuantity: {{ old('targets.0.quantity', 1) }},
                 // Multi-service order data
                 multiCategoryId: '{{ old('category_id', $preselectedCategoryId ?? '') }}',
-                multiLink: '{{ old('link', '') }}',
+                multiLink: @json(old('link', '')),
                 multiLinkValid: true,
                 multiServices: [],
-                multiSelectedServices: [{ service_id: '', target_type: '', quantity: 1, min_quantity: 1, max_quantity: null, increment: 0, rate_per_1000: 0 }],
+                validationErrors: @json($errors->messages()),
+                multiSelectedServices: @js(
+                    !empty(old('services'))
+                        ? collect(old('services'))->map(fn($s) => [
+                            'service_id' => (string)($s['service_id'] ?? ''),
+                            'target_type' => '',
+                            'quantity' => (int)($s['quantity'] ?? 1),
+                            'min_quantity' => 1,
+                            'max_quantity' => null,
+                            'increment' => 0,
+                            'rate_per_1000' => 0,
+                        ])->values()->all()
+                        : [['service_id' => '', 'target_type' => '', 'quantity' => 1, 'min_quantity' => 1, 'max_quantity' => null, 'increment' => 0, 'rate_per_1000' => 0]]
+                ),
                 multiLoading: false,
 
                 init() {
@@ -931,6 +1000,16 @@
                     if (t === 'url' || t === 'generic') return this.validateGenericLink(link);
                     return this.validateTelegramLink(link);
                 },
+                getFieldError(key) {
+                    const arr = this.validationErrors?.[key];
+                    return Array.isArray(arr) && arr[0] ? arr[0] : null;
+                },
+                getTargetError(index, field) {
+                    return this.getFieldError(`targets.${index}.${field}`);
+                },
+                getServiceError(index, field) {
+                    return this.getFieldError(`services.${index}.${field}`);
+                },
                 linkPlaceholder(type) {
                     const t = type || this.linkType;
                     const placeholders = {
@@ -978,11 +1057,12 @@
                         return;
                     }
                     this.selectedService = this.services.find(s => s.id == this.serviceId) || null;
-                    // Update default quantity for all targets - always use min_quantity
+                    // Ensure target quantities meet min; preserve higher values (e.g. from old input)
                     if (this.selectedService) {
                         const defaultQty = this.selectedService.min_quantity || 1;
                         this.targets.forEach(target => {
-                            target.quantity = defaultQty;
+                            const qty = parseInt(target.quantity) || 0;
+                            target.quantity = qty >= defaultQty ? qty : defaultQty;
                         });
                         // Recalculate comments total if service changed and comments exist
                         if (this.comments && this.selectedService.service_type === 'custom_comments') {
@@ -1242,8 +1322,7 @@
                     const totalQty = this.getTotalQuantity();
                     const rate = Number(this.selectedService.rate_per_1000) || 0;
                     const multiplier = this.getSpeedMultiplier();
-                    console.log(totalQty, rate, multiplier)
-                    return (((totalQty / 100) * rate * multiplier * 100) / 100);
+                    return (totalQty * rate * multiplier)/100;
                 },
 
                 submitForm(event) {
@@ -1303,8 +1382,15 @@
                         const response = await fetch(url);
                         const data = await response.json();
                         this.multiServices = Array.isArray(data) ? data : [];
-                        // Clear selected services if category changed
-                        this.multiSelectedServices = [{ service_id: '', target_type: '', quantity: 1, min_quantity: 1, max_quantity: null, increment: 0, rate_per_1000: 0 }];
+                        // Clear selected services only if no old input (validation redirect keeps selections)
+                        const hasOldSelections = Array.isArray(this.multiSelectedServices) &&
+                            this.multiSelectedServices.some(row => row.service_id);
+                        if (!hasOldSelections) {
+                            this.multiSelectedServices = [{ service_id: '', target_type: '', quantity: 1, min_quantity: 1, max_quantity: null, increment: 0, rate_per_1000: 0 }];
+                        } else {
+                            // Populate service metadata for old selections
+                            this.multiSelectedServices.forEach((row, i) => this.updateMultiServiceInfo(i));
+                        }
                     } catch (error) {
                         console.error('Error loading services:', error);
                         this.multiServices = [];
@@ -1346,9 +1432,10 @@
                         serviceRow.max_quantity = service.max_quantity || null;
                         serviceRow.increment = service.increment || 0;
                         serviceRow.rate_per_1000 = service.rate_per_1000 || 0;
-                        // Set default quantity to min_quantity
+                        // Ensure quantity meets min; preserve valid existing (e.g. from old input)
                         const defaultQty = service.min_quantity || 1;
-                        serviceRow.quantity = defaultQty;
+                        const currentQty = parseInt(serviceRow.quantity) || 0;
+                        serviceRow.quantity = currentQty >= defaultQty ? currentQty : defaultQty;
                     }
                 },
 

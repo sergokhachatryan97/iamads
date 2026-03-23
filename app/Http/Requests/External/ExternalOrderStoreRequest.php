@@ -34,5 +34,17 @@ class ExternalOrderStoreRequest extends FormRequest
         if ($this->has('service') && !$this->has('service_id')) {
             $this->merge(['service_id' => $this->input('service')]);
         }
+        $link = $this->input('link');
+        if (!empty($link)) {
+            $this->merge(['link' => $this->ensureLinkHasScheme(trim((string) $link))]);
+        }
+    }
+
+    private function ensureLinkHasScheme(string $link): string
+    {
+        if ($link === '' || preg_match('#^https?://#i', $link)) {
+            return $link;
+        }
+        return 'https://' . $link;
     }
 }

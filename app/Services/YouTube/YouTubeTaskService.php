@@ -54,11 +54,41 @@ class YouTubeTaskService
 
         if ($ok && $state === 'done') {
             $targetHash = $task->target_hash ?? $task->link_hash;
+            $actionForLog = $task->action;
+            if ($task->action === 'combo') {
+                $steps = $task->payload['steps'] ?? [];
+                $actionForLog = !empty($steps)
+                    ? YouTubeExecutionPlanResolver::compositeActionForLog($steps)
+                    : 'combo';
+                // View/react target is the video; subscribe uses channel. Use video_target_hash for view/react.
+                $videoTargetHash = $task->payload['video_target_hash'] ?? $targetHash;
+                $onePerAccountActions = YouTubeExecutionPlanResolver::onePerAccountSteps($steps);
+                foreach ($onePerAccountActions as $individualAction) {
+                    $this->actionLogService->recordPerformed(
+                        ProviderActionLogService::PROVIDER_YOUTUBE,
+                        $task->account_identity,
+                        $videoTargetHash,
+                        $individualAction
+                    );
+                }
+                // Subscribe: record with video hash for video-link-based conflict check
+                if (YouTubeExecutionPlanResolver::stepsContainSubscribe($steps)) {
+                    $hashForSubscribe = $videoTargetHash ?: $targetHash;
+                    if ($hashForSubscribe) {
+                        $this->actionLogService->recordPerformed(
+                            ProviderActionLogService::PROVIDER_YOUTUBE,
+                            $task->account_identity,
+                            $hashForSubscribe,
+                            'subscribe'
+                        );
+                    }
+                }
+            }
             $this->actionLogService->recordPerformed(
                 ProviderActionLogService::PROVIDER_YOUTUBE,
                 $task->account_identity,
                 $targetHash,
-                $task->action
+                $actionForLog
             );
 
             $perCall = max(1, (int) ($task->payload['per_call'] ?? 1));
@@ -128,7 +158,11 @@ class YouTubeTaskService
 
     private function updateGlobalStateForTask(YouTubeTask $task, bool $ok, ?string $error): void
     {
-        if (!in_array(strtolower($task->action ?? ''), self::STATEFUL_ACTIONS, true)) {
+        $steps = $task->payload['steps'] ?? [];
+        $hasSubscribe = $task->action === 'combo'
+            ? YouTubeExecutionPlanResolver::stepsContainSubscribe($steps)
+            : in_array(strtolower($task->action ?? ''), self::STATEFUL_ACTIONS, true);
+        if (!$hasSubscribe) {
             return;
         }
         $targetHash = $task->target_hash ?? $task->payload['target_hash'] ?? null;
@@ -136,9 +170,10 @@ class YouTubeTaskService
             return;
         }
 
+        $statefulAction = $task->action === 'combo' ? 'subscribe' : $task->action;
         $global = YouTubeAccountTargetState::query()
             ->where('account_identity', $task->account_identity)
-            ->where('action', $task->action)
+            ->where('action', $statefulAction)
             ->where('target_hash', $targetHash)
             ->first();
 
@@ -196,10 +231,14 @@ class YouTubeTaskService
         ]);
 
         $targetHash = $task->target_hash ?? $task->payload['target_hash'] ?? null;
-        if ($targetHash !== null && in_array(strtolower($task->action ?? ''), self::STATEFUL_ACTIONS, true)) {
+        $steps = $task->payload['steps'] ?? [];
+        $hasSubscribe = $task->action === 'combo'
+            ? YouTubeExecutionPlanResolver::stepsContainSubscribe($steps)
+            : in_array(strtolower($task->action ?? ''), self::STATEFUL_ACTIONS, true);
+        if ($targetHash !== null && $hasSubscribe) {
             YouTubeAccountTargetState::query()
                 ->where('account_identity', $task->account_identity)
-                ->where('action', $task->action)
+                ->where('action', 'subscribe')
                 ->where('target_hash', $targetHash)
                 ->update([
                     'state' => YouTubeAccountTargetState::STATE_IGNORED,

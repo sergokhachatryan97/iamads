@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\Service;
+use App\Services\YouTube\YouTubeExecutionPlanResolver;
 use App\Support\Links\LinkInspectorManager;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
@@ -14,6 +15,17 @@ class StoreOrderRequest extends FormRequest
     public function authorize(): bool
     {
         return true;
+    }
+
+    private function ensureLinkHasScheme(string $link): string
+    {
+        if ($link === '') {
+            return $link;
+        }
+        if (!preg_match('#^https?://#i', $link)) {
+            return 'https://' . $link;
+        }
+        return $link;
     }
 
     private function service(): ?Service
@@ -31,6 +43,25 @@ class StoreOrderRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $input = $this->all();
+
+        // Add https:// to links that lack http:// or https://
+        if (!empty($input['link'])) {
+            $input['link'] = $this->ensureLinkHasScheme(trim((string) $input['link']));
+        }
+        if (!empty($input['link_2'])) {
+            $input['link_2'] = $this->ensureLinkHasScheme(trim((string) $input['link_2']));
+        }
+        if (isset($input['targets']) && is_array($input['targets'])) {
+            foreach ($input['targets'] as $i => $t) {
+                if (!empty($t['link'])) {
+                    $input['targets'][$i]['link'] = $this->ensureLinkHasScheme(trim((string) $t['link']));
+                }
+            }
+        }
+
+        $this->replace($input);
+
         $service = $this->service();
 
         if ($service && $service->service_type === 'custom_comments') {
@@ -171,6 +202,14 @@ class StoreOrderRequest extends FormRequest
             ];
 
             $rules['targets.*.quantity'] = ['required', 'integer', 'min:1'];
+
+            $template = $service->template();
+            if ($driver === 'youtube' && $template && YouTubeExecutionPlanResolver::stepsContainCommentCustom($template['steps'] ?? [])) {
+                // Combo custom: multiple comments (one per line), same as default comment; allow larger total
+                $rules['comment_text'] = ['required', 'string', 'min:1', 'max:10000'];
+            } else {
+                $rules['comment_text'] = ['nullable', 'string', 'max:500'];
+            }
         }
 
         // ---------- Dripfeed rules ----------
@@ -266,6 +305,10 @@ class StoreOrderRequest extends FormRequest
 
         if (isset($validated['link_2'])) {
             $payload['link_2'] = trim((string) $validated['link_2']);
+        }
+
+        if (isset($validated['comment_text'])) {
+            $payload['comment_text'] = trim((string) $validated['comment_text']);
         }
 
         if (isset($validated['comments'])) {

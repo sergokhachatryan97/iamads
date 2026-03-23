@@ -4,6 +4,8 @@ namespace App\Jobs;
 
 use App\Models\Order;
 use App\Services\OrderService;
+use App\Services\YouTube\YouTubeDataApiService;
+use App\Services\YouTube\YouTubeExecutionPlanResolver;
 use App\Services\YouTube\YouTubeInspector;
 use App\Services\YouTube\YouTubePolicy;
 use Illuminate\Bus\Queueable;
@@ -24,7 +26,7 @@ class InspectYouTubeLinkJob implements ShouldQueue
 
     public function __construct(public int $orderId) {}
 
-    public function handle(YouTubeInspector $inspector, OrderService $orderService): void
+    public function handle(YouTubeInspector $inspector, OrderService $orderService, YouTubeDataApiService $youtubeApi): void
     {
         $claimTtlMinutes = 10;
 
@@ -99,7 +101,7 @@ class InspectYouTubeLinkJob implements ShouldQueue
             $allowedTargetTypes = $template['allowed_link_kinds'] ?? [];
             $isCommentLink = $inspectionResult['parsed']['is_comment_link'] ?? false;
 
-            if ($template['action'] === 'comment-react' && !$isCommentLink) {
+            if (($template['action'] ?? null ) === 'comment-react' && !$isCommentLink) {
                 $this->failOrder(
                     $order,
                     "This service only allows comment links.",
@@ -118,16 +120,45 @@ class InspectYouTubeLinkJob implements ShouldQueue
                 return;
             }
 
-            $action = (string) ($template['action'] ?? 'view');
-            $policyError = YouTubePolicy::validateActionForTargetType($action, $targetType);
-            if ($policyError !== null) {
-                $this->failOrder($order, $policyError, $orderService, $inspectionResult);
-                return;
-            }
+            $isCombo = ($template['mode'] ?? '') === 'combo';
+            $steps = $template['steps'] ?? [];
 
-            $actionDefaults = config('youtube.action_defaults.' . $action, []);
-            $perCall = (int) ($actionDefaults['per_call'] ?? config('youtube.default_per_call', 1));
-            $intervalSeconds = (int) ($actionDefaults['interval_seconds'] ?? config('youtube.default_interval_seconds', 30));
+            if ($isCombo && !empty($steps)) {
+                foreach ($steps as $step) {
+                    $policyAction = $step === 'like' ? 'react' : ($step === 'comment_random_positive' || $step === 'comment_custom' ? 'comment' : $step);
+                    if (in_array($step, ['comment_random_positive', 'comment_custom'], true)) {
+                        $policyAction = 'comment';
+                    }
+                    if (in_array($policyAction, ['subscribe', 'view', 'react', 'comment'], true)) {
+                        if ($policyAction === 'subscribe' && $targetType === 'video') {
+                            $channelId = $inspectionResult['channel_id'] ?? $inspectionResult['parsed']['channel_id'] ?? null;
+                            if (!$channelId) {
+                                $this->failOrder($order, 'Combo with subscribe requires video channel_id from inspection.', $orderService, $inspectionResult);
+                                return;
+                            }
+                        } else {
+                            $policyError = YouTubePolicy::validateActionForTargetType($policyAction, $targetType);
+                            if ($policyError !== null) {
+                                $this->failOrder($order, "Combo step '{$step}': {$policyError}", $orderService, $inspectionResult);
+                                return;
+                            }
+                        }
+                    }
+                }
+                $action = 'combo';
+                $perCall = 1;
+                $intervalSeconds = 45;
+            } else {
+                $action = (string) ($template['action'] ?? 'view');
+                $policyError = YouTubePolicy::validateActionForTargetType($action, $targetType);
+                if ($policyError !== null) {
+                    $this->failOrder($order, $policyError, $orderService, $inspectionResult);
+                    return;
+                }
+                $actionDefaults = config('youtube.action_defaults.' . $action, []);
+                $perCall = (int) ($actionDefaults['per_call'] ?? config('youtube.default_per_call', 1));
+                $intervalSeconds = (int) ($actionDefaults['interval_seconds'] ?? config('youtube.default_interval_seconds', 30));
+            }
 
             $providerPayload = $order->provider_payload ?? [];
             if (!is_array($providerPayload)) {
@@ -163,6 +194,11 @@ class InspectYouTubeLinkJob implements ShouldQueue
                 'next_run_at' => now()->toDateTimeString(),
                 'dripfeed' => $dripfeedMeta,
             ];
+            if ($isCombo && !empty($steps)) {
+                $executionMeta['mode'] = 'combo';
+                $executionMeta['steps'] = array_map('strtolower', $steps);
+                $executionMeta['comment_mode'] = YouTubeExecutionPlanResolver::commentModeFromSteps($executionMeta['steps']);
+            }
             if ($channelId !== null) {
                 $executionMeta['youtube_channel_id'] = $channelId;
             }
@@ -184,20 +220,41 @@ class InspectYouTubeLinkJob implements ShouldQueue
             $providerPayload['execution_meta'] = $executionMeta;
 
             $startCount = 0;
-            if ($targetType ==='video') {
-                if (in_array($template['policy_key'], ['view', 'live'])){
-                    $startCount = $inspectionResult['statistics']['views'] ?? 0;
-                }elseif ($template['policy_key'] === 'react') {
-                    $startCount = $inspectionResult['statistics']['likes'] ?? 0;
-                }elseif ($template['policy_key'] === 'comment') {
-                    $startCount = $inspectionResult['statistics']['comments'] ?? 0;
-                }
-            }
+            $startCounts = null;
 
-            if ($targetType ==='channel') {
-                if ($template['policy_key'] === 'subscribe') {
-                    $startCount = $inspectionResult['subscriber_count'] ?? 0;
+            if ($isCombo && $targetType === 'video' && !empty($steps)) {
+                $startCounts = [];
+                $stats = $inspectionResult['statistics'] ?? [];
+                $startCounts['view'] = (int) ($stats['views'] ?? 0);
+                $startCounts['like'] = (int) ($stats['likes'] ?? 0);
+                $startCounts['comment'] = (int) ($stats['comments'] ?? 0);
+                if (in_array('subscribe', array_map('strtolower', $steps), true) && $channelId) {
+                    $channel = $youtubeApi->getChannel($channelId);
+                    $startCounts['subscribe'] = (int) (($channel['statistics'] ?? [])['subscribers'] ?? 0);
                 }
+                $providerPayload['start_counts'] = $startCounts;
+            } else {
+                if ($targetType === 'video') {
+                    $policyKey = $template['policy_key'];
+                    if (is_array($policyKey)) {
+                        $policyKey = $policyKey[0] ?? 'view';
+                    }
+                    if (in_array($policyKey, ['view', 'live'])) {
+                        $startCount = $inspectionResult['statistics']['views'] ?? 0;
+                    } elseif ($policyKey === 'react') {
+                        $startCount = $inspectionResult['statistics']['likes'] ?? 0;
+                    } elseif ($policyKey === 'comment') {
+                        $startCount = $inspectionResult['statistics']['comments'] ?? 0;
+                    }
+                }
+
+                if ($targetType === 'channel') {
+                    $pk = $template['policy_key'];
+                    if ($pk === 'subscribe' || (is_array($pk) && in_array('subscribe', $pk, true))) {
+                        $startCount = $inspectionResult['subscriber_count'] ?? 0;
+                    }
+                }
+
             }
 
             $order->update([

@@ -46,6 +46,8 @@ class YouTubeTaskClaimController extends Controller
             'link' => $payload['link'],
             'link_hash' => $payload['link_hash'] ?? null,
             'action' => $payload['action'] ?? 'view',
+            'mode' => $payload['mode'] ?? 'single',
+            'steps' => $payload['steps'] ?? null,
             'target' => $payload['target'] ?? null,
             'order' => [
                 'id' => $payload['order']['id'],
@@ -54,7 +56,7 @@ class YouTubeTaskClaimController extends Controller
                 'remains' => $payload['order']['remains'] ?? null,
                 'target_quantity' => $payload['order']['target_quantity'] ?? null,
                 'dripfeed_enabled' => $payload['order']['dripfeed_enabled'] ?? false,
-                'service_description' => $payload['service']['service_description'] ?? $payload['service']['description'] ?? $payload['service']['name'] ?? '',
+                'service_description' => $payload['service']['description'] ??  '',
                 'service_name' => $payload['service']['name'] ?? null,
                 'service_id' => $payload['service']['id'] ?? null,
                 'category' => $payload['category'] ?? null,

@@ -175,6 +175,7 @@ class OrderService implements OrderServiceInterface
                     'category_id' => (int) $data['category_id'],
                     'service_id' => $service->id,
                     'link' => $row['link'],
+                    'comment_text' => !empty($data['comment_text']) ? trim((string) $data['comment_text']) : null,
                     'link_2' => ($service->template_key === 'invite_subscribers_from_other_channel' && !empty($data['link_2']))
                         ? trim((string) $data['link_2']) : null,
                     'payment_source' => Order::PAYMENT_SOURCE_BALANCE,

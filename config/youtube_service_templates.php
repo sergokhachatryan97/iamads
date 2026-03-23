@@ -98,4 +98,32 @@ return [
         'allowed_link_kinds' => ['live'],
         'default_priority' => 50,
     ],
+
+    // ---- Combo (video link: subscribe + view + like + optional comment) ----
+    'yt_combo_sub_view_like' => [
+        'label' => 'YouTube Sub/View/Like',
+        'mode' => 'combo',
+        'steps' => ['subscribe', 'view', 'react'],
+        'allowed_link_kinds' => ['video'],
+        'default_priority' => 50,
+    ],
+
+    'yt_combo_sub_view_like_comment_random' => [
+        'label' => 'YouTube Sub/View/Like/Random Positive Comment',
+        'mode' => 'combo',
+        'steps' => ['subscribe', 'view', 'react', 'comment_random_positive'],
+        'comment_mode' => 'random_positive',
+        'allowed_link_kinds' => ['video'],
+        'default_priority' => 50,
+    ],
+
+    'yt_combo_sub_view_like_comment_custom' => [
+        'label' => 'YouTube Sub/View/Like/Custom Comment',
+        'mode' => 'combo',
+        'steps' => ['subscribe', 'view', 'react', 'comment_custom'],
+        'comment_mode' => 'custom',
+        'requires_comment' => true,
+        'allowed_link_kinds' => ['video'],
+        'default_priority' => 50,
+    ],
 ];

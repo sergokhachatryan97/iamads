@@ -22,8 +22,7 @@ class YouTubeTaskClaimService
     private const LEASE_TTL_SECONDS = 180;
 
     /** Actions that use youtube_account_target_states (cross-order uniqueness). */
-    private const STATEFUL_ACTIONS = ['subscribe'];
-
+    private const LAST_CLAIMED_ORDER_CACHE_KEY = 'youtube:claim:last_order_id';
     public function __construct(
         private ProviderActionLogService $actionLogService
     ) {}
@@ -35,31 +34,48 @@ class YouTubeTaskClaimService
             return null;
         }
 
-        $orders = Order::query()
-            ->whereIn('status', [Order::STATUS_AWAITING, Order::STATUS_IN_PROGRESS, Order::STATUS_PENDING])
-            ->where('remains', '>', 0)
-            ->whereHas('service', function ($q) {
-                $q->whereHas('category', function ($q2) {
-                    $q2->where('link_driver', 'youtube');
-                });
-            })
-            ->orderBy('id')
-            ->limit(200)
-            ->get();
-
+        $lastClaimedOrderId = (int) cache()->get(self::LAST_CLAIMED_ORDER_CACHE_KEY, 0);
         $now = now();
-        $dueOrders = $orders
-            ->filter(function (Order $o) use ($now) {
-                $dueAt = $this->computeOrderDueAt($o);
+
+        $ordersAfter = $this->baseEligibleOrdersQuery()
+            ->where('id', '>', $lastClaimedOrderId)
+            ->orderBy('id')
+            ->limit(500)
+            ->get()
+            ->filter(function (Order $order) use ($now) {
+                $dueAt = $this->computeOrderDueAt($order);
                 return $dueAt === null || $dueAt->lte($now);
             })
-            ->sortBy(function (Order $o) {
-                $dueAt = $this->computeOrderDueAt($o);
-                return $dueAt ? $dueAt->getTimestamp() : 0;
-            });
-        foreach ($dueOrders as $order) {
+            ->values();
+
+        foreach ($ordersAfter as $order) {
+
             $result = $this->tryClaimForOrder($order, $accountIdentity);
+
             if ($result !== null) {
+                cache()->forever(self::LAST_CLAIMED_ORDER_CACHE_KEY, (int) $order->id);
+                return $result;
+            }
+        }
+
+        $ordersBefore = $this->baseEligibleOrdersQuery()
+            ->when($lastClaimedOrderId > 0, function ($q) use ($lastClaimedOrderId) {
+                $q->where('id', '<=', $lastClaimedOrderId);
+            })
+            ->orderBy('id')
+            ->limit(500)
+            ->get()
+            ->filter(function (Order $order) use ($now) {
+                $dueAt = $this->computeOrderDueAt($order);
+                return $dueAt === null || $dueAt->lte($now);
+            })
+            ->values();
+
+        foreach ($ordersBefore as $order) {
+            $result = $this->tryClaimForOrder($order, $accountIdentity);
+
+            if ($result !== null) {
+                cache()->forever(self::LAST_CLAIMED_ORDER_CACHE_KEY, (int) $order->id);
                 return $result;
             }
         }
@@ -67,17 +83,31 @@ class YouTubeTaskClaimService
         return null;
     }
 
-    private function resolveAction(Order $order): string
+    private function baseEligibleOrdersQuery()
     {
-        $payload = $order->provider_payload ?? [];
-        $meta = is_array($payload['execution_meta'] ?? null) ? $payload['execution_meta'] : [];
-        $action = strtolower(trim((string) ($meta['action'] ?? 'view')));
-        return $action !== '' ? $action : 'view';
+        return Order::query()
+            ->whereIn('status', [
+                Order::STATUS_AWAITING,
+                Order::STATUS_IN_PROGRESS,
+                Order::STATUS_PENDING,
+            ])
+            ->where('remains', '>', 0)
+            ->whereHas('service', function ($q) {
+                $q->whereHas('category', function ($q2) {
+                    $q2->where('link_driver', 'youtube');
+                });
+            });
     }
 
-    private function isStatefulAction(string $action): bool
+    private function resolveExecutionPlan(Order $order): array
     {
-        return in_array(strtolower($action), self::STATEFUL_ACTIONS, true);
+        return YouTubeExecutionPlanResolver::resolve($order);
+    }
+
+
+    private function stepsContainStatefulAction(array $steps): bool
+    {
+        return YouTubeExecutionPlanResolver::stepsContainSubscribe($steps);
     }
 
     /**
@@ -128,7 +158,12 @@ class YouTubeTaskClaimService
                 return null;
             }
 
-            $action = $this->resolveAction($order);
+            $plan = $this->resolveExecutionPlan($order);
+            $action = $plan['action'];
+            $steps = $plan['steps'];
+            $mode = $plan['mode'];
+            $perCall = $plan['per_call'];
+
             $link = trim((string) ($order->link ?? ''));
             if ($link === '') {
                 return null;
@@ -152,21 +187,19 @@ class YouTubeTaskClaimService
             }
 
             $providerPayload = $order->provider_payload ?? [];
-            $executionMeta = is_array($providerPayload['execution_meta'] ?? null) ? $providerPayload['execution_meta'] : [];
-            $perCall = max(1, (int) ($executionMeta['per_call'] ?? 1));
-
             $youtube = $providerPayload['youtube'] ?? [];
             $parsed = $youtube['parsed'] ?? [];
             $targetHashForLog = $parsed['target_hash'] ?? $linkHash;
 
-            if ($this->actionLogService->hasPerformed(
-                ProviderActionLogService::PROVIDER_YOUTUBE,
-                $accountIdentity,
-                $targetHashForLog,
-                $action
-            )) {
+            // Unified step-based conflict: both single and combo use the same check.
+            // If any step (action) is already active or performed for same account + same link, block.
+            $actionNames = YouTubeExecutionPlanResolver::stepsToActionNames($steps);
+            if ($this->hasStepConflict($accountIdentity, $linkHash, $targetHashForLog, $actionNames)) {
                 return null;
             }
+            $actionForLog = $mode === YouTubeExecutionPlanResolver::MODE_COMBO
+                ? YouTubeExecutionPlanResolver::compositeActionForLog($steps)
+                : $action;
 
             $targetType = null;
             $normalizedTarget = null;
@@ -176,7 +209,8 @@ class YouTubeTaskClaimService
             $globalRowCreated = false;
             $previousGlobalState = null;
 
-            if ($this->isStatefulAction($action)) {
+            $statefulActionForTarget = $this->stepsContainStatefulAction($steps) ? 'subscribe' : null;
+            if ($statefulActionForTarget !== null) {
                 $norm = YouTubeTargetNormalizer::forSubscribeTarget($order);
                 $targetType = $norm['target_type'];
                 $normalizedTarget = $norm['normalized_target'];
@@ -184,7 +218,7 @@ class YouTubeTaskClaimService
 
                 $global = YouTubeAccountTargetState::query()
                     ->where('account_identity', $accountIdentity)
-                    ->where('action', $action)
+                    ->where('action', $statefulActionForTarget)
                     ->where('target_hash', $targetHashForRow)
                     ->lockForUpdate()
                     ->first();
@@ -205,7 +239,7 @@ class YouTubeTaskClaimService
                     try {
                         $global = YouTubeAccountTargetState::create([
                             'account_identity' => $accountIdentity,
-                            'action' => $action,
+                            'action' => $statefulActionForTarget,
                             'target_type' => $targetType,
                             'normalized_target' => mb_substr($normalizedTarget, 0, 500),
                             'target_hash' => $targetHashForRow,
@@ -234,9 +268,31 @@ class YouTubeTaskClaimService
                 'per_call' => $perCall,
                 'action' => $action,
             ];
+            if ($mode === YouTubeExecutionPlanResolver::MODE_COMBO) {
+                $payload['mode'] = 'combo';
+                $payload['steps'] = $steps;
+            }
+            // comment_custom: works like default comment — multiple comments (one per line), pick by index
+            if (in_array('comment_custom', $steps, true) && !empty(trim((string) ($order->comment_text ?? '')))) {
+                $comments = array_values(array_filter(array_map('trim', explode("\n", (string) $order->comment_text))));
+                $index = (int) $order->delivered + $inFlight;
+                $commentForPayload = null;
+                if (!empty($comments)) {
+                    $commentForPayload = $comments[$index % count($comments)];
+                } else {
+                    $commentForPayload = trim((string) $order->comment_text);
+                }
+                if ($commentForPayload !== '') {
+                    $payload['comment_text'] = $commentForPayload;
+                }
+            }
             if ($targetHashForRow !== null) {
                 $payload['target_hash'] = $targetHashForRow;
                 $payload['normalized_target'] = $normalizedTarget;
+            }
+            // For combo: view/react use video target, subscribe uses channel. Store video hash for recording.
+            if ($mode === YouTubeExecutionPlanResolver::MODE_COMBO) {
+                $payload['video_target_hash'] = $targetHashForLog;
             }
 
             $taskTargetHash = $targetHashForRow ?? $targetHashForLog;
@@ -280,9 +336,18 @@ class YouTubeTaskClaimService
             $service = $order->service;
             $category = $service?->category;
 
-            // For comment action: send one comment from comment_text per task
             $commentTextForTask = null;
-            if ($action === 'comment' && !empty(trim((string) ($order->comment_text ?? '')))) {
+            if ($mode === YouTubeExecutionPlanResolver::MODE_COMBO) {
+                if (in_array('comment_custom', $steps, true) && !empty(trim((string) ($order->comment_text ?? '')))) {
+                    $comments = array_values(array_filter(array_map('trim', explode("\n", (string) $order->comment_text))));
+                    $index = (int) $order->delivered + $inFlight;
+                    if (!empty($comments)) {
+                        $commentTextForTask = $comments[$index % count($comments)];
+                    } else {
+                        $commentTextForTask = trim((string) $order->comment_text);
+                    }
+                }
+            } elseif ($action === 'comment' && !empty(trim((string) ($order->comment_text ?? '')))) {
                 $comments = array_values(array_filter(array_map('trim', explode("\n", (string) $order->comment_text))));
                 $index = (int) $order->delivered + $inFlight;
                 if ($index < count($comments)) {
@@ -313,18 +378,92 @@ class YouTubeTaskClaimService
                     'id' => $service?->id,
                     'name' => $service?->name ?? '',
                     'description' => $service?->description_for_performer ?? '',
-                    'service_description' => $service?->description_for_performer ?? $service?->description ?? $service?->name ?? '',
+                    'service_description' => $service?->description_for_performer ?? '',
                 ],
                 'category' => $category ? [
                     'id' => $category->id,
                     'name' => $category->name ?? '',
                 ] : null,
             ];
-            if ($commentTextForTask !== null) {
+            if ($mode === YouTubeExecutionPlanResolver::MODE_COMBO) {
+                $result['mode'] = 'combo';
+                $result['steps'] = $steps;
+            }
+            if ($commentTextForTask !== null && $commentTextForTask !== '') {
                 $result['comment_text'] = $commentTextForTask;
             }
             return $result;
         });
+    }
+
+    /**
+     * Unified step-based conflict: any requested action already active or performed
+     * for the same account_identity + link_hash blocks the claim.
+     * Works for both single-action and combo orders.
+     *
+     * @param  array<string>  $actionNames  Normalized action names (subscribe, view, react, comment)
+     */
+    private function hasStepConflict(
+        string $accountIdentity,
+        string $linkHash,
+        string $videoTargetHash,
+        array $actionNames
+    ): bool {
+        $activeStatuses = [YouTubeTask::STATUS_LEASED, YouTubeTask::STATUS_PENDING];
+
+        // 1. Active tasks: single tasks with overlapping action, or combo tasks with overlapping steps
+        $activeTasks = YouTubeTask::query()
+            ->where('account_identity', $accountIdentity)
+            ->where('link_hash', $linkHash)
+            ->whereIn('status', $activeStatuses)
+            ->get(['id', 'action', 'payload']);
+
+        foreach ($activeTasks as $task) {
+            if (in_array($task->action, $actionNames, true)) {
+                return true; // Single task with same action
+            }
+            if ($task->action === 'combo') {
+                $payload = $task->payload;
+                $steps = is_array($payload) ? ($payload['steps'] ?? []) : [];
+                $existingNames = YouTubeExecutionPlanResolver::stepsToActionNames($steps);
+                if (array_intersect($actionNames, $existingNames) !== []) {
+                    return true; // Combo overlaps with our actions
+                }
+            }
+        }
+
+        // 2. Performed actions: any requested step already done for this account + same video target
+        foreach ($actionNames as $actionName) {
+            if ($this->actionLogService->hasPerformed(
+                ProviderActionLogService::PROVIDER_YOUTUBE,
+                $accountIdentity,
+                $videoTargetHash,
+                $actionName
+            )) {
+                return true;
+            }
+        }
+
+        // 3. Composite combo (exact combo already done; only when multiple actions)
+        if (count($actionNames) > 1) {
+            foreach (['like', 'react'] as $reactStep) {
+                $stepNames = [];
+                foreach ($actionNames as $name) {
+                    $stepNames[] = ($name === 'react' || $name === 'like') ? $reactStep : $name;
+                }
+                $compositeAction = YouTubeExecutionPlanResolver::compositeActionForLog($stepNames);
+                if ($this->actionLogService->hasPerformed(
+                    ProviderActionLogService::PROVIDER_YOUTUBE,
+                    $accountIdentity,
+                    $videoTargetHash,
+                    $compositeAction
+                )) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private function revertGlobalState(

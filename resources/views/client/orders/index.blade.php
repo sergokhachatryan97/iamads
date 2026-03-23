@@ -339,8 +339,28 @@
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                             ${{ $order->charge }}
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {{ $order->start_count ?? '—' }}
+                                        <td class="px-6 py-4 text-sm text-gray-900">
+                                            @php
+                                                $startCounts = $order->provider_payload['start_counts'] ?? null;
+                                            @endphp
+                                            @if($startCounts && is_array($startCounts))
+                                                <div class="flex flex-wrap gap-x-2 gap-y-0.5 text-xs">
+                                                    @if(isset($startCounts['subscribe']))
+                                                        <span title="{{ __('Subscribers') }}">{{ __('Sub') }}: {{ number_format($startCounts['subscribe']) }}</span>
+                                                    @endif
+                                                    @if(isset($startCounts['view']))
+                                                        <span title="{{ __('Views') }}">{{ __('View') }}: {{ number_format($startCounts['view']) }}</span>
+                                                    @endif
+                                                    @if(isset($startCounts['like']))
+                                                        <span title="{{ __('Likes') }}">{{ __('Like') }}: {{ number_format($startCounts['like']) }}</span>
+                                                    @endif
+                                                    @if(isset($startCounts['comment']))
+                                                        <span title="{{ __('Comments') }}">{{ __('Comment') }}: {{ number_format($startCounts['comment']) }}</span>
+                                                    @endif
+                                                </div>
+                                            @else
+                                                {{ $order->start_count !== null ? number_format($order->start_count) : '—' }}
+                                            @endif
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                             {{ number_format($order->quantity) }}
