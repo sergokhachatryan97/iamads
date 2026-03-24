@@ -98,6 +98,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'auth.provider' => \App\Http\Middleware\AuthenticateProvider::class,
             'auth.external_client' => \App\Http\Middleware\AuthenticateExternalClient::class,
             'auth.api_client' => \App\Http\Middleware\AuthenticateApiClient::class,
+            'auth.provider_api_key' => \App\Http\Middleware\AuthenticateProviderApiKey::class,
         ]);
 
         // Ensure UseStaffSession runs before StartSession

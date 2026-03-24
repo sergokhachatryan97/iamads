@@ -27,9 +27,9 @@
                     <x-nav-link :href="route('client.services.index')" :active="request()->routeIs('client.services.*')">
                         {{ __('Services') }}
                     </x-nav-link>
-{{--                    <x-nav-link :href="route('client.api.index')" :active="request()->routeIs('client.api.*')">--}}
-{{--                        {{ __('API') }}--}}
-{{--                    </x-nav-link>--}}
+                    <x-nav-link :href="route('client.api.index')" :active="request()->routeIs('client.api.*')">
+                        {{ __('API') }}
+                    </x-nav-link>
                 </div>
             </div>
 

@@ -1,180 +1,259 @@
 # Provider API Documentation
 
-**Base URL:** `https://your-domain.com/api`
+**Socpanel / Perfect Panel Compatible**
 
-All requests and responses use **JSON** (`Content-Type: application/json`).
+This API provides a single-endpoint integration style for reseller panels, automation tools, and third-party platforms. All requests use the same URL with different `action` values.
 
 ---
 
-## Table of Contents
+## Endpoint
 
-1. [Authentication](#authentication)
-2. [Provider Pull API](#provider-pull-api)
-   - [Claim Task by Phone](#3-claim-task-by-phone)
-   - [Report Task Result](#4-report-task-result)
-4. [Order Status Reference](#order-status-reference)
-5. [Error Responses](#error-responses)
+```
+POST https://your-domain.com/api/v2
+Content-Type: application/json
+```
+
+All requests must be `POST` with a JSON body. The `Content-Type: application/json` header is required.
 
 ---
 
 ## Authentication
 
-There are two separate APIs, each using a different token header.
+Include your API key in every request body as the `key` field. The same API key you use for the REST API works for the Provider API.
 
-### Provider Pull API
+1. Enable API access in your account at **API Access** in the dashboard.
+2. Copy your API key (use **Show** to reveal it).
+3. Include it in every request: `"key": "your_api_key"`
 
-Used by Telegram task execution workers.
-
-| Header | Value |
-|--------|-------|
-| `X-Provider-Token` | Your provider secret token |
-
-
-
-### 3. Claim Task by Phone
-
-Alternative to Pull Tasks. The provider supplies a phone number and the server returns the task assigned to that specific account.
-
-Priority order: **unsubscribe tasks first**, then subscribe tasks.
-
-```
-POST /api/provider/telegram/tasks/claim
-```
-
-**Request body:**
-
-```json
-{
-  "phone": "+37499111222"
-}
-```
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `phone` | string | Yes | Phone number of the account claiming a task |
-
-**Response `200` — task found:**
-
-```json
-{
-  "ok": true,
-  "count": 1,
-  "tasks": [
-    {
-      "task_id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
-      "order_id": 123,
-      "action": "subscribe",
-      "link": "https://t.me/channel",
-      "link_hash": "abc123"
-    }
-  ]
-}
-```
-
-For `invite_subscribers` action (Invite Subscribers From Other Channel), the task includes both links:
-
-```json
-{
-  "task_id": "...",
-  "order_id": 123,
-  "action": "invite_subscribers",
-  "link": "https://t.me/target_channel",
-  "link_2": "https://t.me/source_channel",
-  "link_hash": "abc123"
-}
-```
-
-| Field | Description |
-|-------|-------------|
-| `link` | Target channel/group (invite TO) |
-| `link_2` | Source channel (invite FROM) — only present for invite_subscribers |
-
-**Response `200` — no task available:**
-
-```json
-{
-  "ok": true,
-  "count": 0,
-  "tasks": []
-}
-```
-
-**Rate limits enforced per phone:**
-
-| Limit | Value |
-|-------|-------|
-| Cooldown between claims | 5 seconds |
-| Max subscribe tasks per day | 5 |
-| Max unsubscribe tasks per day | 5 |
-| Max active subscriptions | 500 |
-
-Task lease TTL: **90 seconds**.
+**Important:** Your account must have API enabled and must not be suspended.
 
 ---
 
-### 4. Report Task Result
+## Supported Actions
 
-Report the outcome of a task. Call this after executing each task received from Pull or Claim.
+### 1. services – List Available Services
 
-```
-POST /api/provider/telegram/tasks/report
-```
+Returns all active services available for ordering. Services are listed with IDs, names, rates, and quantity limits. Client-specific pricing is applied.
 
-**Request body:**
-
+**Request:**
 ```json
 {
-  "task_id": "01ARZ3NDEKTSV4RRFFQ69G5FAV",
-  "state": "done",
-  "ok": true,
-  "error": null,
-  "retry_after": null,
-  "provider_task_id": null,
-  "data": null
+  "key": "your_api_key",
+  "action": "services"
 }
 ```
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `task_id` | string | Yes | The `task_id` received from pull/claim |
-| `state` | string | Yes | `"done"`, `"pending"`, or `"failed"` |
-| `ok` | boolean | No | Whether the action succeeded (default: `false`) |
-| `error` | string\|null | No | Error message if the task failed |
-| `retry_after` | integer\|null | No | Seconds until retry (used with `state: "pending"`, clamped 60–300) |
-| `provider_task_id` | string\|null | No | Your internal task ID (for reference) |
-| `data` | object\|null | No | Any additional result data |
-
-**`state` values explained:**
-
-| `state` | `ok` | Meaning |
-|---------|------|---------|
-| `"done"` | `true` | Task completed successfully. Order counters are updated. |
-| `"done"` | `false` | Task failed. Order is reset to `pending` with the error message. |
-| `"pending"` | — | Task is still in progress. Lease is extended by `retry_after` seconds. |
-| `"failed"` | — | Task failed permanently. |
-
-**Response `200` — accepted:**
-
+**Response:**
 ```json
-{ "ok": true }
+[
+  {
+    "service": 1,
+    "name": "YouTube Views",
+    "type": "default",
+    "rate": "1.20",
+    "min": "100",
+    "max": "10000"
+  },
+  {
+    "service": 2,
+    "name": "Telegram Members",
+    "type": "default",
+    "rate": "2.50",
+    "min": "50",
+    "max": "5000"
+  }
+]
 ```
 
-**Response `400` — task not found:**
-
-```json
-{ "ok": false, "error": "Task not found" }
-```
-
-> **Note:** Reporting an already-finalized task returns `{"ok": true}` without re-applying the result (idempotent).
+| Field   | Type   | Description                          |
+|---------|--------|--------------------------------------|
+| service | int    | Service ID (use this in the add action) |
+| name    | string | Service name                         |
+| type    | string | Always `"default"`                   |
+| rate    | string | Price per 1000 units in USD          |
+| min     | string | Minimum quantity                     |
+| max     | string | Maximum quantity (`"0"` = no limit)  |
 
 ---
 
-## Quick Reference
+### 2. add – Create Order
 
-### Provider Pull API (`X-Provider-Token`)
+Creates a new order. Use the service ID from the `services` action.
 
-| Method | Endpoint | Purpose |
-|--------|----------|---------|
-| `POST` | `/api/provider/telegram/tasks/claim` | Claim task for specific phone |
-| `POST` | `/api/provider/telegram/tasks/report` | Report task result |
+**Request:**
+```json
+{
+  "key": "your_api_key",
+  "action": "add",
+  "service": 123,
+  "link": "https://example.com/your-content",
+  "quantity": 1000,
+  "speed_tier": "normal",
+  "order": "YOUR-EXTERNAL-ID-123"
+}
+```
 
+| Field      | Required | Type   | Description |
+|------------|----------|--------|-------------|
+| service    | Yes      | int    | Service ID from the services list |
+| link       | Yes      | string | Target URL (e.g. YouTube video, Telegram channel). If you omit `http://` or `https://`, it will be prepended automatically. Max 2048 characters. |
+| quantity   | Yes      | int    | Order quantity. Must be between the service min and max. |
+| speed_tier | No       | string | Delivery speed. Use `normal`, `fast`, or `super_fast` if the service supports it. Default: `normal`. Max 50 characters. |
+| order      | No       | string | Your external order ID for tracking and idempotency. If omitted, an ID is auto-generated. If you send the same `order` value again, the existing order is returned (no duplicate charge). Max 255 characters. |
+
+**Response:**
+```json
+{
+  "order": 123456
+}
+```
+
+| Field  | Type | Description |
+|--------|------|-------------|
+| order  | int  | Internal order ID. Use this or your external `order` value when checking status. |
+
+---
+
+### 3. status – Check Order Status
+
+Returns the current status and details of an order.
+
+**Request:**
+```json
+{
+  "key": "your_api_key",
+  "action": "status",
+  "order": 555
+}
+```
+
+| Field | Required | Type        | Description |
+|-------|----------|-------------|-------------|
+| order | Yes      | int or string | Internal order ID (number) **or** your external order ID (string) that you passed in the `add` action. |
+
+**Response:**
+```json
+{
+  "charge": "1.20",
+  "start_count": "5000",
+  "status": "Completed",
+  "remains": "0"
+}
+```
+
+| Field       | Type   | Description |
+|-------------|--------|-------------|
+| charge      | string | Amount charged in USD (2 decimal places) |
+| start_count | string | Starting count at order creation (e.g. existing views) |
+| status      | string | Current order status (see below) |
+| remains     | string | Remaining quantity to deliver (`"0"` when done) |
+
+**Possible status values:**
+
+| Status      | Description |
+|-------------|-------------|
+| Processing  | Link is being validated |
+| Pending     | Order is queued, awaiting start |
+| In progress | Order is being delivered |
+| Completed   | Order finished successfully |
+| Canceled    | Order was canceled |
+| Failed      | Order failed (e.g. invalid link, restriction) |
+
+---
+
+### 4. balance – Check Balance
+
+Returns your current account balance.
+
+**Request:**
+```json
+{
+  "key": "your_api_key",
+  "action": "balance"
+}
+```
+
+**Response:**
+```json
+{
+  "balance": "100.50",
+  "currency": "USD"
+}
+```
+
+| Field    | Type   | Description |
+|----------|--------|-------------|
+| balance  | string | Available balance (2 decimal places) |
+| currency | string | Always `"USD"` |
+
+---
+
+## Error Responses
+
+All errors return JSON with an `error` field:
+
+```json
+{
+  "error": "Error message here"
+}
+```
+
+| HTTP Status | Description | Example |
+|-------------|-------------|---------|
+| 400         | Bad request | `{"error": "Missing action"}` – No `action` in body |
+| 400         | Bad request | `{"error": "Unknown action"}` – Invalid action name |
+| 401         | Unauthorized | `{"error": "Missing or invalid API key"}` – Wrong key, empty key, or API not enabled |
+| 403         | Forbidden | `{"error": "Account is suspended"}` |
+| 404         | Not found | `{"error": "Order not found"}` – Order does not exist or belongs to another account |
+| 422         | Validation error | `{"error": "Insufficient balance. Please top up."}` |
+| 422         | Validation error | `{"error": "Service not found or inactive."}` |
+| 422         | Validation error | `{"error": "The link field is required."}` – Or other field validation messages |
+| 500         | Server error | `{"error": "An error occurred. Please try again."}` |
+
+---
+
+## Example cURL Commands
+
+**List services:**
+```bash
+curl -X POST https://your-domain.com/api/v2 \
+  -H "Content-Type: application/json" \
+  -d '{"key":"your_api_key","action":"services"}'
+```
+
+**Create order:**
+```bash
+curl -X POST https://your-domain.com/api/v2 \
+  -H "Content-Type: application/json" \
+  -d '{"key":"your_api_key","action":"add","service":12,"link":"https://youtube.com/watch?v=xxx","quantity":500,"order":"MY-ORDER-001"}'
+```
+
+**Check status (by internal ID):**
+```bash
+curl -X POST https://your-domain.com/api/v2 \
+  -H "Content-Type: application/json" \
+  -d '{"key":"your_api_key","action":"status","order":123456}'
+```
+
+**Check status (by external ID):**
+```bash
+curl -X POST https://your-domain.com/api/v2 \
+  -H "Content-Type: application/json" \
+  -d '{"key":"your_api_key","action":"status","order":"MY-ORDER-001"}'
+```
+
+**Check balance:**
+```bash
+curl -X POST https://your-domain.com/api/v2 \
+  -H "Content-Type: application/json" \
+  -d '{"key":"your_api_key","action":"balance"}'
+```
+
+---
+
+## Integration Notes
+
+- **Idempotency:** When creating orders, pass your own `order` value to avoid duplicates. Sending the same `order` twice returns the existing order without creating a new one.
+- **Order lookup:** For the `status` action, you can use either the internal order ID (returned by `add`) or your external `order` value.
+- **Link format:** Links without `http://` or `https://` are automatically prefixed with `https://`.
+- **Balance:** Balance is shared between web and API orders. Ensure sufficient balance before creating orders.

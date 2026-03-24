@@ -18,11 +18,12 @@ class ApiController extends Controller
     public function index(): View
     {
         $client = Auth::guard('client')->user();
-        $baseUrl = config('app.url') . '/api/external';
+        $baseUrl = config('app.url') . '/api/v2';
 
         return view('client.api.index', [
             'client' => $client,
             'baseUrl' => $baseUrl,
+            'providerApiUrl' => config('app.url') . '/api/v2',
             'apiKeyMasked' => $client->api_key ? substr($client->api_key, 0, 8) . '…' . substr($client->api_key, -4) : null,
         ]);
     }

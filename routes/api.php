@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\Client\BalanceTopupController;
+use App\Http\Controllers\Api\ProviderApiController;
 use App\Http\Controllers\Api\FastOrderController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\PaymentMethodsController;
@@ -39,6 +40,12 @@ Route::post('payments/{provider}/initiate', [PaymentController::class, 'initiate
 // Payment webhooks (no auth; validated by signature + IP)
 Route::post('webhooks/payments/{provider}', [PaymentWebhookController::class, 'handle'])
     ->name('webhooks.payments.handle');
+
+// Provider-style API (Socpanel / Perfect Panel compatible)
+// POST /api/v2 with JSON body: key, action, and action-specific fields
+Route::get('v2', [ProviderApiController::class, 'handle'])
+    ->middleware('auth.provider_api_key')
+    ->name('provider-api.v2');
 
 // External Orders API (Bearer api_key auth – client account)
 Route::prefix('external')->middleware('auth.api_client')->group(function () {
