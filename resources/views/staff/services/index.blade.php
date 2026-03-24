@@ -382,7 +382,7 @@
                                     id="category_link_driver"
                                     required
                                     class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm @error('link_driver') border-red-300 @enderror">
-                                @foreach(['telegram' => 'telegram', 'youtube' => 'youtube', 'max' => 'max', 'whatsapp' => 'whatsapp', 'tiktok' => 'tiktok', 'instagram' => 'instagram', 'facebook' => 'facebook', 'url' => 'url', 'generic' => 'generic'] as $value => $label)
+                                @foreach(['telegram' => 'telegram', 'youtube' => 'youtube', 'app' => 'app', 'max' => 'max', 'whatsapp' => 'whatsapp', 'tiktok' => 'tiktok', 'instagram' => 'instagram', 'facebook' => 'facebook', 'url' => 'url', 'generic' => 'generic'] as $value => $label)
                                     <option value="{{ $value }}" {{ old('link_driver', 'generic') === $value ? 'selected' : '' }}>{{ $label }}</option>
                                 @endforeach
                             </select>
@@ -520,6 +520,7 @@
                                         class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                                     <option value="telegram">telegram</option>
                                     <option value="youtube">youtube</option>
+                                    <option value="app">app</option>
                                     <option value="max">max</option>
                                     <option value="whatsapp">whatsapp</option>
                                     <option value="tiktok">tiktok</option>

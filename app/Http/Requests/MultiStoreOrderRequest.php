@@ -2,12 +2,17 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Category;
 use App\Models\Service;
+use App\Services\YouTube\YouTubeExecutionPlanResolver;
+use App\Support\Links\LinkInspectorManager;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
 class MultiStoreOrderRequest extends FormRequest
 {
+    private ?Category $cachedCategory = null;
+
     protected function prepareForValidation(): void
     {
         $link = $this->input('link');
@@ -37,20 +42,46 @@ class MultiStoreOrderRequest extends FormRequest
      *
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
      */
+    private function category(): ?Category
+    {
+        if ($this->cachedCategory !== null) {
+            return $this->cachedCategory;
+        }
+        $id = $this->input('category_id');
+        $this->cachedCategory = $id ? Category::find($id) : null;
+        return $this->cachedCategory;
+    }
+
     public function rules(): array
     {
-        return [
+        $rules = [
             'category_id' => ['required', 'exists:categories,id'],
-            'link' => [
-                'required',
-                'string',
-                'max:2048',
-                'regex:/^(https?:\/\/)?(t\.me|telegram\.me|telegram\.dog)\/([A-Za-z0-9_+\/\-]+(\?[A-Za-z0-9=&_%\-]+)?)$|^@[A-Za-z0-9_]{3,32}$/i',
-            ],
+            'link' => ['required', 'string', 'max:2048'],
             'services' => ['required', 'array', 'min:1'],
             'services.*.service_id' => ['required', 'exists:services,id'],
-            'services.*.quantity' => ['required', 'integer', 'min:1'],
+            'services.*.quantity' => ['required', 'integer'],
         ];
+
+        $category = $this->category();
+        if ($category) {
+            $driver = $category->link_driver ?? 'generic';
+            $manager = app(LinkInspectorManager::class);
+            $rules['link'][] = function ($attribute, $value, $fail) use ($driver, $manager) {
+                $result = $manager->inspect($driver, trim((string) $value));
+                if (!$result['valid'] && $result['error'] !== null) {
+                    $fail($result['error']);
+                }
+            };
+        }
+
+        $serviceIds = collect($this->input('services', []))->pluck('service_id')->filter()->unique()->values();
+        if ($serviceIds->isNotEmpty()) {
+            $rules['services.*.comments'] = ['nullable', 'string', 'max:50000'];
+            $services = Service::with('category')->whereIn('id', $serviceIds)->get();
+            $rules['services.*.star_rating'] = ['nullable', 'integer', 'min:1', 'max:5'];
+        }
+
+        return $rules;
     }
 
     /**
@@ -60,9 +91,7 @@ class MultiStoreOrderRequest extends FormRequest
      */
     public function messages(): array
     {
-        return [
-            'link.regex' => 'The link must be a valid Telegram link (t.me/... or @username).',
-        ];
+        return [];
     }
 
     /**
@@ -103,6 +132,35 @@ class MultiStoreOrderRequest extends FormRequest
                     'One or more selected services are invalid, inactive, or do not belong to the selected category.'
                 );
             }
+
+            // custom_comments: validate min comment lines per row; quantity for non-custom_comments
+            $services = Service::whereIn('id', $serviceIds->all())->get()->keyBy('id');
+            foreach ($this->input('services', []) as $i => $row) {
+                $svc = $services->get((int) ($row['service_id'] ?? 0));
+                if ($svc && $svc->service_type === 'custom_comments') {
+                    $commentsInput = $row['comments'] ?? null;
+                    $lines = $commentsInput ? array_values(array_filter(array_map('trim', explode("\n", (string) $commentsInput)), fn ($l) => $l !== '')) : [];
+                    $minLines = (int) ($svc->min_quantity ?? 1);
+                    if (count($lines) < $minLines) {
+                        $v->errors()->add("services.{$i}.comments", "Minimum {$minLines} comment(s) required for this service. You have " . count($lines) . '.');
+                    }
+                }
+            }
+            foreach ($this->input('services', []) as $i => $row) {
+                $svc = $services->get((int) ($row['service_id'] ?? 0));
+                if ($svc && $svc->service_type !== 'custom_comments') {
+                    $qty = (int) ($row['quantity'] ?? 0);
+                    if ($qty < 1) {
+                        $v->errors()->add("services.{$i}.quantity", 'Quantity must be at least 1.');
+                    }
+                }
+                if ($svc && (bool) (($svc->template() ?? [])['accepts_star_rating'] ?? false)) {
+                    $starRating = $row['star_rating'] ?? null;
+                    if ($starRating === null || $starRating === '' || (int) $starRating < 1 || (int) $starRating > 5) {
+                        $v->errors()->add("services.{$i}.star_rating", 'Star rating (1-5) is required for this service.');
+                    }
+                }
+            }
         });
     }
 
@@ -115,15 +173,22 @@ class MultiStoreOrderRequest extends FormRequest
     {
         $validated = $this->validated();
 
-        // Normalize services: merge duplicate service_id by summing quantity
+        // Normalize services: merge duplicate service_id, preserve comments from first row
         $normalizedServices = collect($validated['services'])
             ->groupBy(fn ($row) => (string) $row['service_id'])
             ->map(function ($rows) {
                 $first = $rows->first();
-                return [
+                $res = [
                     'service_id' => (int) $first['service_id'],
-                    'quantity' => (int) $rows->sum(fn ($r) => (int) $r['quantity']),
+                    'quantity' => (int) $rows->sum(fn ($r) => (int) ($r['quantity'] ?? 0)),
                 ];
+                if (! empty(trim((string) ($first['comments'] ?? '')))) {
+                    $res['comments'] = trim((string) $first['comments']);
+                }
+                if (isset($first['star_rating']) && $first['star_rating'] >= 1 && $first['star_rating'] <= 5) {
+                    $res['star_rating'] = (int) $first['star_rating'];
+                }
+                return $res;
             })
             ->values()
             ->all();

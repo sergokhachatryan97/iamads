@@ -68,6 +68,19 @@ return [
             'memory' => 128,
         ],
 
+        'app-inspect' => [
+            'connection' => 'redis',
+            'queue' => ['app-inspect'],
+            'balance' => 'auto',
+            'autoScalingStrategy' => 'time',
+            'maxProcesses' => 2,
+            'balanceMaxShift' => 1,
+            'balanceCooldown' => 3,
+            'tries' => 3,
+            'timeout' => 60,
+            'memory' => 128,
+        ],
+
         /*
         |--------------------------------------------------------------------------
         | MAIN SYSTEM QUEUES
@@ -107,6 +120,18 @@ return [
             'yt-inspect' => [
                 'connection' => 'redis',
                 'queue' => ['yt-inspect'],
+                'balance' => 'auto',
+                'autoScalingStrategy' => 'time',
+                'maxProcesses' => 3,
+                'balanceMaxShift' => 1,
+                'balanceCooldown' => 3,
+                'tries' => 3,
+                'timeout' => 60,
+                'memory' => 128,
+            ],
+            'app-inspect' => [
+                'connection' => 'redis',
+                'queue' => ['app-inspect'],
                 'balance' => 'auto',
                 'autoScalingStrategy' => 'time',
                 'maxProcesses' => 3,
@@ -160,6 +185,18 @@ return [
             'yt-inspect' => [
                 'connection' => 'redis',
                 'queue' => ['yt-inspect'],
+                'balance' => 'auto',
+                'autoScalingStrategy' => 'time',
+                'maxProcesses' => 2,
+                'balanceMaxShift' => 1,
+                'balanceCooldown' => 3,
+                'tries' => 3,
+                'timeout' => 60,
+                'memory' => 128,
+            ],
+            'app-inspect' => [
+                'connection' => 'redis',
+                'queue' => ['app-inspect'],
                 'balance' => 'auto',
                 'autoScalingStrategy' => 'time',
                 'maxProcesses' => 2,

@@ -778,6 +778,10 @@
                     if (!this.categoryId) return false;
                     return (this.categoryLinkDrivers[this.categoryId] || '') === 'youtube';
                 },
+                get categoryIsApp() {
+                    if (!this.categoryId) return false;
+                    return (this.categoryLinkDrivers[this.categoryId] || '') === 'app';
+                },
                 denyDuplicates: @js(old('deny_link_duplicates', isset($service) ? (string) (int) ($service->deny_link_duplicates ?? false) : '0')),
                 parsingEnabled: @js(old('start_count_parsing_enabled', isset($service) ? (string) (int) ($service->start_count_parsing_enabled ?? false) : '0')),
                 selectedTemplate: @js(old('template_key', isset($service) ? ($service->template_key ?? '') : '')),
@@ -888,6 +892,8 @@
                 loadTemplatesByCategory() {
                     if (this.categoryIsYoutube) {
                         this.filteredTemplates = this.allTemplates['youtube'] || {};
+                    } else if (this.categoryIsApp) {
+                        this.filteredTemplates = this.allTemplates['app'] || {};
                     } else {
                         // Merge all templates for Telegram category (bot + channel)
                         const bot = this.allTemplates['bot'] || {};

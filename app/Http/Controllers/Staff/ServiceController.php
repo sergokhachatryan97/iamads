@@ -293,9 +293,10 @@ class ServiceController extends Controller
         $categories = $this->categoryService->getAllCategories();
         $telegramTemplates = config('telegram_service_templates', []);
         $youtubeTemplates = config('youtube_service_templates', []);
-        $serviceTemplates = array_merge($telegramTemplates, $youtubeTemplates);
+        $appTemplates = config('app_service_templates', []);
+        $serviceTemplates = array_merge($telegramTemplates, $youtubeTemplates, $appTemplates);
 
-        $templatesByTargetType = $this->buildTemplatesByTargetType($telegramTemplates, $youtubeTemplates);
+        $templatesByTargetType = $this->buildTemplatesByTargetType($telegramTemplates, $youtubeTemplates, $appTemplates);
         $categoryIdsWithTemplates = $this->getCategoryIdsWithTemplates($categories);
         $categoryLinkDrivers = collect($categories)->pluck('link_driver', 'id')->toArray();
 
@@ -334,6 +335,7 @@ class ServiceController extends Controller
             'targetTypeOptions' => [
                 'bot' => 'Bot',
                 'channel' => 'Channel/Group',
+                'app' => 'App',
             ],
 
             'serviceTemplates' => $serviceTemplates,
@@ -344,12 +346,13 @@ class ServiceController extends Controller
         ];
     }
 
-    private function buildTemplatesByTargetType(array $telegramTemplates, array $youtubeTemplates): array
+    private function buildTemplatesByTargetType(array $telegramTemplates, array $youtubeTemplates, array $appTemplates = []): array
     {
         $templatesByTargetType = [
             'bot' => [],
             'channel' => [],
             'youtube' => [],
+            'app' => [],
         ];
 
         foreach ($telegramTemplates as $key => $template) {
@@ -372,6 +375,10 @@ class ServiceController extends Controller
             $templatesByTargetType['youtube'][$key] = $template['label'] ?? $key;
         }
 
+        foreach ($appTemplates as $key => $template) {
+            $templatesByTargetType['app'][$key] = $template['label'] ?? $key;
+        }
+
         return $templatesByTargetType;
     }
 
@@ -380,7 +387,7 @@ class ServiceController extends Controller
         return collect($categories)
             ->filter(function ($category) {
                 $driver = $category->link_driver ?? '';
-                return stripos($driver, 'telegram') !== false || $driver === 'youtube';
+                return stripos($driver, 'telegram') !== false || $driver === 'youtube' || $driver === 'app';
             })
             ->pluck('id')
             ->values()

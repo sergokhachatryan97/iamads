@@ -18,6 +18,7 @@
                                 'link_2' => __('Source Channel'),
                                 'comments' => __('Comments'),
                                 'comment_text' => __('Custom Comment'),
+                                'star_rating' => __('Star Rating'),
                                 'category_id' => __('Category'),
                                 'service_id' => __('Service'),
                                 'dripfeed_quantity' => __('Dripfeed Quantity'),
@@ -181,6 +182,31 @@
                                 @error('comments')
                                 <p class="mt-2 text-sm text-red-600 font-medium">{{ $message }}</p>
                                 @enderror
+                            </div>
+
+
+                            <!-- App: Star (app_download_custom_review_star, app_download_positive_review_star) -->
+                            <div class="mb-6" x-show="['app_download_custom_review_star','app_download_positive_review_star','app_download_positive_review'].includes(selectedService?.template_key)" x-cloak>
+                                <div class="p-4 bg-gray-50 rounded-md border border-gray-200">
+                                    <div class="mt-4">
+                                        <label for="star_rating" class="block text-sm font-medium text-gray-700 mb-1">
+                                            {{ __('Star Rating') }} <span class="text-red-500">*</span>
+                                        </label>
+                                        <select
+                                            id="star_rating"
+                                            name="star_rating"
+                                            x-model.number="starRating"
+                                            :required="['app_download_custom_review_star','app_download_positive_review_star','app_download_positive_review'].includes(selectedService?.template_key)"
+                                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm max-w-xs">
+                                            <option value="5">5 {{ __('stars') }} ({{ __('default') }})</option>
+                                            <option value="4">4 {{ __('stars') }}</option>
+                                            <option value="3">3 {{ __('stars') }}</option>
+                                            <option value="2">2 {{ __('stars') }}</option>
+                                            <option value="1">1 {{ __('star') }}</option>
+                                        </select>
+                                        <p class="mt-1 text-xs text-gray-500">{{ __('Rating from 1 to 5 stars.') }}</p>
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- Link field for custom_comments (uses category link type) -->
@@ -668,89 +694,104 @@
                                 </div>
                                 <div class="space-y-3" x-show="!multiLoading && multiServices.length > 0">
                                     <template x-for="(serviceRow, index) in multiSelectedServices" :key="index">
-                                        <div class="flex gap-3 items-start p-3 rounded-md border-2"
+                                        <div class="flex flex-col gap-3 p-3 rounded-md border-2"
                                              :class="getServiceError(index, 'service_id') || getServiceError(index, 'quantity') ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50'">
-                                            <div class="flex-1">
-                                                <label :for="'multi_service_' + index" class="block text-sm font-medium text-gray-700 mb-1">
-                                                    {{ __('Service') }} <span class="text-red-500">*</span>
-                                                </label>
-                                                <select
-                                                    :id="'multi_service_' + index"
-                                                    :name="'services[' + index + '][service_id]'"
-                                                    x-model="serviceRow.service_id"
-                                                    @change="updateMultiServiceInfo(index)"
-                                                    required
-                                                    :class="getServiceError(index, 'service_id') ? 'border-red-300' : 'border-gray-300'"
-                                                    class="block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                                                    <option value="">{{ __('Select a service') }}</option>
-                                                    <template x-for="service in getFilteredServicesForRow(index)" :key="'multi-service-' + service.id">
-                                                        <option :value="service.id" x-text="service.name"></option>
-                                                    </template>
-                                                </select>
-                                            </div>
-                                            <div class="w-32">
-                                                <label :for="'multi_qty_' + index" class="block text-sm font-medium text-gray-700 mb-1">
-                                                    {{ __('Quantity') }} <span class="text-red-500">*</span>
-                                                </label>
-                                                <div class="relative">
-                                                    <input
-                                                        type="number"
-                                                        :id="'multi_qty_' + index"
-                                                        :name="'services[' + index + '][quantity]'"
-                                                        x-model.number="serviceRow.quantity"
-                                                        :min="serviceRow.min_quantity || 1"
-                                                        :max="serviceRow.max_quantity || null"
-                                                        @keydown.arrow-up.prevent="stepMultiQuantity(+1, index)"
-                                                        @keydown.arrow-down.prevent="stepMultiQuantity(-1, index)"
-                                                        @wheel.prevent="stepMultiQuantity($event.deltaY > 0 ? -1 : +1, index)"
-                                                        @change="serviceRow.quantity = adjustMultiQuantityToIncrement(serviceRow.quantity, index)"
-                                                        @blur="$el.dispatchEvent(new Event('change'))"
+                                            <div class="flex gap-3 items-start flex-wrap">
+                                                <div class="flex-1 min-w-[200px]">
+                                                    <label :for="'multi_service_' + index" class="block text-sm font-medium text-gray-700 mb-1">
+                                                        {{ __('Service') }} <span class="text-red-500">*</span>
+                                                    </label>
+                                                    <select
+                                                        :id="'multi_service_' + index"
+                                                        :name="'services[' + index + '][service_id]'"
+                                                        x-model="serviceRow.service_id"
+                                                        @change="updateMultiServiceInfo(index)"
                                                         required
-                                                        :class="getServiceError(index, 'quantity') ? 'border-red-300' : 'border-gray-300'"
-                                                        class="no-spinner block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm pr-12">
-                                                    <div class="absolute inset-y-0 right-0 flex flex-col justify-center">
-                                                        <button
-                                                            type="button"
-                                                            class="h-5 w-6 rounded-t-md border border-gray-300 bg-gray-50 text-gray-700 hover:bg-gray-100 flex items-center justify-center leading-none"
-                                                            @mousedown.prevent
-                                                            @click="stepMultiQuantity(+1, index)"
-                                                            aria-label="Increase quantity">
-                                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3">
-                                                                <path fill-rule="evenodd" d="M10 6a1 1 0 0 1 .707.293l4 4a1 1 0 1 1-1.414 1.414L10 8.414 6.707 11.707A1 1 0 0 1 5.293 10.293l4-4A1 1 0 0 1 10 6z" clip-rule="evenodd"/>
-                                                            </svg>
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            class="h-5 w-6 rounded-b-md border border-t-0 border-gray-300 bg-gray-50 text-gray-700 hover:bg-gray-100 flex items-center justify-center leading-none"
-                                                            @mousedown.prevent
-                                                            @click="stepMultiQuantity(-1, index)"
-                                                            aria-label="Decrease quantity">
-                                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3">
-                                                                <path fill-rule="evenodd" d="M10 14a1 1 0 0 1-.707-.293l-4-4a1 1 0 1 1 1.414-1.414L10 11.586l3.293-3.293a1 1 0 1 1 1.414 1.414l-4 4A1 1 0 0 1 10 14z" clip-rule="evenodd"/>
-                                                            </svg>
-                                                        </button>
+                                                        :class="getServiceError(index, 'service_id') ? 'border-red-300' : 'border-gray-300'"
+                                                        class="block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                                        <option value="">{{ __('Select a service') }}</option>
+                                                        <template x-for="service in getFilteredServicesForRow(index)" :key="'multi-service-' + service.id">
+                                                            <option :value="service.id" x-text="service.name"></option>
+                                                        </template>
+                                                    </select>
+                                                </div>
+                                                <div class="w-32">
+                                                    <label :for="'multi_qty_' + index" class="block text-sm font-medium text-gray-700 mb-1">
+                                                        {{ __('Quantity') }} <span class="text-red-500" x-show="!isMultiRowCustomComments(index)">*</span>
+                                                    </label>
+                                                    <template x-if="!isMultiRowCustomComments(index)">
+                                                        <div class="relative">
+                                                            <input
+                                                                type="number"
+                                                                :id="'multi_qty_' + index"
+                                                                :name="'services[' + index + '][quantity]'"
+                                                                x-model.number="serviceRow.quantity"
+                                                                :min="serviceRow.min_quantity || 1"
+                                                                :max="serviceRow.max_quantity || null"
+                                                                @keydown.arrow-up.prevent="stepMultiQuantity(+1, index)"
+                                                                @keydown.arrow-down.prevent="stepMultiQuantity(-1, index)"
+                                                                @wheel.prevent="stepMultiQuantity($event.deltaY > 0 ? -1 : +1, index)"
+                                                                @change="serviceRow.quantity = adjustMultiQuantityToIncrement(serviceRow.quantity, index)"
+                                                                @blur="$el.dispatchEvent(new Event('change'))"
+                                                                required
+                                                                :class="getServiceError(index, 'quantity') ? 'border-red-300' : 'border-gray-300'"
+                                                                class="no-spinner block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm pr-12">
+                                                            <div class="absolute inset-y-0 right-0 flex flex-col justify-center">
+                                                                <button type="button" class="h-5 w-6 rounded-t-md border border-gray-300 bg-gray-50 text-gray-700 hover:bg-gray-100 flex items-center justify-center leading-none" @mousedown.prevent @click="stepMultiQuantity(+1, index)" aria-label="Increase"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3"><path fill-rule="evenodd" d="M10 6a1 1 0 0 1 .707.293l4 4a1 1 0 1 1-1.414 1.414L10 8.414 6.707 11.707A1 1 0 0 1 5.293 10.293l4-4A1 1 0 0 1 10 6z" clip-rule="evenodd"/></svg></button>
+                                                                <button type="button" class="h-5 w-6 rounded-b-md border border-t-0 border-gray-300 bg-gray-50 text-gray-700 hover:bg-gray-100 flex items-center justify-center leading-none" @mousedown.prevent @click="stepMultiQuantity(-1, index)" aria-label="Decrease"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3"><path fill-rule="evenodd" d="M10 14a1 1 0 0 1-.707-.293l-4-4a1 1 0 1 1 1.414-1.414L10 11.586l3.293-3.293a1 1 0 1 1 1.414 1.414l-4 4A1 1 0 0 1 10 14z" clip-rule="evenodd"/></svg></button>
+                                                            </div>
+                                                        </div>
+                                                    </template>
+                                                    <template x-if="isMultiRowCustomComments(index)">
+                                                        <div class="py-2 text-sm text-gray-600">
+                                                            {{ __('From comments') }}: <span x-text="getRowCommentsLineCount(index)"></span>
+                                                            <input type="hidden" :name="'services[' + index + '][quantity]'" :value="getRowCommentsLineCount(index)">
+                                                        </div>
+                                                    </template>
+                                                    <p x-show="getServiceError(index, 'quantity')" class="mt-1 text-xs text-red-600" x-text="getServiceError(index, 'quantity')"></p>
+                                                </div>
+                                                <div class="w-32 pt-6">
+                                                    <button type="button" @click="removeMultiServiceRow(index)" x-show="multiSelectedServices.length > 1" class="px-3 py-2 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors">{{ __('Remove') }}</button>
+                                                </div>
+                                                <div class="w-36 pt-6" x-show="serviceRow.service_id">
+                                                    <div class="text-xs text-gray-600">
+                                                        <div>{{ __('Rate') }}: $<span x-text="(serviceRow.rate_per_1000 || 0).toFixed(2)"></span>/1000</div>
+                                                        <div>{{ __('Charge') }}: $<span x-text="calculateMultiServiceCharge(index).toFixed(2)"></span></div>
+                                                        <div class="mt-1 text-gray-500" x-show="!isMultiRowCustomComments(index)">
+                                                            <span>{{ __('Min') }}: <span x-text="serviceRow.min_quantity || 1"></span></span>
+                                                            <span x-show="serviceRow.max_quantity"> | {{ __('Max') }}: <span x-text="serviceRow.max_quantity"></span></span>
+                                                            <span x-show="serviceRow.increment > 0"> | {{ __('Inc') }}: <span x-text="serviceRow.increment"></span></span>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                                <p x-show="getServiceError(index, 'quantity')" class="mt-1 text-xs text-red-600" x-text="getServiceError(index, 'quantity')"></p>
                                             </div>
-                                            <div class="w-32 pt-6">
-                                                <button
-                                                    type="button"
-                                                    @click="removeMultiServiceRow(index)"
-                                                    x-show="multiSelectedServices.length > 1"
-                                                    class="px-3 py-2 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors">
-                                                    {{ __('Remove') }}
-                                                </button>
+                                            <!-- Per-service: Comments (custom_comments) -->
+                                            <div x-show="isMultiRowCustomComments(index)" class="mt-2 pl-0">
+                                                <label :for="'multi_comments_' + index" class="block text-sm font-medium text-gray-700 mb-1">{{ __('Comments') }} <span class="text-red-500">*</span></label>
+                                                <textarea
+                                                    :id="'multi_comments_' + index"
+                                                    :name="'services[' + index + '][comments]'"
+                                                    x-model="serviceRow.comments"
+                                                    rows="4"
+                                                    class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                                    placeholder="{{ __('One comment per line') }}"></textarea>
+                                                <p class="mt-1 text-xs text-gray-500">{{ __('One comment per line. Quantity = number of comments.') }}</p>
                                             </div>
-                                            <div class="w-32 pt-6" x-show="serviceRow.service_id">
-                                                <div class="text-xs text-gray-600">
-                                                    <div>{{ __('Charge') }}: $<span x-text="calculateMultiServiceCharge(index).toFixed(2)"></span></div>
-                                                    <div class="mt-1 text-gray-500">
-                                                        <span>{{ __('Min') }}: <span x-text="serviceRow.min_quantity || 1"></span></span>
-                                                        <span x-show="serviceRow.max_quantity"> | {{ __('Max') }}: <span x-text="serviceRow.max_quantity"></span></span>
-                                                        <span x-show="serviceRow.increment > 0"> | {{ __('Inc') }}: <span x-text="serviceRow.increment"></span></span>
-                                                    </div>
-                                                </div>
+                                            <!-- Per-service: Star Rating (App review) -->
+                                            <div x-show="isMultiRowNeedsStarRating(index)" class="mt-2 pl-0">
+                                                <label :for="'multi_star_' + index" class="block text-sm font-medium text-gray-700 mb-1">{{ __('Star Rating') }} <span class="text-red-500">*</span></label>
+                                                <select
+                                                    :id="'multi_star_' + index"
+                                                    :name="'services[' + index + '][star_rating]'"
+                                                    x-model.number="serviceRow.star_rating"
+                                                    :required="isMultiRowNeedsStarRating(index)"
+                                                    class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm max-w-xs">
+                                                    <option value="5">5 {{ __('stars') }} ({{ __('default') }})</option>
+                                                    <option value="4">4 {{ __('stars') }}</option>
+                                                    <option value="3">3 {{ __('stars') }}</option>
+                                                    <option value="2">2 {{ __('stars') }}</option>
+                                                    <option value="1">1 {{ __('star') }}</option>
+                                                </select>
                                             </div>
                                         </div>
                                     </template>
@@ -811,6 +852,48 @@
                     const id = this.multiCategoryId;
                     return (id && (this.categoryLinkTypes[id] ?? this.categoryLinkTypes[Number(id)])) || 'generic';
                 },
+                get multiNeedsCommentText() {
+                    return (this.multiSelectedServices || []).some(row => {
+                        if (!row.service_id) return false;
+                        const s = (this.multiServices || []).find(x => x.id == row.service_id);
+                        return s && (s.needs_comment_text === true || s.needs_comment_text === 1);
+                    });
+                },
+                get multiNeedsStarRating() {
+                    return (this.multiSelectedServices || []).some(row => {
+                        if (!row.service_id) return false;
+                        const s = (this.multiServices || []).find(x => x.id == row.service_id);
+                        return s && (s.needs_star_rating === true || s.needs_star_rating === 1);
+                    });
+                },
+                get multiNeedsComments() {
+                    return (this.multiSelectedServices || []).some(row => {
+                        if (!row.service_id) return false;
+                        const s = (this.multiServices || []).find(x => x.id == row.service_id);
+                        return s && s.service_type === 'custom_comments';
+                    });
+                },
+                get multiCommentsLineCount() {
+                    if (!this.multiComments || typeof this.multiComments !== 'string') return 0;
+                    return this.multiComments.split('\n').map(l => l.trim()).filter(l => l !== '').length;
+                },
+                getRowCommentsLineCount(index) {
+                    const row = this.multiSelectedServices?.[index];
+                    if (!row || !row.comments || typeof row.comments !== 'string') return 0;
+                    return row.comments.split('\n').map(l => l.trim()).filter(l => l !== '').length;
+                },
+                isMultiRowCustomComments(index) {
+                    const row = this.multiSelectedServices?.[index];
+                    if (!row?.service_id) return false;
+                    const s = (this.multiServices || []).find(x => x.id == row.service_id);
+                    return s && s.service_type === 'custom_comments';
+                },
+                isMultiRowNeedsStarRating(index) {
+                    const row = this.multiSelectedServices?.[index];
+                    if (!row?.service_id) return false;
+                    const s = (this.multiServices || []).find(x => x.id == row.service_id);
+                    return s && (s.needs_star_rating === true || s.needs_star_rating === 1);
+                },
                 get linkErrorMessage() {
                     return this.linkErrorForType(this.linkType);
                 },
@@ -821,6 +904,7 @@
                     const m = {
                         telegram: @json(__('common.link_error_telegram')),
                         youtube: @json(__('common.link_error_youtube')),
+                        app: @json(__('common.link_error_app')),
                         max: @json(__('common.link_error_max')),
                         whatsapp: @json(__('common.link_error_whatsapp')),
                         tiktok: @json(__('common.link_error_generic')),
@@ -856,9 +940,10 @@
                 dripfeedQuantityError: '',
                 // Speed Tier (default 'fast' when service has speed enabled, set in updateServiceInfo)
                 speedTier: '{{ old('speed_tier', 'normal') }}',
-                // YouTube combo custom comment
+                // YouTube combo custom comment / App custom review
                 commentText: @json(old('comment_text', '')),
                 commentTextError: '',
+                starRating: {{ old('star_rating', 5) }},
                 // Invite Subscribers (2-link service)
                 inviteSourceLink: @json(old('link_2', '')),
                 inviteTargetLink: @json(old('targets.0.link', '')),
@@ -869,6 +954,9 @@
                 multiCategoryId: '{{ old('category_id', $preselectedCategoryId ?? '') }}',
                 multiLink: @json(old('link', '')),
                 multiLinkValid: true,
+                multiCommentText: @json(old('comment_text', '')),
+                multiComments: @json(old('comments', '')),
+                multiStarRating: {{ old('star_rating', 5) }},
                 multiServices: [],
                 validationErrors: @json($errors->messages()),
                 multiSelectedServices: @js(
@@ -881,8 +969,10 @@
                             'max_quantity' => null,
                             'increment' => 0,
                             'rate_per_1000' => 0,
+                            'comments' => (string)($s['comments'] ?? ''),
+                            'star_rating' => (int)($s['star_rating'] ?? 5),
                         ])->values()->all()
-                        : [['service_id' => '', 'target_type' => '', 'quantity' => 1, 'min_quantity' => 1, 'max_quantity' => null, 'increment' => 0, 'rate_per_1000' => 0]]
+                        : [['service_id' => '', 'target_type' => '', 'quantity' => 1, 'min_quantity' => 1, 'max_quantity' => null, 'increment' => 0, 'rate_per_1000' => 0, 'comments' => '', 'star_rating' => 5]]
                 ),
                 multiLoading: false,
 
@@ -959,6 +1049,13 @@
                     const v = link.trim();
                     return /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=[A-Za-z0-9_\-]+(\&[^&\s#]+)*|shorts\/[A-Za-z0-9_\-]+|embed\/[A-Za-z0-9_\-]+|live\/[A-Za-z0-9_\-]+)|youtube\.com\/@[A-Za-z0-9_.\-]+|youtube\.com\/channel\/UC[A-Za-z0-9_\-]+|youtube\.com\/c\/[A-Za-z0-9_.\-]+|youtu\.be\/[A-Za-z0-9_\-]+(\?[^\s#]*)?)/i.test(v);
                 },
+                validateAppLink(link) {
+                    if (!link || link.trim() === '') return true;
+                    const v = link.trim();
+                    const playStore = /^(https?:\/\/)?(www\.)?play\.google\.com\/store\/apps\/details\?id=[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z][a-zA-Z0-9_]*)+/i;
+                    const appStore = /^(https?:\/\/)?(www\.)?apps\.apple\.com\/[a-z]{2}\/app\/[^/]+\/id\d+/i;
+                    return playStore.test(v) || appStore.test(v);
+                },
                 validateMaxLink(link) {
                     if (!link || link.trim() === '') return true;
                     const v = link.trim();
@@ -992,6 +1089,7 @@
                 validateLink(link, type) {
                     const t = type || this.linkType;
                     if (t === 'youtube') return this.validateYoutubeLink(link);
+                    if (t === 'app') return this.validateAppLink(link);
                     if (t === 'max') return this.validateMaxLink(link);
                     if (t === 'whatsapp') return this.validateWhatsAppLink(link);
                     if (t === 'tiktok') return this.validateTiktokLink(link);
@@ -1015,6 +1113,7 @@
                     const placeholders = {
                         telegram: @json(__('home.link_placeholder_tg')),
                         youtube: @json(__('home.link_placeholder_youtube')),
+                        app: @json(__('home.link_placeholder_app')),
                         max: @json(__('home.link_placeholder_max')),
                         whatsapp: @json(__('home.link_placeholder_tg')),
                         tiktok: @json(__('home.link_placeholder_tg')),
@@ -1403,11 +1502,13 @@
                     this.multiSelectedServices.push({
                         service_id: '',
                         target_type: '',
-                        quantity: 1, // Will be updated when service is selected
+                        quantity: 1,
                         min_quantity: 1,
                         max_quantity: null,
                         increment: 0,
                         rate_per_1000: 0,
+                        comments: '',
+                        star_rating: 5,
                     });
                 },
 
@@ -1432,10 +1533,15 @@
                         serviceRow.max_quantity = service.max_quantity || null;
                         serviceRow.increment = service.increment || 0;
                         serviceRow.rate_per_1000 = service.rate_per_1000 || 0;
-                        // Ensure quantity meets min; preserve valid existing (e.g. from old input)
                         const defaultQty = service.min_quantity || 1;
                         const currentQty = parseInt(serviceRow.quantity) || 0;
                         serviceRow.quantity = currentQty >= defaultQty ? currentQty : defaultQty;
+                        if (service.service_type === 'custom_comments' && serviceRow.comments === undefined) {
+                            serviceRow.comments = serviceRow.comments ?? '';
+                        }
+                        if ((service.needs_star_rating === true || service.needs_star_rating === 1) && serviceRow.star_rating === undefined) {
+                            serviceRow.star_rating = serviceRow.star_rating ?? 5;
+                        }
                     }
                 },
 
@@ -1532,15 +1638,15 @@
                 calculateMultiServiceCharge(index) {
                     const serviceRow = this.multiSelectedServices[index];
                     if (!serviceRow || !serviceRow.service_id) return 0;
-                    const qty = Number(serviceRow.quantity) || 0;
+                    const qty = this.isMultiRowCustomComments(index) ? this.getRowCommentsLineCount(index) : (Number(serviceRow.quantity) || 0);
                     const rate = Number(serviceRow.rate_per_1000) || 0;
                     return Math.round((qty / 1000) * rate * 100) / 100;
                 },
 
                 calculateMultiTotalCharge() {
-                    return this.multiSelectedServices.reduce((sum, serviceRow) => {
+                    return this.multiSelectedServices.reduce((sum, serviceRow, index) => {
                         if (!serviceRow.service_id) return sum;
-                        const qty = Number(serviceRow.quantity) || 0;
+                        const qty = this.isMultiRowCustomComments(index) ? this.getRowCommentsLineCount(index) : (Number(serviceRow.quantity) || 0);
                         const rate = Number(serviceRow.rate_per_1000) || 0;
                         const charge = Math.round((qty / 1000) * rate * 100) / 100;
                         return sum + charge;
@@ -1554,8 +1660,15 @@
                     }
 
                     if (!this.multiLinkValid) {
-                        alert('{{ __('Please enter a valid Telegram link.') }}');
+                        alert('{{ __('Please enter a valid link.') }}');
                         return;
+                    }
+
+                    for (let i = 0; i < this.multiSelectedServices.length; i++) {
+                        if (this.isMultiRowCustomComments(i) && this.getRowCommentsLineCount(i) < 1) {
+                            alert('{{ __('Please enter at least one comment (one per line) for custom comments service.') }}');
+                            return;
+                        }
                     }
 
                     this.submitting = true;

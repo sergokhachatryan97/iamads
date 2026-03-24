@@ -1,6 +1,9 @@
 <?php
 
 use App\Http\Controllers\Api\Client\BalanceTopupController;
+use App\Http\Controllers\Api\Provider\AppAwaitingOrdersController;
+use App\Http\Controllers\Api\Provider\AppTaskClaimController;
+use App\Http\Controllers\Api\Provider\AppTaskReportController;
 use App\Http\Controllers\Api\ProviderApiController;
 use App\Http\Controllers\Api\FastOrderController;
 use App\Http\Controllers\Api\PaymentController;
@@ -91,4 +94,16 @@ Route::middleware(['auth.provider'])->prefix('provider/youtube')->group(function
         ->name('provider.youtube.tasks.check');
     Route::get('/ignore', [YouTubeTaskReportController::class, 'ignore'])
         ->name('provider.youtube.tasks.ignore');
+});
+
+// App performer (App Store / Google Play: getOrder, check, ignore)
+Route::middleware(['auth.provider'])->prefix('provider/app')->group(function () {
+    Route::get('/orders-list', [AppAwaitingOrdersController::class, 'index'])
+        ->name('provider.app.awaiting-orders');
+    Route::get('/getOrder', [AppTaskClaimController::class, 'claim'])
+        ->name('provider.app.tasks.getOrder');
+    Route::get('/check', [AppTaskReportController::class, 'check'])
+        ->name('provider.app.tasks.check');
+    Route::get('/ignore', [AppTaskReportController::class, 'ignore'])
+        ->name('provider.app.tasks.ignore');
 });

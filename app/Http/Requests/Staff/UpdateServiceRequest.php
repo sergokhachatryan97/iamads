@@ -31,10 +31,11 @@ class UpdateServiceRequest extends FormRequest
             'category_id' => ['required', 'integer', Rule::exists(Category::class, 'id')],
             'mode' => ['required', 'string', 'in:manual,provider'],
             'service_type' => ['nullable', 'string'],
-            'target_type' => ['nullable', 'string', Rule::in(['bot', 'channel', 'group', 'youtube'])],
+            'target_type' => ['nullable', 'string', Rule::in(['bot', 'channel', 'group', 'youtube', 'app'])],
             'template_key' => ['nullable', 'string', Rule::in(array_merge(
                 array_keys(config('telegram_service_templates', [])),
-                array_keys(config('youtube_service_templates', []))
+                array_keys(config('youtube_service_templates', [])),
+                array_keys(config('app_service_templates', []))
             ))],
             'duration_days' => ['nullable', 'integer', 'min:1'],
             'overflow_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
@@ -65,7 +66,9 @@ class UpdateServiceRequest extends FormRequest
         // Validate duration_days / watch_time_seconds if template requires them
         $templateKey = $this->input('template_key');
         if ($templateKey) {
-            $template = config("telegram_service_templates.{$templateKey}") ?? config("youtube_service_templates.{$templateKey}");
+            $template = config("telegram_service_templates.{$templateKey}")
+                ?? config("youtube_service_templates.{$templateKey}")
+                ?? config("app_service_templates.{$templateKey}");
             if ($template) {
                 if ($template['requires_duration_days'] ?? false) {
                     $rules['duration_days'] = ['required', 'integer', 'min:1'];

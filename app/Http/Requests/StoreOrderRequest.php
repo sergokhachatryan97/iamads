@@ -210,6 +210,31 @@ class StoreOrderRequest extends FormRequest
             } else {
                 $rules['comment_text'] = ['nullable', 'string', 'max:500'];
             }
+
+            // App: custom review + star (Service 2)
+            $template = $service->template();
+            if ($driver === 'app' && ($template['accepts_star_rating'] ?? false)) {
+                $rules['comment_text'] = ['required', 'string', 'min:1', 'max:5000'];
+                $rules['star_rating'] = ['required', 'integer', 'min:1', 'max:5'];
+            } elseif ($driver === 'app' && ($template['accepts_review_comments'] ?? false)) {
+                $rules['review_comments'] = [
+                    'nullable',
+                    'array',
+                    'max:50',
+                ];
+                $rules['review_comments.*'] = [
+                    'required',
+                    'string',
+                    'min:1',
+                    'max:500',
+                    function ($attribute, $value, $fail) {
+                        $trimmed = trim((string) $value);
+                        if ($trimmed === '') {
+                            $fail('Review comments cannot be empty.');
+                        }
+                    },
+                ];
+            }
         }
 
         // ---------- Dripfeed rules ----------
@@ -309,6 +334,10 @@ class StoreOrderRequest extends FormRequest
 
         if (isset($validated['comment_text'])) {
             $payload['comment_text'] = trim((string) $validated['comment_text']);
+        }
+
+        if (isset($validated['star_rating'])) {
+            $payload['star_rating'] = (int) $validated['star_rating'];
         }
 
         if (isset($validated['comments'])) {

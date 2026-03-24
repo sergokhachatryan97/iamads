@@ -2,13 +2,10 @@
 
 namespace App\Support\Links;
 
-use App\Support\Links\Inspectors\FacebookLinkInspector;
+use App\Support\Links\Inspectors\AppLinkInspector;
 use App\Support\Links\Inspectors\GenericUrlInspector;
-use App\Support\Links\Inspectors\InstagramLinkInspector;
 use App\Support\Links\Inspectors\TelegramLinkInspector;
-use App\Support\Links\Inspectors\TikTokLinkInspector;
 use App\Support\Links\Inspectors\MaxLinkInspector;
-use App\Support\Links\Inspectors\WhatsAppLinkInspector;
 use App\Support\Links\Inspectors\YouTubeLinkInspector;
 
 /**
@@ -52,12 +49,8 @@ class LinkInspectorManager
         return match ($driver) {
             'telegram' => new TelegramLinkInspector(),
             'youtube' => new YouTubeLinkInspector(),
+            'app' => new AppLinkInspector(app(\App\Services\App\AppLinkParser::class)),
             'max' => new MaxLinkInspector(),
-            'whatsapp' => new WhatsAppLinkInspector(),
-            'tiktok' => new TikTokLinkInspector(),
-            'instagram' => new InstagramLinkInspector(),
-            'facebook' => new FacebookLinkInspector(),
-            'url' => new GenericUrlInspector(),
             default => new GenericUrlInspector(),
         };
     }

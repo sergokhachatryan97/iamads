@@ -92,12 +92,14 @@ class ServiceService implements ServiceServiceInterface
         // Store template snapshot and auto-set target_type from template
         if (isset($data['template_key']) && $data['template_key']) {
             $template = config("telegram_service_templates.{$data['template_key']}")
-                ?? config("youtube_service_templates.{$data['template_key']}");
+                ?? config("youtube_service_templates.{$data['template_key']}")
+                ?? config("app_service_templates.{$data['template_key']}");
             if ($template) {
                 $data['template_snapshot'] = $template;
                 if (empty($data['target_type'])) {
                     $data['target_type'] = $this->getTargetTypeFromTemplate($template)
-                        ?? (str_starts_with($data['template_key'], 'yt_') ? 'youtube' : null);
+                        ?? (str_starts_with($data['template_key'], 'yt_') ? 'youtube' : null)
+                        ?? (str_starts_with($data['template_key'], 'app_') ? 'app' : null);
                 }
             }
         }
@@ -163,7 +165,8 @@ class ServiceService implements ServiceServiceInterface
     private function generateServiceName(string $templateKey, ?int $durationDays): string
     {
         $template = config("telegram_service_templates.{$templateKey}")
-            ?? config("youtube_service_templates.{$templateKey}");
+            ?? config("youtube_service_templates.{$templateKey}")
+            ?? config("app_service_templates.{$templateKey}");
         if (!$template) {
             return 'Service';
         }
@@ -205,12 +208,14 @@ class ServiceService implements ServiceServiceInterface
         // Store template snapshot and auto-set target_type from template
         if (isset($data['template_key']) && $data['template_key']) {
             $template = config("telegram_service_templates.{$data['template_key']}")
-                ?? config("youtube_service_templates.{$data['template_key']}");
+                ?? config("youtube_service_templates.{$data['template_key']}")
+                ?? config("app_service_templates.{$data['template_key']}");
             if ($template) {
                 $data['template_snapshot'] = $template;
                 if (empty($data['target_type'])) {
                     $data['target_type'] = $this->getTargetTypeFromTemplate($template)
-                        ?? (str_starts_with($data['template_key'], 'yt_') ? 'youtube' : null);
+                        ?? (str_starts_with($data['template_key'], 'yt_') ? 'youtube' : null)
+                        ?? (str_starts_with($data['template_key'], 'app_') ? 'app' : null);
                 }
             }
         }

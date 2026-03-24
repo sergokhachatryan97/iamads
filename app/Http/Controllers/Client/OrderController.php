@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Client;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\MultiStoreOrderRequest;
 use App\Http\Requests\StoreOrderRequest;
+use App\Models\Category;
 use App\Models\Client;
 use App\Models\Order;
 use App\Models\Service;
+use App\Services\YouTube\YouTubeExecutionPlanResolver;
 use App\Services\CategoryServiceInterface;
 use App\Services\OrderServiceInterface;
 use Illuminate\Http\JsonResponse;
@@ -272,7 +274,7 @@ class OrderController extends Controller
     {
         $validated = $request->validate([
             'category_id' => ['required', 'exists:categories,id'],
-            'target_type' => ['nullable', 'string', 'in:bot,channel,group'],
+            'target_type' => ['nullable', 'string', 'in:bot,channel,group,app,youtube'],
         ]);
 
         $client = $this->client;
@@ -296,6 +298,9 @@ class OrderController extends Controller
             ->keyBy('service_id');
 
         $pricingService = app(\App\Services\PricingService::class);
+
+        $category = Category::find($categoryId);
+        $linkDriver = $category?->link_driver ?? 'generic';
 
         $query = Service::query()
             ->where('category_id', $categoryId)
@@ -327,7 +332,7 @@ class OrderController extends Controller
                 'target_type',
                 'template_key',
             ])
-            ->map(function (Service $service) use ($clientRates, $serviceLimits, $client, $pricingService, $clientDiscount) {
+            ->map(function (Service $service) use ($clientRates, $serviceLimits, $client, $pricingService, $clientDiscount, $linkDriver) {
 
                 $serviceIdKey = (string) $service->id;
 
@@ -418,11 +423,39 @@ class OrderController extends Controller
                         ?? config("youtube_service_templates.{$service->template_key}.default_watch_time_seconds")
                         ?? config('youtube.default_watch_time_seconds', 30)
                     )),
+
+                    // Multi-service: show comment/star fields when any selected service needs them
+                    'needs_comment_text' => $this->serviceNeedsCommentText($service, $linkDriver),
+                    'needs_star_rating' => $this->serviceNeedsStarRating($service, $linkDriver),
                 ];
             })
             ->values();
 
         return response()->json($services);
+    }
+
+    private function serviceNeedsCommentText(Service $service, string $linkDriver): bool
+    {
+        $tpl = $service->template();
+        if (!$tpl) {
+            return false;
+        }
+        if ($linkDriver === 'app') {
+            return (bool) ($tpl['accepts_review_comments'] ?? false);
+        }
+        if ($linkDriver === 'youtube') {
+            return YouTubeExecutionPlanResolver::stepsContainCommentCustom($tpl['steps'] ?? []);
+        }
+        return false;
+    }
+
+    private function serviceNeedsStarRating(Service $service, string $linkDriver): bool
+    {
+        if ($linkDriver !== 'app') {
+            return false;
+        }
+        $tpl = $service->template();
+        return $tpl && (bool) ($tpl['accepts_star_rating'] ?? false);
     }
 
     /**

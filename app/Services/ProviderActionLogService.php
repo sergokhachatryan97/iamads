@@ -13,6 +13,7 @@ class ProviderActionLogService
 {
     public const PROVIDER_TELEGRAM = 'telegram';
     public const PROVIDER_YOUTUBE = 'youtube';
+    public const PROVIDER_APP = 'app';
 
     /**
      * Check if this account has already performed this action on this target.

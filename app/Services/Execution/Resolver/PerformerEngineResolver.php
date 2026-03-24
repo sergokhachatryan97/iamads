@@ -3,6 +3,7 @@
 namespace App\Services\Execution\Resolver;
 
 use App\Services\Execution\Contracts\PerformerEngineInterface;
+use App\Services\Execution\Engines\AppPerformerEngine;
 use App\Services\Execution\Engines\GenericPerformerEngine;
 use App\Services\Execution\Engines\TelegramPerformerEngine;
 use App\Services\Execution\Engines\YouTubePerformerEngine;
@@ -23,7 +24,8 @@ class PerformerEngineResolver
 {
     public function __construct(
         private TelegramPerformerEngine $telegramEngine,
-        private YouTubePerformerEngine $youtubeEngine
+        private YouTubePerformerEngine $youtubeEngine,
+        private AppPerformerEngine $appEngine
     ) {}
 
     /**
@@ -34,6 +36,7 @@ class PerformerEngineResolver
         return match ($driver) {
             'telegram' => $this->telegramEngine,
             'youtube' => $this->youtubeEngine,
+            'app' => $this->appEngine,
             default => new GenericPerformerEngine($driver),
         };
     }

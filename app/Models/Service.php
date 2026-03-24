@@ -146,11 +146,20 @@ class Service extends Model
             return config("youtube_service_templates.{$this->template_key}");
         }
 
+        // App template keys start with app_
+        if (str_starts_with($this->template_key, 'app_')) {
+            return config("app_service_templates.{$this->template_key}");
+        }
+
         $category = $this->relationLoaded('category') ? $this->category : $this->category()->first();
         $driver = $category?->link_driver ?? 'generic';
 
         if ($driver === 'youtube') {
             return config("youtube_service_templates.{$this->template_key}");
+        }
+
+        if ($driver === 'app') {
+            return config("app_service_templates.{$this->template_key}");
         }
 
         return config("telegram_service_templates.{$this->template_key}");

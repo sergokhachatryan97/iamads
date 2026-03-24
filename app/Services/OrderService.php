@@ -176,6 +176,8 @@ class OrderService implements OrderServiceInterface
                     'service_id' => $service->id,
                     'link' => $row['link'],
                     'comment_text' => !empty($data['comment_text']) ? trim((string) $data['comment_text']) : null,
+                    'star_rating' => (isset($data['star_rating']) && $data['star_rating'] >= 1 && $data['star_rating'] <= 5)
+                        ? (int) $data['star_rating'] : null,
                     'link_2' => ($service->template_key === 'invite_subscribers_from_other_channel' && !empty($data['link_2']))
                         ? trim((string) $data['link_2']) : null,
                     'payment_source' => Order::PAYMENT_SOURCE_BALANCE,
@@ -206,6 +208,12 @@ class OrderService implements OrderServiceInterface
                     $orderData['provider_payload'] ?? [],
                     ['pricing_snapshot' => $pricingSnapshot]
                 );
+                if (!empty($data['review_comments']) && is_array($data['review_comments'])) {
+                    $providerPayload['review_comments'] = $data['review_comments'];
+                }
+                if (isset($data['star_rating']) && $data['star_rating'] >= 1 && $data['star_rating'] <= 5) {
+                    $providerPayload['star_rating'] = (int) $data['star_rating'];
+                }
                 $ytTpl = $service->template();
                 if ($ytTpl && ($ytTpl['requires_watch_time'] ?? false)) {
                     $providerPayload['watch_time_seconds'] = (int) (
@@ -495,16 +503,24 @@ class OrderService implements OrderServiceInterface
             $categoryId = (int) $data['category_id'];
             $link = trim((string) $data['link']);
 
-            Category::findOrFail($categoryId);
+            $category = Category::findOrFail($categoryId);
+            $linkDriver = $category->link_driver ?? 'generic';
 
             $servicesInput = collect($data['services'] ?? [])
                 ->groupBy(fn ($r) => (string) ($r['service_id'] ?? ''))
                 ->map(function ($rows) {
                     $first = $rows->first();
-                    return [
+                    $res = [
                         'service_id' => (int) $first['service_id'],
                         'quantity' => (int) $rows->sum(fn ($x) => (int) ($x['quantity'] ?? 0)),
                     ];
+                if (isset($first['comments'])) {
+                    $res['comments'] = $first['comments'];
+                }
+                if (isset($first['star_rating']) && $first['star_rating'] >= 1 && $first['star_rating'] <= 5) {
+                    $res['star_rating'] = (int) $first['star_rating'];
+                }
+                return $res;
                 })
                 ->values()
                 ->all();
@@ -544,21 +560,6 @@ class OrderService implements OrderServiceInterface
             foreach ($servicesInput as $index => $serviceInput) {
                 $serviceId = (int) $serviceInput['service_id'];
                 $service = $services->get($serviceId);
-                $qty = (int) $serviceInput['quantity'];
-
-                $serviceLimit = $limits->get($serviceId);
-
-                $effectiveMinQty = $serviceLimit?->min_quantity ?? $service->min_quantity;
-                $effectiveMaxQty = $serviceLimit?->max_quantity ?? ($service->max_quantity ?? null);
-                $effectiveIncrement = $serviceLimit?->increment ?? ($service->increment ?? 0);
-
-                $this->validateServiceQuantityRules(
-                    $qty,
-                    $index,
-                    (int) $effectiveMinQty,
-                    $effectiveMaxQty !== null ? (int) $effectiveMaxQty : null,
-                    (int) $effectiveIncrement
-                );
 
                 if ($service->deny_link_duplicates) {
                     $this->validateNoDuplicateLink($service, $link);
@@ -566,20 +567,69 @@ class OrderService implements OrderServiceInterface
 
                 $effectiveRate = (float) $this->pricingService->priceForClient($service, $client);
 
-                $charge = round(($qty / 1000) * $effectiveRate, 2);
-                $cost = $service->service_cost_per_1000 !== null
-                    ? round(($qty / 1000) * (float) $service->service_cost_per_1000, 2)
-                    : null;
+                if ($service->service_type === 'custom_comments') {
+                    $commentsInput = $serviceInput['comments'] ?? $data['comments'] ?? null;
+                    $commentsLines = $commentsInput
+                        ? array_values(array_filter(
+                            array_map('trim', explode("\n", (string) $commentsInput)),
+                            fn ($l) => $l !== ''
+                        ))
+                        : [];
+                    if (empty($commentsLines)) {
+                        throw ValidationException::withMessages([
+                            'comments' => 'Comments are required for custom comments service.',
+                        ]);
+                    }
+                    $commentCount = count($commentsLines);
+                    $charge = round(($commentCount / 1000) * $effectiveRate, 2);
+                    $cost = $service->service_cost_per_1000 !== null
+                        ? round(($commentCount / 1000) * (float) $service->service_cost_per_1000, 2)
+                        : null;
+                    $orderData[] = [
+                        'service_id' => $serviceId,
+                        'quantity' => $commentCount,
+                        'target_quantity' => Order::computeTargetQuantity($commentCount, $service),
+                        'charge' => $charge,
+                        'cost' => $cost,
+                        'comment_text' => implode("\n", $commentsLines),
+                        'star_rating' => null,
+                    ];
+                    $totalBalanceCharge += $charge;
+                } else {
+                    $qty = (int) $serviceInput['quantity'];
+                    $serviceLimit = $limits->get($serviceId);
+                    $effectiveMinQty = $serviceLimit?->min_quantity ?? $service->min_quantity;
+                    $effectiveMaxQty = $serviceLimit?->max_quantity ?? ($service->max_quantity ?? null);
+                    $effectiveIncrement = $serviceLimit?->increment ?? ($service->increment ?? 0);
 
-                $totalBalanceCharge += $charge;
+                    $this->validateServiceQuantityRules(
+                        $qty,
+                        $index,
+                        (int) $effectiveMinQty,
+                        $effectiveMaxQty !== null ? (int) $effectiveMaxQty : null,
+                        (int) $effectiveIncrement
+                    );
 
-                $orderData[] = [
-                    'service_id' => $serviceId,
-                    'quantity' => $qty,
-                    'target_quantity' => Order::computeTargetQuantity($qty, $service),
-                    'charge' => $charge,
-                    'cost' => $cost,
-                ];
+                    $charge = round(($qty / 1000) * $effectiveRate, 2);
+                    $cost = $service->service_cost_per_1000 !== null
+                        ? round(($qty / 1000) * (float) $service->service_cost_per_1000, 2)
+                        : null;
+
+                    $totalBalanceCharge += $charge;
+
+                    $rowStarRating = isset($serviceInput['star_rating']) && $serviceInput['star_rating'] >= 1 && $serviceInput['star_rating'] <= 5
+                        ? (int) $serviceInput['star_rating']
+                        : (isset($data['star_rating']) && $data['star_rating'] >= 1 && $data['star_rating'] <= 5 ? (int) $data['star_rating'] : null);
+                    $orderData[] = [
+                        'service_id' => $serviceId,
+                        'quantity' => $qty,
+                        'target_quantity' => Order::computeTargetQuantity($qty, $service),
+                        'charge' => $charge,
+                        'cost' => $cost,
+                        'comment_text' => null,
+                        'star_rating' => $rowStarRating,
+                    ];
+                }
             }
 
             if ($totalBalanceCharge > 0) {
@@ -597,13 +647,49 @@ class OrderService implements OrderServiceInterface
 
             $orders = [];
             foreach ($orderData as $row) {
-                $orders[] = Order::create([
+                $service = $services->get($row['service_id']);
+                $pricingSnapshot = [
+                    'quantity' => $row['quantity'],
+                    'total_price' => $row['charge'],
+                    'computed_at' => $now->toDateTimeString(),
+                ];
+                $providerPayload = ['pricing_snapshot' => $pricingSnapshot];
+
+                $commentText = isset($row['comment_text']) ? (string) $row['comment_text'] : null;
+                if ($commentText === '' || $commentText === null) {
+                    $commentText = null;
+                    $template = $service?->template();
+                    $needsComment = false;
+                    if ($template) {
+                        if ($linkDriver === 'app') {
+                            $needsComment = (bool) ($template['accepts_review_comments'] ?? false);
+                        } elseif ($linkDriver === 'youtube') {
+                            $needsComment = \App\Services\YouTube\YouTubeExecutionPlanResolver::stepsContainCommentCustom($template['steps'] ?? []);
+                        }
+                    }
+                    if ($needsComment && !empty($data['comment_text'])) {
+                        $commentText = trim((string) $data['comment_text']);
+                    }
+                }
+                $starRating = isset($row['star_rating']) && $row['star_rating'] >= 1 && $row['star_rating'] <= 5
+                    ? (int) $row['star_rating']
+                    : (isset($data['star_rating']) && $data['star_rating'] >= 1 && $data['star_rating'] <= 5 ? (int) $data['star_rating'] : null);
+                $template = $service?->template();
+                $needsStar = $service?->category?->link_driver === 'app';
+
+                if ($needsStar && $starRating !== null) {
+                    $providerPayload['star_rating'] = $starRating;
+                }
+
+                $orderPayload = [
                     'batch_id' => $batchId,
                     'client_id' => $client->id,
                     'created_by' => $createdBy,
                     'category_id' => $categoryId,
                     'service_id' => $row['service_id'],
                     'link' => $link,
+                    'comment_text' => $commentText,
+                    'star_rating' => $needsStar ? $starRating : null,
                     'payment_source' => Order::PAYMENT_SOURCE_BALANCE,
                     'subscription_id' => null,
                     'charge' => $row['charge'],
@@ -614,7 +700,9 @@ class OrderService implements OrderServiceInterface
                     'remains' => $row['target_quantity'],
                     'status' => Order::STATUS_VALIDATING,
                     'mode' => 'manual',
-                ]);
+                    'provider_payload' => $providerPayload,
+                ];
+                $orders[] = Order::create($orderPayload);
             }
 
             if ($totalBalanceCharge > 0) {

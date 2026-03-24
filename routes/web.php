@@ -281,9 +281,9 @@ Route::get('/oauth/google/callback', [GoogleGmailOAuthController::class, 'callba
 
 Route::get('test', function () {
 //    $a = app(\App\Services\Telegram\TelegramInspector::class);
-   $a = app(\App\Services\YouTube\YouTubeLinkParser::class);
-   $c = app(YouTubeInspector::class);
-   dd($c->inspect('https://youtube.com/shorts/XPwv2gr45_Y?lc=UgwOWOWId_1S_kdRDZt4AaABAg&si=hLW3uFH47b7EG7Ki'));
+//   $a = app(\App\Services\YouTube\YouTubeLinkParser::class);
+//   $c = app(YouTubeInspector::class);
+//   dd($c->inspect('https://youtube.com/shorts/XPwv2gr45_Y?lc=UgwOWOWId_1S_kdRDZt4AaABAg&si=hLW3uFH47b7EG7Ki'));
 //   dd($a->parse('https://youtu.be/b4iVv91Z6lY?si=dJUqS77Ch5FR'));
 
 //    dd($a->inspect('https://t.me/Tele112bot', serviceId: 72));

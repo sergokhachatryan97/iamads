@@ -2,6 +2,7 @@
 
 namespace App\Services\Order;
 
+use App\Jobs\InspectAppLinkJob;
 use App\Jobs\InspectTelegramLinkJob;
 use App\Jobs\InspectYouTubeLinkJob;
 use App\Models\Order;
@@ -14,7 +15,8 @@ class OrderInspectionDispatcher
 {
     /**
      * Dispatch inspection for an order. Telegram → InspectTelegramLinkJob;
-     * YouTube → InspectYouTubeLinkJob. Other drivers are no-op until implemented.
+     * YouTube → InspectYouTubeLinkJob; app → InspectAppLinkJob.
+     * Other drivers are no-op until implemented.
      */
     public function dispatch(Order $order): void
     {
@@ -33,6 +35,14 @@ class OrderInspectionDispatcher
         if ($driver === 'youtube') {
             InspectYouTubeLinkJob::dispatch($order->id)
                 ->onQueue('yt-inspect')
+                ->afterCommit();
+
+            return;
+        }
+
+        if ($driver === 'app') {
+            InspectAppLinkJob::dispatch($order->id)
+                ->onQueue('app-inspect')
                 ->afterCommit();
 
             return;

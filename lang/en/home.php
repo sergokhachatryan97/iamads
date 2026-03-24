@@ -27,6 +27,7 @@ return [
     'link_placeholder_vk' => 'https://vk.com/wall-123456_789',
     'link_placeholder_max' => 'https://max.ru/username or https://maxapp.ru/invite/...',
     'link_placeholder_youtube' => 'https://youtube.com/watch?v=... or https://youtu.be/...',
+    'link_placeholder_app' => 'https://play.google.com/store/apps/details?id=... or https://apps.apple.com/.../app/.../id...',
     'footer_telegram' => 'Telegram',
     'footer_email' => 'Email',
     'footer_tagline_1' => 'Increase',
