@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Staff;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Staff\IndexUserRequest;
+use App\Http\Requests\Staff\UpdateUserRoleRequest;
 use App\Models\User;
 use App\Services\UserServiceInterface;
 use Illuminate\Http\RedirectResponse;
@@ -65,6 +66,35 @@ class UserController extends Controller
 
             return redirect()->route('staff.users.index')
                 ->with('status', 'verification-resent');
+        } catch (\Exception $e) {
+            return redirect()->route('staff.users.index')
+                ->withErrors(['error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Show the form for editing a user's role.
+     */
+    public function edit(User $user): View|RedirectResponse
+    {
+        $roles = $this->userService->getAllRoles();
+
+        return view('staff.users.edit', [
+            'user' => $user,
+            'roles' => $roles,
+        ]);
+    }
+
+    /**
+     * Update a user's role.
+     */
+    public function update(UpdateUserRoleRequest $request, User $user): RedirectResponse
+    {
+        try {
+            $this->userService->updateUserRole($user, $request->validated('role'));
+
+            return redirect()->route('staff.users.index')
+                ->with('status', 'user-role-updated');
         } catch (\Exception $e) {
             return redirect()->route('staff.users.index')
                 ->withErrors(['error' => $e->getMessage()]);

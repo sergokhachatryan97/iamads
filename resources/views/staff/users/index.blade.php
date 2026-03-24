@@ -128,6 +128,12 @@
                         </div>
                     @endif
 
+                    @if (session('status') === 'user-role-updated')
+                        <div class="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                            <p class="text-sm text-green-800">{{ __('User role updated successfully.') }}</p>
+                        </div>
+                    @endif
+
                     @if ($errors->any())
                         <div class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
                             <ul class="text-sm text-red-800">

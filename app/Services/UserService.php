@@ -75,4 +75,16 @@ class UserService implements UserServiceInterface
 
         $this->userRepository->sendVerificationEmail($user);
     }
+
+    /**
+     * Update a user's role.
+     *
+     * @param User $user
+     * @param string $roleName
+     * @return void
+     */
+    public function updateUserRole(User $user, string $roleName): void
+    {
+        $user->syncRoles([$roleName]);
+    }
 }

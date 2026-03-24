@@ -149,6 +149,9 @@
                         @if(auth()->guard('staff')->check() && auth()->guard('staff')->user()->hasRole('super_admin'))
                             <td class="px-1 sm:px-3 py-2 whitespace-nowrap text-right text-sm font-medium relative">
                                 <x-table-actions-dropdown :id="$user->id">
+                                    <a href="{{ route('staff.users.edit', $user) }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        {{ __('Edit Role') }}
+                                    </a>
                                     @if(!$user->hasVerifiedEmail())
                                         <form method="POST" action="{{ route('staff.users.resend-verification', $user) }}" class="block">
                                             @csrf

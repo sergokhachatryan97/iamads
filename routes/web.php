@@ -164,6 +164,8 @@ Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSess
 
         // Staff Users Management
         Route::get('users', [UserController::class, 'index'])->name('staff.users.index');
+        Route::get('users/{user}/edit', [UserController::class, 'edit'])->name('staff.users.edit');
+        Route::put('users/{user}', [UserController::class, 'update'])->name('staff.users.update');
         Route::delete('users/{user}', [UserController::class, 'destroy'])->name('staff.users.destroy');
         Route::post('users/{user}/resend-verification', [UserController::class, 'resendVerification'])->name('staff.users.resend-verification');
 

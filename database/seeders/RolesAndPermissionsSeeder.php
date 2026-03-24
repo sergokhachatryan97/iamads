@@ -2,19 +2,18 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\PermissionRegistrar;
 
 class RolesAndPermissionsSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
+
+        $guard = 'staff';
 
         $permissions = [
             'users.invite',
@@ -24,14 +23,30 @@ class RolesAndPermissionsSeeder extends Seeder
         ];
 
         foreach ($permissions as $permission) {
-            Permission::firstOrCreate(['name' => $permission]);
+            Permission::firstOrCreate([
+                'name' => $permission,
+                'guard_name' => $guard,
+            ]);
         }
 
-        $superAdmin = Role::firstOrCreate(['name' => 'super_admin']);
-        $admin      = Role::firstOrCreate(['name' => 'admin']);
-        $user       = Role::firstOrCreate(['name' => 'user']);
+        $superAdmin = Role::firstOrCreate([
+            'name' => 'super_admin',
+            'guard_name' => $guard,
+        ]);
 
-        $superAdmin->syncPermissions(Permission::all());
+        $admin = Role::firstOrCreate([
+            'name' => 'admin',
+            'guard_name' => $guard,
+        ]);
+
+        $user = Role::firstOrCreate([
+            'name' => 'user',
+            'guard_name' => $guard,
+        ]);
+
+        $superAdmin->syncPermissions(
+            Permission::where('guard_name', $guard)->get()
+        );
 
         $admin->syncPermissions([
             'users.invite',
@@ -42,5 +57,4 @@ class RolesAndPermissionsSeeder extends Seeder
             'pages.edit.own',
         ]);
     }
-
 }
