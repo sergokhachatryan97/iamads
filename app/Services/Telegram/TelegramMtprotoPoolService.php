@@ -538,6 +538,43 @@ class TelegramMtprotoPoolService
         }, mode: self::MODE_INSPECT, forB2c: $forB2c);
     }
 
+    /**
+     * Fetch premium boosts status for a resolved peer/inputPeer.
+     * This wrapper never throws; it returns ok/error payload.
+     *
+     * @param mixed $peer Username or inputPeer structure accepted by MadelineProto.
+     * @param bool $forB2c
+     * @return array{ok: bool, raw?: array, error_code?: string, error?: string}
+     */
+    public function getBoostsStatusByPeer(mixed $peer, bool $forB2c = false): array
+    {
+        if ($peer === null || $peer === '') {
+            return [
+                'ok' => false,
+                'error_code' => 'BOOST_PEER_MISSING',
+                'error' => 'Peer is required for boost status lookup',
+            ];
+        }
+
+        return $this->executeWithPool(function (MtprotoTelegramAccount $account, \danog\MadelineProto\API $madeline) use ($peer) {
+            try {
+                $raw = $madeline->premium->getBoostsStatus(['peer' => $peer]);
+                Log::info('boost', ['peer' => $peer, 'raw' => $raw]);
+            } catch (\Throwable $e) {
+                return [
+                    'ok' => false,
+                    'error_code' => 'BOOST_STATUS_FAILED',
+                    'error' => $e->getMessage(),
+                ];
+            }
+
+            return [
+                'ok' => true,
+                'raw' => is_array($raw) ? $raw : ['value' => $raw],
+            ];
+        }, mode: self::MODE_INSPECT, forB2c: $forB2c);
+    }
+
     /* ============================================================
      * INTERNAL: Pool execution
      * ============================================================ */

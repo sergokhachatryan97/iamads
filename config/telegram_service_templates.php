@@ -14,6 +14,53 @@ return [
     */
 
     // ------------------------------------------------------------
+    // PREMIUM TELEGRAM SERVICE TYPES
+    // ------------------------------------------------------------
+    'premium_daily_subscribe_public_private_group_channel' => [
+        'label' => 'Premium: Daily Public/Private Group/Channel Subscribe',
+        'action' => 'subscribe',
+        'policy_key' => 'default',
+        'allowed_link_kinds' => ['public_username', 'invite'],
+        'allowed_peer_types' => ['channel', 'group'],
+        'requires_duration_days' => true,
+        'requires_start_param' => false,
+        'default_priority' => 60,
+    ],
+
+    'premium_bot_start' => [
+        'label' => 'Premium: Bot Start',
+        'action' => 'bot_start',
+        'policy_key' => 'bot',
+        'allowed_link_kinds' => ['bot_start', 'public_username'],
+        'allowed_peer_types' => ['bot'],
+        'requires_duration_days' => false,
+        'requires_start_param' => false,
+        'default_priority' => 50,
+    ],
+
+    'premium_bot_start_referral' => [
+        'label' => 'Premium: Bot Start With Referral',
+        'action' => 'bot_start',
+        'policy_key' => 'bot',
+        'allowed_link_kinds' => ['bot_start_with_referral', 'bot_start', 'public_username'],
+        'allowed_peer_types' => ['bot'],
+        'requires_duration_days' => false,
+        'requires_start_param' => true,
+        'default_priority' => 50,
+    ],
+
+    'premium_boost' => [
+        'label' => 'Premium: Boost',
+        'action' => 'subscribe',
+        'policy_key' => 'default',
+        'allowed_link_kinds' => ['boost_link', 'public_username'],
+        'allowed_peer_types' => ['channel', 'public_username'],
+        'requires_duration_days' => false,
+        'requires_start_param' => false,
+        'default_priority' => 60,
+    ],
+
+    // ------------------------------------------------------------
     // BOT START
     // ------------------------------------------------------------
     'bot_start' => [
@@ -209,4 +256,16 @@ return [
 //        'requires_start_param' => false,
 //        'default_priority' => 50,
 //    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Premium template registry (meta — not a selectable template_key)
+    |--------------------------------------------------------------------------
+    */
+    'premium_templates' => [
+        'premium_boost',
+        'premium_bot_start_referral',
+        'premium_bot_start',
+        'premium_daily_subscribe_public_private_group_channel',
+    ],
 ];

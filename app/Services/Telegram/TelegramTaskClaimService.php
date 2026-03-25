@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\TelegramAccountLinkState;
 use App\Models\TelegramOrderMembership;
 use App\Models\TelegramTask;
+use App\Support\TelegramPremiumTemplateScope;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -28,6 +29,8 @@ class TelegramTaskClaimService
 
     private const PHONE_ACTIVE_SUBSCRIBED_CAP = 500;
 
+    private const PHONE_ACTIVE_SUBSCRIBED_CAP_PREMIUM = 1000;
+
     public function __construct(
         private TelegramTaskService $taskService
     ) {}
@@ -37,13 +40,13 @@ class TelegramTaskClaimService
      *
      * @return array<int, array{task_id: string, order_id: int, action: string, link: string|null, link_hash: string}>
      */
-    public function claimForPhone(string $phone, int $limit = 1): array
+    public function claimForPhone(string $phone, int $limit = 1, string $scope = TelegramPremiumTemplateScope::SCOPE_DEFAULT): array
     {
         $phone = TelegramAccountLinkState::normalizePhone($phone);
 
         $tasks = [];
         for ($i = 0; $i < $limit; $i++) {
-            $taskDto = $this->claimSingle($phone);
+            $taskDto = $this->claimSingle($phone, $scope);
             if ($taskDto === null) {
                 break;
             }
@@ -56,32 +59,33 @@ class TelegramTaskClaimService
     /**
      * Claim one task for the phone: unsubscribe first, else subscribe.
      */
-    private function claimSingle(string $phone): ?array
+    private function claimSingle(string $phone, string $scope = TelegramPremiumTemplateScope::SCOPE_DEFAULT): ?array
     {
-        $unsubscribe = $this->claimUnsubscribe($phone);
+        $unsubscribe = $this->claimUnsubscribe($phone, $scope);
 
         if ($unsubscribe !== null) {
             return $unsubscribe;
         }
-        return $this->claimSubscribe($phone);
+        return $this->claimSubscribe($phone, $scope);
     }
 
     /**
      * Priority 1: return an unsubscribe task for this phone if order is unsubscribing and membership is subscribed.
      */
-    private function claimUnsubscribe(string $phone): ?array
+    private function claimUnsubscribe(string $phone, string $scope = TelegramPremiumTemplateScope::SCOPE_DEFAULT): ?array
     {
-        return DB::transaction(function () use ($phone): ?array {
+        return DB::transaction(function () use ($phone, $scope): ?array {
             $membership = TelegramOrderMembership::query()
                 ->where('account_phone', $phone)
                 ->where('state', TelegramOrderMembership::STATE_SUBSCRIBED)
                 ->whereNull('unsubscribed_at')
-                ->whereHas('order', function ($q) {
+                ->whereHas('order', function ($q) use ($scope) {
                     $q->where('execution_phase', Order::EXECUTION_PHASE_UNSUBSCRIBING)
-                        ->whereHas('service', function ($q2) {
+                        ->whereHas('service', function ($q2) use ($scope) {
                             $q2->whereHas('category', function ($q3) {
                                 $q3->where('link_driver', 'telegram');
                             });
+                            TelegramPremiumTemplateScope::applyServiceTemplateScope($q2, $scope);
                         });
                 })
                 ->lockForUpdate()
@@ -164,7 +168,7 @@ class TelegramTaskClaimService
     /**
      * Priority 2: return a subscribe task for this phone if an eligible order exists and daily quota allows.
      */
-    private function claimSubscribe(string $phone): ?array
+    private function claimSubscribe(string $phone, string $scope = TelegramPremiumTemplateScope::SCOPE_DEFAULT): ?array
     {
         $now = now();
 
@@ -174,10 +178,11 @@ class TelegramTaskClaimService
                 $q->whereNull('execution_phase')->orWhere('execution_phase', Order::EXECUTION_PHASE_RUNNING);
             })
             ->where('remains', '>', 0)
-            ->whereHas('service', function ($q) {
+            ->whereHas('service', function ($q) use ($scope) {
                 $q->whereHas('category', function ($q2) {
                     $q2->where('link_driver', 'telegram');
                 });
+                TelegramPremiumTemplateScope::applyServiceTemplateScope($q, $scope);
             })
             ->orderBy('id')
             ->limit(200)
@@ -194,8 +199,10 @@ class TelegramTaskClaimService
             });
 
         foreach ($dueOrders as $order) {
-            $result = $this->tryClaimSubscribeForOrder((int)$order->id, $phone);
-            if ($result !== null) return $result;
+            $result = $this->tryClaimSubscribeForOrder((int) $order->id, $phone, $scope);
+            if ($result !== null) {
+                return $result;
+            }
         }
 
         return null;
@@ -205,21 +212,26 @@ class TelegramTaskClaimService
     /**
      * Try to claim one subscribe task for a specific order. Returns null if not eligible or duplicate.
      */
-    private function tryClaimSubscribeForOrder(int $orderId, string $phone): ?array
+    private function tryClaimSubscribeForOrder(int $orderId, string $phone, string $scope = TelegramPremiumTemplateScope::SCOPE_DEFAULT): ?array
     {
-        return DB::transaction(function () use ($orderId, $phone): ?array {
+        return DB::transaction(function () use ($orderId, $phone, $scope): ?array {
             $order = Order::query()
                 ->where('id', $orderId)
                 ->where('remains', '>', 0)
-                ->whereHas('service', function ($q) {
+                ->whereHas('service', function ($q) use ($scope) {
                     $q->whereHas('category', function ($q2) {
                         $q2->where('link_driver', 'telegram');
                     });
+                    TelegramPremiumTemplateScope::applyServiceTemplateScope($q, $scope);
                 })
                 ->lockForUpdate()
                 ->first();
 
             if ($order === null) {
+                return null;
+            }
+
+            if (!TelegramPremiumTemplateScope::orderMatchesScope($order, $scope)) {
                 return null;
             }
 
@@ -319,12 +331,14 @@ class TelegramTaskClaimService
             /**
              * 2) ALL GATES BEFORE ANY DB MUTATION (prevents useless in_progress rows)
              */
+            $activeSubscribedCap = $this->phoneActiveSubscribedCap($scope);
             $activeSubscribed = $this->getPhoneActiveSubscribedCount($phone);
-            if ($activeSubscribed >= self::PHONE_ACTIVE_SUBSCRIBED_CAP) {
+            if ($activeSubscribed >= $activeSubscribedCap) {
                 Log::debug('Claim denied: phone active subscribed cap reached', [
                     'phone' => $phone,
                     'active_subscribed' => $activeSubscribed,
-                    'cap' => self::PHONE_ACTIVE_SUBSCRIBED_CAP,
+                    'cap' => $activeSubscribedCap,
+                    'scope' => $scope,
                 ]);
                 return null;
             }
@@ -628,6 +642,13 @@ LUA;
             ->where('account_phone', $phone)
             ->where('state', TelegramAccountLinkState::STATE_SUBSCRIBED)
             ->count();
+    }
+
+    private function phoneActiveSubscribedCap(string $scope): int
+    {
+        return $scope === TelegramPremiumTemplateScope::SCOPE_PREMIUM
+            ? self::PHONE_ACTIVE_SUBSCRIBED_CAP_PREMIUM
+            : self::PHONE_ACTIVE_SUBSCRIBED_CAP;
     }
 
     private function isDuplicateKeyException(\Throwable $e): bool

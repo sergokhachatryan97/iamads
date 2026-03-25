@@ -80,6 +80,15 @@ Route::middleware(['auth.provider'])->prefix('provider/telegram')->group(functio
     Route::get('/ignore', [TelegramTaskReportController::class, 'ignore'])
         ->name('provider.telegram.tasks.ignore');
 
+    Route::get('/premium/getOrder', [TelegramTaskClaimController::class, 'claimPremium'])
+        ->name('provider.telegram.premium.tasks.getOrder');
+
+    Route::get('/premium/check', [TelegramTaskReportController::class, 'checkPremium'])
+        ->name('provider.telegram.premium.tasks.check');
+
+    Route::get('/premium/ignore', [TelegramTaskReportController::class, 'ignorePremium'])
+        ->name('provider.telegram.premium.tasks.ignore');
+
     Route::post('/tasks/report', [TelegramTaskReportController::class, 'report'])
         ->name('provider.telegram.tasks.report');
 });

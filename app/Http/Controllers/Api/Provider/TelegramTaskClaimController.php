@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Provider;
 
 use App\Http\Controllers\Controller;
 use App\Services\Telegram\TelegramTaskClaimService;
+use App\Support\TelegramPremiumTemplateScope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -18,21 +19,30 @@ class TelegramTaskClaimController extends Controller
     ) {}
 
     /**
-     * Claim tasks for the given performer phone.
-     *
-     * @param Request $request
-     * @return JsonResponse
+     * Claim tasks for the given performer phone (non-premium Telegram templates only).
      */
     public function claim(Request $request): JsonResponse
     {
+        return $this->claimByScope($request, TelegramPremiumTemplateScope::SCOPE_DEFAULT);
+    }
 
+    /**
+     * Claim tasks for the given performer phone (premium Telegram templates only).
+     */
+    public function claimPremium(Request $request): JsonResponse
+    {
+        return $this->claimByScope($request, TelegramPremiumTemplateScope::SCOPE_PREMIUM);
+    }
+
+    private function claimByScope(Request $request, string $scope): JsonResponse
+    {
         $validated = $request->validate([
             'account_identity' => ['required', 'string'],
         ]);
 
         $phone = $validated['account_identity'];
 
-        $tasks = $this->claimService->claimForPhone($phone, 1);
+        $tasks = $this->claimService->claimForPhone($phone, 1, $scope);
 
         if (empty($tasks)) {
             return response()->json(['ok' => true, 'count' => 0, 'tasks' => []]);

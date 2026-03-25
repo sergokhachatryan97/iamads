@@ -291,7 +291,10 @@ class ServiceController extends Controller
     private function getServiceFormData(?Service $service = null): array
     {
         $categories = $this->categoryService->getAllCategories();
-        $telegramTemplates = config('telegram_service_templates', []);
+        $telegramTemplates = array_diff_key(
+            config('telegram_service_templates', []),
+            ['premium_templates' => true]
+        );
         $youtubeTemplates = config('youtube_service_templates', []);
         $appTemplates = config('app_service_templates', []);
         $serviceTemplates = array_merge($telegramTemplates, $youtubeTemplates, $appTemplates);

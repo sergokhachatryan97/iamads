@@ -5,6 +5,7 @@ namespace App\Services\Execution\Engines;
 use App\Services\Execution\Contracts\PerformerEngineInterface;
 use App\Services\Telegram\TelegramTaskClaimService;
 use App\Services\Telegram\TelegramTaskService;
+use App\Support\TelegramPremiumTemplateScope;
 
 /**
  * Performer engine for Telegram. Wraps existing Telegram claim/report/check/ignore flow.
@@ -27,7 +28,8 @@ class TelegramPerformerEngine implements PerformerEngineInterface
             return null;
         }
         $limit = (int) ($context['limit'] ?? 1);
-        $tasks = $this->claimService->claimForPhone($phone, $limit);
+        $scope = (string) ($context['scope'] ?? TelegramPremiumTemplateScope::SCOPE_DEFAULT);
+        $tasks = $this->claimService->claimForPhone($phone, $limit, $scope);
         if (empty($tasks)) {
             return null;
         }

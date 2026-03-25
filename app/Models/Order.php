@@ -254,6 +254,14 @@ class Order extends Model
     }
 
     /**
+     * Telegram account-driven memberships (phone + link state per order).
+     */
+    public function telegramOrderMemberships(): HasMany
+    {
+        return $this->hasMany(TelegramOrderMembership::class, 'order_id');
+    }
+
+    /**
      * Check if dependency is satisfied.
      *
      * @return bool

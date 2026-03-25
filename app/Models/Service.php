@@ -141,6 +141,10 @@ class Service extends Model
             return null;
         }
 
+        if ($this->template_key === 'premium_templates') {
+            return null;
+        }
+
         // YouTube template keys always start with yt_ – resolve without loading category
         if (str_starts_with($this->template_key, 'yt_')) {
             return config("youtube_service_templates.{$this->template_key}");

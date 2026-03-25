@@ -32,6 +32,12 @@ return Application::configure(basePath: dirname(__DIR__))
             ->withoutOverlapping()
             ->runInBackground();
 
+        // Telegram phone-claim: move completed/canceled orders to unsubscribing after duration_days
+        $schedule->command('telegram:activate-unsubscribing-phase')
+            ->everyFiveMinutes()
+            ->withoutOverlapping()
+            ->runInBackground();
+
         // Process due unsubscribe tasks every minute
 //        $schedule->job(new \App\Jobs\ProcessTelegramUnsubscribeTasksJob())
 //            ->everyMinute()

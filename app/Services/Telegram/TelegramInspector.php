@@ -36,6 +36,7 @@ class TelegramInspector
             'audience_type' => null, // subscribers | members
             'is_channel'    => false,
             'is_group'      => false,
+            'is_boost' => false,
         ];
 
         if (count($templateKey) > 0 && !in_array($parsed['kind'], $templateKey, true)) {
@@ -61,7 +62,7 @@ class TelegramInspector
             }
 
             $telegramLinkInspector = $this->telegramLinkInspector->inspect($link);
-            if ($telegramLinkInspector['status'] == 'ambiguous'){
+            if (isset($telegramLinkInspector['status']) && $telegramLinkInspector['status'] == 'ambiguous'){
                 return $this->fail(
                     $result,
                     'RESOLVE_FAILED',
@@ -69,7 +70,7 @@ class TelegramInspector
                 );
             }
 
-            if ($telegramLinkInspector['status'] == 'ok'){
+            if (isset($telegramLinkInspector['status']) && $telegramLinkInspector['status'] == 'ok'){
                 $result['ok'] = true;
                 $result['chat_type'] = in_array($telegramLinkInspector['entity_kind'], ['bot_start', 'bot_start_with_referral'], true) ?'bot' : $telegramLinkInspector['entity_kind'];
                 $result['is_channel'] = $telegramLinkInspector['entity_kind'] === 'channel' ?? false;
@@ -146,7 +147,7 @@ class TelegramInspector
         /* ===============================
          * PUBLIC USERNAME / PUBLIC POST
          * =============================*/
-        if (in_array($parsed['kind'], ['public_username', 'public_post'], true)) {
+        if (in_array($parsed['kind'], ['public_username', 'public_post', 'boost_link'], true)) {
 
             $username = $parsed['username'] ?? null;
             if (!$username) {
@@ -181,7 +182,7 @@ class TelegramInspector
 //                    );
 //                }
 
-                if ($telegramLinkInspector['status'] == 'ok'  && in_array($telegramLinkInspector['entity_kind'], ['bot_start', 'bot_start_with_referral'], true)){
+                if (isset($telegramLinkInspector['status']) && $telegramLinkInspector['status'] == 'ok'  && in_array($telegramLinkInspector['entity_kind'], ['bot_start', 'bot_start_with_referral'], true)){
                     $result['ok'] = true;
                     $result['chat_type'] = 'bot';
                     $result['parsed']['kind'] = $telegramLinkInspector['entity_kind'];
@@ -222,6 +223,10 @@ class TelegramInspector
                         'source' => 'mtproto_getinfo',
                         'raw' => $info,
                     ];
+
+                    if (count($templateKey) > 0 && in_array($parsed['kind'], $templateKey, true)){
+                        return $this->appendBoostStatusIfSupported($result, $username, $result['chat_type'], $forB2c);
+                    }
 
                     return $result;
                 }
@@ -303,6 +308,7 @@ class TelegramInspector
                 'IPC_UNAVAILABLE',
                 'FLOOD_WAIT',
                 'MT_CALL_FAILED',
+                'BOOST_STATUS_FAILED'
             ];
 
             if (in_array($mtCode, $mtTemporary, true)) {
@@ -628,6 +634,61 @@ class TelegramInspector
 
         return $result;
     }
+
+    /**
+     * Attach boost info when peer type supports boosts (channel/supergroup).
+     * Skips MTProto call for unsupported types to minimize overhead.
+     */
+    private function appendBoostStatusIfSupported(array $result, mixed $peer, ?string $chatType = null, bool $forB2c = false): array
+    {
+        // Boosts are not supported for bots/users/basic groups/unknown.
+        if (!in_array((string) $chatType, ['channel', 'supergroup'], true)) {
+            return $result;
+        }
+
+
+        if ($peer === null || $peer === '') {
+            $result['boosts_status'] = [
+                'ok' => false,
+                'error_code' => 'BOOST_PEER_MISSING',
+                'error' => 'Peer is missing for boost status lookup',
+            ];
+            return $result;
+        }
+
+        try {
+            $boost = $this->mtprotoPool->getBoostsStatusByPeer($peer, $forB2c);
+        } catch (\Throwable $e) {
+            $result['boosts_status'] = [
+                'ok' => false,
+                'error_code' => 'BOOST_STATUS_FAILED',
+                'error' => $e->getMessage(),
+            ];
+            return $result;
+        }
+
+        if (($boost['ok'] ?? false) !== true) {
+            $result['boosts_status'] = [
+                'ok' => false,
+                'error_code' => $boost['error_code'] ?? 'BOOST_STATUS_FAILED',
+                'error' => $boost['error'] ?? 'Unable to fetch boost status',
+            ];
+            return $result;
+        }
+
+        $raw = is_array($boost['raw'] ?? null) ? $boost['raw'] : [];
+
+        if (isset($raw['boosts']) && is_numeric($raw['boosts'])){
+            if ($raw['boosts'] > 0) {
+                $result['is_boost'] = true;
+            }else{
+                return $this->fail($result, 'INVALID_FORMAT', 'Is not a boost');
+            }
+        }
+
+        return $result;
+    }
+
 
     private function inferInvitePeer(array $invite): array
     {

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Staff;
 
+use App\Support\TelegramPremiumTemplateScope;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -32,7 +33,7 @@ class StoreServiceRequest extends FormRequest
             'service_type' => ['nullable', 'string'],
             'target_type' => ['nullable', 'string', Rule::in(['bot', 'channel', 'group', 'youtube', 'app'])],
             'template_key' => ['nullable', 'string', Rule::in(array_merge(
-                array_keys(config('telegram_service_templates', [])),
+                TelegramPremiumTemplateScope::selectableTelegramTemplateKeys(),
                 array_keys(config('youtube_service_templates', [])),
                 array_keys(config('app_service_templates', []))
             ))],
@@ -46,7 +47,7 @@ class StoreServiceRequest extends FormRequest
             'rate_multiplier_fast' => ['nullable', 'numeric', 'min:1', 'max:10'],
             'rate_multiplier_super_fast' => ['nullable', 'numeric', 'min:1', 'max:10'],
             'requires_subscription' => ['nullable', 'boolean'],
-            'required_subscription_template_key' => ['nullable', 'string', Rule::in(array_keys(config('telegram_service_templates', [])))],
+            'required_subscription_template_key' => ['nullable', 'string', Rule::in(TelegramPremiumTemplateScope::selectableTelegramTemplateKeys())],
             'user_can_cancel' => ['nullable', 'boolean'],
             'rate_per_1000' => ['required', 'numeric', 'min:0'],
             'service_cost_per_1000' => ['nullable', 'numeric', 'min:0'],
@@ -103,7 +104,7 @@ class StoreServiceRequest extends FormRequest
 
         // Validate required_subscription_template_key if requires_subscription is enabled
         if ($this->boolean('requires_subscription')) {
-            $rules['required_subscription_template_key'] = ['required', 'string', Rule::in(array_keys(config('telegram_service_templates', [])))];
+            $rules['required_subscription_template_key'] = ['required', 'string', Rule::in(TelegramPremiumTemplateScope::selectableTelegramTemplateKeys())];
         }
 
         return $rules;

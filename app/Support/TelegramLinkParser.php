@@ -14,12 +14,16 @@ final class TelegramLinkParser
             return ['kind' => 'unknown', 'raw' => $originalRaw];
         }
 
+        // Normalize malformed but recoverable inputs first.
+        $raw = self::normalizeInput($raw);
+
+
         // Raw only numbers (e.g. 2200701710488708) is not a valid Telegram link
         if (ctype_digit($raw)) {
             return ['kind' => 'unknown', 'raw' => $originalRaw];
         }
 
-        // Accept "t.me/..." without schema
+        // Accept "t.me/..." or "telegram.me/..." without schema
         if (preg_match('#^(t\.me/|telegram\.me/)(.+)$#i', $raw, $m)) {
             $raw = 'https://t.me/' . ltrim($m[2], '/');
         }
@@ -40,6 +44,7 @@ final class TelegramLinkParser
             return self::parseTMePath($path, $q, $originalRaw);
         }
 
+        // Raw username: @username or username
         if (preg_match('#^@?([a-zA-Z0-9_]{3,32})$#', $raw, $m)) {
             $username = strtolower($m[1]);
 
@@ -62,6 +67,56 @@ final class TelegramLinkParser
         }
 
         return ['kind' => 'unknown', 'raw' => $originalRaw];
+    }
+
+    private static function normalizeInput(string $raw): string
+    {
+        $raw = trim($raw);
+
+        if ($raw === '') {
+            return $raw;
+        }
+
+        // Remove zero-width chars and normalize whitespace
+        $raw = preg_replace('/[\x{200B}-\x{200D}\x{FEFF}]/u', '', $raw) ?? $raw;
+        $raw = trim($raw);
+
+        // Decode HTML entity variant: https://&#64;username
+        $raw = str_replace('&#64;', '@', $raw);
+
+        // Malformed: https://@username or http://@username
+        if (preg_match('#^https?://@([a-zA-Z0-9_]{3,32})/?$#i', $raw, $m)) {
+            return '@' . strtolower($m[1]);
+        }
+
+        // Malformed: www.t.me/username
+        if (preg_match('#^www\.(t\.me|telegram\.me)/(.+)$#i', $raw, $m)) {
+            return 'https://' . strtolower($m[1]) . '/' . ltrim($m[2], '/');
+        }
+
+        // Malformed: telegram.meusername / t.meusername -> leave untouched, too ambiguous
+
+        // Accept /@username
+        if (preg_match('#^/@([a-zA-Z0-9_]{3,32})$#', $raw, $m)) {
+            return '@' . strtolower($m[1]);
+        }
+
+        // Accept @username/
+        if (preg_match('#^@([a-zA-Z0-9_]{3,32})/$#', $raw, $m)) {
+            return '@' . strtolower($m[1]);
+        }
+
+        // Accept username/
+        if (preg_match('#^([a-zA-Z0-9_]{3,32})/$#', $raw, $m)) {
+            return strtolower($m[1]);
+        }
+
+        // Accept accidental leading scheme-less //
+        if (preg_match('#^//(t\.me|telegram\.me)/(.+)$#i', $raw, $m)) {
+            return 'https://' . strtolower($m[1]) . '/' . ltrim($m[2], '/');
+        }
+
+        return $raw;
     }
 
     private static function parseTgProtocol(string $raw, string $originalRaw): array
@@ -127,6 +182,15 @@ final class TelegramLinkParser
     private static function parseTMePath(string $path, array $q, string $raw): array
     {
         $path = trim($path, '/');
+
+        // Telegram boost link: https://t.me/boost/<username>
+        if (preg_match('#^boost/([a-zA-Z0-9_]{3,32})$#', $path, $m)) {
+            return [
+                'kind' => 'boost_link',
+                'raw' => $raw,
+                'username' => strtolower($m[1]),
+            ];
+        }
 
         // private posts
         if (preg_match('#^c/(\d+)/(\d+)$#', $path, $m)) {

@@ -9,6 +9,7 @@ use App\Models\TelegramAccountLinkState;
 use App\Models\TelegramOrderMembership;
 use App\Models\TelegramTask;
 use App\Models\TelegramUnsubscribeTask;
+use App\Support\TelegramPremiumTemplateScope;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redis;
@@ -636,14 +637,20 @@ class TelegramTaskService
      *
      * @param string $taskId
      * @param array $result {state, ok, error, retry_after, provider_task_id, data}
+     * @param string $scope TelegramPremiumTemplateScope::SCOPE_DEFAULT or SCOPE_PREMIUM for provider check/ignore routing
      * @return array{ok: bool, error?: string}
      */
-    public function reportTaskResult(string $taskId, array $result): array
+    public function reportTaskResult(string $taskId, array $result, string $scope = TelegramPremiumTemplateScope::SCOPE_DEFAULT): array
     {
         $task = TelegramTask::query()->find($taskId);
 
         if (!$task) {
             return ['ok' => false, 'error' => 'Task not found'];
+        }
+
+        $scopeErr = $this->assertReportTaskScope($task, $scope);
+        if ($scopeErr !== null) {
+            return $scopeErr;
         }
 
         // Idempotency check: if already finalized, return ok without double-applying
@@ -1777,6 +1784,54 @@ class TelegramTaskService
         }
 
         return ['ok' => true];
+    }
+
+    private function resolveOrderForTelegramReportScope(TelegramTask $task): ?Order
+    {
+        $task->loadMissing('subject');
+        $subject = $task->subject;
+        if ($subject instanceof Order) {
+            return $subject;
+        }
+        if ($task->order_id) {
+            return Order::query()->find($task->order_id);
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{ok: false, error: string}|null
+     */
+    private function assertReportTaskScope(TelegramTask $task, string $scope): ?array
+    {
+        if ($scope === TelegramPremiumTemplateScope::SCOPE_DEFAULT) {
+            $order = $this->resolveOrderForTelegramReportScope($task);
+            if ($order === null) {
+                return null;
+            }
+            $order->loadMissing('service');
+            if (TelegramPremiumTemplateScope::isPremiumTemplateKey($order->service?->template_key)) {
+                return ['ok' => false, 'error' => 'Scope mismatch'];
+            }
+
+            return null;
+        }
+
+        if ($scope === TelegramPremiumTemplateScope::SCOPE_PREMIUM) {
+            $order = $this->resolveOrderForTelegramReportScope($task);
+            if ($order === null) {
+                return ['ok' => false, 'error' => 'Scope mismatch'];
+            }
+            $order->loadMissing('service');
+            if (!TelegramPremiumTemplateScope::isPremiumTemplateKey($order->service?->template_key)) {
+                return ['ok' => false, 'error' => 'Scope mismatch'];
+            }
+
+            return null;
+        }
+
+        return null;
     }
 }
 

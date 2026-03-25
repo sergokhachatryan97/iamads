@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Provider;
 
 use App\Http\Controllers\Controller;
 use App\Services\Telegram\TelegramTaskService;
+use App\Support\TelegramPremiumTemplateScope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -64,9 +65,29 @@ class TelegramTaskReportController extends Controller
 
     public function check(Request $request): JsonResponse
     {
+        return $this->checkByScope($request, TelegramPremiumTemplateScope::SCOPE_DEFAULT);
+    }
+
+    public function checkPremium(Request $request): JsonResponse
+    {
+        return $this->checkByScope($request, TelegramPremiumTemplateScope::SCOPE_PREMIUM);
+    }
+
+    public function ignore(Request $request): JsonResponse
+    {
+        return $this->ignoreByScope($request, TelegramPremiumTemplateScope::SCOPE_DEFAULT);
+    }
+
+    public function ignorePremium(Request $request): JsonResponse
+    {
+        return $this->ignoreByScope($request, TelegramPremiumTemplateScope::SCOPE_PREMIUM);
+    }
+
+    private function checkByScope(Request $request, string $scope): JsonResponse
+    {
         $validated = $request->validate([
             'order_id' => 'required|string',
-            'account_identity' => 'required|string'
+            'account_identity' => 'required|string',
         ]);
 
         $result = $this->taskService->reportTaskResult(
@@ -74,11 +95,12 @@ class TelegramTaskReportController extends Controller
             [
                 'state' => 'done',
                 'ok' => true,
-                'error' =>  null,
-                'retry_after' =>   null,
+                'error' => null,
+                'retry_after' => null,
                 'provider_task_id' => null,
-                'data' =>  null,
-            ]
+                'data' => null,
+            ],
+            $scope
         );
 
         if (!($result['ok'] ?? false)) {
@@ -93,11 +115,11 @@ class TelegramTaskReportController extends Controller
         ]);
     }
 
-    public function ignore(Request $request): JsonResponse
+    private function ignoreByScope(Request $request, string $scope): JsonResponse
     {
         $validated = $request->validate([
             'order_id' => 'required|string',
-            'account_identity' => 'required|string'
+            'account_identity' => 'required|string',
         ]);
 
         $result = $this->taskService->reportTaskResult(
@@ -105,11 +127,12 @@ class TelegramTaskReportController extends Controller
             [
                 'state' => 'failed',
                 'ok' => false,
-                'error' =>  null,
-                'retry_after' =>   null,
+                'error' => null,
+                'retry_after' => null,
                 'provider_task_id' => null,
-                'data' =>  null,
-            ]
+                'data' => null,
+            ],
+            $scope
         );
 
         if (!($result['ok'] ?? false)) {
