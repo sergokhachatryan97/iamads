@@ -9,8 +9,12 @@
  * @param {string} sortDir - The sort direction ('asc' or 'desc')
  */
 window.updateSortIcons = function(tableId, sortBy, sortDir) {
+    if (!tableId) return;
+    const tableRoot = document.getElementById(tableId);
+    if (!tableRoot) return;
+
     // Remove active classes from all sort icons and reset to neutral
-    document.querySelectorAll(`#${tableId} th button[data-column]`).forEach(button => {
+    tableRoot.querySelectorAll('th button[data-column]').forEach(button => {
         const svg = button.querySelector('svg');
         if (svg) {
             svg.classList.remove('text-indigo-600');
@@ -26,7 +30,7 @@ window.updateSortIcons = function(tableId, sortBy, sortDir) {
 
     // Update icon for the active sort column
     if (sortBy && sortDir) {
-        const activeHeader = document.querySelector(`#${tableId} th button[data-column="${sortBy}"]`);
+        const activeHeader = tableRoot.querySelector(`th button[data-column="${sortBy}"]`);
         if (activeHeader) {
             const svg = activeHeader.querySelector('svg');
             if (svg) {

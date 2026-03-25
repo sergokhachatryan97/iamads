@@ -1213,7 +1213,11 @@
 
                     // update sort icons if you have it
                     if (window.updateSortIcons) {
-                        window.updateSortIcons('orders-table', url.searchParams.get('sort_by'), url.searchParams.get('sort_dir'));
+                        try {
+                            window.updateSortIcons('orders-table', url.searchParams.get('sort_by'), url.searchParams.get('sort_dir'));
+                        } catch (e) {
+                            console.warn('updateSortIcons skipped:', e);
+                        }
                     }
                 })
                 .catch(err => {
