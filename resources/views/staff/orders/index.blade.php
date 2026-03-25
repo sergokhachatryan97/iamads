@@ -426,7 +426,7 @@
                                             </a>
                                         </td>
                                         <td class="px-6 py-4">
-                                            <div class="flex items-center gap-3 min-w-[240px] max-w-[270px]">
+                                            <div class="flex items-center gap-3 min-w-[240px]" style="max-width: 300px">
                                                 @php
                                                     $delivered = (int) ($order->delivered ?? 0);
                                                     $quantity = (int) ($order->quantity ?? 0);
