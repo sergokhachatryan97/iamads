@@ -35,7 +35,7 @@ class ProviderOrderStatsController extends Controller
                 ->all();
         });
 
-        $distinctServiceIds = Cache::remember('provider_order_distinct_service_ids:v1', 300, function () {
+        $distinctServiceIds = Cache::remember('provider_order_distinct_service_ids:v1', 600, function () {
             return ProviderOrder::query()
                 ->whereNotNull('remote_service_id')
                 ->where('remote_service_id', '!=', '')
@@ -45,7 +45,7 @@ class ProviderOrderStatsController extends Controller
                 ->all();
         });
 
-        $distinctProviderCodes = Cache::remember('provider_order_distinct_provider_codes:v1', 300, function () {
+        $distinctProviderCodes = Cache::remember('provider_order_distinct_provider_codes:v1', 600, function () {
             return ProviderOrder::query()
                 ->orderBy('provider_code')
                 ->distinct()
@@ -89,8 +89,8 @@ class ProviderOrderStatsController extends Controller
 
         $filters = $this->filtersFromArray($validated);
         $tab = $this->resolveTab($validated['tab'] ?? null);
-        $baseQuery = $this->buildTabQuery($filters, $tab);
 
+        $baseQuery = $this->buildTabQuery($filters, $tab);
         $totals = $this->getTotals($baseQuery);
 
         return response()->streamDownload(function () use ($baseQuery, $totals) {
