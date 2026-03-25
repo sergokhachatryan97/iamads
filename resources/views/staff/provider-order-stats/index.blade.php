@@ -7,7 +7,7 @@
     </x-slot>
 
     <div class="py-12">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+        <div class="max-w-8xl mx-auto sm:px-6 lg:px-8">
             <p class="mb-4 text-sm text-gray-600">
                 {{ __('Default date range: current day. Use tabs to switch between completed, all-without-failed, and partial.') }}
             </p>

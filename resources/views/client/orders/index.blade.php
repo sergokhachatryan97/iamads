@@ -395,20 +395,32 @@
                                                 $delivered = $order->delivered ?? 0;
                                                 $quantity = $order->quantity ?? 1;
                                                 $progress = $quantity > 0 ? round(($delivered / $quantity) * 100, 1) : 0;
+                                                $p = min(100, max(0, $progress));
+                                                $r = 14;
+                                                $circ = 2 * pi() * $r;
+                                                $dashOffset = $circ * (1 - ($p / 100));
                                             @endphp
-                                            <div class="flex items-center">
-                                                <div class="w-24 bg-gray-200 rounded-full h-2 mr-2">
-                                                    <div
-                                                        class="bg-indigo-600 h-2 rounded-full transition-all duration-300"
-                                                        style="width: {{ min(100, max(0, $progress)) }}%"
-                                                    ></div>
+                                            <div class="flex flex-col items-center">
+                                                <div class="relative h-11 w-11 shrink-0">
+                                                    <svg class="h-10 w-10 -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
+                                                        <circle cx="18" cy="18" r="{{ $r }}" fill="none" stroke="#e5e7eb" stroke-width="4"></circle>
+                                                        <circle
+                                                            cx="18" cy="18" r="{{ $r }}"
+                                                            fill="none"
+                                                            stroke="#4f46e5"
+                                                            stroke-width="4"
+                                                            stroke-linecap="round"
+                                                            stroke-dasharray="{{ number_format($circ, 3, '.', '') }}"
+                                                            stroke-dashoffset="{{ number_format($dashOffset, 3, '.', '') }}"
+                                                        ></circle>
+                                                    </svg>
+                                                    <div class="absolute inset-0 grid place-items-center">
+                                                        <span class="text-[11px] font-semibold text-gray-900">{{ number_format($progress, 0) }}%</span>
+                                                    </div>
                                                 </div>
-                                                <span class="text-sm font-medium text-gray-900">
-                                                    {{ number_format($progress, 1) }}%
-                                                </span>
-                                            </div>
-                                            <div class="text-xs text-gray-500 mt-1">
-                                                {{ number_format($delivered) }} / {{ number_format($quantity) }}
+                                                <div class="mt-1 text-xs text-gray-500 whitespace-nowrap">
+                                                    {{ number_format($order->remains) }} / {{ number_format($quantity) }}
+                                                </div>
                                             </div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -630,14 +642,33 @@
                                         $dDelivered = $order->delivered ?? 0;
                                         $dQuantity = $order->quantity ?? 1;
                                         $dProgress = $dQuantity > 0 ? round(($dDelivered / $dQuantity) * 100, 1) : 0;
+                                        $dp = min(100, max(0, $dProgress));
+                                        $dr = 14;
+                                        $dcirc = 2 * pi() * $dr;
+                                        $ddashOffset = $dcirc * (1 - ($dp / 100));
                                     @endphp
-                                    <div class="flex items-center mb-2">
-                                        <div class="w-full bg-gray-200 rounded-full h-3 mr-2">
-                                            <div class="bg-indigo-600 h-3 rounded-full" style="width: {{ min(100, max(0, $dProgress)) }}%"></div>
+                                    <div class="flex flex-col items-center">
+                                        <div class="relative h-11 w-11 shrink-0">
+                                            <svg class="h-10 w-10 -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
+                                                <circle cx="18" cy="18" r="{{ $dr }}" fill="none" stroke="#e5e7eb" stroke-width="4"></circle>
+                                                <circle
+                                                    cx="18" cy="18" r="{{ $dr }}"
+                                                    fill="none"
+                                                    stroke="#4f46e5"
+                                                    stroke-width="4"
+                                                    stroke-linecap="round"
+                                                    stroke-dasharray="{{ number_format($dcirc, 3, '.', '') }}"
+                                                    stroke-dashoffset="{{ number_format($ddashOffset, 3, '.', '') }}"
+                                                ></circle>
+                                            </svg>
+                                            <div class="absolute inset-0 grid place-items-center">
+                                                <span class="text-[11px] font-semibold text-gray-900">{{ number_format($dProgress, 0) }}%</span>
+                                            </div>
                                         </div>
-                                        <span class="text-sm font-semibold text-gray-900 whitespace-nowrap">{{ number_format($dProgress, 1) }}%</span>
+                                        <div class="mt-1 text-xs text-gray-600 whitespace-nowrap">
+                                            {{ number_format($order->remains) }} / {{ number_format($dQuantity) }}
+                                        </div>
                                     </div>
-                                    <div class="text-xs text-gray-600">{{ number_format($dDelivered) }} / {{ number_format($dQuantity) }}</div>
                                 </div>
                             </div>
 

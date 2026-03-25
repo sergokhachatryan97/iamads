@@ -6,7 +6,7 @@
     </x-slot>
 
     <div class="py-12">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+        <div class="max-w-8xl mx-auto sm:px-6 lg:px-8">
             <p class="mb-4 text-sm text-gray-600">
                 {{ __('Provider orders ingested from Socpanel. Super admin only.') }}
                 @if(!$orders->isEmpty())

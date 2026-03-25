@@ -129,7 +129,7 @@
                      if (typeof this.initScrollSync === 'function') this.initScrollSync();
                  });
              ">
-            <div class="max-w-[95%] mx-auto sm:px-6 lg:px-8">
+            <div class="max-w-[95%] mx-auto">
             <!-- Status Messages -->
             @php
                 $statusMessages = [

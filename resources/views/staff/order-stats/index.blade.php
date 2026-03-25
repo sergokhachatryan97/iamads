@@ -7,7 +7,7 @@
     </x-slot>
 
     <div class="py-6 bg-white min-h-[calc(100vh-4rem)]">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+        <div class="max-w-8xl mx-auto sm:px-6 lg:px-8">
             {{-- Time range + filters bar --}}
             <div class="bg-gray-50 rounded-lg border border-gray-200 p-4 mb-6 flex flex-wrap items-end gap-4">
                 <form method="get" action="{{ route('staff.order-stats.index') }}" class="flex flex-wrap items-end gap-4">

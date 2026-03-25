@@ -7,7 +7,7 @@
     </x-slot>
 
     <div class="py-12">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+        <div class="m-auto" style="width: 95%">
             @if(session('success'))
                 <div
                     x-data="{ show: true }"
@@ -329,6 +329,7 @@
                         </button>
                     </div>
 
+                <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
                 <x-table id="orders-table">
                     <x-slot name="header">
                         <tr>
@@ -340,82 +341,26 @@
                                 class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                             />
                         </th>
-                        <x-table-sortable-header
-                            column="id"
-                            :label="__('ID')"
-                            :currentSortBy="$sortBy"
-                            :currentSortDir="$sortDir"
-                            route="staff.orders.index"
-                            :params="['status' => $currentStatus !== 'all' ? $currentStatus : null]"
-                            :ajax="true"
-                            sort-event="orders-table-sort"
-                        />
-                        <x-table-sortable-header
-                            column="created_at"
-                            :label="__('Date')"
-                            :currentSortBy="$sortBy"
-                            :currentSortDir="$sortDir"
-                            route="staff.orders.index"
-                            :params="['status' => $currentStatus !== 'all' ? $currentStatus : null]"
-                            :ajax="true"
-                            sort-event="orders-table-sort"
-                        />
-                        @if($isSuperAdmin)
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            {{ __('Client') }}
+                            {{ __('Order') }}
                         </th>
-                        @endif
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            {{ __('Link') }}
+                            {{ __('User') }}
                         </th>
-                        <x-table-sortable-header
-                            column="charge"
-                            :label="__('Charge')"
-                            :currentSortBy="$sortBy"
-                            :currentSortDir="$sortDir"
-                            route="staff.orders.index"
-                            :params="['status' => $currentStatus !== 'all' ? $currentStatus : null]"
-                            :ajax="true"
-                            sort-event="orders-table-sort"
-                        />
-                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            {{ __('Start count') }}
-                        </th>
-                        <x-table-sortable-header
-                            column="quantity"
-                            :label="__('Quantity')"
-                            :currentSortBy="$sortBy"
-                            :currentSortDir="$sortDir"
-                            route="staff.orders.index"
-                            :params="['status' => $currentStatus !== 'all' ? $currentStatus : null]"
-                            :ajax="true"
-                            sort-event="orders-table-sort"
-                        />
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             {{ __('Service') }}
                         </th>
-                        <x-table-sortable-header
-                            column="status"
-                            :label="__('Status')"
-                            :currentSortBy="$sortBy"
-                            :currentSortDir="$sortDir"
-                            route="staff.orders.index"
-                            :params="['status' => $currentStatus !== 'all' ? $currentStatus : null]"
-                            :ajax="true"
-                            sort-event="orders-table-sort"
-                        />
-                        <x-table-sortable-header
-                            column="remains"
-                            :label="__('Remains')"
-                            :currentSortBy="$sortBy"
-                            :currentSortDir="$sortDir"
-                            route="staff.orders.index"
-                            :params="['status' => $currentStatus !== 'all' ? $currentStatus : null]"
-                            :ajax="true"
-                            sort-event="orders-table-sort"
-                        />
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            {{ __('Start') }}
+                        </th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             {{ __('Progress') }}
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            {{ __('Price') }}
+                        </th>
+                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            {{ __('Date') }}
                         </th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             {{ __('Actions') }}
@@ -449,132 +394,138 @@
                                                 <span class="text-gray-400">—</span>
                                             @endif
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {{ $order->id }}
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            @php
+                                                $sourceLabel = $order->source === \App\Models\Order::SOURCE_API ? 'API' : 'WEB';
+                                                $sourceClasses = $order->source === \App\Models\Order::SOURCE_API
+                                                    ? 'bg-gray-100 text-gray-700'
+                                                    : 'bg-indigo-50 text-indigo-700';
+                                            @endphp
+                                            <div class="flex flex-col gap-1">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="text-sm font-semibold text-gray-900">#{{ $order->id }}</span>
+                                                    <button
+                                                        type="button"
+                                                        class="text-gray-400 hover:text-gray-700"
+                                                        title="{{ __('Copy') }}"
+                                                        onclick="navigator.clipboard?.writeText('{{ $order->id }}')"
+                                                    >
+                                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m-3 4H10m0 0l-2-2m2 2l2-2" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                                <span class="inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $sourceClasses }}">
+                                                    {{ $sourceLabel }}
+                                                </span>
+                                            </div>
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {{ $order->created_at->format('Y-m-d H:i:s') }}
-                                        </td>
-                                        @if($isSuperAdmin)
-                                        <td class="px-6 py-4 text-sm text-gray-900">
-                                            <a href="{{ route('staff.clients.edit', $order->client_id) }}" class="text-indigo-600 hover:text-indigo-900">
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <a href="{{ route('staff.clients.edit', $order->client_id) }}" class="text-sm font-semibold text-indigo-600 hover:text-indigo-900">
                                                 {{ $order->client->name ?? "Client #{$order->client_id}" }}
                                             </a>
                                         </td>
-                                        @endif
-                                        <td class="px-6 py-4 text-sm text-gray-900">
-                                            @if($order->link || $order->link_2)
-                                                <div class="space-y-1 max-w-xs">
+                                        <td class="px-6 py-4">
+                                            <div class="flex items-center gap-3 min-w-[240px]">
+                                                @php
+                                                    $delivered = (int) ($order->delivered ?? 0);
+                                                    $quantity = (int) ($order->quantity ?? 0);
+                                                    $progress = $quantity > 0 ? round(($delivered / $quantity) * 100, 1) : 0;
+                                                @endphp
+                                                @php
+                                                    $categoryIcon = $order->service->icon
+                                                        ?: ($order->category->icon ?? null)
+                                                        ?: ($order->service->category->icon ?? null);
+                                                @endphp
+                                                <div
+                                                    class="order-service-ring relative h-12 w-12 rounded-full shrink-0"
+                                                    data-order-id="{{ $order->id }}"
+                                                    data-progress="{{ number_format(min(100, max(0, $progress)), 1, '.', '') }}"
+                                                    style="background: conic-gradient(#0ea5f5 calc({{ number_format(min(100, max(0, $progress)), 1, '.', '') }} * 1%), rgba(255,255,255,.25) 0);"
+                                                >
+                                                    <div class="absolute inset-[3px] rounded-full bg-[#fff] flex items-center justify-center">
+                                                        <div class="h-9 w-9 rounded-full bg-[#fff] border border-white/10 flex items-center justify-center text-sky-400">
+                                                            @if($categoryIcon)
+                                                                @if(\Illuminate\Support\Str::startsWith($categoryIcon, '<svg'))
+                                                                    <span class="h-5 w-5 [&_svg]:h-5 [&_svg]:w-5 [&_svg]:text-sky-400">{!! $categoryIcon !!}</span>
+                                                                @elseif(\Illuminate\Support\Str::startsWith($categoryIcon, 'data:'))
+                                                                    <img src="{{ $categoryIcon }}" alt="icon" class="h-5 w-5 object-contain" />
+                                                                @elseif(\Illuminate\Support\Str::startsWith($categoryIcon, 'fas ') || \Illuminate\Support\Str::startsWith($categoryIcon, 'far ') || \Illuminate\Support\Str::startsWith($categoryIcon, 'fab ') || \Illuminate\Support\Str::startsWith($categoryIcon, 'fal ') || \Illuminate\Support\Str::startsWith($categoryIcon, 'fad '))
+                                                                    <i class="{{ $categoryIcon }}"></i>
+                                                                @else
+                                                                    <span class="text-sm font-semibold">{{ $categoryIcon }}</span>
+                                                                @endif
+                                                            @else
+                                                                <svg viewBox="0 0 24 24" class="h-5 w-5" fill="currentColor" aria-hidden="true">
+                                                                    <path d="M9.993 15.674l-.425 5.987c.608 0 .872-.261 1.19-.573l2.856-2.744 5.92 4.33c1.085.598 1.85.284 2.137-.999L24 1.255 0 10.246c.707.222 1.94.608 1.94.608l6.845 2.136 15.9-10.037c.75-.452 1.437-.2 .873.252"/>
+                                                                </svg>
+                                                            @endif
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="min-w-0">
+                                                    <div class="flex items-center gap-2">
+                                                        <span class="text-sm font-semibold text-gray-900">{{ $order->service_id }}</span>
+                                                        <span class="text-sm text-gray-700 truncate">{{ $order->service->name ?? '—' }}</span>
+                                                    </div>
                                                     @if($order->link)
-                                                        @php
-                                                            $telegramUrl = $order->link;
-                                                            if (preg_match('/^(https?:\/\/)?(t\.me|telegram\.me|telegram\.dog)\/([A-Za-z0-9_+\/\-]+)/i', $order->link, $matches)) {
-                                                                $username = explode('?', explode('/', $matches[3])[0])[0];
-                                                                $telegramUrl = 'tg://resolve?domain=' . $username;
-                                                            } elseif (preg_match('/^@([A-Za-z0-9_]{3,32})$/i', $order->link, $matches)) {
-                                                                $telegramUrl = 'tg://resolve?domain=' . $matches[1];
-                                                            }
-                                                        @endphp
-                                                        <a href="{{ $telegramUrl }}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-900 hover:underline truncate block" title="{{ $order->link }}">{{ $order->link }}</a>
-                                                    @endif
-                                                    @if($order->link_2)
-                                                        @php
-                                                            $telegramUrl2 = $order->link_2;
-                                                            if (preg_match('/^(https?:\/\/)?(t\.me|telegram\.me|telegram\.dog)\/([A-Za-z0-9_+\/\-]+)/i', $order->link_2, $matches)) {
-                                                                $username = explode('?', explode('/', $matches[3])[0])[0];
-                                                                $telegramUrl2 = 'tg://resolve?domain=' . $username;
-                                                            } elseif (preg_match('/^@([A-Za-z0-9_]{3,32})$/i', $order->link_2, $matches)) {
-                                                                $telegramUrl2 = 'tg://resolve?domain=' . $matches[1];
-                                                            }
-                                                        @endphp
-                                                        <div class="text-xs text-gray-500">{{ __('Source') }}:</div>
-                                                        <a href="{{ $telegramUrl2 }}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-900 hover:underline truncate block text-xs" title="{{ $order->link_2 }}">{{ $order->link_2 }}</a>
+                                                        <a href="{{ $order->link }}" target="_blank" rel="noopener noreferrer" class="text-xs text-indigo-600 hover:underline truncate block" title="{{ $order->link }}">
+                                                            {{ \Illuminate\Support\Str::limit($order->link, 40) }}
+                                                        </a>
                                                     @endif
                                                 </div>
-                                            @else
-                                                <span class="text-gray-400">—</span>
-                                            @endif
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            ${{ $order->charge }}
-                                        </td>
-                                        <td class="px-6 py-4 text-sm text-gray-900">
-                                            @php
-                                                $startCounts = $order->provider_payload['start_counts'] ?? null;
-                                            @endphp
-                                            @if($startCounts && is_array($startCounts))
-                                                <div class="flex flex-wrap gap-x-2 gap-y-0.5 text-xs">
-                                                    @if(isset($startCounts['subscribe']))
-                                                        <span title="{{ __('Subscribers') }}">{{ __('Sub') }}: {{ number_format($startCounts['subscribe']) }}</span>
-                                                    @endif
-                                                    @if(isset($startCounts['view']))
-                                                        <span title="{{ __('Views') }}">{{ __('View') }}: {{ number_format($startCounts['view']) }}</span>
-                                                    @endif
-                                                    @if(isset($startCounts['like']))
-                                                        <span title="{{ __('Likes') }}">{{ __('Like') }}: {{ number_format($startCounts['like']) }}</span>
-                                                    @endif
-                                                    @if(isset($startCounts['comment']))
-                                                        <span title="{{ __('Comments') }}">{{ __('Comment') }}: {{ number_format($startCounts['comment']) }}</span>
-                                                    @endif
-                                                </div>
-                                            @else
-                                                {{ $order->start_count !== null ? number_format($order->start_count) : '—' }}
-                                            @endif
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {{ number_format($order->quantity) }}
-                                        </td>
-                                        <td class="px-6 py-4 text-sm text-gray-900">
-                                            {{ $order->service->name ?? 'N/A' }}
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            @php
-                                                $statusColors = [
-                                                    'validating' => 'bg-cyan-100 text-cyan-800',
-                                                    'invalid_link' => 'bg-red-100 text-red-800',
-                                                    'awaiting' => 'bg-yellow-100 text-yellow-800',
-                                                    'pending' => 'bg-blue-100 text-blue-800',
-                                                    'in_progress' => 'bg-indigo-100 text-indigo-800',
-                                                    'processing' => 'bg-purple-100 text-purple-800',
-                                                    'partial' => 'bg-orange-100 text-orange-800',
-                                                    'completed' => 'bg-green-100 text-green-800',
-                                                    'canceled' => 'bg-red-100 text-red-800',
-                                                    'fail' => 'bg-gray-100 text-gray-800',
-                                                ];
-                                                $statusColor = $statusColors[$order->status] ?? 'bg-gray-100 text-gray-800';
-                                                $statusLabel = ucfirst(str_replace('_', ' ', $order->status));
-                                            @endphp
-                                            <span
-                                                class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ $statusColor }} order-status-badge"
-                                                data-order-id="{{ $order->id }}"
-                                                data-status="{{ $order->status }}"
-                                            >
-                                                {{ $statusLabel }}
-                                            </span>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 order-remains" data-order-id="{{ $order->id }}">
-                                            {{ number_format($order->remains) }}
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            @php
-                                                $delivered = $order->delivered ?? 0;
-                                                $quantity = $order->quantity ?? 1;
-                                                $progress = $quantity > 0 ? round(($delivered / $quantity) * 100, 1) : 0;
-                                            @endphp
-                                            <div class="flex items-center">
-                                                <div class="w-24 bg-gray-200 rounded-full h-2 mr-2">
-                                                    <div
-                                                        class="bg-indigo-600 h-2 rounded-full transition-all duration-300 order-progress-bar"
-                                                        data-order-id="{{ $order->id }}"
-                                                        style="width: {{ min(100, max(0, $progress)) }}%"
-                                                    ></div>
-                                                </div>
-                                                <span class="text-sm font-medium text-gray-900 order-progress-text" data-order-id="{{ $order->id }}">
-                                                    {{ number_format($progress, 1) }}%
-                                                </span>
                                             </div>
-                                            <div class="text-xs text-gray-500 mt-1 order-progress-detail" data-order-id="{{ $order->id }}">
-                                                {{ number_format($delivered) }} / {{ number_format($quantity) }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            {{ $order->start_count !== null ? number_format($order->start_count) : '—' }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            @php
+                                                $statusDots = [
+                                                    'validating' => 'bg-cyan-500',
+                                                    'invalid_link' => 'bg-red-500',
+                                                    'awaiting' => 'bg-yellow-500',
+                                                    'pending' => 'bg-blue-500',
+                                                    'in_progress' => 'bg-indigo-500',
+                                                    'processing' => 'bg-purple-500',
+                                                    'partial' => 'bg-orange-500',
+                                                    'completed' => 'bg-green-500',
+                                                    'canceled' => 'bg-red-500',
+                                                    'fail' => 'bg-gray-500',
+                                                ];
+                                                $dotClass = $statusDots[$order->status] ?? 'bg-gray-500';
+                                                $statusLabel = ucfirst(str_replace('_', ' ', $order->status));
+                                                $delivered = (int) ($order->delivered ?? 0);
+                                                $quantity = (int) ($order->quantity ?? 0);
+                                            @endphp
+                                            <div class="flex flex-col gap-1">
+                                                <div class="flex items-center gap-2 text-sm font-semibold text-gray-900 order-status-badge" data-order-id="{{ $order->id }}" data-status="{{ $order->status }}">
+                                                    <span class="h-2.5 w-2.5 rounded-full {{ $dotClass }}"></span>
+                                                    <span>{{ $statusLabel }}</span>
+                                                </div>
+                                                <div class="text-xs text-gray-500 order-progress-detail" data-order-id="{{ $order->id }}">
+                                                    {{ number_format($delivered) }} {{ __('of') }} {{ number_format($quantity) }}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            @php
+                                                $charge = (float) ($order->charge ?? 0);
+                                                $profit = $order->cost !== null ? ($charge - (float) $order->cost) : null;
+                                            @endphp
+                                            <div class="flex flex-col gap-1">
+                                                <div class="text-sm font-semibold text-gray-900">${{ number_format($charge, 4) }}</div>
+                                                @if($profit !== null)
+                                                    <div class="text-xs font-semibold {{ $profit >= 0 ? 'text-green-600' : 'text-red-600' }}">
+                                                        {{ __('Profit') }} ${{ number_format($profit, 4) }}
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex flex-col gap-1">
+                                                <div class="text-sm font-semibold text-gray-900">{{ $order->created_at->format('d M') }}</div>
+                                                <div class="text-xs text-gray-500">{{ $order->created_at->format('H:i') }}</div>
                                             </div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -694,6 +645,7 @@
                         </div>
                     </x-slot>
                 </x-table>
+                </div>
 
                     <!-- Bulk Action Form -->
                     <form id="bulk-action-form" action="{{ route('staff.orders.bulk-action') }}" method="POST" style="display: none;">
@@ -836,7 +788,7 @@
                                     @endphp
                                     <div>
                                         @if($order->link_2)<div class="text-xs text-gray-500 mb-0.5">{{ __('Target') }}</div>@endif
-                                        <a href="{{ $telegramUrl }}" target="_blank" rel="noopener noreferrer" class="text-sm font-mono text-indigo-600 hover:text-indigo-900 hover:underline break-all">{{ $order->link }}</a>
+                                        <a href="{{ $telegramUrl }}" target="_blank" rel="noopener noreferrer" class="text-sm font-mono text-indigo-600 hover:text-indigo-900 hover:underline break-all">{{ $order->link}}</a>
                                     </div>
                                 @endif
                                 @if($order->link_2)
@@ -851,7 +803,7 @@
                                     @endphp
                                     <div>
                                         <div class="text-xs text-gray-500 mb-0.5">{{ __('Source') }}</div>
-                                        <a href="{{ $telegramUrl2 }}" target="_blank" rel="noopener noreferrer" class="text-sm font-mono text-indigo-600 hover:text-indigo-900 hover:underline break-all">{{ $order->link_2 }}</a>
+                                        <a href="{{ $telegramUrl2 }}" target="_blank" rel="noopener noreferrer" class="text-sm font-mono text-indigo-600 hover:text-indigo-900 hover:underline break-all">{{\Illuminate\Support\Str::limit( $order->link_2, 30) }}</a>
                                     </div>
                                 @endif
                             </div>
@@ -902,20 +854,32 @@
                                 $delivered = $order->delivered ?? 0;
                                 $quantity = $order->quantity ?? 1;
                                 $progress = $quantity > 0 ? round(($delivered / $quantity) * 100, 1) : 0;
+                                $p = min(100, max(0, $progress));
+                                $r = 14;
+                                $circ = 2 * pi() * $r;
+                                $dashOffset = $circ * (1 - ($p / 100));
                             @endphp
-                            <div class="flex items-center mb-2">
-                                <div class="w-full bg-gray-200 rounded-full h-3 mr-2">
-                                    <div
-                                        class="bg-indigo-600 h-3 rounded-full transition-all duration-300"
-                                        style="width: {{ min(100, max(0, $progress)) }}%"
-                                    ></div>
+                            <div class="flex flex-col items-center">
+                                <div class="relative h-11 w-11 shrink-0">
+                                    <svg class="h-10 w-10 -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
+                                        <circle cx="18" cy="18" r="{{ $r }}" fill="none" stroke="#e5e7eb" stroke-width="4"></circle>
+                                        <circle
+                                            cx="18" cy="18" r="{{ $r }}"
+                                            fill="none"
+                                            stroke="#4f46e5"
+                                            stroke-width="4"
+                                            stroke-linecap="round"
+                                            stroke-dasharray="{{ number_format($circ, 3, '.', '') }}"
+                                            stroke-dashoffset="{{ number_format($dashOffset, 3, '.', '') }}"
+                                        ></circle>
+                                    </svg>
+                                    <div class="absolute inset-0 grid place-items-center">
+                                        <span class="text-[11px] font-semibold text-gray-900">{{ number_format($progress, 0) }}%</span>
+                                    </div>
                                 </div>
-                                <span class="text-sm font-semibold text-gray-900">
-                                    {{ number_format($progress, 1) }}%
-                                </span>
-                            </div>
-                            <div class="text-xs text-gray-600">
-                                {{ number_format($delivered) }} / {{ number_format($quantity) }}
+                                <div class="mt-1 text-xs text-gray-600 whitespace-nowrap">
+                                    {{ number_format($order->remains) }} / {{ number_format($quantity) }}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1287,8 +1251,28 @@
                     const currentStatus = statusBadge.getAttribute('data-status');
                     if (currentStatus !== statusData.status) {
                         statusBadge.setAttribute('data-status', statusData.status);
-                        statusBadge.className = `px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColors[statusData.status] || 'bg-gray-100 text-gray-800'}`;
-                        statusBadge.textContent = formatStatusLabel(statusData.status);
+                        const dot = statusBadge.querySelector('span.rounded-full');
+                        const label = statusBadge.querySelectorAll('span')[1];
+
+                        const dotClasses = {
+                            validating: 'bg-cyan-500',
+                            invalid_link: 'bg-red-500',
+                            awaiting: 'bg-yellow-500',
+                            pending: 'bg-blue-500',
+                            in_progress: 'bg-indigo-500',
+                            processing: 'bg-purple-500',
+                            partial: 'bg-orange-500',
+                            completed: 'bg-green-500',
+                            canceled: 'bg-red-500',
+                            fail: 'bg-gray-500',
+                        };
+
+                        if (dot) {
+                            dot.className = `h-2.5 w-2.5 rounded-full ${dotClasses[statusData.status] || 'bg-gray-500'}`;
+                        }
+                        if (label) {
+                            label.textContent = formatStatusLabel(statusData.status);
+                        }
 
                         // Add animation effect
                         statusBadge.classList.add('animate-pulse');
@@ -1298,28 +1282,18 @@
                     }
                 }
 
-                // Update remains
-                const remainsElement = document.querySelector(`.order-remains[data-order-id="${orderId}"]`);
-                if (remainsElement) {
-                    remainsElement.textContent = new Intl.NumberFormat().format(statusData.remains);
-                }
-
-                // Update progress bar
-                const progressBar = document.querySelector(`.order-progress-bar[data-order-id="${orderId}"]`);
-                if (progressBar) {
-                    progressBar.style.width = `${Math.min(100, Math.max(0, statusData.progress))}%`;
-                }
-
-                // Update progress text
-                const progressText = document.querySelector(`.order-progress-text[data-order-id="${orderId}"]`);
-                if (progressText) {
-                    progressText.textContent = `${statusData.progress.toFixed(1)}%`;
-                }
-
-                // Update progress detail
+                // Update progress detail (delivered of quantity)
                 const progressDetail = document.querySelector(`.order-progress-detail[data-order-id="${orderId}"]`);
                 if (progressDetail) {
-                    progressDetail.textContent = `${new Intl.NumberFormat().format(statusData.delivered)} / ${new Intl.NumberFormat().format(statusData.quantity)}`;
+                    progressDetail.textContent = `${new Intl.NumberFormat().format(statusData.delivered)} ${'{{ __('of') }}'} ${new Intl.NumberFormat().format(statusData.quantity)}`;
+                }
+
+                // Update service icon progress ring
+                const serviceRing = document.querySelector(`.order-service-ring[data-order-id="${orderId}"]`);
+                if (serviceRing) {
+                    const p = Math.min(100, Math.max(0, statusData.progress));
+                    serviceRing.style.background = `conic-gradient(#0ea5f5 calc(${p} * 1%), rgba(255,255,255,.25) 0)`;
+                    serviceRing.setAttribute('data-progress', p.toFixed(1));
                 }
             }
 

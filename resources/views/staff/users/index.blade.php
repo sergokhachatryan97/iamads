@@ -22,7 +22,7 @@
     </x-slot>
 
     <div class="py-12">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+        <div class="max-w-8xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900 w-full">
 
@@ -241,16 +241,16 @@
                     if (paginationLink && paginationLink.href && tableContainer.contains(e.target.closest('.pagination-links, .pagination'))) {
                         e.preventDefault();
                         const url = paginationLink.href;
-                        
+
                         // Show loading state
                         tableContainer.style.opacity = '0.6';
-                        
+
                         // Cancel previous request
                         if (abortController) {
                             abortController.abort();
                         }
                         abortController = new AbortController();
-                        
+
                         fetch(url, {
                             method: 'GET',
                             headers: {
@@ -269,7 +269,7 @@
                                 if (html && html.trim()) {
                                     tableContainer.innerHTML = html.trim();
                                     tableContainer.style.opacity = '1';
-                                    
+
                                     // Update URL without reload
                                     history.replaceState(null, '', url);
                                 }
