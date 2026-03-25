@@ -433,9 +433,9 @@
                                                     $progress = $quantity > 0 ? round(($delivered / $quantity) * 100, 1) : 0;
                                                 @endphp
                                                 @php
-                                                    $categoryIcon = $order->service->icon
-                                                        ?: ($order->category->icon ?? null)
-                                                        ?: ($order->service->category->icon ?? null);
+                                                    $categoryIcon = $order->service?->icon
+                                                        ?: ($order->category?->icon ?? null)
+                                                        ?: ($order->service->category?->icon ?? null);
                                                 @endphp
                                                 <div
                                                     class="order-service-ring relative h-12 w-12 rounded-full shrink-0"
