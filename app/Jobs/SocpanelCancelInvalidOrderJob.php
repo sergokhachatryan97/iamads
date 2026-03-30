@@ -52,37 +52,50 @@ class SocpanelCancelInvalidOrderJob implements ShouldQueue
         $failed = 0;
 
         foreach ($orders as $order) {
-            $ok = $this->cancelOne($client, $order);
-            $ok ? $canceled++ : $failed++;
+            $result = $this->cancelOne($client, $order);
+
+            if ($result === 'rate_limited') {
+                Log::warning('Socpanel cancel: rate limited (429), stopping batch', [
+                    'processed' => $canceled + $failed,
+                    'remaining' => $orders->count() - $canceled - $failed,
+                ]);
+                break;
+            }
+
+            $result === 'ok' ? $canceled++ : $failed++;
+
+            // 300ms between calls to avoid 429
+            usleep(300_000);
         }
 
-        Log::info('Socpanel cancel job done', [
-            'total' => $orders->count(),
-            'canceled' => $canceled,
-            'failed' => $failed,
-        ]);
+        if ($canceled > 0 || $failed > 0) {
+            Log::info('Socpanel cancel job done', [
+                'total' => $canceled + $failed,
+                'canceled' => $canceled,
+                'failed' => $failed,
+            ]);
+        }
     }
 
-    private function cancelOne(SocpanelClient $client, ProviderOrder $order): bool
+    /**
+     * @return string 'ok'|'failed'|'rate_limited'
+     */
+    private function cancelOne(SocpanelClient $client, ProviderOrder $order): string
     {
         $providerOrderId = (int) $order->remote_order_id;
         if ($providerOrderId <= 0) {
-            Log::warning('Socpanel cancel: invalid remote_order_id', ['order_id' => $order->id]);
-
-            return false;
+            return 'failed';
         }
 
         try {
             $res = $client->editOrder($providerOrderId, 'canceled');
 
-            // API returned success — mark canceled
             if (($res['ok'] ?? false) === true) {
                 $order->update(['status' => Order::STATUS_CANCELED]);
 
-                return true;
+                return 'ok';
             }
 
-            // API returned an error response (not exception) — still might mean already canceled
             $errorMsg = (string) ($res['error'] ?? '');
             if ($errorMsg !== '' && $this->isAlreadyCanceledOrCompleted($errorMsg)) {
                 $order->update([
@@ -91,23 +104,22 @@ class SocpanelCancelInvalidOrderJob implements ShouldQueue
                     'provider_last_error_at' => now(),
                 ]);
 
-                return true;
+                return 'ok';
             }
 
-            Log::warning('Socpanel cancel: unexpected response', [
-                'order_id' => $order->id,
-                'remote_order_id' => $providerOrderId,
-                'response' => $res,
-            ]);
-
             $order->update([
-                'provider_last_error' => 'Unexpected response: ' . json_encode($res),
+                'provider_last_error' => 'Unexpected response: ' . substr(json_encode($res), 0, 200),
                 'provider_last_error_at' => now(),
             ]);
 
-            return false;
+            return 'failed';
         } catch (\Throwable $e) {
             $message = $e->getMessage();
+
+            // 429 Too Many Attempts — stop the entire batch immediately
+            if ($this->isRateLimited($message)) {
+                return 'rate_limited';
+            }
 
             if ($this->isAlreadyCanceledOrCompleted($message)) {
                 $order->update([
@@ -116,7 +128,7 @@ class SocpanelCancelInvalidOrderJob implements ShouldQueue
                     'provider_last_error_at' => now(),
                 ]);
 
-                return true;
+                return 'ok';
             }
 
             Log::error('Socpanel cancel: API failed', [
@@ -130,8 +142,17 @@ class SocpanelCancelInvalidOrderJob implements ShouldQueue
                 'provider_last_error_at' => now(),
             ]);
 
-            return false;
+            return 'failed';
         }
+    }
+
+    private function isRateLimited(string $message): bool
+    {
+        $lower = strtolower($message);
+
+        return str_contains($lower, '429')
+            || str_contains($lower, 'too many')
+            || str_contains($lower, 'rate limit');
     }
 
     private function isAlreadyCanceledOrCompleted(string $message): bool
