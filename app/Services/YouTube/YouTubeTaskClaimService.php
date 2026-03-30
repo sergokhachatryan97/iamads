@@ -21,8 +21,6 @@ class YouTubeTaskClaimService
 {
     private const LEASE_TTL_SECONDS = 180;
 
-    /** Actions that use youtube_account_target_states (cross-order uniqueness). */
-    private const LAST_CLAIMED_ORDER_CACHE_KEY = 'youtube:claim:last_order_id';
     public function __construct(
         private ProviderActionLogService $actionLogService
     ) {}
@@ -34,48 +32,21 @@ class YouTubeTaskClaimService
             return null;
         }
 
-        $lastClaimedOrderId = (int) cache()->get(self::LAST_CLAIMED_ORDER_CACHE_KEY, 0);
         $now = now();
 
-        $ordersAfter = $this->baseEligibleOrdersQuery()
-            ->where('id', '>', $lastClaimedOrderId)
-            ->orderBy('id')
-            ->limit(500)
+        // Fetch eligible orders in random order — every performer gets a different
+        // order on each request, no cursor, no starvation, fair distribution.
+        $orders = $this->baseEligibleOrdersQuery()
+            ->inRandomOrder()
             ->get()
             ->filter(function (Order $order) use ($now) {
                 $dueAt = $this->computeOrderDueAt($order);
                 return $dueAt === null || $dueAt->lte($now);
-            })
-            ->values();
+            });
 
-        foreach ($ordersAfter as $order) {
-
+        foreach ($orders as $order) {
             $result = $this->tryClaimForOrder($order, $accountIdentity);
-
             if ($result !== null) {
-                cache()->forever(self::LAST_CLAIMED_ORDER_CACHE_KEY, (int) $order->id);
-                return $result;
-            }
-        }
-
-        $ordersBefore = $this->baseEligibleOrdersQuery()
-            ->when($lastClaimedOrderId > 0, function ($q) use ($lastClaimedOrderId) {
-                $q->where('id', '<=', $lastClaimedOrderId);
-            })
-            ->orderBy('id')
-            ->limit(500)
-            ->get()
-            ->filter(function (Order $order) use ($now) {
-                $dueAt = $this->computeOrderDueAt($order);
-                return $dueAt === null || $dueAt->lte($now);
-            })
-            ->values();
-
-        foreach ($ordersBefore as $order) {
-            $result = $this->tryClaimForOrder($order, $accountIdentity);
-
-            if ($result !== null) {
-                cache()->forever(self::LAST_CLAIMED_ORDER_CACHE_KEY, (int) $order->id);
                 return $result;
             }
         }
@@ -191,12 +162,11 @@ class YouTubeTaskClaimService
             $parsed = $youtube['parsed'] ?? [];
             $targetHashForLog = $parsed['target_hash'] ?? $linkHash;
 
-            // Unified step-based conflict: both single and combo use the same check.
-            // If any step (action) is already active or performed for same account + same link, block.
             $actionNames = YouTubeExecutionPlanResolver::stepsToActionNames($steps);
-            if ($this->hasStepConflict($accountIdentity, $linkHash, $targetHashForLog, $actionNames)) {
-                return null;
-            }
+            // TODO: uniqueness check disabled — same account can get same link+action again
+            // if ($this->hasStepConflict($accountIdentity, $linkHash, $targetHashForLog, $actionNames)) {
+            //     return null;
+            // }
             $actionForLog = $mode === YouTubeExecutionPlanResolver::MODE_COMBO
                 ? YouTubeExecutionPlanResolver::compositeActionForLog($steps)
                 : $action;
@@ -209,58 +179,60 @@ class YouTubeTaskClaimService
             $globalRowCreated = false;
             $previousGlobalState = null;
 
-            $statefulActionForTarget = $this->stepsContainStatefulAction($steps) ? 'subscribe' : null;
-            if ($statefulActionForTarget !== null) {
-                $norm = YouTubeTargetNormalizer::forSubscribeTarget($order);
-                $targetType = $norm['target_type'];
-                $normalizedTarget = $norm['normalized_target'];
-                $targetHashForRow = $norm['target_hash'];
+            // TODO: global target state check disabled — same account can subscribe to same target again
+            // $statefulActionForTarget = $this->stepsContainStatefulAction($steps) ? 'subscribe' : null;
+            // if ($statefulActionForTarget !== null) {
+            //     $norm = YouTubeTargetNormalizer::forSubscribeTarget($order);
+            //     $targetType = $norm['target_type'];
+            //     $normalizedTarget = $norm['normalized_target'];
+            //     $targetHashForRow = $norm['target_hash'];
+            //
+            //     $global = YouTubeAccountTargetState::query()
+            //         ->where('account_identity', $accountIdentity)
+            //         ->where('action', $statefulActionForTarget)
+            //         ->where('target_hash', $targetHashForRow)
+            //         ->lockForUpdate()
+            //         ->first();
+            //
+            //     if ($global !== null) {
+            //         if (in_array($global->state, [
+            //             YouTubeAccountTargetState::STATE_IN_PROGRESS,
+            //             YouTubeAccountTargetState::STATE_SUBSCRIBED,
+            //         ], true)) {
+            //             return null;
+            //         }
+            //         $previousGlobalState = $global->state;
+            //         $global->update([
+            //             'state' => YouTubeAccountTargetState::STATE_IN_PROGRESS,
+            //             'last_error' => null,
+            //         ]);
+            //     } else {
+            //         try {
+            //             $global = YouTubeAccountTargetState::create([
+            //                 'account_identity' => $accountIdentity,
+            //                 'action' => $statefulActionForTarget,
+            //                 'target_type' => $targetType,
+            //                 'normalized_target' => mb_substr($normalizedTarget, 0, 500),
+            //                 'target_hash' => $targetHashForRow,
+            //                 'state' => YouTubeAccountTargetState::STATE_IN_PROGRESS,
+            //             ]);
+            //             $globalRowCreated = true;
+            //         } catch (UniqueConstraintViolationException) {
+            //             return null;
+            //         }
+            //     }
+            // }
 
-                $global = YouTubeAccountTargetState::query()
-                    ->where('account_identity', $accountIdentity)
-                    ->where('action', $statefulActionForTarget)
-                    ->where('target_hash', $targetHashForRow)
-                    ->lockForUpdate()
-                    ->first();
-
-                if ($global !== null) {
-                    if (in_array($global->state, [
-                        YouTubeAccountTargetState::STATE_IN_PROGRESS,
-                        YouTubeAccountTargetState::STATE_SUBSCRIBED,
-                    ], true)) {
-                        return null;
-                    }
-                    $previousGlobalState = $global->state;
-                    $global->update([
-                        'state' => YouTubeAccountTargetState::STATE_IN_PROGRESS,
-                        'last_error' => null,
-                    ]);
-                } else {
-                    try {
-                        $global = YouTubeAccountTargetState::create([
-                            'account_identity' => $accountIdentity,
-                            'action' => $statefulActionForTarget,
-                            'target_type' => $targetType,
-                            'normalized_target' => mb_substr($normalizedTarget, 0, 500),
-                            'target_hash' => $targetHashForRow,
-                            'state' => YouTubeAccountTargetState::STATE_IN_PROGRESS,
-                        ]);
-                        $globalRowCreated = true;
-                    } catch (UniqueConstraintViolationException) {
-                        return null;
-                    }
-                }
-            }
-
-            if (YouTubeTask::query()
-                ->where('account_identity', $accountIdentity)
-                ->where('order_id', $order->id)
-                ->where('link_hash', $linkHash)
-                ->where('action', $action)
-                ->exists()) {
-                $this->revertGlobalState($global, $globalRowCreated, $previousGlobalState);
-                return null;
-            }
+            // TODO: duplicate task check disabled — same account can get same order+link+action again
+            // if (YouTubeTask::query()
+            //     ->where('account_identity', $accountIdentity)
+            //     ->where('order_id', $order->id)
+            //     ->where('link_hash', $linkHash)
+            //     ->where('action', $action)
+            //     ->exists()) {
+            //     $this->revertGlobalState($global, $globalRowCreated, $previousGlobalState);
+            //     return null;
+            // }
 
             $leasedUntil = now()->addSeconds(self::LEASE_TTL_SECONDS);
             $payload = [
@@ -296,33 +268,24 @@ class YouTubeTaskClaimService
             }
 
             $taskTargetHash = $targetHashForRow ?? $targetHashForLog;
-            try {
-                $task = YouTubeTask::create([
-                    'order_id' => $order->id,
-                    'account_identity' => $accountIdentity,
-                    'action' => $action,
-                    'link' => $link,
-                    'link_hash' => $linkHash,
-                    'target_type' => $targetType,
-                    'normalized_target' => $normalizedTarget !== null ? mb_substr($normalizedTarget, 0, 500) : null,
-                    'target_hash' => $taskTargetHash,
-                    'status' => YouTubeTask::STATUS_LEASED,
-                    'leased_until' => $leasedUntil,
-                    'payload' => $payload,
-                ]);
-            } catch (UniqueConstraintViolationException $e) {
-                $this->revertGlobalState($global, $globalRowCreated, $previousGlobalState);
-                Log::debug('YouTube task claim duplicate', [
-                    'account_identity' => $accountIdentity,
-                    'order_id' => $order->id,
-                    'action' => $action,
-                ]);
-                return null;
-            }
+            $task = YouTubeTask::create([
+                'order_id' => $order->id,
+                'account_identity' => $accountIdentity,
+                'action' => $action,
+                'link' => $link,
+                'link_hash' => $linkHash,
+                'target_type' => $targetType,
+                'normalized_target' => $normalizedTarget !== null ? mb_substr($normalizedTarget, 0, 500) : null,
+                'target_hash' => $taskTargetHash,
+                'status' => YouTubeTask::STATUS_LEASED,
+                'leased_until' => $leasedUntil,
+                'payload' => $payload,
+            ]);
 
-            if ($global !== null) {
-                $global->update(['last_task_id' => $task->id]);
-            }
+            // TODO: global state update disabled
+            // if ($global !== null) {
+            //     $global->update(['last_task_id' => $task->id]);
+            // }
 
             OrderDripfeedClaimHelper::afterTaskClaimed($order);
             $order->update(['status' => Order::STATUS_IN_PROGRESS]);

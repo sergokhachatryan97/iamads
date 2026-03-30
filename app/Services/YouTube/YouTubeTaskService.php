@@ -47,49 +47,51 @@ class YouTubeTaskService
         }
 
         $order = $task->order;
+        if ($order->status === Order::STATUS_COMPLETED) {
+            return ['ok' => true];
+        }
         if (!$order) {
             $this->updateGlobalStateForTask($task, $ok, $error);
             return ['ok' => true];
         }
 
         if ($ok && $state === 'done') {
-            $targetHash = $task->target_hash ?? $task->link_hash;
-            $actionForLog = $task->action;
-            if ($task->action === 'combo') {
-                $steps = $task->payload['steps'] ?? [];
-                $actionForLog = !empty($steps)
-                    ? YouTubeExecutionPlanResolver::compositeActionForLog($steps)
-                    : 'combo';
-                // View/react target is the video; subscribe uses channel. Use video_target_hash for view/react.
-                $videoTargetHash = $task->payload['video_target_hash'] ?? $targetHash;
-                $onePerAccountActions = YouTubeExecutionPlanResolver::onePerAccountSteps($steps);
-                foreach ($onePerAccountActions as $individualAction) {
-                    $this->actionLogService->recordPerformed(
-                        ProviderActionLogService::PROVIDER_YOUTUBE,
-                        $task->account_identity,
-                        $videoTargetHash,
-                        $individualAction
-                    );
-                }
-                // Subscribe: record with video hash for video-link-based conflict check
-                if (YouTubeExecutionPlanResolver::stepsContainSubscribe($steps)) {
-                    $hashForSubscribe = $videoTargetHash ?: $targetHash;
-                    if ($hashForSubscribe) {
-                        $this->actionLogService->recordPerformed(
-                            ProviderActionLogService::PROVIDER_YOUTUBE,
-                            $task->account_identity,
-                            $hashForSubscribe,
-                            'subscribe'
-                        );
-                    }
-                }
-            }
-            $this->actionLogService->recordPerformed(
-                ProviderActionLogService::PROVIDER_YOUTUBE,
-                $task->account_identity,
-                $targetHash,
-                $actionForLog
-            );
+            // TODO: action log recording disabled — uniqueness checks are off in claim
+            // $targetHash = $task->target_hash ?? $task->link_hash;
+            // $actionForLog = $task->action;
+            // if ($task->action === 'combo') {
+            //     $steps = $task->payload['steps'] ?? [];
+            //     $actionForLog = !empty($steps)
+            //         ? YouTubeExecutionPlanResolver::compositeActionForLog($steps)
+            //         : 'combo';
+            //     $videoTargetHash = $task->payload['video_target_hash'] ?? $targetHash;
+            //     $onePerAccountActions = YouTubeExecutionPlanResolver::onePerAccountSteps($steps);
+            //     foreach ($onePerAccountActions as $individualAction) {
+            //         $this->actionLogService->recordPerformed(
+            //             ProviderActionLogService::PROVIDER_YOUTUBE,
+            //             $task->account_identity,
+            //             $videoTargetHash,
+            //             $individualAction
+            //         );
+            //     }
+            //     if (YouTubeExecutionPlanResolver::stepsContainSubscribe($steps)) {
+            //         $hashForSubscribe = $videoTargetHash ?: $targetHash;
+            //         if ($hashForSubscribe) {
+            //             $this->actionLogService->recordPerformed(
+            //                 ProviderActionLogService::PROVIDER_YOUTUBE,
+            //                 $task->account_identity,
+            //                 $hashForSubscribe,
+            //                 'subscribe'
+            //             );
+            //         }
+            //     }
+            // }
+            // $this->actionLogService->recordPerformed(
+            //     ProviderActionLogService::PROVIDER_YOUTUBE,
+            //     $task->account_identity,
+            //     $targetHash,
+            //     $actionForLog
+            // );
 
             $perCall = max(1, (int) ($task->payload['per_call'] ?? 1));
             $currentRemains = (int) $order->remains;
@@ -112,7 +114,8 @@ class YouTubeTaskService
             $order->update($orderUpdates);
 
             $task->update(['status' => YouTubeTask::STATUS_DONE]);
-            $this->updateGlobalStateForTask($task, true, null);
+            // TODO: global state update disabled
+            // $this->updateGlobalStateForTask($task, true, null);
         } else {
             OrderDripfeedClaimHelper::rollbackClaimedUnit($order);
             $order->update([
@@ -120,7 +123,8 @@ class YouTubeTaskService
                 'provider_last_error_at' => now(),
             ]);
             $task->update(['status' => YouTubeTask::STATUS_FAILED]);
-            $this->updateGlobalStateForTask($task, false, $error);
+            // TODO: global state update disabled
+            // $this->updateGlobalStateForTask($task, false, $error);
         }
 
         return ['ok' => true];
@@ -230,22 +234,23 @@ class YouTubeTaskService
             'result' => array_merge($task->result ?? [], ['state' => 'failed', 'ok' => false, 'ignored' => true]),
         ]);
 
-        $targetHash = $task->target_hash ?? $task->payload['target_hash'] ?? null;
-        $steps = $task->payload['steps'] ?? [];
-        $hasSubscribe = $task->action === 'combo'
-            ? YouTubeExecutionPlanResolver::stepsContainSubscribe($steps)
-            : in_array(strtolower($task->action ?? ''), self::STATEFUL_ACTIONS, true);
-        if ($targetHash !== null && $hasSubscribe) {
-            YouTubeAccountTargetState::query()
-                ->where('account_identity', $task->account_identity)
-                ->where('action', 'subscribe')
-                ->where('target_hash', $targetHash)
-                ->update([
-                    'state' => YouTubeAccountTargetState::STATE_IGNORED,
-                    'last_task_id' => $task->id,
-                    'last_error' => 'Ignored',
-                ]);
-        }
+        // TODO: global state update disabled — uniqueness checks are off in claim
+        // $targetHash = $task->target_hash ?? $task->payload['target_hash'] ?? null;
+        // $steps = $task->payload['steps'] ?? [];
+        // $hasSubscribe = $task->action === 'combo'
+        //     ? YouTubeExecutionPlanResolver::stepsContainSubscribe($steps)
+        //     : in_array(strtolower($task->action ?? ''), self::STATEFUL_ACTIONS, true);
+        // if ($targetHash !== null && $hasSubscribe) {
+        //     YouTubeAccountTargetState::query()
+        //         ->where('account_identity', $task->account_identity)
+        //         ->where('action', 'subscribe')
+        //         ->where('target_hash', $targetHash)
+        //         ->update([
+        //             'state' => YouTubeAccountTargetState::STATE_IGNORED,
+        //             'last_task_id' => $task->id,
+        //             'last_error' => 'Ignored',
+        //         ]);
+        // }
 
         return ['ok' => true];
     }
