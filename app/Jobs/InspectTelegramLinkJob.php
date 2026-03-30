@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Services\OrderService;
 use App\Services\Telegram\TelegramInspector;
 use App\Support\TelegramExecutionPolicy;
+use App\Support\TelegramSystemManagedTemplate;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -17,8 +18,11 @@ use Throwable;
 class InspectTelegramLinkJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
     public $timeout = 90;
+
     public int $tries = 5;
+
     public array $backoff = [10, 30, 60, 120, 300];
 
     public function __construct(public int $orderId) {}
@@ -61,7 +65,9 @@ class InspectTelegramLinkJob implements ShouldQueue
             // Ensure service is loaded
             if (!$order->service) {
                 $providerPayload = $order->provider_payload ?? [];
-                if (!is_array($providerPayload)) $providerPayload = [];
+                if (! is_array($providerPayload)) {
+                    $providerPayload = [];
+                }
 
                 $providerPayload['telegram'] = [
                     'ok' => false,
@@ -117,37 +123,37 @@ class InspectTelegramLinkJob implements ShouldQueue
                 }
             }
 
-            $inspectionResult2 = null;
-            if ($isTwoLinkOrder) {
-                $inspectionResult2 = $inspector->inspect($order->link_2 ?? '', $serviceTemplateKey, forB2c: true);
-
-                if (($inspectionResult2['ok'] ?? false) !== true) {
-                    $code2 = strtoupper((string)($inspectionResult2['error_code'] ?? ''));
-                    $message2 = $inspectionResult2['error'] ?? 'Validation failed (source link)';
-
-                    if (in_array($code2, $temporaryCodes, true)) {
-                        $order->update([
-                            'status' => Order::STATUS_VALIDATING,
-                            'provider_last_error' => $message2,
-                            'provider_last_error_at' => now(),
-                            'provider_payload' => array_filter([
-                                'telegram' => $inspectionResult,
-                                'telegram_link_2' => $inspectionResult2,
-                            ]),
-                        ]);
-
-                        return;
-                    }
-                }
-            }
+//            $inspectionResult2 = null;
+//            if ($isTwoLinkOrder) {
+//                $inspectionResult2 = $inspector->inspect($order->link_2 ?? '', $serviceTemplateKey, forB2c: true);
+//
+//                if (($inspectionResult2['ok'] ?? false) !== true) {
+//                    $code2 = strtoupper((string)($inspectionResult2['error_code'] ?? ''));
+//                    $message2 = $inspectionResult2['error'] ?? 'Validation failed (source link)';
+//
+//                    if (in_array($code2, $temporaryCodes, true)) {
+//                        $order->update([
+//                            'status' => Order::STATUS_VALIDATING,
+//                            'provider_last_error' => $message2,
+//                            'provider_last_error_at' => now(),
+//                            'provider_payload' => array_filter([
+//                                'telegram' => $inspectionResult,
+//                                'telegram_link_2' => $inspectionResult2,
+//                            ]),
+//                        ]);
+//
+//                        return;
+//                    }
+//                }
+//            }
 
             // 3) Merge inspection result(s) into provider_payload
             $providerPayload = $order->provider_payload ?? [];
             if (!is_array($providerPayload)) $providerPayload = [];
             $providerPayload['telegram'] = $inspectionResult;
-            if ($inspectionResult2 !== null) {
-                $providerPayload['telegram_link_2'] = $inspectionResult2;
-            }
+//            if ($inspectionResult2 !== null) {
+//                $providerPayload['telegram_link_2'] = $inspectionResult2;
+//            }
 
             // 4) Extract and store post_id for post-related services (react, comment, view)
             $parsed = $inspectionResult['parsed'] ?? [];
@@ -158,12 +164,12 @@ class InspectTelegramLinkJob implements ShouldQueue
             // 4) Validate against service template rules (if template exists)
             if ($template) {
                 $validationErrors = $this->validateAgainstTemplate($inspectionResult, $template, 'target');
-                if ($inspectionResult2 !== null) {
-                    $validationErrors = array_merge(
-                        $validationErrors,
-                        $this->validateAgainstTemplate($inspectionResult2, $template, 'source')
-                    );
-                }
+//                if ($inspectionResult2 !== null) {
+//                    $validationErrors = array_merge(
+//                        $validationErrors,
+//                        $this->validateAgainstTemplate($inspectionResult2, $template, 'source')
+//                    );
+//                }
                 if (!empty($validationErrors)) {
                     $errorMessage = implode('; ', $validationErrors);
 
@@ -189,38 +195,39 @@ class InspectTelegramLinkJob implements ShouldQueue
             }
 
             // 5) Handle inspection failure (link or link_2)
-            if ($inspectionResult2 !== null && !($inspectionResult2['ok'] ?? false)) {
-                $errorCode = (string) ($inspectionResult2['error_code'] ?? 'UNKNOWN_ERROR');
-                $errorMessage = (string) ($inspectionResult2['error'] ?? 'Source link validation failed');
-
-                if ($this->isRetryableInspectionError($errorCode)) {
-                    $order->update([
-                        'status' => Order::STATUS_VALIDATING,
-                        'provider_last_error' => $errorMessage,
-                        'provider_last_error_at' => now(),
-                        'provider_sending_at' => null,
-                        'provider_payload' => $providerPayload,
-                    ]);
-                    throw new \RuntimeException("Retryable inspection error (source link): {$errorCode} - {$errorMessage}");
-                }
-
-                $newStatus = strtoupper($errorCode) === 'RESTRICTED' ? Order::STATUS_RESTRICTED : Order::STATUS_INVALID_LINK;
-                $order->update([
-                    'status' => $newStatus,
-                    'provider_last_error' => $errorMessage,
-                    'provider_last_error_at' => now(),
-                    'provider_sending_at' => null,
-                    'provider_payload' => $providerPayload,
-                ]);
-                $orderService->refundInvalid($order, $errorMessage);
-                Log::info('Order source link inspection failed (final)', [
-                    'order_id' => $this->orderId,
-                    'error_code' => $errorCode,
-                    'error' => $errorMessage,
-                    'status' => $newStatus,
-                ]);
-                return;
-            }
+//            if ($inspectionResult2 !== null && !($inspectionResult2['ok'] ?? false)) {
+//                $errorCode = (string) ($inspectionResult2['error_code'] ?? 'UNKNOWN_ERROR');
+//                $errorMessage = (string) ($inspectionResult2['error'] ?? 'Source link validation failed');
+//
+//                if ($this->isRetryableInspectionError($errorCode)) {
+//                    $order->update([
+//                        'status' => Order::STATUS_VALIDATING,
+//                        'provider_last_error' => $errorMessage,
+//                        'provider_last_error_at' => now(),
+//                        'provider_sending_at' => null,
+//                        'provider_payload' => $providerPayload,
+//                    ]);
+//                    throw new \RuntimeException("Retryable inspection error (source link): {$errorCode} - {$errorMessage}");
+//                }
+//
+//                $newStatus = strtoupper($errorCode) === 'RESTRICTED' ? Order::STATUS_RESTRICTED : Order::STATUS_INVALID_LINK;
+//                $order->update([
+//                    'status' => $newStatus,
+//                    'provider_last_error' => $errorMessage,
+//                    'provider_last_error_at' => now(),
+//                    'provider_sending_at' => null,
+//                    'provider_payload' => $providerPayload,
+//                ]);
+//                $orderService->refundInvalid($order, $errorMessage);
+//                Log::info('Order source link inspection failed (final)', [
+//                    'order_id' => $this->orderId,
+//                    'error_code' => $errorCode,
+//                    'error' => $errorMessage,
+//                    'status' => $newStatus,
+//                ]);
+//
+//                return;
+//            }
 
             if (!($inspectionResult['ok'] ?? false)) {
                 $errorCode = (string) ($inspectionResult['error_code'] ?? 'UNKNOWN_ERROR');
@@ -326,6 +333,56 @@ class InspectTelegramLinkJob implements ShouldQueue
                     'template_key' => $order->service->template_key ?? null,
                     'link_type' => $linkType,
                 ]);
+
+                return;
+            }
+
+            if ($template && TelegramSystemManagedTemplate::isSystemManagedTemplateKey($order->service->template_key)) {
+                $folderCfg = is_array($providerPayload['telegram_premium_folder'] ?? null)
+                    ? $providerPayload['telegram_premium_folder']
+                    : [];
+                $duration = (int) ($folderCfg['duration_days'] ?? 0);
+                $durationOpts = $template['duration_options'] ?? [30];
+                if (! in_array($duration, $durationOpts, true)) {
+                    $errorMessage = 'Invalid or missing subscription duration for this service';
+
+                    $order->update([
+                        'status' => Order::STATUS_INVALID_LINK,
+                        'provider_last_error' => $errorMessage,
+                        'provider_last_error_at' => now(),
+                        'provider_sending_at' => null,
+                        'provider_payload' => $providerPayload,
+                    ]);
+
+                    $orderService->refundInvalid($order, $errorMessage);
+
+                    Log::warning('System-managed Telegram order failed duration validation', [
+                        'order_id' => $this->orderId,
+                        'duration' => $duration,
+                    ]);
+
+                    return;
+                }
+
+                $providerPayload['execution_meta'] = [
+                    'system_managed' => true,
+                    'template_key' => $order->service->template_key,
+                    'action' => (string) ($template['action'] ?? 'folder_add'),
+                ];
+
+                $order->update([
+                    'status' => Order::STATUS_PROCESSING,
+                    'execution_phase' => null,
+                    'start_count' => (int) ($inspectionResult['member_count'] ?? 0),
+                    'provider_last_error' => null,
+                    'provider_last_error_at' => null,
+                    'provider_sending_at' => null,
+                    'provider_payload' => $providerPayload,
+                ]);
+
+                ExecuteTelegramPremiumFolderOrderJob::dispatch($order->id)
+                    ->onQueue('tg-inspect')
+                    ->afterCommit();
 
                 return;
             }
@@ -539,22 +596,6 @@ class InspectTelegramLinkJob implements ShouldQueue
     }
 
     /**
-     * Get queue name based on effective priority.
-     */
-    private function getQueueForPriority(int $priority): string
-    {
-        if ($priority >= 90) {
-            return 'tg-p0';
-        } elseif ($priority >= 70) {
-            return 'tg-p1';
-        } elseif ($priority >= 40) {
-            return 'tg-p2';
-        } else {
-            return 'tg-p3';
-        }
-    }
-
-    /**
      * Calculate interval using qty tiers + member_count + speed_tier.
      * Returns array with interval_seconds, steps_total, eta_seconds, and debug fields.
      */
@@ -580,15 +621,15 @@ class InspectTelegramLinkJob implements ShouldQueue
         } elseif ($quantity <= 50000) {
             // NOTE: for light you probably want <=50000 key; if not present fallback to <=100000
             $targetEtaSeconds = (int) (
-            $isHeavy
-                ? ($qtyTiers['<=50000'] ?? 43200)
-                : ($qtyTiers['<=50000'] ?? ($qtyTiers['<=100000'] ?? 28800))
+                $isHeavy
+                    ? ($qtyTiers['<=50000'] ?? 43200)
+                    : ($qtyTiers['<=50000'] ?? ($qtyTiers['<=100000'] ?? 28800))
             );
         } elseif ($quantity <= 100000) {
             $targetEtaSeconds = (int) (
-            $isHeavy
-                ? ($qtyTiers['<=100000'] ?? 345600)
-                : ($qtyTiers['<=100000'] ?? 28800)
+                $isHeavy
+                    ? ($qtyTiers['<=100000'] ?? 345600)
+                    : ($qtyTiers['<=100000'] ?? 28800)
             );
         } else {
             $targetEtaSeconds = (int) ($qtyTiers['else'] ?? ($isHeavy ? 518400 : 86400));
@@ -658,7 +699,6 @@ class InspectTelegramLinkJob implements ShouldQueue
         ];
     }
 
-
     /**
      * Get member count multiplier from config.
      */
@@ -701,5 +741,4 @@ class InspectTelegramLinkJob implements ShouldQueue
     {
         return in_array($action, ['subscribe', 'join'], true);
     }
-
 }

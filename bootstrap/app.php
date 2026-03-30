@@ -4,8 +4,8 @@ use App\Jobs\SyncValidatingProviderOrdersJob;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Spatie\Permission\Middleware\RoleMiddleware;
 use Spatie\Permission\Middleware\PermissionMiddleware;
+use Spatie\Permission\Middleware\RoleMiddleware;
 use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -16,12 +16,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withSchedule(function (\Illuminate\Console\Scheduling\Schedule $schedule): void {
-//        $schedule->command('subscriptions:renew-expired')
-//            ->daily()
-//            ->at('00:00')
-//            ->timezone(config('app.timezone'));
-//
-//        // Poll provider status every 10 minutes as fallback to webhooks
+        //        $schedule->command('subscriptions:renew-expired')
+        //            ->daily()
+        //            ->at('00:00')
+        //            ->timezone(config('app.timezone'));
+        //
+        //        // Poll provider status every 10 minutes as fallback to webhooks
         $schedule->command('orders:sync-provider-status')
             ->daily()
             ->withoutOverlapping()
@@ -38,17 +38,21 @@ return Application::configure(basePath: dirname(__DIR__))
             ->withoutOverlapping()
             ->runInBackground();
 
+        $schedule->command('telegram:process-folder-expirations')
+            ->everyFiveMinutes()
+            ->withoutOverlapping()
+            ->runInBackground();
+
         // Process due unsubscribe tasks every minute
-//        $schedule->job(new \App\Jobs\ProcessTelegramUnsubscribeTasksJob())
-//            ->everyMinute()
-//            ->withoutOverlapping();
+        //        $schedule->job(new \App\Jobs\ProcessTelegramUnsubscribeTasksJob())
+        //            ->everyMinute()
+        //            ->withoutOverlapping();
 
         // Generate Telegram tasks for provider pull architecture
-//        $schedule->command('telegram:tasks:generate')
-//            ->everyMinute()
-//            ->withoutOverlapping()
-//            ->runInBackground();
-
+        //        $schedule->command('telegram:tasks:generate')
+        //            ->everyMinute()
+        //            ->withoutOverlapping()
+        //            ->runInBackground();
 
         $schedule->command('socpanel:poll')
             ->everyThreeMinutes()
@@ -88,9 +92,9 @@ return Application::configure(basePath: dirname(__DIR__))
             ->onOneServer();
 
         // Sync Adtag provider services into local services table
-//        $schedule->job(new \App\Jobs\AdtagSyncServicesJob())
-//            ->hourly()
-//            ->withoutOverlapping(300);
+        //        $schedule->job(new \App\Jobs\AdtagSyncServicesJob())
+        //            ->hourly()
+        //            ->withoutOverlapping(300);
 
     })
     ->withMiddleware(function (Middleware $middleware): void {

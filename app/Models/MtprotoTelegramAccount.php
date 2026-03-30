@@ -27,6 +27,8 @@ class MtprotoTelegramAccount extends Model
         'last_error_at',
         'disabled_at',
         'phone_number',
+        'premium_folder_id',
+        'premium_folder_title',
         'is_probe',
         'proxy_type',
         'proxy_host',
@@ -57,6 +59,7 @@ class MtprotoTelegramAccount extends Model
             'proxy_port' => 'integer',
             'force_proxy' => 'boolean',
             'is_b2c' => 'boolean',
+            'premium_folder_id' => 'integer',
         ];
     }
 
@@ -65,7 +68,7 @@ class MtprotoTelegramAccount extends Model
      */
     public function isAvailable(): bool
     {
-        if (!$this->is_active) {
+        if (! $this->is_active) {
             return false;
         }
 
@@ -79,7 +82,6 @@ class MtprotoTelegramAccount extends Model
 
         return true;
     }
-
 
     /**
      * Record a failure.

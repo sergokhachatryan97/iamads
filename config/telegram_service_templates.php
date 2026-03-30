@@ -53,9 +53,9 @@ return [
         'label' => 'Premium: Boost',
         'action' => 'subscribe',
         'policy_key' => 'default',
-        'allowed_link_kinds' => ['boost_link', 'public_username'],
-        'allowed_peer_types' => ['channel', 'public_username'],
-        'requires_duration_days' => false,
+        'allowed_link_kinds' => ['boost_link'],
+        'allowed_peer_types' => ['channel'],
+        'requires_duration_days' => true,
         'requires_start_param' => false,
         'default_priority' => 60,
     ],
@@ -114,24 +114,12 @@ return [
         'label' => 'SuperFast/Fast Subscribe Private, Public TG Channel Live Time',
         'action' => 'subscribe',
         'policy_key' => 'default',
-        'allowed_link_kinds' => ['public_username','invite'],
+        'allowed_link_kinds' => ['public_username', 'invite'],
         'allowed_peer_types' => ['channel'],
         'requires_duration_days' => false,
         'requires_start_param' => false,
         'default_priority' => 60,
     ],
-
-
-//    'subscribe_private_public_channel_group' => [
-//        'label' => 'Subscribe Private, Public TG Channel And Group Live Time',
-//        'action' => 'subscribe',
-//        'policy_key' => 'default',
-//        'allowed_link_kinds' => ['public_username','invite'],
-//        'allowed_peer_types' => ['channel', 'group'],
-//        'requires_duration_days' => false,
-//        'requires_start_param' => false,
-//        'default_priority' => 60,
-//    ],
 
     'real_channel_subscribe_from_search' => [
         'label' => 'Real TG Channel Subscribe From Search Live Time',
@@ -246,16 +234,37 @@ return [
         'default_priority' => 50,
     ],
 
-//    'invite_subscribers_from_other_channel' => [
-//        'label' => 'Invite Subscribers From Other Channel',
-//        'action' => 'invite_subscribers',
-//        'policy_key' => 'invite_subscribers',
-//        'allowed_link_kinds' => ['public_username', 'invite'],
-//        'allowed_peer_types' => ['channel'],
-//        'requires_duration_days' => false,
-//        'requires_start_param' => false,
-//        'default_priority' => 50,
-//    ],
+    //    'invite_subscribers_from_other_channel' => [
+    //        'label' => 'Invite Subscribers From Other Channel',
+    //        'action' => 'invite_subscribers',
+    //        'policy_key' => 'invite_subscribers',
+    //        'allowed_link_kinds' => ['public_username', 'invite'],
+    //        'allowed_peer_types' => ['channel'],
+    //        'requires_duration_days' => false,
+    //        'requires_start_param' => false,
+    //        'default_priority' => 50,
+    //    ],
+
+    /**
+     * System-managed: MTProto folder placement + timed removal (no performer tasks).
+     * Pricing: the service's rate_per_1000 (and client custom/discount pricing) is treated as a flat
+     * order price in USD, not ÷1000 (see OrderService + order create UI when hide_quantity is true).
+     */
+    'telegram_premium_folder' => [
+        'label' => 'Telegram Premium Folder',
+        'action' => 'folder_add',
+        'policy_key' => 'premium_folder',
+        'allowed_link_kinds' => ['public_username', 'invite'],
+        'allowed_peer_types' => ['channel', 'group', 'supergroup'],
+        'requires_duration_days' => false,
+        'duration_options' => [30],
+        'hide_quantity' => true,
+        'default_quantity' => 1,
+        'display_note' => '500/day',
+        'system_managed' => true,
+        'requires_start_param' => false,
+        'default_priority' => 50,
+    ],
 
     /*
     |--------------------------------------------------------------------------

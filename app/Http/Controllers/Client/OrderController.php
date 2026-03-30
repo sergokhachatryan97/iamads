@@ -9,9 +9,9 @@ use App\Models\Category;
 use App\Models\Client;
 use App\Models\Order;
 use App\Models\Service;
-use App\Services\YouTube\YouTubeExecutionPlanResolver;
 use App\Services\CategoryServiceInterface;
 use App\Services\OrderServiceInterface;
+use App\Services\YouTube\YouTubeExecutionPlanResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,6 +23,7 @@ use Throwable;
 class OrderController extends Controller
 {
     protected Client $client;
+
     public function __construct(
         private OrderServiceInterface $orderService,
         private CategoryServiceInterface $categoryService
@@ -63,16 +64,16 @@ class OrderController extends Controller
             if (is_numeric($search)) {
                 $query->where('id', (int) $search);
             } else {
-                $query->where('link', 'like', '%' . addcslashes($search, '%_\\') . '%');
+                $query->where('link', 'like', '%'.addcslashes($search, '%_\\').'%');
             }
         } elseif ($request->filled('link')) {
-            $query->where('link', 'like', '%' . addcslashes($request->link, '%_\\') . '%');
+            $query->where('link', 'like', '%'.addcslashes($request->link, '%_\\').'%');
         } elseif ($request->filled('order_id')) {
             $orderId = trim($request->order_id);
             if (is_numeric($orderId)) {
                 $query->where('id', (int) $orderId);
             } else {
-                $query->whereRaw('CAST(id AS CHAR) LIKE ?', ['%' . addcslashes($orderId, '%_\\') . '%']);
+                $query->whereRaw('CAST(id AS CHAR) LIKE ?', ['%'.addcslashes($orderId, '%_\\').'%']);
             }
         }
 
@@ -89,13 +90,13 @@ class OrderController extends Controller
         $sortDir = $request->get('sort_dir', 'desc');
 
         // Validate sort direction
-        if (!in_array($sortDir, ['asc', 'desc'])) {
+        if (! in_array($sortDir, ['asc', 'desc'])) {
             $sortDir = 'desc';
         }
 
         // Validate sort column
         $allowedSortColumns = ['id', 'created_at', 'charge', 'quantity', 'status', 'remains'];
-        if (!in_array($sortBy, $allowedSortColumns)) {
+        if (! in_array($sortBy, $allowedSortColumns)) {
             $sortBy = 'created_at';
         }
 
@@ -119,16 +120,16 @@ class OrderController extends Controller
             if (is_numeric($search)) {
                 $countQuery->where('id', (int) $search);
             } else {
-                $countQuery->where('link', 'like', '%' . addcslashes($search, '%_\\') . '%');
+                $countQuery->where('link', 'like', '%'.addcslashes($search, '%_\\').'%');
             }
         } elseif ($request->filled('link')) {
-            $countQuery->where('link', 'like', '%' . addcslashes($request->link, '%_\\') . '%');
+            $countQuery->where('link', 'like', '%'.addcslashes($request->link, '%_\\').'%');
         } elseif ($request->filled('order_id')) {
             $orderId = trim($request->order_id);
             if (is_numeric($orderId)) {
                 $countQuery->where('id', (int) $orderId);
             } else {
-                $countQuery->whereRaw('CAST(id AS CHAR) LIKE ?', ['%' . addcslashes($orderId, '%_\\') . '%']);
+                $countQuery->whereRaw('CAST(id AS CHAR) LIKE ?', ['%'.addcslashes($orderId, '%_\\').'%']);
             }
         }
         if ($request->filled('date_from')) {
@@ -237,7 +238,6 @@ class OrderController extends Controller
         }
     }
 
-
     /**
      * Store a multi-service order (creates multiple orders for one link).
      */
@@ -257,6 +257,7 @@ class OrderController extends Controller
                 return redirect()->route('client.balance.add', ['return_to' => 'order'])
                     ->with('info', __('Insufficient balance. Please add funds to complete your order.'));
             }
+
             return back()->withErrors($e->errors())->withInput();
         } catch (Throwable $e) {
             report($e);
@@ -427,6 +428,20 @@ class OrderController extends Controller
                     // Multi-service: show comment/star fields when any selected service needs them
                     'needs_comment_text' => $this->serviceNeedsCommentText($service, $linkDriver),
                     'needs_star_rating' => $this->serviceNeedsStarRating($service, $linkDriver),
+
+                    // Telegram template flags (e.g. system-managed premium folder)
+                    'duration_options' => $linkDriver === 'telegram'
+                        ? ($service->template()['duration_options'] ?? null)
+                        : null,
+                    'hide_quantity' => $linkDriver === 'telegram'
+                        ? (bool) ($service->template()['hide_quantity'] ?? false)
+                        : false,
+                    'display_note' => $linkDriver === 'telegram'
+                        ? ($service->template()['display_note'] ?? null)
+                        : null,
+                    'system_managed' => $linkDriver === 'telegram'
+                        ? (bool) ($service->template()['system_managed'] ?? false)
+                        : false,
                 ];
             })
             ->values();
@@ -437,7 +452,7 @@ class OrderController extends Controller
     private function serviceNeedsCommentText(Service $service, string $linkDriver): bool
     {
         $tpl = $service->template();
-        if (!$tpl) {
+        if (! $tpl) {
             return false;
         }
         if ($linkDriver === 'app') {
@@ -446,6 +461,7 @@ class OrderController extends Controller
         if ($linkDriver === 'youtube') {
             return YouTubeExecutionPlanResolver::stepsContainCommentCustom($tpl['steps'] ?? []);
         }
+
         return false;
     }
 
@@ -455,6 +471,7 @@ class OrderController extends Controller
             return false;
         }
         $tpl = $service->template();
+
         return $tpl && (bool) ($tpl['accepts_star_rating'] ?? false);
     }
 
@@ -506,4 +523,3 @@ class OrderController extends Controller
         }
     }
 }
-

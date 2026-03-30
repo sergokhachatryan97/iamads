@@ -49,18 +49,15 @@ class TelegramTaskClaimController extends Controller
         }
 
         $task = $tasks[0];
+        $action = $task['action'] ?? 'subscribe';
 
-        if (!empty($task['link_2'])) {
-            return response()->json([
-                'id' => $task['task_id'],
-                'url' => $task['link'],
-                'url_1' => $task['link_2'],
-            ]);
-        }
-
-        return response()->json([
+        $response = [
             'id' => $task['task_id'],
             'url' => $task['link'],
-        ]);
+            'action' => $action,
+        ];
+
+
+        return response()->json($response);
     }
 }

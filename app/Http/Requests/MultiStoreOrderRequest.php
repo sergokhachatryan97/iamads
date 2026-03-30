@@ -4,8 +4,8 @@ namespace App\Http\Requests;
 
 use App\Models\Category;
 use App\Models\Service;
-use App\Services\YouTube\YouTubeExecutionPlanResolver;
 use App\Support\Links\LinkInspectorManager;
+use App\Support\TelegramSystemManagedTemplate;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
@@ -16,7 +16,7 @@ class MultiStoreOrderRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $link = $this->input('link');
-        if (!empty($link)) {
+        if (! empty($link)) {
             $this->merge(['link' => $this->ensureLinkHasScheme(trim((string) $link))]);
         }
     }
@@ -26,7 +26,8 @@ class MultiStoreOrderRequest extends FormRequest
         if ($link === '' || preg_match('#^https?://#i', $link)) {
             return $link;
         }
-        return 'https://' . $link;
+
+        return 'https://'.$link;
     }
 
     /**
@@ -49,6 +50,7 @@ class MultiStoreOrderRequest extends FormRequest
         }
         $id = $this->input('category_id');
         $this->cachedCategory = $id ? Category::find($id) : null;
+
         return $this->cachedCategory;
     }
 
@@ -68,7 +70,7 @@ class MultiStoreOrderRequest extends FormRequest
             $manager = app(LinkInspectorManager::class);
             $rules['link'][] = function ($attribute, $value, $fail) use ($driver, $manager) {
                 $result = $manager->inspect($driver, trim((string) $value));
-                if (!$result['valid'] && $result['error'] !== null) {
+                if (! $result['valid'] && $result['error'] !== null) {
                     $fail($result['error']);
                 }
             };
@@ -103,7 +105,7 @@ class MultiStoreOrderRequest extends FormRequest
             $categoryId = (int) $this->input('category_id');
             $services = $this->input('services', []);
 
-            if (!$categoryId || !is_array($services) || empty($services)) {
+            if (! $categoryId || ! is_array($services) || empty($services)) {
                 return;
             }
 
@@ -142,9 +144,23 @@ class MultiStoreOrderRequest extends FormRequest
                     $lines = $commentsInput ? array_values(array_filter(array_map('trim', explode("\n", (string) $commentsInput)), fn ($l) => $l !== '')) : [];
                     $minLines = (int) ($svc->min_quantity ?? 1);
                     if (count($lines) < $minLines) {
-                        $v->errors()->add("services.{$i}.comments", "Minimum {$minLines} comment(s) required for this service. You have " . count($lines) . '.');
+                        $v->errors()->add("services.{$i}.comments", "Minimum {$minLines} comment(s) required for this service. You have ".count($lines).'.');
                     }
                 }
+            }
+            $blockedSystemManaged = false;
+            foreach ($this->input('services', []) as $row) {
+                $svc = $services->get((int) ($row['service_id'] ?? 0));
+                if ($svc && TelegramSystemManagedTemplate::isSystemManagedTemplateKey($svc->template_key)) {
+                    $blockedSystemManaged = true;
+                    break;
+                }
+            }
+            if ($blockedSystemManaged) {
+                $v->errors()->add(
+                    'services',
+                    'One or more selected services must be ordered from the single-service form.'
+                );
             }
             foreach ($this->input('services', []) as $i => $row) {
                 $svc = $services->get((int) ($row['service_id'] ?? 0));
@@ -188,6 +204,7 @@ class MultiStoreOrderRequest extends FormRequest
                 if (isset($first['star_rating']) && $first['star_rating'] >= 1 && $first['star_rating'] <= 5) {
                     $res['star_rating'] = (int) $first['star_rating'];
                 }
+
                 return $res;
             })
             ->values()
@@ -200,4 +217,3 @@ class MultiStoreOrderRequest extends FormRequest
         ];
     }
 }
-

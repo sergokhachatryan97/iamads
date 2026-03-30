@@ -2,20 +2,19 @@
 
 namespace App\Services\Telegram;
 
-
 use Amp\CancelledException;
+use Amp\SignalException;
 use App\Models\MtprotoTelegramAccount;
 use App\Support\TelegramChatType;
 use danog\MadelineProto\RPCErrorException;
-use Amp\SignalException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class TelegramMtprotoPoolService
 {
-
     private const MODE_INSPECT = 'inspect';
-    private const MODE_HEAVY   = 'heavy';
+
+    private const MODE_HEAVY = 'heavy';
 
     private const PENALTY_KEY_PREFIX = 'tg:acct:penalty:';
 
@@ -27,7 +26,8 @@ class TelegramMtprotoPoolService
     /**
      * Main primitive: resolve username by getInfo() only.
      * Returns unified contract.
-     * @param bool $forB2c When true, only use accounts with is_b2c=true (for InspectTelegramLinkJob).
+     *
+     * @param  bool  $forB2c  When true, only use accounts with is_b2c=true (for InspectTelegramLinkJob).
      */
     public function getInfoByUsername(string $username, bool $forB2c = false): array
     {
@@ -37,15 +37,15 @@ class TelegramMtprotoPoolService
 
             $resolved = $this->resolveUsernameWithApi($madeline, $username);
 
-            if (!($resolved['ok'] ?? false)) {
+            if (! ($resolved['ok'] ?? false)) {
                 return $resolved;
             }
 
             return $this->ok([
-                'username'  => $username,
-                'type'      => $resolved['type'] ?? 'unknown',
-                'raw'       => $resolved['raw'] ?? null,        // full getInfo() payload
-                'raw_chat'  => $resolved['raw_chat'] ?? null,   // Chat/User object
+                'username' => $username,
+                'type' => $resolved['type'] ?? 'unknown',
+                'raw' => $resolved['raw'] ?? null,        // full getInfo() payload
+                'raw_chat' => $resolved['raw_chat'] ?? null,   // Chat/User object
                 'inputPeer' => $resolved['inputPeer'] ?? null,
                 'participants_count' => $resolved['participants_count'] ?? null,
             ]);
@@ -66,13 +66,14 @@ class TelegramMtprotoPoolService
                     ],
                 ]);
 
-             Log::info('[MTProto info] ', ['result' => $res]);
+                Log::info('[MTProto info] ', ['result' => $res]);
             } catch (RPCErrorException $e) {
                 return $this->fail('MTPROTO_RPC', $e->getMessage());
             } catch (CancelledException $e) {
                 throw $e;
             } catch (\Throwable $e) {
                 Log::info('Throwable', ['message' => $e->getMessage()]);
+
                 return $this->fail('Throwable', $e->getMessage(), [
                     'username' => $username,
                     'post_id' => $postId,
@@ -80,7 +81,7 @@ class TelegramMtprotoPoolService
                 ]);
             }
             $msg = $res['messages'][0] ?? null;
-            if (!is_array($msg)) {
+            if (! is_array($msg)) {
                 return $this->fail('POST_NOT_FOUND', 'Post not found or inaccessible', [
                     'username' => $username,
                     'post_id' => $postId,
@@ -96,7 +97,7 @@ class TelegramMtprotoPoolService
 
             return $this->ok([
                 'username' => $username,
-                'post_id'  => $postId,
+                'post_id' => $postId,
                 'views' => $views,
                 'is_poll' => $isPoll,
                 'raw_chat' => $res['chats'][0] ?? null,
@@ -104,19 +105,19 @@ class TelegramMtprotoPoolService
 
         }, mode: self::MODE_INSPECT, forB2c: $forB2c);
     }
+
     public function validatePostCommentLinkOptimal(string $username, int $postId, int $commentId, bool $forB2c = false): array
     {
         $username = $this->normalizeUsername($username);
 
-        return $this->executeWithPool(function (MtprotoTelegramAccount $account, \danog\MadelineProto\API $madeline)
-        use ($username, $postId, $commentId) {
+        return $this->executeWithPool(function (MtprotoTelegramAccount $account, \danog\MadelineProto\API $madeline) use ($username, $postId, $commentId) {
 
             $cacheKey = "tg:discmap:{$username}:{$postId}";
 
             // 1) Resolve discussion mapping (discussionPeer + rootId + rootRepliesMaxId)
             [$discussionPeer, $rootId, $rootMaxReplyId] = $this->resolveDiscussionMappingPlus($madeline, $username, $postId, $cacheKey);
 
-            if (!$discussionPeer || $rootId <= 0) {
+            if (! $discussionPeer || $rootId <= 0) {
                 return $this->fail('DISCUSSION_NOT_AVAILABLE', 'No discussion mapping available', [
                     'username' => $username,
                     'post_id' => $postId,
@@ -153,14 +154,20 @@ class TelegramMtprotoPoolService
                 $preferSmallWindow
             );
 
-            if (!is_array($commentMsg)) {
+            if (! is_array($commentMsg)) {
                 // mapping could be stale or peer holes -> retry with cache invalidation + warmup
                 Cache::forget($cacheKey);
 
                 [$discussionPeer2, $rootId2, $rootMaxReplyId2] = $this->resolveDiscussionMappingPlus($madeline, $username, $postId, $cacheKey);
-                if ($discussionPeer2) $discussionPeer = $discussionPeer2;
-                if ($rootId2 > 0) $rootId = $rootId2;
-                if ($rootMaxReplyId2 > 0) $rootMaxReplyId = $rootMaxReplyId2;
+                if ($discussionPeer2) {
+                    $discussionPeer = $discussionPeer2;
+                }
+                if ($rootId2 > 0) {
+                    $rootId = $rootId2;
+                }
+                if ($rootMaxReplyId2 > 0) {
+                    $rootMaxReplyId = $rootMaxReplyId2;
+                }
 
                 // warm up history (helps holes/peer-db)
                 try {
@@ -180,7 +187,7 @@ class TelegramMtprotoPoolService
                 );
             }
 
-            if (!is_array($commentMsg)) {
+            if (! is_array($commentMsg)) {
                 return $this->fail('COMMENT_NOT_IN_THREAD', 'Comment id not found in this post discussion thread (authoritative replies list)', [
                     'username' => $username,
                     'post_id' => $postId,
@@ -195,7 +202,7 @@ class TelegramMtprotoPoolService
             // If for any reason it lacks reactions but direct has them, you can merge. Usually not needed.
             $msgForReactions = $commentMsg;
             if (
-                (!isset($msgForReactions['reactions']) || !is_array($msgForReactions['reactions'])) &&
+                (! isset($msgForReactions['reactions']) || ! is_array($msgForReactions['reactions'])) &&
                 is_array($directMsg) && isset($directMsg['reactions'])
             ) {
                 $msgForReactions = $directMsg; // fallback only for reactions field
@@ -212,7 +219,7 @@ class TelegramMtprotoPoolService
                 'reactions_total' => $total,
                 'reactions' => $breakdown,
                 // usually null for discussion comments
-                'views' => isset($msgForReactions['views']) ? (int)$msgForReactions['views'] : null,
+                'views' => isset($msgForReactions['views']) ? (int) $msgForReactions['views'] : null,
 
                 // debug-friendly meta
                 'discussion_peer' => $discussionPeer,
@@ -230,8 +237,8 @@ class TelegramMtprotoPoolService
     {
         $map = Cache::get($cacheKey);
         $peer = $map['peer'] ?? null;
-        $rootId = isset($map['root_id']) ? (int)$map['root_id'] : 0;
-        $maxId = isset($map['max_id']) ? (int)$map['max_id'] : 0;
+        $rootId = isset($map['root_id']) ? (int) $map['root_id'] : 0;
+        $maxId = isset($map['max_id']) ? (int) $map['max_id'] : 0;
 
         if ($peer && $rootId > 0) {
             return [$peer, $rootId, $maxId];
@@ -239,7 +246,7 @@ class TelegramMtprotoPoolService
 
         try {
             $disc = $madeline->messages->getDiscussionMessage([
-                'peer'   => $username,
+                'peer' => $username,
                 'msg_id' => $postId,
             ]);
         } catch (\Throwable $e) {
@@ -247,19 +254,20 @@ class TelegramMtprotoPoolService
         }
 
         $root = $disc['messages'][0] ?? null;
-        if (!is_array($root)) {
+        if (! is_array($root)) {
             return [null, 0, 0];
         }
 
         // ✅ IMPORTANT: take mapping only from root message
         $peer = $root['peer_id'] ?? null;
-        $rootId = (int)($root['id'] ?? 0);
+        $rootId = (int) ($root['id'] ?? 0);
 
         $replies = $root['replies'] ?? [];
-        $maxId = is_array($replies) ? (int)($replies['max_id'] ?? 0) : 0;
+        $maxId = is_array($replies) ? (int) ($replies['max_id'] ?? 0) : 0;
 
         if ($peer && $rootId > 0) {
             Cache::put($cacheKey, ['peer' => $peer, 'root_id' => $rootId, 'max_id' => $maxId], now()->addHours(24));
+
             return [$peer, $rootId, $maxId];
         }
 
@@ -272,13 +280,14 @@ class TelegramMtprotoPoolService
         try {
             $res = $madeline->messages->getMessages([
                 'peer' => $peer,
-                'id'   => [['_' => 'inputMessageID', 'id' => $id]],
+                'id' => [['_' => 'inputMessageID', 'id' => $id]],
             ]);
         } catch (\Throwable $e) {
             return null;
         }
 
         $msg = $res['messages'][0] ?? null;
+
         return is_array($msg) ? $msg : null;
     }
 
@@ -290,17 +299,21 @@ class TelegramMtprotoPoolService
      */
     private function findCommentInThreadRepliesOptimized(
         \danog\MadelineProto\API $madeline,
-                                 $discussionPeer,
+        $discussionPeer,
         int $rootId,
         int $commentId,
         bool $preferSmallWindow
     ): ?array {
-        if ($rootId <= 0) return null;
+        if ($rootId <= 0) {
+            return null;
+        }
 
         // 1) small window attempt
         if ($preferSmallWindow) {
             $msg = $this->findCommentViaRepliesPaged($madeline, $discussionPeer, $rootId, $commentId, 25, 2);
-            if (is_array($msg)) return $msg;
+            if (is_array($msg)) {
+                return $msg;
+            }
         }
 
         // 2) normal attempt (a bit larger, more pages)
@@ -314,7 +327,7 @@ class TelegramMtprotoPoolService
      */
     private function findCommentViaRepliesPaged(
         \danog\MadelineProto\API $madeline,
-                                 $discussionPeer,
+        $discussionPeer,
         int $rootId,
         int $commentId,
         int $limit,
@@ -324,9 +337,9 @@ class TelegramMtprotoPoolService
 
         for ($page = 0; $page < $maxPages; $page++) {
             $args = [
-                'peer'   => $discussionPeer,
+                'peer' => $discussionPeer,
                 'msg_id' => $rootId,
-                'limit'  => $limit,
+                'limit' => $limit,
             ];
             if ($offsetId > 0) {
                 $args['offset_id'] = $offsetId;
@@ -339,12 +352,12 @@ class TelegramMtprotoPoolService
             }
 
             $msgs = $replies['messages'] ?? [];
-            if (!is_array($msgs) || $msgs === []) {
+            if (! is_array($msgs) || $msgs === []) {
                 return null;
             }
 
             foreach ($msgs as $m) {
-                if (is_array($m) && (int)($m['id'] ?? 0) === $commentId) {
+                if (is_array($m) && (int) ($m['id'] ?? 0) === $commentId) {
                     return $m;
                 }
             }
@@ -352,12 +365,16 @@ class TelegramMtprotoPoolService
             // move offset to older
             $minId = null;
             foreach ($msgs as $m) {
-                if (!is_array($m)) continue;
-                $id = (int)($m['id'] ?? 0);
-                if ($id > 0) $minId = $minId === null ? $id : min($minId, $id);
+                if (! is_array($m)) {
+                    continue;
+                }
+                $id = (int) ($m['id'] ?? 0);
+                if ($id > 0) {
+                    $minId = $minId === null ? $id : min($minId, $id);
+                }
             }
 
-            if (!$minId || $minId === $offsetId) {
+            if (! $minId || $minId === $offsetId) {
                 break;
             }
             $offsetId = $minId;
@@ -376,27 +393,35 @@ class TelegramMtprotoPoolService
         $breakdown = [];
 
         $reactions = $message['reactions'] ?? null;
-        if (!is_array($reactions)) return [0, []];
+        if (! is_array($reactions)) {
+            return [0, []];
+        }
 
         $results = $reactions['results'] ?? [];
-        if (!is_array($results)) return [0, []];
+        if (! is_array($results)) {
+            return [0, []];
+        }
 
         foreach ($results as $r) {
-            if (!is_array($r)) continue;
+            if (! is_array($r)) {
+                continue;
+            }
 
-            $count = (int)($r['count'] ?? 0);
-            if ($count <= 0) continue;
+            $count = (int) ($r['count'] ?? 0);
+            if ($count <= 0) {
+                continue;
+            }
 
             $reaction = $r['reaction'] ?? null;
             $key = 'reaction';
 
             if (is_array($reaction)) {
                 if (($reaction['_'] ?? null) === 'reactionEmoji' && isset($reaction['emoticon'])) {
-                    $key = (string)$reaction['emoticon'];
+                    $key = (string) $reaction['emoticon'];
                 } elseif (($reaction['_'] ?? null) === 'reactionCustomEmoji' && isset($reaction['document_id'])) {
-                    $key = 'custom:' . (string)$reaction['document_id'];
+                    $key = 'custom:'.(string) $reaction['document_id'];
                 } else {
-                    $key = (string)($reaction['_'] ?? 'reaction');
+                    $key = (string) ($reaction['_'] ?? 'reaction');
                 }
             }
 
@@ -409,7 +434,8 @@ class TelegramMtprotoPoolService
 
     /**
      * Determine if username is a bot (getInfo-only).
-     * @param bool $forB2c When true, only use accounts with is_b2c=true (for InspectTelegramLinkJob).
+     *
+     * @param  bool  $forB2c  When true, only use accounts with is_b2c=true (for InspectTelegramLinkJob).
      */
     public function resolveIsBotByUsername(string $username, bool $forB2c = false): array
     {
@@ -418,7 +444,7 @@ class TelegramMtprotoPoolService
         return $this->executeWithPool(function (MtprotoTelegramAccount $account, \danog\MadelineProto\API $madeline) use ($username) {
 
             $resolved = $this->resolveUsernameWithApi($madeline, $username);
-            if (!($resolved['ok'] ?? false)) {
+            if (! ($resolved['ok'] ?? false)) {
                 return $resolved;
             }
 
@@ -426,14 +452,14 @@ class TelegramMtprotoPoolService
             $chat = $info['Chat'] ?? $info['chat'] ?? [];
             $user = $info['User'] ?? $info['user'] ?? [];
 
-            $isBot = (!empty($user['bot']) || !empty($chat['bot']));
+            $isBot = (! empty($user['bot']) || ! empty($chat['bot']));
 
             return $this->ok([
-                'username'  => $username,
-                'is_bot'    => (bool) $isBot,
-                'type'      => $resolved['type'] ?? 'unknown',
-                'raw'       => $info,
-                'raw_chat'  => $resolved['raw_chat'] ?? null,
+                'username' => $username,
+                'is_bot' => (bool) $isBot,
+                'type' => $resolved['type'] ?? 'unknown',
+                'raw' => $info,
+                'raw_chat' => $resolved['raw_chat'] ?? null,
                 'inputPeer' => $resolved['inputPeer'] ?? null,
                 'participants_count' => $info['full']['participants_count'] ?? null,
             ]);
@@ -442,7 +468,8 @@ class TelegramMtprotoPoolService
 
     /**
      * Check invite link using MTProto pool (messages.checkChatInvite).
-     * @param bool $forB2c When true, only use accounts with is_b2c=true (for InspectTelegramLinkJob).
+     *
+     * @param  bool  $forB2c  When true, only use accounts with is_b2c=true (for InspectTelegramLinkJob).
      */
     public function checkInvite(string $hash, bool $forB2c = false): array
     {
@@ -454,9 +481,9 @@ class TelegramMtprotoPoolService
                 $result = $madeline->messages->checkChatInvite(['hash' => $hash]);
                 $participantsCount = $result['participants_count'] ?? null;
                 $userName = $result['user']['username'] ?? null;
-                if (!is_numeric($participantsCount) && $userName !== null) {
+                if (! is_numeric($participantsCount) && $userName !== null) {
                     $fullInfo = $madeline->getFullInfo($userName);
-                    $result['participants_count'] =  $fullInfo['full']['participants_count'] ?? null;
+                    $result['participants_count'] = $fullInfo['full']['participants_count'] ?? null;
                 }
 
                 Log::info('checkChatInvite', ['result' => $result]);
@@ -479,7 +506,7 @@ class TelegramMtprotoPoolService
                 ]);
             }
 
-            if (!is_array($result) || !isset($result['_'])) {
+            if (! is_array($result) || ! isset($result['_'])) {
                 return $this->fail('MTPROTO_INVALID_RESPONSE', 'Invalid response from MTProto', [
                     'raw' => $result,
                 ]);
@@ -495,11 +522,10 @@ class TelegramMtprotoPoolService
                     || (($result['broadcast'] ?? false) === true || ($result['broadcast'] ?? null) === 1);
 
                 if ($isChannel) {
-                    $peerType = !empty($result['megagroup']) ? 'supergroup' : 'channel';
+                    $peerType = ! empty($result['megagroup']) ? 'supergroup' : 'channel';
                 } else {
                     $peerType = 'group';
                 }
-
 
                 return $this->ok([
                     'title' => $result['title'] ?? null,
@@ -518,7 +544,7 @@ class TelegramMtprotoPoolService
 
                 $peerType = 'group';
                 if (is_array($chat) && (($chat['_'] ?? null) === 'channel')) {
-                    $peerType = !empty($chat['megagroup']) ? 'supergroup' : 'channel';
+                    $peerType = ! empty($chat['megagroup']) ? 'supergroup' : 'channel';
                 } elseif (is_array($chat) && (($chat['_'] ?? null) === 'chat')) {
                     $peerType = 'group';
                 }
@@ -532,7 +558,7 @@ class TelegramMtprotoPoolService
                 ]);
             }
 
-            return $this->fail('MTPROTO_UNEXPECTED', 'Unexpected response constructor: ' . $type, [
+            return $this->fail('MTPROTO_UNEXPECTED', 'Unexpected response constructor: '.$type, [
                 'raw' => $result,
             ]);
         }, mode: self::MODE_INSPECT, forB2c: $forB2c);
@@ -542,8 +568,7 @@ class TelegramMtprotoPoolService
      * Fetch premium boosts status for a resolved peer/inputPeer.
      * This wrapper never throws; it returns ok/error payload.
      *
-     * @param mixed $peer Username or inputPeer structure accepted by MadelineProto.
-     * @param bool $forB2c
+     * @param  mixed  $peer  Username or inputPeer structure accepted by MadelineProto.
      * @return array{ok: bool, raw?: array, error_code?: string, error?: string}
      */
     public function getBoostsStatusByPeer(mixed $peer, bool $forB2c = false): array
@@ -579,7 +604,6 @@ class TelegramMtprotoPoolService
      * INTERNAL: Pool execution
      * ============================================================ */
 
-
     private function selectAvailableAccount(
         array $excludeIds = [],
         string $mode = self::MODE_INSPECT,
@@ -596,6 +620,7 @@ class TelegramMtprotoPoolService
         $q = MtprotoTelegramAccount::query()
             ->where('is_active', true)
             ->whereNull('disabled_at')
+            ->whereNull('premium_folder_id')
             ->where(function ($q) use ($now) {
                 $q->whereNull('cooldown_until')->orWhere('cooldown_until', '<=', $now);
             });
@@ -611,7 +636,7 @@ class TelegramMtprotoPoolService
             $q->where('is_inspect', true);
             if ($forB2c) {
                 $q->where('is_b2c', true);
-            }else{
+            } else {
                 $q->where('is_b2c', false);
             }
         }
@@ -637,8 +662,7 @@ class TelegramMtprotoPoolService
 
         // ✅ Apply proxy cooldown filter ONLY if not monoculture
         if (! $monoculture) {
-            $candidates = $candidates->reject(fn (MtprotoTelegramAccount $a) =>
-            $this->proxyHealth->isOnCooldown($this->proxyThrottleKey($a))
+            $candidates = $candidates->reject(fn (MtprotoTelegramAccount $a) => $this->proxyHealth->isOnCooldown($this->proxyThrottleKey($a))
             );
             if ($candidates->isEmpty()) {
                 return null;
@@ -649,6 +673,7 @@ class TelegramMtprotoPoolService
         if (! $monoculture && $excludeProxyKeys !== []) {
             $candidates = $candidates->reject(function (MtprotoTelegramAccount $a) use ($excludeProxyKeys) {
                 $pk = $this->proxyThrottleKey($a);
+
                 return in_array($pk, $excludeProxyKeys, true);
             });
             if ($candidates->isEmpty()) {
@@ -664,12 +689,16 @@ class TelegramMtprotoPoolService
                 $penA = $this->hasAccountPenalty($a->id) ? $penaltyWeight : 0;
                 $penB = $this->hasAccountPenalty($b->id) ? $penaltyWeight : 0;
 
-                if ($penA !== $penB) return $penA <=> $penB; // non-penalized first
+                if ($penA !== $penB) {
+                    return $penA <=> $penB;
+                } // non-penalized first
 
                 $usedA = $a->last_used_at?->getTimestamp() ?? 0;
                 $usedB = $b->last_used_at?->getTimestamp() ?? 0;
 
-                if ($usedA !== $usedB) return $usedA <=> $usedB;
+                if ($usedA !== $usedB) {
+                    return $usedA <=> $usedB;
+                }
 
                 return $a->id <=> $b->id;
             })->values();
@@ -681,15 +710,23 @@ class TelegramMtprotoPoolService
             $scoreA = $this->proxyHealth->score($this->proxyThrottleKey($a));
             $scoreB = $this->proxyHealth->score($this->proxyThrottleKey($b));
 
-            if ($this->hasAccountPenalty($a->id)) $scoreA -= $penaltyWeight;
-            if ($this->hasAccountPenalty($b->id)) $scoreB -= $penaltyWeight;
+            if ($this->hasAccountPenalty($a->id)) {
+                $scoreA -= $penaltyWeight;
+            }
+            if ($this->hasAccountPenalty($b->id)) {
+                $scoreB -= $penaltyWeight;
+            }
 
-            if ($scoreA !== $scoreB) return $scoreB <=> $scoreA;
+            if ($scoreA !== $scoreB) {
+                return $scoreB <=> $scoreA;
+            }
 
             $usedA = $a->last_used_at?->getTimestamp() ?? 0;
             $usedB = $b->last_used_at?->getTimestamp() ?? 0;
 
-            if ($usedA !== $usedB) return $usedA <=> $usedB;
+            if ($usedA !== $usedB) {
+                return $usedA <=> $usedB;
+            }
 
             return $a->id <=> $b->id;
         })->values();
@@ -702,11 +739,11 @@ class TelegramMtprotoPoolService
         return $topCandidates->first();
     }
 
-
     /**
      * Returns one candidate that would be eligible except for proxy cooldown (same query as selection,
      * but without proxy cooldown filter). Used when selectAvailableAccount returns null to decide
      * whether to wait for proxy cooldown before returning NO_AVAILABLE_ACCOUNTS.
+     *
      * @return array{account: MtprotoTelegramAccount, proxy_key: string}|null
      */
     private function getOneCandidateDroppedByProxyCooldownOnly(
@@ -736,7 +773,7 @@ class TelegramMtprotoPoolService
             $q->where('is_inspect', true);
             if ($forB2c) {
                 $q->where('is_b2c', true);
-            }else{
+            } else {
                 $q->where('is_b2c', false);
             }
         }
@@ -759,6 +796,7 @@ class TelegramMtprotoPoolService
         if ($excludeProxyKeys !== []) {
             $candidates = $candidates->reject(function (MtprotoTelegramAccount $a) use ($excludeProxyKeys) {
                 $pk = $this->proxyThrottleKey($a);
+
                 return in_array($pk, $excludeProxyKeys, true);
             });
         }
@@ -776,25 +814,24 @@ class TelegramMtprotoPoolService
         return ['account' => $first, 'proxy_key' => $proxyKey];
     }
 
-
     /** Selection-only: do not write to DB. TTL from config (default 10–30 sec). */
     private function applyAccountLockPenalty(int $accountId): void
     {
         $ttl = (int) config('telegram_mtproto.lock_penalty_ttl_seconds', 20);
         $ttl = max(10, min(30, $ttl));
-        Cache::put(self::PENALTY_KEY_PREFIX . $accountId, 1, $ttl);
+        Cache::put(self::PENALTY_KEY_PREFIX.$accountId, 1, $ttl);
     }
 
     private function hasAccountPenalty(int $accountId): bool
     {
-        return Cache::has(self::PENALTY_KEY_PREFIX . $accountId);
+        return Cache::has(self::PENALTY_KEY_PREFIX.$accountId);
     }
 
     private function ensureHeavyDailyWindow(MtprotoTelegramAccount $account): void
     {
         $now = now();
 
-        if (!$account->daily_heavy_reset_at || $account->daily_heavy_reset_at->isPast()) {
+        if (! $account->daily_heavy_reset_at || $account->daily_heavy_reset_at->isPast()) {
             $account->forceFill([
                 'daily_heavy_used' => 0,
                 'daily_heavy_reset_at' => $now->copy()->addDay()->startOfDay(), // next day 00:00
@@ -815,12 +852,12 @@ class TelegramMtprotoPoolService
 
         $rid = $this->newRid();
 
-        $maxTries    = (int) config('telegram_mtproto.max_accounts_to_try_per_call', 4);
-//        $deadlineMs  = (int) (
-//            ($mode === self::MODE_INSPECT && (int) config('telegram_mtproto.call_deadline_inspect_ms', 0) > 0)
-//                ? config('telegram_mtproto.call_deadline_inspect_ms')
-//                : config('telegram_mtproto.call_deadline_ms', 30000)
-//        );
+        $maxTries = (int) config('telegram_mtproto.max_accounts_to_try_per_call', 4);
+        //        $deadlineMs  = (int) (
+        //            ($mode === self::MODE_INSPECT && (int) config('telegram_mtproto.call_deadline_inspect_ms', 0) > 0)
+        //                ? config('telegram_mtproto.call_deadline_inspect_ms')
+        //                : config('telegram_mtproto.call_deadline_ms', 30000)
+        //        );
         $deadlineMs = 30000;
         $startedAtMs = (int) (microtime(true) * 1000);
 
@@ -837,7 +874,7 @@ class TelegramMtprotoPoolService
 
             $account = $this->selectAvailableAccount($excludeIds, $mode, $excludeProxyKeys, $forB2c);
 
-            if (!$account) {
+            if (! $account) {
                 // Helpful reason: check if we'd have candidates but they are on proxy cooldown
                 $cooldownCandidate = $this->getOneCandidateDroppedByProxyCooldownOnly($excludeIds, $mode, $excludeProxyKeys, $forB2c);
 
@@ -852,6 +889,7 @@ class TelegramMtprotoPoolService
                         'exclude_proxy_keys_count' => count($excludeProxyKeys),
                         'cooldown_proxy_key' => $pk,
                     ]);
+
                     return $this->failWithMeta('NO_AVAILABLE_ACCOUNTS', 'No available MTProto accounts', $rid, $mode, $attempt + 1, null, [
                         'reason' => 'proxy_cooldown_all_dropped',
                         'cooldown_proxy_key' => $pk,
@@ -867,6 +905,7 @@ class TelegramMtprotoPoolService
                     'exclude_ids_count' => count($excludeIds),
                     'exclude_proxy_keys_count' => count($excludeProxyKeys),
                 ]);
+
                 return $this->failWithMeta('NO_AVAILABLE_ACCOUNTS', 'No available MTProto accounts', $rid, $mode, $attempt + 1, null, [
                     'reason' => 'db_query_empty_or_all_filtered',
                 ]);
@@ -876,11 +915,12 @@ class TelegramMtprotoPoolService
 
             $lockTtl = $this->computeAccountLockTtlSeconds();
             $accLockKey = "tg:mtproto:lock:{$account->id}";
-            $accLock    = Cache::lock($accLockKey, $lockTtl);
+            $accLock = Cache::lock($accLockKey, $lockTtl);
 
-            if (!$accLock->get()) {
+            if (! $accLock->get()) {
                 $this->applyAccountLockPenalty($account->id);
                 $this->jitterSleepMs(8, 30);
+
                 continue;
             }
 
@@ -897,12 +937,14 @@ class TelegramMtprotoPoolService
                         $excludeProxyKeys[] = $proxyKey;
                     }
                     $this->jitterSleepMs(15, 60);
+
                     continue;
                 }
 
                 // Throttle: bounded for inspect so we don't block worker long
-                if (!$this->waitForProxyThrottleByMode($account, $mode)) {
+                if (! $this->waitForProxyThrottleByMode($account, $mode)) {
                     $accLock->release();
+
                     return $this->failWithMeta(
                         'MTPROTO_THROTTLE_SLOT_UNAVAILABLE',
                         'Proxy throttle slot not acquired in time',
@@ -932,7 +974,7 @@ class TelegramMtprotoPoolService
                         str_contains($msg, 'INTERNAL PEER DATABASE') ||
                         str_contains($msg, 'PEER IS NOT PRESENT');
 
-                    if (str_contains($msg, 'THIS PEER IS NOT PRESENT IN THE INTERNAL PEER DATABASE') ){
+                    if (str_contains($msg, 'THIS PEER IS NOT PRESENT IN THE INTERNAL PEER DATABASE')) {
                         return $this->fail('RESOLVE_FAILED', $e->getMessage());
                     }
                     if ($isPeerDb) {
@@ -976,10 +1018,10 @@ class TelegramMtprotoPoolService
 
                 // Attach meta context on all results
                 $result['meta'] = array_merge($result['meta'] ?? [], [
-                    'rid'       => $rid,
-                    'mode'      => $mode,
-                    'attempt'   => $attempt + 1,
-                    'account_id'=> $account->id,
+                    'rid' => $rid,
+                    'mode' => $mode,
+                    'attempt' => $attempt + 1,
+                    'account_id' => $account->id,
                     'proxy_key' => $proxyKey,
                 ]);
 
@@ -1003,6 +1045,7 @@ class TelegramMtprotoPoolService
                 if ($willRetry) {
                     $account->recordFailure($errCode ?: 'CALL_FAILED');
                     $this->jitterSleepMs(20, 90);
+
                     continue;
                 }
 
@@ -1031,6 +1074,7 @@ class TelegramMtprotoPoolService
 
                 if (($handled['retry'] ?? false) === true) {
                     $this->jitterSleepMs(25, 120);
+
                     continue;
                 }
 
@@ -1044,9 +1088,13 @@ class TelegramMtprotoPoolService
 
                 $proxyKey = $this->proxyThrottleKey($account);
                 $this->proxyHealth->markError($proxyKey, 'CANCELLED');
-                try { $account->setCooldown(30); } catch (\Throwable $x) {}
+                try {
+                    $account->setCooldown(30);
+                } catch (\Throwable $x) {
+                }
 
                 $this->jitterSleepMs(30, 120);
+
                 continue;
 
             } catch (SignalException $e) {
@@ -1070,17 +1118,25 @@ class TelegramMtprotoPoolService
 
                 if ($isStreamish) {
                     $this->proxyHealth->markError($proxyKey, 'STREAMISH');
-                    try { $account->setCooldown($mode === self::MODE_HEAVY ? 120 : 60); } catch (\Throwable $x) {}
+                    try {
+                        $account->setCooldown($mode === self::MODE_HEAVY ? 120 : 60);
+                    } catch (\Throwable $x) {
+                    }
                     $this->jitterSleepMs(80, 200);
+
                     continue;
                 }
 
                 $this->handleGenericError($account, $e);
                 $this->jitterSleepMs(25, 140);
+
                 continue;
 
             } finally {
-                try { $accLock->release(); } catch (\Throwable $e) {}
+                try {
+                    $accLock->release();
+                } catch (\Throwable $e) {
+                }
             }
         }
 
@@ -1100,7 +1156,6 @@ class TelegramMtprotoPoolService
         ]);
     }
 
-
     /* ============================================================
      * INTERNAL: Resolve username (getInfo only)
      * ============================================================ */
@@ -1108,35 +1163,35 @@ class TelegramMtprotoPoolService
     private function resolveUsernameWithApi(\danog\MadelineProto\API $madeline, string $username): array
     {
         $username = $this->normalizeUsername($username);
-            $info = $madeline->getFullInfo($username);
-            $type = TelegramChatType::fromMadeline($info);
+        $info = $madeline->getFullInfo($username);
+        $type = TelegramChatType::fromMadeline($info);
 
-            $chat = $info['Chat'] ?? $info['chat'] ?? null;
-            $user = $info['User'] ?? $info['user'] ?? null;
+        $chat = $info['Chat'] ?? $info['chat'] ?? null;
+        $user = $info['User'] ?? $info['user'] ?? null;
 
-            $rawChat = is_array($chat) ? $chat : (is_array($user) ? $user : []);
+        $rawChat = is_array($chat) ? $chat : (is_array($user) ? $user : []);
 
-            $inputPeer = $this->extractInputPeer($info, $rawChat);
+        $inputPeer = $this->extractInputPeer($info, $rawChat);
 
-            if (!$inputPeer) {
-                return $this->fail('INPUT_PEER_MISSING', 'Could not extract inputPeer from getInfo() result', [
-                    'raw' => $this->thinInfoForLogs($info),
-                ]);
-            }
-
-            if ($type === 'bot') {
-                $participantsCount = $user['bot_active_users'] ?? null;
-            } else {
-                $participantsCount = $info['full']['participants_count'] ?? null;
-            }
-
-            return $this->ok([
-                'type' => $type ?? 'unknown',
-                'raw' => $info,
-                'participants_count' => $participantsCount,
-                'raw_chat' => $rawChat,
-                'inputPeer' => $inputPeer,
+        if (! $inputPeer) {
+            return $this->fail('INPUT_PEER_MISSING', 'Could not extract inputPeer from getInfo() result', [
+                'raw' => $this->thinInfoForLogs($info),
             ]);
+        }
+
+        if ($type === 'bot') {
+            $participantsCount = $user['bot_active_users'] ?? null;
+        } else {
+            $participantsCount = $info['full']['participants_count'] ?? null;
+        }
+
+        return $this->ok([
+            'type' => $type ?? 'unknown',
+            'raw' => $info,
+            'participants_count' => $participantsCount,
+            'raw_chat' => $rawChat,
+            'inputPeer' => $inputPeer,
+        ]);
     }
 
     /* ============================================================
@@ -1147,10 +1202,14 @@ class TelegramMtprotoPoolService
     {
         // common wrappers
         $p = $info['InputPeer'] ?? $info['inputPeer'] ?? $info['peer'] ?? null;
-        if (is_array($p) && isset($p['_'])) return $p;
+        if (is_array($p) && isset($p['_'])) {
+            return $p;
+        }
 
         $p = $chatFromInfo['InputPeer'] ?? $chatFromInfo['inputPeer'] ?? $chatFromInfo['peer'] ?? null;
-        if (is_array($p) && isset($p['_'])) return $p;
+        if (is_array($p) && isset($p['_'])) {
+            return $p;
+        }
 
         // build peer from raw chat/user
         if (($chatFromInfo['_'] ?? null) === 'channel') {
@@ -1204,7 +1263,9 @@ class TelegramMtprotoPoolService
             return (int) substr($s, 4);
         }
 
-        if ($id < 0) return abs($id);
+        if ($id < 0) {
+            return abs($id);
+        }
 
         return $id;
     }
@@ -1216,7 +1277,9 @@ class TelegramMtprotoPoolService
             ?? $chat['chat_id']
             ?? null;
 
-        if (!is_numeric($id)) return null;
+        if (! is_numeric($id)) {
+            return null;
+        }
 
         return (int) $id;
     }
@@ -1278,7 +1341,7 @@ class TelegramMtprotoPoolService
 
         // PEER_FLOOD
         if (str_contains($code, 'PEER_FLOOD') || str_contains($msg, 'PEER_FLOOD')) {
-            $hours = !empty($account->is_probe) ? 6 : 3;
+            $hours = ! empty($account->is_probe) ? 6 : 3;
             $account->setCooldown($hours * 3600);
 
             Log::warning('MTProto account hit PEER_FLOOD', [
@@ -1297,6 +1360,7 @@ class TelegramMtprotoPoolService
             if (str_contains($code, $tm) || str_contains($msg, $tm)) {
                 $account->setCooldown(60);
                 $account->recordFailure($tm);
+
                 return ['retry' => true, 'error_code' => $tm];
             }
         }
@@ -1305,6 +1369,7 @@ class TelegramMtprotoPoolService
         $errorCode = 'MTPROTO_RPC';
         $account->recordFailure($errorCode);
         $account->setCooldown(60);
+
         return ['retry' => true, 'error_code' => $errorCode];
     }
 
@@ -1316,6 +1381,7 @@ class TelegramMtprotoPoolService
                 'type' => get_class($e),
                 'msg' => $e->getMessage(),
             ]);
+
             return;
         }
 
@@ -1330,6 +1396,7 @@ class TelegramMtprotoPoolService
                 'account_id' => $account->id,
                 'error' => $msg,
             ]);
+
             return;
         }
 
@@ -1339,25 +1406,28 @@ class TelegramMtprotoPoolService
                 'account_id' => $account->id,
                 'error' => $msg,
             ]);
+
             return;
         }
 
         $account->recordFailure($errorCode);
 
         $fails = (int) ($account->fail_count ?? 0);
-        $base  = 60;
+        $base = 60;
 
         $mult = match (true) {
             $fails >= 6 => 8,
             $fails >= 3 => 4,
             $fails >= 1 => 2,
-            default     => 1,
+            default => 1,
         };
 
         $cooldown = min(10 * 60, max($base, $base * $mult)) + random_int(0, 3);
 
-        try { $account->setCooldown($cooldown); } catch (\Throwable $x) {}
-
+        try {
+            $account->setCooldown($cooldown);
+        } catch (\Throwable $x) {
+        }
 
         Log::warning('MTProto account error (generic)', [
             'account_id' => $account->id,
@@ -1415,7 +1485,7 @@ class TelegramMtprotoPoolService
             'INTERNAL_SERVER_ERROR',
             'SERVER_ERROR',
             'FLOOD_WAIT',
-            'PEER_NOT_IN_DB'
+            'PEER_NOT_IN_DB',
         ];
 
         return in_array(strtoupper($errorCode), $retryable, true);
@@ -1432,7 +1502,7 @@ class TelegramMtprotoPoolService
 
     private function deadlineExceeded(int $startedAtMs, int $deadlineMs): bool
     {
-        return (((int)(microtime(true) * 1000) - $startedAtMs) > $deadlineMs);
+        return ((int) (microtime(true) * 1000) - $startedAtMs) > $deadlineMs;
     }
 
     private function jitterSleepMs(int $minMs, int $maxMs): void
@@ -1444,8 +1514,8 @@ class TelegramMtprotoPoolService
     private function computeAccountLockTtlSeconds(): int
     {
         $jobTimeout = (int) config('telegram_mtproto.job_timeout_seconds', 60);
-        $buffer     = (int) config('telegram_mtproto.lock_ttl_buffer_seconds', 60);
-        $ttlCfg     = (int) config('telegram_mtproto.account_lock_ttl_seconds', 0);
+        $buffer = (int) config('telegram_mtproto.lock_ttl_buffer_seconds', 60);
+        $ttlCfg = (int) config('telegram_mtproto.account_lock_ttl_seconds', 0);
 
         return $ttlCfg > 0 ? $ttlCfg : ($jobTimeout + $buffer);
     }
@@ -1461,6 +1531,7 @@ class TelegramMtprotoPoolService
                 return null;
             }
             $v = trim((string) $v);
+
             return $v === '' ? null : $v;
         };
         $type = $trim($account->proxy_type ?? null);
@@ -1474,6 +1545,7 @@ class TelegramMtprotoPoolService
         } else {
             $port = null;
         }
+
         return [
             'type' => $type,
             'host' => $host,
@@ -1494,16 +1566,16 @@ class TelegramMtprotoPoolService
     {
         $normalized = $this->normalizeProxySettings($account);
         if (! empty($normalized['_no_proxy'])) {
-            return 'no_proxy:' . $account->id;
+            return 'no_proxy:'.$account->id;
         }
         $base = substr(sha1(json_encode($normalized)), 0, 16);
         $mode = (string) config('telegram_mtproto.proxy_mode', 'rotating');
         if ($mode === 'rotating') {
-            return $base . ':acct:' . $account->id;
+            return $base.':acct:'.$account->id;
         }
+
         return $base;
     }
-
 
     /**
      * Throttle key including mode so inspect and heavy have separate throttle budgets.
@@ -1511,7 +1583,8 @@ class TelegramMtprotoPoolService
     private function proxyThrottleKeyForMode(MtprotoTelegramAccount $account, string $mode): string
     {
         $base = $this->proxyThrottleKey($account);
-        return $base . ':' . $mode;
+
+        return $base.':'.$mode;
     }
 
     /**
@@ -1522,7 +1595,7 @@ class TelegramMtprotoPoolService
     {
         $throttleKey = $this->proxyThrottleKeyForMode($account, $mode);
         $seconds = $this->getProxyThrottleSeconds($throttleKey);
-        $cacheKey = 'tg:proxy:throttle:' . $throttleKey;
+        $cacheKey = 'tg:proxy:throttle:'.$throttleKey;
 
         $maxWait = $mode === self::MODE_INSPECT
             ? (int) config('telegram_mtproto.proxy_throttle_max_wait_inspect_sec', 8)
@@ -1535,6 +1608,7 @@ class TelegramMtprotoPoolService
             $this->jitterSleepMs(150, 350);
             $waited += 0.25;
         }
+
         return false;
     }
 
@@ -1543,11 +1617,12 @@ class TelegramMtprotoPoolService
      */
     private function getProxyThrottleSeconds(string $throttleKeyWithMode): int
     {
-        $stored = Cache::get('tg:proxy:floodrate:' . $throttleKeyWithMode);
+        $stored = Cache::get('tg:proxy:floodrate:'.$throttleKeyWithMode);
         if (is_numeric($stored) && $stored > 0) {
             return (int) max(1, min(60, round($stored)));
         }
         $seconds = (int) config('telegram_mtproto.proxy_throttle_sec', 2);
+
         return $seconds > 0 ? $seconds : 2;
     }
 
@@ -1557,7 +1632,7 @@ class TelegramMtprotoPoolService
     private function recordProxyCallWindow(MtprotoTelegramAccount $account, string $mode): void
     {
         $throttleKey = $this->proxyThrottleKeyForMode($account, $mode);
-        $key = 'tg:proxy:floodwindow:' . $throttleKey;
+        $key = 'tg:proxy:floodwindow:'.$throttleKey;
         $windowTtl = 300;
         $now = (int) floor(microtime(true));
         $window = Cache::get($key);
@@ -1574,8 +1649,8 @@ class TelegramMtprotoPoolService
     private function applyFloodWaitRate(MtprotoTelegramAccount $account, int $xSeconds, string $mode): void
     {
         $throttleKey = $this->proxyThrottleKeyForMode($account, $mode);
-        $windowKey = 'tg:proxy:floodwindow:' . $throttleKey;
-        $rateKey = 'tg:proxy:floodrate:' . $throttleKey;
+        $windowKey = 'tg:proxy:floodwindow:'.$throttleKey;
+        $rateKey = 'tg:proxy:floodrate:'.$throttleKey;
         $window = Cache::get($windowKey);
         if (! is_array($window)) {
             return;
@@ -1604,14 +1679,13 @@ class TelegramMtprotoPoolService
         return $this->waitForProxyThrottle($account, $mode);
     }
 
-
     /**
      * Set Revolt/EventLoop error handler so UnhandledFutureError (e.g. stream closed) is logged as warning.
      * Called at start of executeWithPool and again right before $madeline->start() to ensure we win over any other handler.
      */
     private function ensureRevoltErrorHandler(): void
     {
-        if (!class_exists(\Revolt\EventLoop::class)) {
+        if (! class_exists(\Revolt\EventLoop::class)) {
             return;
         }
         $this->setRevoltErrorHandler();
@@ -1622,7 +1696,7 @@ class TelegramMtprotoPoolService
      */
     private function revoltErrorHandlerSetBeforeStart(): void
     {
-        if (!class_exists(\Revolt\EventLoop::class)) {
+        if (! class_exists(\Revolt\EventLoop::class)) {
             return;
         }
         $this->setRevoltErrorHandler();
@@ -1643,6 +1717,7 @@ class TelegramMtprotoPoolService
                         'message' => $msg,
                         'class' => $cls,
                     ]);
+
                     return;
                 }
                 Log::error('Revolt/EventLoop uncaught error', [
@@ -1692,7 +1767,6 @@ class TelegramMtprotoPoolService
         return $out;
     }
 
-
     private function newRid(): string
     {
         try {
@@ -1712,10 +1786,10 @@ class TelegramMtprotoPoolService
         array $meta = []
     ): array {
         return $this->fail($code, $message, array_merge([
-            'rid'       => $rid,
-            'mode'      => $mode,
-            'attempt'   => $attempt,
-            'account_id'=> $account?->id,
+            'rid' => $rid,
+            'mode' => $mode,
+            'attempt' => $attempt,
+            'account_id' => $account?->id,
             'proxy_key' => $account ? $this->proxyThrottleKey($account) : null,
         ], $meta));
     }
@@ -1733,7 +1807,7 @@ class TelegramMtprotoPoolService
             'error' => $message,
         ];
 
-        if (!empty($meta)) {
+        if (! empty($meta)) {
             $out['meta'] = $meta;
         }
 
@@ -1744,8 +1818,10 @@ class TelegramMtprotoPoolService
     {
         if (preg_match('~FLOOD_(?:PREMIUM_)?WAIT_(\d+)~i', $msg, $m)) {
             $s = (int) $m[1];
+
             return min(max($s, 1), 3600);
         }
+
         return null;
     }
 }

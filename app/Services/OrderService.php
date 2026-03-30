@@ -4,10 +4,10 @@ namespace App\Services;
 
 use App\Models\Category;
 use App\Models\Client;
+use App\Models\ClientServiceLimit;
+use App\Models\ClientTransaction;
 use App\Models\Order;
 use App\Models\Service;
-use App\Models\ClientTransaction;
-use App\Models\ClientServiceLimit;
 use App\Models\TelegramAccount;
 use App\Services\Order\ApiOrderResult;
 use App\Services\Order\OrderInspectionDispatcher;
@@ -50,7 +50,26 @@ class OrderService implements OrderServiceInterface
             }
 
             // 3) Normalize targets
-            $targets = $this->normalizeTargets($data['targets'] ?? []);
+            if (($service->template_key ?? '') === 'telegram_premium_folder') {
+                $duration = (int) ($data['duration_days'] ?? 0);
+                $opts = (array) (($service->template()['duration_options'] ?? [3, 14, 30]));
+                if (! in_array($duration, $opts, true)) {
+                    throw ValidationException::withMessages([
+                        'duration_days' => 'Select a valid duration.',
+                    ]);
+                }
+                $link = trim((string) ($data['targets'][0]['link'] ?? ''));
+                if ($link === '') {
+                    throw ValidationException::withMessages([
+                        'targets' => 'A valid link is required.',
+                    ]);
+                }
+                $targets = [
+                    ['link' => $link, 'quantity' => 1],
+                ];
+            } else {
+                $targets = $this->normalizeTargets($data['targets'] ?? []);
+            }
             $this->validateUniqueLinksInRequest($targets, $service);
 
             // 4) Dripfeed toggle
@@ -78,13 +97,16 @@ class OrderService implements OrderServiceInterface
                 $this->validateNoDuplicateLinksBatch($service, $targets, $now);
             }
 
-            // 7) Base rate (per 1000)
+            // 7) Base rate from service (per-1000 for normal services; for hide_quantity templates, same field = flat order price)
             $baseRate = (float) $this->pricingService->priceForClient($service, $client);
 
-            // 7b) Speed tier and rate multiplier (for pricing)
+            // 7b) Speed tier multiplier (1.0 / fast / super_fast); base rate from PricingService
             $speedTier = $service->speed_limit_enabled ? ($data['speed_tier'] ?? 'normal') : 'normal';
-            $rateMultiplier = $service->rateMultiplierForTier($speedTier);
-            $finalRate = $rateMultiplier;
+            $speedMultiplier = $service->getSpeedMultiplier($speedTier);
+            $effectiveRate = $baseRate * $speedMultiplier;
+
+            $serviceTemplate = $service->template();
+            $isFlatOrderPrice = is_array($serviceTemplate) && ! empty($serviceTemplate['hide_quantity']);
 
             // 8) Validate each row + calculate charges
             $rowCharges = [];
@@ -101,13 +123,18 @@ class OrderService implements OrderServiceInterface
                     (int) $effectiveIncrement
                 );
 
-                // Calculate charge using final rate (base * rate multiplier), rate is per 1000
-                $charge = ($qty / 1000) * $finalRate;
-
-                // Cost also uses rate multiplier if service_cost_per_1000 exists
-                $cost = $service->service_cost_per_1000 !== null
-                    ? ($qty / 1000) * (float) $service->service_cost_per_1000 * $finalRate
-                    : null;
+                if ($isFlatOrderPrice) {
+                    // One fixed price per order row (rate field is dollars for the service, not per 1000)
+                    $charge = round($effectiveRate, 2);
+                    $cost = $service->service_cost_per_1000 !== null
+                        ? round((float) $service->service_cost_per_1000 * $speedMultiplier, 2)
+                        : null;
+                } else {
+                    $charge = round(($qty / 1000) * $effectiveRate, 2);
+                    $cost = $service->service_cost_per_1000 !== null
+                        ? round(($qty / 1000) * (float) $service->service_cost_per_1000 * $speedMultiplier, 2)
+                        : null;
+                }
 
                 $rowCharges[] = [
                     'link' => $target['link'],
@@ -143,7 +170,7 @@ class OrderService implements OrderServiceInterface
             $dripfeedIntervalMinutes = null;
             if ($dripfeedEnabled && $dripfeedQuantity && $dripfeedInterval) {
                 // Convert interval to minutes
-                $dripfeedIntervalMinutes = match($dripfeedIntervalUnit) {
+                $dripfeedIntervalMinutes = match ($dripfeedIntervalUnit) {
                     'minutes' => $dripfeedInterval,
                     'hours' => $dripfeedInterval * 60,
                     'days' => $dripfeedInterval * 1440,
@@ -161,8 +188,9 @@ class OrderService implements OrderServiceInterface
                 $pricingSnapshot = [
                     'speed_tier' => $speedTier,
                     'base_rate_per_100' => $baseRate,
-                    'rate_multiplier' => $rateMultiplier,
-                    'final_rate_per_100' => $finalRate,
+                    'rate_multiplier' => $speedMultiplier,
+                    'final_rate_per_100' => $effectiveRate,
+                    'pricing_model' => $isFlatOrderPrice ? 'flat_order' : 'per_1000',
                     'quantity' => $row['quantity'],
                     'total_price' => $row['charge'],
                     'computed_at' => $now->toDateTimeString(),
@@ -175,10 +203,10 @@ class OrderService implements OrderServiceInterface
                     'category_id' => (int) $data['category_id'],
                     'service_id' => $service->id,
                     'link' => $row['link'],
-                    'comment_text' => !empty($data['comment_text']) ? trim((string) $data['comment_text']) : null,
+                    'comment_text' => ! empty($data['comment_text']) ? trim((string) $data['comment_text']) : null,
                     'star_rating' => (isset($data['star_rating']) && $data['star_rating'] >= 1 && $data['star_rating'] <= 5)
                         ? (int) $data['star_rating'] : null,
-                    'link_2' => ($service->template_key === 'invite_subscribers_from_other_channel' && !empty($data['link_2']))
+                    'link_2' => ($service->template_key === 'invite_subscribers_from_other_channel' && ! empty($data['link_2']))
                         ? trim((string) $data['link_2']) : null,
                     'payment_source' => Order::PAYMENT_SOURCE_BALANCE,
                     'subscription_id' => null,
@@ -208,7 +236,12 @@ class OrderService implements OrderServiceInterface
                     $orderData['provider_payload'] ?? [],
                     ['pricing_snapshot' => $pricingSnapshot]
                 );
-                if (!empty($data['review_comments']) && is_array($data['review_comments'])) {
+                if (($service->template_key ?? '') === 'telegram_premium_folder') {
+                    $providerPayload['telegram_premium_folder'] = [
+                        'duration_days' => (int) ($data['duration_days'] ?? 0),
+                    ];
+                }
+                if (! empty($data['review_comments']) && is_array($data['review_comments'])) {
                     $providerPayload['review_comments'] = $data['review_comments'];
                 }
                 if (isset($data['star_rating']) && $data['star_rating'] >= 1 && $data['star_rating'] <= 5) {
@@ -239,7 +272,6 @@ class OrderService implements OrderServiceInterface
                     'type' => ClientTransaction::TYPE_ORDER_CHARGE,
                 ]);
             }
-
 
             foreach ($orders as $order) {
                 $this->orderInspectionDispatcher->dispatch($order);
@@ -273,7 +305,7 @@ class OrderService implements OrderServiceInterface
             }
 
             $service = $this->serviceService->getServiceById($serviceId);
-            if (!$service || !$service->is_active) {
+            if (! $service || ! $service->is_active) {
                 throw ValidationException::withMessages([
                     'service' => 'Service not found or inactive.',
                 ]);
@@ -285,6 +317,12 @@ class OrderService implements OrderServiceInterface
             if ($service->service_type === 'custom_comments') {
                 throw ValidationException::withMessages([
                     'service' => 'Custom comments service is not supported via API.',
+                ]);
+            }
+
+            if (($service->template_key ?? '') === 'telegram_premium_folder') {
+                throw ValidationException::withMessages([
+                    'service' => 'This service is not available via the API.',
                 ]);
             }
 
@@ -514,13 +552,14 @@ class OrderService implements OrderServiceInterface
                         'service_id' => (int) $first['service_id'],
                         'quantity' => (int) $rows->sum(fn ($x) => (int) ($x['quantity'] ?? 0)),
                     ];
-                if (isset($first['comments'])) {
-                    $res['comments'] = $first['comments'];
-                }
-                if (isset($first['star_rating']) && $first['star_rating'] >= 1 && $first['star_rating'] <= 5) {
-                    $res['star_rating'] = (int) $first['star_rating'];
-                }
-                return $res;
+                    if (isset($first['comments'])) {
+                        $res['comments'] = $first['comments'];
+                    }
+                    if (isset($first['star_rating']) && $first['star_rating'] >= 1 && $first['star_rating'] <= 5) {
+                        $res['star_rating'] = (int) $first['star_rating'];
+                    }
+
+                    return $res;
                 })
                 ->values()
                 ->all();
@@ -541,7 +580,7 @@ class OrderService implements OrderServiceInterface
                 ->keyBy('id');
 
             foreach ($serviceIds as $serviceId) {
-                if (!$services->has($serviceId)) {
+                if (! $services->has($serviceId)) {
                     throw ValidationException::withMessages([
                         'services' => "Service ID {$serviceId} is invalid, inactive, or does not belong to the selected category.",
                     ]);
@@ -667,7 +706,7 @@ class OrderService implements OrderServiceInterface
                             $needsComment = \App\Services\YouTube\YouTubeExecutionPlanResolver::stepsContainCommentCustom($template['steps'] ?? []);
                         }
                     }
-                    if ($needsComment && !empty($data['comment_text'])) {
+                    if ($needsComment && ! empty($data['comment_text'])) {
                         $commentText = trim((string) $data['comment_text']);
                     }
                 }
@@ -732,9 +771,11 @@ class OrderService implements OrderServiceInterface
             $client = Client::lockForUpdate()->findOrFail($order->client_id);
 
             $payload = $order->provider_payload ?? [];
-            if (!is_array($payload)) $payload = [];
+            if (! is_array($payload)) {
+                $payload = [];
+            }
 
-            if (!empty($payload['refund']['done'])) {
+            if (! empty($payload['refund']['done'])) {
                 return;
             }
 
@@ -746,9 +787,9 @@ class OrderService implements OrderServiceInterface
 
                 ClientTransaction::create([
                     'client_id' => $client->id,
-                    'order_id'  => $order->id,
-                    'amount'    => $charge,
-                    'type'      => ClientTransaction::TYPE_REFUND,
+                    'order_id' => $order->id,
+                    'amount' => $charge,
+                    'type' => ClientTransaction::TYPE_REFUND,
                 ]);
             }
 
@@ -791,7 +832,7 @@ class OrderService implements OrderServiceInterface
 
     public function refund(Order $order, int $newDelivered, string $newStatus): Order
     {
-        if (!in_array($newStatus, [Order::STATUS_PARTIAL, Order::STATUS_CANCELED], true)) {
+        if (! in_array($newStatus, [Order::STATUS_PARTIAL, Order::STATUS_CANCELED], true)) {
             throw ValidationException::withMessages([
                 'status' => 'Status must be either "partial" or "canceled" for refunds.',
             ]);
@@ -842,13 +883,13 @@ class OrderService implements OrderServiceInterface
         }
 
         $service = $order->service;
-        if (!$service || !$service->user_can_cancel) {
+        if (! $service || ! $service->user_can_cancel) {
             throw ValidationException::withMessages([
                 'order' => 'This service does not allow cancellation.',
             ]);
         }
 
-        if (!in_array($order->status, [Order::STATUS_AWAITING, Order::STATUS_PENDING, Order::STATUS_PROCESSING], true)) {
+        if (! in_array($order->status, [Order::STATUS_AWAITING, Order::STATUS_PENDING, Order::STATUS_PROCESSING], true)) {
             throw ValidationException::withMessages([
                 'order' => 'This order cannot be canceled. Only awaiting or pending orders can be fully canceled.',
             ]);
@@ -893,13 +934,13 @@ class OrderService implements OrderServiceInterface
         }
 
         $service = $order->service;
-        if (!$service || !$service->user_can_cancel) {
+        if (! $service || ! $service->user_can_cancel) {
             throw ValidationException::withMessages([
                 'order' => 'This service does not allow cancellation.',
             ]);
         }
 
-        if (!in_array($order->status, [Order::STATUS_IN_PROGRESS, Order::STATUS_PROCESSING], true)) {
+        if (! in_array($order->status, [Order::STATUS_IN_PROGRESS, Order::STATUS_PROCESSING], true)) {
             throw ValidationException::withMessages([
                 'order' => 'This order cannot be partially canceled. Only in_progress or processing orders can be partially canceled.',
             ]);
@@ -946,7 +987,7 @@ class OrderService implements OrderServiceInterface
 
         $successfulSteps = [];
         foreach ($steps as $step) {
-            if (($step['ok'] ?? false) === true && !($step['decremented'] ?? false)) {
+            if (($step['ok'] ?? false) === true && ! ($step['decremented'] ?? false)) {
                 $successfulSteps[] = $step;
             }
         }
@@ -979,11 +1020,11 @@ class OrderService implements OrderServiceInterface
             }
         }
 
-        if (!empty($successfulSteps)) {
+        if (! empty($successfulSteps)) {
             $updatedSteps = [];
             $decrementedCount = 0;
             foreach ($steps as $step) {
-                if (($step['ok'] ?? false) === true && !($step['decremented'] ?? false) && $decrementedCount < count($successfulSteps)) {
+                if (($step['ok'] ?? false) === true && ! ($step['decremented'] ?? false) && $decrementedCount < count($successfulSteps)) {
                     $step['decremented'] = true;
                     $decrementedCount++;
                 }
@@ -1009,16 +1050,16 @@ class OrderService implements OrderServiceInterface
             $errors['dripfeed_quantity'] = "Quantity per step cannot be greater than total order quantity ({$maxQuantity}).";
         }
 
-        if (!isset($data['dripfeed_interval']) || !is_numeric($data['dripfeed_interval']) || (int) $data['dripfeed_interval'] <= 0) {
+        if (! isset($data['dripfeed_interval']) || ! is_numeric($data['dripfeed_interval']) || (int) $data['dripfeed_interval'] <= 0) {
             $errors['dripfeed_interval'] = 'Dripfeed interval is required and must be greater than 0.';
         }
 
         $allowedUnits = ['minutes', 'hours', 'days'];
-        if (!isset($data['dripfeed_interval_unit']) || !in_array($data['dripfeed_interval_unit'], $allowedUnits, true)) {
-            $errors['dripfeed_interval_unit'] = 'Dripfeed interval unit is required and must be one of: ' . implode(', ', $allowedUnits) . '.';
+        if (! isset($data['dripfeed_interval_unit']) || ! in_array($data['dripfeed_interval_unit'], $allowedUnits, true)) {
+            $errors['dripfeed_interval_unit'] = 'Dripfeed interval unit is required and must be one of: '.implode(', ', $allowedUnits).'.';
         }
 
-        if (!empty($errors)) {
+        if (! empty($errors)) {
             throw ValidationException::withMessages($errors);
         }
     }
@@ -1147,12 +1188,11 @@ class OrderService implements OrderServiceInterface
                 $firstIndex = $seen[$key];
 
                 throw ValidationException::withMessages([
-                    "targets.{$i}.link" => "Duplicate link in this order (same as row " . ($firstIndex + 1) . ").",
+                    "targets.{$i}.link" => 'Duplicate link in this order (same as row '.($firstIndex + 1).').',
                 ]);
             }
 
             $seen[$key] = $i;
         }
     }
-
 }

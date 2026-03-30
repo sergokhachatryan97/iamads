@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Order extends Model
 {
@@ -14,36 +15,55 @@ class Order extends Model
 
     // Payment source constants
     public const PAYMENT_SOURCE_BALANCE = 'balance';
+
     public const PAYMENT_SOURCE_SUBSCRIPTION = 'subscription';
 
     // Status constants
     public const STATUS_VALIDATING = 'validating';
+
     public const STATUS_INVALID_LINK = 'invalid_link';
+
     public const STATUS_RESTRICTED = 'restricted';
+
     public const STATUS_AWAITING = 'awaiting';
+
     public const STATUS_PENDING = 'pending';
+
     public const STATUS_PENDING_DEPENDENCY = 'pending_dependency';
+
     public const STATUS_IN_PROGRESS = 'in_progress';
+
     public const STATUS_PROCESSING = 'processing';
+
     public const STATUS_PARTIAL = 'partial';
+
     public const STATUS_COMPLETED = 'completed';
+
     public const STATUS_CANCELED = 'canceled';
+
     public const STATUS_FAIL = 'fail';
 
     /** Execution phase for account-driven claim flow. */
     public const EXECUTION_PHASE_RUNNING = 'running';
+
     public const EXECUTION_PHASE_UNSUBSCRIBING = 'unsubscribing';
+
     public const EXECUTION_PHASE_COMPLETED = 'completed';
+
     public const EXECUTION_PHASE_STOPPING = 'stopping';
 
     // Speed tier constants
     public const SPEED_TIER_NORMAL = 'normal';
+
     public const SPEED_TIER_FAST = 'fast';
+
     public const SPEED_TIER_SUPER_FAST = 'super_fast';
 
     // Dependency status constants
     public const DEPENDS_STATUS_OK = 'ok';
+
     public const DEPENDS_STATUS_FAILED = 'failed';
+
     public const DEPENDS_STATUS_UNKNOWN = 'unknown';
 
     /**
@@ -52,6 +72,7 @@ class Order extends Model
      * @var list<string>
      */
     public const SOURCE_WEB = 'web';
+
     public const SOURCE_API = 'api';
 
     protected $fillable = [
@@ -139,13 +160,14 @@ class Order extends Model
      */
     public static function computeTargetQuantity(int $quantity, ?Service $service): int
     {
-        if (!$service || !isset($service->overflow_percent)) {
+        if (! $service || ! isset($service->overflow_percent)) {
             return $quantity;
         }
         $overflowPercent = (float) $service->overflow_percent;
         if ($overflowPercent <= 0) {
             return $quantity;
         }
+
         return (int) ceil($quantity * (1 + $overflowPercent / 100));
     }
 
@@ -228,7 +250,6 @@ class Order extends Model
         return $this->belongsTo(SubscriptionPlan::class, 'subscription_id');
     }
 
-
     /**
      * Get the transactions for this order.
      */
@@ -261,19 +282,22 @@ class Order extends Model
         return $this->hasMany(TelegramOrderMembership::class, 'order_id');
     }
 
+    public function telegramFolderMembership(): HasOne
+    {
+        return $this->hasOne(TelegramFolderMembership::class, 'order_id');
+    }
+
     /**
      * Check if dependency is satisfied.
-     *
-     * @return bool
      */
     public function isDependencySatisfied(): bool
     {
-        if (!$this->depends_on_order_id) {
+        if (! $this->depends_on_order_id) {
             return true;
         }
 
         $dependency = $this->dependsOn;
-        if (!$dependency) {
+        if (! $dependency) {
             return false;
         }
 
@@ -287,12 +311,10 @@ class Order extends Model
 
     /**
      * Update dependency status.
-     *
-     * @return void
      */
     public function updateDependencyStatus(): void
     {
-        if (!$this->depends_on_order_id) {
+        if (! $this->depends_on_order_id) {
             return;
         }
 
@@ -320,21 +342,22 @@ class Order extends Model
      */
     public function scopeFilter(Builder $q, array $filters): Builder
     {
-        if (!empty($filters['date_from'])) {
+        if (! empty($filters['date_from'])) {
             $q->where('created_at', '>=', $filters['date_from']);
         }
-        if (!empty($filters['date_to'])) {
+        if (! empty($filters['date_to'])) {
             $q->where('created_at', '<=', $filters['date_to']);
         }
-        if (!empty($filters['status']) && $filters['status'] !== 'all') {
+        if (! empty($filters['status']) && $filters['status'] !== 'all') {
             $q->where('status', $filters['status']);
         }
-        if (!empty($filters['service_id'])) {
+        if (! empty($filters['service_id'])) {
             $q->where('service_id', $filters['service_id']);
         }
-        if (!empty($filters['client_id'])) {
+        if (! empty($filters['client_id'])) {
             $q->where('client_id', $filters['client_id']);
         }
+
         return $q;
     }
 }

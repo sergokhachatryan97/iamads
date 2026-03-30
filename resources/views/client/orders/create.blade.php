@@ -311,8 +311,57 @@
                                 </div>
                             </div>
 
-                            <!-- Targets (Link + Quantity pairs) -->
-                            <div class="mb-6" x-show="selectedService?.service_type !== 'custom_comments' && selectedService?.template_key !== 'invite_subscribers_from_other_channel'" x-cloak>
+                            <!-- Telegram Premium Folder (system-managed, quantity fixed to 1) -->
+                            <div class="mb-6 rounded-lg border border-indigo-200 bg-indigo-50/80 p-4"
+                                 x-show="selectedService?.template_key === 'telegram_premium_folder'"
+                                 x-cloak>
+                                <p class="text-sm font-medium text-indigo-900 mb-1">
+                                    {{ __('Premium folder placement') }}
+                                </p>
+                                <p class="text-xs text-indigo-800 mb-4" x-show="selectedService?.display_note">
+                                    <span>{{ __('Informational') }}:</span>
+                                    <span class="font-medium" x-text="selectedService?.display_note"></span>
+                                </p>
+                                <div class="space-y-4">
+                                    <div>
+                                        <label for="premium_folder_link" class="block text-sm font-medium text-gray-700 mb-1">
+                                            {{ __('Channel or group link') }} <span class="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            id="premium_folder_link"
+                                            name="targets[0][link]"
+                                            x-model="premiumFolderLink"
+                                            @input="premiumFolderLinkValid = validateTelegramLink(premiumFolderLink)"
+                                            :class="(premiumFolderLinkValid && !getFieldError('targets.0.link')) ? 'border-gray-300' : 'border-red-300'"
+                                            placeholder="https://t.me/channel or t.me/+invite"
+                                            :required="selectedService?.template_key === 'telegram_premium_folder'"
+                                            :disabled="selectedService?.template_key !== 'telegram_premium_folder'"
+                                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                        <p x-show="!premiumFolderLinkValid && premiumFolderLink" class="mt-1 text-xs text-red-600">
+                                            {{ __('Please enter a valid Telegram link.') }}
+                                        </p>
+                                        @error('targets.0.link')
+                                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                    <div class="w-full max-w-xs">
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                                            {{ __('Duration') }}
+                                        </label>
+                                        <p class="text-sm text-gray-800">30 {{ __('days') }} ({{ __('1 month') }})</p>
+                                        <input type="hidden" name="duration_days" value="30">
+                                        @error('duration_days')
+                                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                    <input type="hidden" name="targets[0][quantity]" value="1">
+                                </div>
+                            </div>
+
+                            <!-- Targets (Link + Quantity pairs) — x-if removes fields so premium-folder block is the only targets[0] submitter -->
+                            <template x-if="selectedService?.service_type !== 'custom_comments' && selectedService?.template_key !== 'invite_subscribers_from_other_channel' && selectedService?.template_key !== 'telegram_premium_folder'">
+                            <div class="mb-6" x-cloak>
                                 <div class="flex items-center justify-between mb-2">
                                     <label class="block text-sm font-medium text-gray-700">
                                         {{ __('Links & Quantities') }} <span class="text-red-500">*</span>
@@ -412,6 +461,7 @@
                                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                 @enderror
                             </div>
+                            </template>
                             <!-- Dripfeed Toggle Switch (only when service has dripfeed enabled) -->
                             <div class="mb-6" x-show="selectedService?.dripfeed_enabled === true">
                                 <div class="flex items-center justify-between p-4 bg-gray-50 rounded-md border border-gray-200 mb-4">
@@ -543,6 +593,18 @@
 
                             <!-- Service Info -->
                             <div class="mt-4 p-3 bg-gray-50 rounded-md" x-show="selectedService">
+                                <!-- Fixed order price (e.g. premium folder: one unit, no per-1000 framing) -->
+                                <div class="text-sm text-gray-800" x-show="selectedService?.hide_quantity === true" x-cloak>
+                                    <p>
+                                        <span class="font-medium">{{ __('Order price') }}:</span>
+                                        $<span x-text="Number(calculateCharge() || 0).toFixed(2)"></span>
+                                    </p>
+                                    <p class="text-xs text-gray-500 mt-2" x-show="selectedService?.speed_limit_enabled && (selectedService?.speed_limit_tier_mode || 'both') === 'both'">
+                                        {{ __('Faster speed tiers increase the price above.') }}
+                                    </p>
+                                </div>
+
+                                <div x-show="selectedService?.hide_quantity !== true">
                                 <!-- For custom_comments: show only min/max row count -->
                                 <div class="text-xs text-gray-600 mb-2" x-show="selectedService?.service_type === 'custom_comments'">
                                     <span class="font-medium">{{ __('Row Count Rules') }}:</span>
@@ -591,6 +653,7 @@
                                     <span class="font-medium">{{ __('Rate') }}:</span>
                                     <span>$<span x-text="(selectedService?.rate_per_1000 || 0).toFixed(2)"></span> {{ __('per 1000') }}</span>
                                 </div>
+                                </div>
                             </div>
 
                             <p class="mt-2 text-sm text-gray-700" x-show="selectedService?.service_type === 'custom_comments' && commentsCount > 0">
@@ -599,9 +662,9 @@
                             </p>
 
 
-                            <p class="mt-2 text-sm text-gray-700" x-show="selectedService?.service_type !== 'custom_comments' && selectedService && getTotalQuantity() > 0">
+                            <p class="mt-2 text-sm text-gray-700" x-show="selectedService?.service_type !== 'custom_comments' && selectedService && getTotalQuantity() > 0 && selectedService?.hide_quantity !== true">
                                 {{ __('Total quantity') }}: <span x-text="getTotalQuantity()"></span> |
-                                {{ __('Estimated charge') }}: $<span x-text="calculateCharge()"></span>
+                                {{ __('Estimated charge') }}: $<span x-text="Number(calculateCharge() || 0).toFixed(2)"></span>
                             </p>
 
                             <!-- Submit Button -->
@@ -950,6 +1013,9 @@
                 inviteSourceLinkValid: true,
                 inviteTargetLinkValid: true,
                 inviteQuantity: {{ old('targets.0.quantity', 1) }},
+                premiumFolderLink: @json(old('targets.0.link', '')),
+                premiumFolderLinkValid: true,
+                premiumFolderDurationDays: {{ (int) old('duration_days', 30) }},
                 // Multi-service order data
                 multiCategoryId: '{{ old('category_id', $preselectedCategoryId ?? '') }}',
                 multiLink: @json(old('link', '')),
@@ -1196,6 +1262,15 @@
                             this.inviteQuantity = minQty;
                         }
                     }
+                    if (this.selectedService?.template_key === 'telegram_premium_folder') {
+                        const opts = this.selectedService.duration_options || [30];
+                        if (!opts.map(Number).includes(Number(this.premiumFolderDurationDays))) {
+                            this.premiumFolderDurationDays = opts[0];
+                        }
+                        const existing = (this.targets[0] && this.targets[0].link) ? this.targets[0].link : this.premiumFolderLink;
+                        this.premiumFolderLink = existing || '';
+                        this.targets = [{ link: this.premiumFolderLink || '', quantity: 1, linkValid: true }];
+                    }
                 },
 
                 calculateCommentsTotal() {
@@ -1284,6 +1359,9 @@
                 },
 
                 getTotalQuantity() {
+                    if (this.selectedService?.template_key === 'telegram_premium_folder') {
+                        return 1;
+                    }
                     return this.targets.reduce((sum, target) => {
                         return sum + (parseInt(target.quantity) || 0);
                     }, 0);
@@ -1417,11 +1495,14 @@
                 },
 
                 calculateCharge() {
-                    if (!this.selectedService) return '0.00';
-                    const totalQty = this.getTotalQuantity();
+                    if (!this.selectedService) return 0;
                     const rate = Number(this.selectedService.rate_per_1000) || 0;
                     const multiplier = this.getSpeedMultiplier();
-                    return (totalQty * rate * multiplier) / 1000;
+                    if (this.selectedService.hide_quantity === true) {
+                        return Number((rate * multiplier).toFixed(2));
+                    }
+                    const totalQty = this.getTotalQuantity();
+                    return Number(((totalQty * rate * multiplier) / 1000).toFixed(2));
                 },
 
                 submitForm(event) {
@@ -1455,6 +1536,13 @@
                     if (this.selectedService?.template_key === 'invite_subscribers_from_other_channel') {
                         if (!this.inviteSourceLinkValid || !this.inviteTargetLinkValid || !this.inviteSourceLink?.trim() || !this.inviteTargetLink?.trim()) {
                             alert('{{ __('Please enter valid source and target Telegram links.') }}');
+                            this.submitting = false;
+                            return;
+                        }
+                    }
+                    if (this.selectedService?.template_key === 'telegram_premium_folder') {
+                        if (!this.premiumFolderLinkValid || !this.premiumFolderLink?.trim()) {
+                            alert('{{ __('Please enter a valid Telegram channel or group link.') }}');
                             this.submitting = false;
                             return;
                         }

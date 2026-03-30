@@ -7,6 +7,7 @@ use App\Services\YouTube\YouTubeExecutionPlanResolver;
 use App\Support\Links\LinkInspectorManager;
 use App\Support\TelegramLinkParser;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class StoreOrderRequest extends FormRequest
@@ -23,9 +24,10 @@ class StoreOrderRequest extends FormRequest
         if ($link === '') {
             return $link;
         }
-        if (!preg_match('#^https?://#i', $link)) {
-            return 'https://' . $link;
+        if (! preg_match('#^https?://#i', $link)) {
+            return 'https://'.$link;
         }
+
         return $link;
     }
 
@@ -41,21 +43,20 @@ class StoreOrderRequest extends FormRequest
         return $this->cachedService;
     }
 
-
     protected function prepareForValidation(): void
     {
         $input = $this->all();
 
         // Add https:// to links that lack http:// or https://
-        if (!empty($input['link'])) {
+        if (! empty($input['link'])) {
             $input['link'] = $this->ensureLinkHasScheme(trim((string) $input['link']));
         }
-        if (!empty($input['link_2'])) {
+        if (! empty($input['link_2'])) {
             $input['link_2'] = $this->ensureLinkHasScheme(trim((string) $input['link_2']));
         }
         if (isset($input['targets']) && is_array($input['targets'])) {
             foreach ($input['targets'] as $i => $t) {
-                if (!empty($t['link'])) {
+                if (! empty($t['link'])) {
                     $input['targets'][$i]['link'] = $this->ensureLinkHasScheme(trim((string) $t['link']));
                 }
             }
@@ -80,17 +81,27 @@ class StoreOrderRequest extends FormRequest
                 $this->replace($input);
             }
         }
+
+        if ($service && $service->template_key === 'telegram_premium_folder') {
+            $input = $this->all();
+            if (! isset($input['targets']) || ! is_array($input['targets'])) {
+                $input['targets'] = [['link' => '', 'quantity' => 1]];
+            }
+            $input['targets'][0]['quantity'] = 1;
+            $input['duration_days'] = 30;
+            $this->replace($input);
+        }
     }
 
     public function rules(): array
     {
         $rules = [
             'category_id' => ['required', 'exists:categories,id'],
-            'service_id'  => ['required', 'exists:services,id'],
+            'service_id' => ['required', 'exists:services,id'],
         ];
 
         $service = $this->service();
-        if (!$service) {
+        if (! $service) {
             return $rules;
         }
 
@@ -104,7 +115,9 @@ class StoreOrderRequest extends FormRequest
                 'string',
                 'min:1',
                 function ($attribute, $value, $fail) use ($minQuantity) {
-                    if (empty($value)) return;
+                    if (empty($value)) {
+                        return;
+                    }
 
                     $lines = array_filter(
                         array_map('trim', explode("\n", (string) $value)),
@@ -127,7 +140,7 @@ class StoreOrderRequest extends FormRequest
                 'max:2048',
                 function ($attribute, $value, $fail) use ($driver, $manager) {
                     $result = $manager->inspect($driver, trim((string) $value));
-                    if (!$result['valid'] && $result['error'] !== null) {
+                    if (! $result['valid'] && $result['error'] !== null) {
                         $fail($result['error']);
                     }
                 },
@@ -144,14 +157,17 @@ class StoreOrderRequest extends FormRequest
                     $kind = $parsed['kind'] ?? 'unknown';
                     if ($kind === 'unknown') {
                         $fail('Invalid target link format.');
+
                         return;
                     }
                     if ($kind === 'special') {
                         $fail('Target link is not a joinable chat.');
+
                         return;
                     }
                     if ($kind === 'private_post') {
                         $fail('Private post links are not supported.');
+
                         return;
                     }
                 },
@@ -165,24 +181,47 @@ class StoreOrderRequest extends FormRequest
                     $value = trim((string) $value);
                     if ($value === '') {
                         $fail('Source channel link is required.');
+
                         return;
                     }
                     $parsed = TelegramLinkParser::parse($value);
                     $kind = $parsed['kind'] ?? 'unknown';
                     if ($kind === 'unknown') {
                         $fail('Invalid source channel link format.');
+
                         return;
                     }
                     if ($kind === 'special') {
                         $fail('Source link is not a joinable chat.');
+
                         return;
                     }
                     if ($kind === 'private_post') {
                         $fail('Private post links are not supported.');
+
                         return;
                     }
                 },
             ];
+        } elseif ($service->template_key === 'telegram_premium_folder') {
+            $durationOpts = $service->template()['duration_options'] ?? [3, 14, 30];
+            $rules['targets'] = ['required', 'array', 'size:1'];
+            $driver = $service->category?->link_driver ?? 'generic';
+            $manager = app(LinkInspectorManager::class);
+            $rules['targets.0.link'] = [
+                'required',
+                'string',
+                'max:2048',
+                function ($attribute, $value, $fail) use ($driver, $manager) {
+                    $result = $manager->inspect($driver, trim((string) $value));
+                    if (! $result['valid'] && $result['error'] !== null) {
+                        $fail($result['error']);
+                    }
+                },
+            ];
+            $rules['targets.0.quantity'] = ['nullable', 'integer'];
+            $rules['duration_days'] = ['required', 'integer', Rule::in($durationOpts)];
+            $rules['comment_text'] = ['nullable', 'string', 'max:500'];
         } else {
             // ---------- Regular services (link validation by category link_driver) ----------
             $rules['targets'] = ['required', 'array', 'min:1'];
@@ -196,7 +235,7 @@ class StoreOrderRequest extends FormRequest
                 'max:2048',
                 function ($attribute, $value, $fail) use ($driver, $manager) {
                     $result = $manager->inspect($driver, trim((string) $value));
-                    if (!$result['valid'] && $result['error'] !== null) {
+                    if (! $result['valid'] && $result['error'] !== null) {
                         $fail($result['error']);
                     }
                 },
@@ -258,7 +297,7 @@ class StoreOrderRequest extends FormRequest
                     'required',
                     'integer',
                     'min:1',
-                    'max:' . max(1, $totalQuantity),
+                    'max:'.max(1, $totalQuantity),
                 ];
                 $rules['dripfeed_interval'] = ['required', 'integer', 'min:1'];
                 $rules['dripfeed_interval_unit'] = ['required', 'string', 'in:minutes,hours,days'];
@@ -292,17 +331,19 @@ class StoreOrderRequest extends FormRequest
     {
         $validator->after(function (Validator $v) {
             $categoryId = (int) $this->input('category_id');
-            $serviceId  = (int) $this->input('service_id');
+            $serviceId = (int) $this->input('service_id');
 
-            if (!$categoryId || !$serviceId) return;
+            if (! $categoryId || ! $serviceId) {
+                return;
+            }
 
             $service = $this->service();
 
             // Service must exist, belong to category, and be active
             if (
-                !$service ||
+                ! $service ||
                 (int) $service->category_id !== $categoryId ||
-                !(bool) $service->is_active
+                ! (bool) $service->is_active
             ) {
                 $v->errors()->add('service_id', 'The selected service is invalid or inactive.');
             }
@@ -319,7 +360,7 @@ class StoreOrderRequest extends FormRequest
 
         $payload = [
             'category_id' => (int) $validated['category_id'],
-            'service_id'  => (int) $validated['service_id'],
+            'service_id' => (int) $validated['service_id'],
         ];
 
         if (isset($validated['link'])) {
@@ -348,14 +389,14 @@ class StoreOrderRequest extends FormRequest
         if ($service && $service->service_type !== 'custom_comments') {
             $targets = $validated['targets'] ?? [];
             $payload['targets'] = collect(is_array($targets) ? $targets : [])
-                ->filter(fn ($t) => !empty($t['link']) && isset($t['quantity']))
+                ->filter(fn ($t) => ! empty($t['link']) && isset($t['quantity']))
                 ->map(fn ($t) => [
-                    'link'     => trim((string) $t['link']),
+                    'link' => trim((string) $t['link']),
                     'quantity' => (int) $t['quantity'],
                 ])
                 ->values()
                 ->all();
-        } elseif (!$service || $service->service_type === 'custom_comments') {
+        } elseif (! $service || $service->service_type === 'custom_comments') {
             $payload['targets'] = [];
         }
 
@@ -377,6 +418,10 @@ class StoreOrderRequest extends FormRequest
 
         if (isset($validated['speed_tier'])) {
             $payload['speed_tier'] = (string) $validated['speed_tier'];
+        }
+
+        if (($service->template_key ?? '') === 'telegram_premium_folder') {
+            $payload['duration_days'] = (int) $validated['duration_days'];
         }
 
         return $payload;

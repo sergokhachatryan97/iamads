@@ -2,8 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
-use App\Http\Requests\StoreOrderRequest;
 use App\Models\Service;
 use App\Services\CategoryServiceInterface;
 use App\Services\OrderServiceInterface;
@@ -61,6 +59,7 @@ class HomeController extends Controller
                     'url', 'generic' => __('home.link_placeholder_tg'),
                     default => __('home.link_placeholder_tg'),
                 };
+
                 return [
                     'id' => $cat->id,
                     'name' => $cat->name,
@@ -143,19 +142,21 @@ class HomeController extends Controller
         ]);
 
         $service = Service::with('category')->find($validated['service_id']);
-        if (!$service || !$service->is_active || (int) $service->category_id !== (int) $validated['category_id']) {
+        if (! $service || ! $service->is_active || (int) $service->category_id !== (int) $validated['category_id']) {
             return redirect()->route('home')->withErrors(['service_id' => __('Invalid service.')]);
         }
 
         $driver = $service->category?->link_driver ?? 'generic';
         $manager = app(LinkInspectorManager::class);
         $linkResult = $manager->inspect($driver, trim($validated['link']));
-        if (!$linkResult['valid']) {
+        if (! $linkResult['valid']) {
             return redirect()->route('home')->withErrors(['link' => $linkResult['error']]);
         }
 
         // Custom_comments and invite_subscribers need full order form - redirect there
-        if ($service->service_type === 'custom_comments' || ($service->template_key ?? '') === 'invite_subscribers_from_other_channel') {
+        if ($service->service_type === 'custom_comments'
+            || ($service->template_key ?? '') === 'invite_subscribers_from_other_channel'
+            || ($service->template_key ?? '') === 'telegram_premium_folder') {
             return redirect()
                 ->route('client.orders.create', ['service_id' => $service->id, 'category_id' => $service->category_id])
                 ->with('info', __('This service requires the full order form.'));
@@ -181,17 +182,17 @@ class HomeController extends Controller
      */
     public function completeOrder(): RedirectResponse
     {
-        if (!Auth::guard('client')->check()) {
+        if (! Auth::guard('client')->check()) {
             return redirect()->route('login');
         }
 
         $pending = session('pending_order');
-        if (!$pending) {
+        if (! $pending) {
             return redirect()->route('client.orders.index');
         }
 
         $service = Service::find($pending['service_id']);
-        if (!$service || !$service->is_active) {
+        if (! $service || ! $service->is_active) {
             return redirect()->route('client.orders.index')->withErrors(['service' => __('Service is no longer available.')]);
         }
 
@@ -207,12 +208,14 @@ class HomeController extends Controller
         try {
             $this->orderService->create($client, $payload);
             session()->forget('pending_order');
+
             return redirect()->route('client.orders.index')->with('status', 'order-created');
         } catch (ValidationException $e) {
             if ($e->validator->errors()->has('balance')) {
                 return redirect()->route('client.balance.add', ['return_to' => 'order'])
                     ->with('info', __('Insufficient balance. Please add funds to complete your order.'));
             }
+
             return redirect()->route('home')->withErrors($e->errors());
         } catch (\Throwable $e) {
             return redirect()->route('home')->withErrors(['order' => $e->getMessage()]);
@@ -236,6 +239,7 @@ class HomeController extends Controller
 
         try {
             $this->orderService->create($client, $payload);
+
             return redirect()->route('client.orders.index')->with('status', 'order-created');
         } catch (ValidationException $e) {
             if ($e->validator->errors()->has('balance')) {
@@ -245,9 +249,11 @@ class HomeController extends Controller
                     'link' => trim($validated['link']),
                     'quantity' => (int) $validated['quantity'],
                 ]]);
+
                 return redirect()->route('client.balance.add', ['return_to' => 'order'])
                     ->with('info', __('Insufficient balance. Please add funds to complete your order.'));
             }
+
             return redirect()->route('home')->withErrors($e->errors());
         } catch (\Throwable $e) {
             return redirect()->route('home')->withErrors(['order' => $e->getMessage()]);

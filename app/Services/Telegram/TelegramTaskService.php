@@ -10,6 +10,7 @@ use App\Models\TelegramOrderMembership;
 use App\Models\TelegramTask;
 use App\Models\TelegramUnsubscribeTask;
 use App\Support\TelegramPremiumTemplateScope;
+use App\Support\TelegramSystemManagedTemplate;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redis;
@@ -46,7 +47,7 @@ class TelegramTaskService
      * - status = 'pending'
      * - due_at <= now
      *
-     * @param int $maxTasks Maximum number of tasks to generate
+     * @param  int  $maxTasks  Maximum number of tasks to generate
      * @return int Number of tasks generated
      */
     public function generateTasks(int $maxTasks = 1000): int
@@ -55,13 +56,21 @@ class TelegramTaskService
         $batchSize = 50;
 
         // PHASE 1: Generate tasks from eligible orders
+        $systemManagedKeys = TelegramSystemManagedTemplate::templateKeys();
+
         $allOrders = Order::query()
+            ->with('service')
             ->whereIn('status', [
                 Order::STATUS_AWAITING,
                 Order::STATUS_IN_PROGRESS,
                 Order::STATUS_PENDING,
             ])
             ->where('remains', '>', 0)
+            ->whereHas('service', function ($q) use ($systemManagedKeys) {
+                if ($systemManagedKeys !== []) {
+                    $q->whereNotIn('template_key', $systemManagedKeys);
+                }
+            })
             ->limit($batchSize * 2) // Fetch more to account for filtering
             ->get();
 
@@ -120,16 +129,18 @@ class TelegramTaskService
     /**
      * Generate a single task for an order.
      * Protected by: (1) Redis lock per order/action, (2) DB transaction + lockForUpdate, (3) active-task existence check.
-     *
-     * @param Order $order
-     * @return TelegramTask|null
      */
     private function generateTaskForOrder(Order $order): ?TelegramTask
     {
+        $order->loadMissing('service');
+        if (TelegramSystemManagedTemplate::isSystemManagedTemplateKey($order->service?->template_key)) {
+            return null;
+        }
+
         $providerPayload = $order->provider_payload ?? [];
         $executionMeta = $providerPayload['execution_meta'] ?? [];
 
-        if (!is_array($executionMeta)) {
+        if (! is_array($executionMeta)) {
             return null;
         }
 
@@ -140,11 +151,12 @@ class TelegramTaskService
         $lockToken = (string) Str::uuid();
         $acquired = Redis::set($lockKey, $lockToken, 'EX', self::ORDER_GEN_LOCK_TTL, 'NX');
 
-        if (!$acquired) {
+        if (! $acquired) {
             Log::debug('Skip generateTaskForOrder: lock not acquired', [
                 'order_id' => $order->id,
                 'action' => $action,
             ]);
+
             return null;
         }
 
@@ -152,13 +164,13 @@ class TelegramTaskService
             return DB::transaction(function () use ($order, $action) {
                 // 2) Reload order with row lock
                 $order = Order::query()->whereKey($order->id)->lockForUpdate()->first();
-                if (!$order) {
+                if (! $order) {
                     return null;
                 }
 
                 $providerPayload = $order->provider_payload ?? [];
                 $executionMeta = $providerPayload['execution_meta'] ?? [];
-                if (!is_array($executionMeta)) {
+                if (! is_array($executionMeta)) {
                     return null;
                 }
 
@@ -175,7 +187,7 @@ class TelegramTaskService
                 }
 
                 // Re-check eligibility
-                if (!in_array($order->status, [
+                if (! in_array($order->status, [
                     Order::STATUS_AWAITING,
                     Order::STATUS_IN_PROGRESS,
                     Order::STATUS_PENDING,
@@ -217,7 +229,7 @@ class TelegramTaskService
                     $executor
                 );
 
-                if (!$account) {
+                if (! $account) {
                     $errorMessage = $executor === 'local_mtproto'
                         ? 'No local MTProto accounts available'
                         : 'No available Telegram account (cooldown/cap/dedupe constraints)';
@@ -226,6 +238,7 @@ class TelegramTaskService
                         'provider_last_error' => $errorMessage,
                         'provider_last_error_at' => now(),
                     ]);
+
                     return null;
                 }
 
@@ -238,7 +251,7 @@ class TelegramTaskService
 
                 // For comment action: pick one comment from comment_text (one per task)
                 $commentTextForTask = null;
-                if ($action === 'comment' && !empty(trim((string) ($order->comment_text ?? '')))) {
+                if ($action === 'comment' && ! empty(trim((string) ($order->comment_text ?? '')))) {
                     $comments = array_values(array_filter(array_map('trim', explode("\n", (string) $order->comment_text))));
                     $index = (int) $order->delivered;
                     if ($index < count($comments)) {
@@ -307,8 +320,7 @@ class TelegramTaskService
      * Ensures payload includes template_key, action, policy_key, link, link_hash,
      * per_call, link_kind, peer_type, post_id (when post), start_param (when needed).
      *
-     * @param array $params action, link, link_hash, per_call, executor?, template_key?, policy_key?, link_kind?, peer_type?, post_id?, start_param?, meta?, parsed?, subject?
-     * @return array
+     * @param  array  $params  action, link, link_hash, per_call, executor?, template_key?, policy_key?, link_kind?, peer_type?, post_id?, start_param?, meta?, parsed?, subject?
      */
     private function buildTaskPayload(array $params): array
     {
@@ -347,12 +359,13 @@ class TelegramTaskService
         if ($subject !== null) {
             $payload['subject'] = $subject;
         }
-        if (!empty($link2)) {
+        if (! empty($link2)) {
             $payload['link_2'] = trim((string) $link2);
         }
         if ($commentText !== null && $commentText !== '') {
             $payload['comment_text'] = (string) $commentText;
         }
+
         return $payload;
     }
 
@@ -360,11 +373,7 @@ class TelegramTaskService
      * Select account with reserve claim (two-phase: RESERVE only).
      * When executor is local_mtproto, only considers accounts with mtproto_account_id set.
      *
-     * @param string $action
-     * @param Order $order
-     * @param string $linkHash
-     * @param bool $dedupePerLink
-     * @param string $executor 'local_mtproto'|'remote_provider'
+     * @param  string  $executor  'local_mtproto'|'remote_provider'
      * @return array{TelegramAccount|null, array}
      */
     private function selectAccountWithReserve(
@@ -398,8 +407,8 @@ class TelegramTaskService
             &$skippedLock,
             $action,
             $linkHash,
-            $dedupePerLink,
-            $needsCap
+            $dedupePerLink
+
         ): bool {
             $scanned++;
 
@@ -411,25 +420,29 @@ class TelegramTaskService
                 $dedupePerLink
             );
 
-            if (!($reserveResult['success'] ?? false)) {
+            if (! ($reserveResult['success'] ?? false)) {
                 $reason = (string) ($reserveResult['reason'] ?? 'unknown');
 
                 if (in_array($reason, ['dedupe', 'dedupe_race', 'state_already_subscribed', 'state_not_subscribed'], true)) {
                     $skippedDedupe++;
+
                     return false;
                 }
 
                 if ($reason === 'locked') {
                     $skippedLock++;
+
                     return false;
                 }
 
                 // Unknown reason
                 $skippedDedupe++;
+
                 return false;
             }
 
             $account = $candidate;
+
             return true;
         };
 
@@ -452,11 +465,12 @@ class TelegramTaskService
                         return false;
                     }
                 }
+
                 return true;
             });
 
         // PASS 2: wrap-around
-        if (!$account && $startFromId > 0 && $scanned < $maxScanLimit) {
+        if (! $account && $startFromId > 0 && $scanned < $maxScanLimit) {
             TelegramAccount::query()
                 ->select($baseSelect)
                 ->where('is_active', true)
@@ -473,6 +487,7 @@ class TelegramTaskService
                             return false;
                         }
                     }
+
                     return true;
                 });
         }
@@ -498,7 +513,7 @@ class TelegramTaskService
     /**
      * Lease tasks for provider pull.
      *
-     * @param int $limit Maximum number of tasks to lease
+     * @param  int  $limit  Maximum number of tasks to lease
      * @return array Array of task data for provider
      */
     public function leaseTasks(int $limit = 1000): array
@@ -506,7 +521,7 @@ class TelegramTaskService
         $leaseTtl = 60;
         $leasedUntil = now()->addSeconds($leaseTtl);
 
-        $tasks = DB::transaction(function () use ($limit, $leasedUntil) {
+        $tasks = DB::transaction(function () use ($limit) {
             $q = TelegramTask::query()
                 ->where(function ($q) {
                     $q->where('status', TelegramTask::STATUS_QUEUED)
@@ -526,7 +541,9 @@ class TelegramTaskService
 
         $leased = [];
         foreach ($tasks as $task) {
-            if (!$task->isEligibleForLease()) continue;
+            if (! $task->isEligibleForLease()) {
+                continue;
+            }
 
             $task->update([
                 'status' => TelegramTask::STATUS_LEASED,
@@ -553,7 +570,7 @@ class TelegramTaskService
                 'link_hash' => $task->link_hash,
                 'attempt' => $task->attempt,
             ];
-            if (!empty($payload['link_2'])) {
+            if (! empty($payload['link_2'])) {
                 $leasedItem['link_2'] = $payload['link_2'];
             }
             $leased[] = $leasedItem;
@@ -562,13 +579,12 @@ class TelegramTaskService
         return $leased;
     }
 
-
     /**
      * Atomically lease tasks for local worker execution.
      * Uses a transaction and FOR UPDATE to prevent double-leasing.
      *
-     * @param int $limit Maximum number of tasks to lease
-     * @param int|null $leaseTtlSeconds Lease TTL (default from config)
+     * @param  int  $limit  Maximum number of tasks to lease
+     * @param  int|null  $leaseTtlSeconds  Lease TTL (default from config)
      * @return \Illuminate\Support\Collection<int, TelegramTask>
      */
     public function leaseTasksForLocalWorker(int $limit = 200, ?int $leaseTtlSeconds = null): \Illuminate\Support\Collection
@@ -595,7 +611,9 @@ class TelegramTaskService
 
             $leased = collect();
             foreach ($tasks as $task) {
-                if (!$task->isEligibleForLease()) continue;
+                if (! $task->isEligibleForLease()) {
+                    continue;
+                }
 
                 $task->update([
                     'status' => TelegramTask::STATUS_LEASED,
@@ -608,7 +626,6 @@ class TelegramTaskService
         });
     }
 
-
     private function whereExecutor($q, string $executor, bool $allowNull = false): void
     {
         $driver = DB::connection()->getDriverName();
@@ -619,6 +636,7 @@ class TelegramTaskService
             } else {
                 $q->whereRaw("json_extract(payload, '$.executor') = ?", [$executor]);
             }
+
             return;
         }
 
@@ -630,21 +648,18 @@ class TelegramTaskService
         }
     }
 
-
-
     /**
      * Report task result from provider.
      *
-     * @param string $taskId
-     * @param array $result {state, ok, error, retry_after, provider_task_id, data}
-     * @param string $scope TelegramPremiumTemplateScope::SCOPE_DEFAULT or SCOPE_PREMIUM for provider check/ignore routing
+     * @param  array  $result  {state, ok, error, retry_after, provider_task_id, data}
+     * @param  string  $scope  TelegramPremiumTemplateScope::SCOPE_DEFAULT or SCOPE_PREMIUM for provider check/ignore routing
      * @return array{ok: bool, error?: string}
      */
     public function reportTaskResult(string $taskId, array $result, string $scope = TelegramPremiumTemplateScope::SCOPE_DEFAULT): array
     {
         $task = TelegramTask::query()->find($taskId);
 
-        if (!$task) {
+        if (! $task) {
             return ['ok' => false, 'error' => 'Task not found'];
         }
 
@@ -659,6 +674,7 @@ class TelegramTaskService
                 'task_id' => $taskId,
                 'current_status' => $task->status,
             ]);
+
             return ['ok' => true];
         }
 
@@ -669,16 +685,17 @@ class TelegramTaskService
 
         // Get subject (Order or ClientServiceQuota)
         $subject = $task->subject;
-        if (!$subject) {
+        if (! $subject) {
             return ['ok' => false, 'error' => 'Subject not found'];
         }
 
         // Handle quota vs order differently
         if ($subject instanceof ClientServiceQuota) {
             $account = $task->telegramAccount;
-            if (!$account) {
+            if (! $account) {
                 return ['ok' => false, 'error' => 'Telegram account not found'];
             }
+
             return $this->handleQuotaTaskReport($task, $subject, $account, $state, $ok, $error, $retryAfter);
         }
 
@@ -690,7 +707,7 @@ class TelegramTaskService
         // Handle order task (existing task-driven logic; requires telegram account)
         $order = $subject;
         $account = $task->telegramAccount;
-        if (!$account) {
+        if (! $account) {
             return ['ok' => false, 'error' => 'Telegram account not found'];
         }
 
@@ -710,6 +727,7 @@ class TelegramTaskService
                     'leased_until' => now()->addSeconds(max(60, min(300, (int) $retryAfter))),
                 ]);
             }
+
             return ['ok' => true];
         }
 
@@ -731,7 +749,7 @@ class TelegramTaskService
                 $needsCap
             );
 
-            if (!($commitResult['success'] ?? false)) {
+            if (! ($commitResult['success'] ?? false)) {
                 Log::warning('Failed to commit claim', [
                     'task_id' => $taskId,
                     'account_id' => $account->id,
@@ -781,9 +799,9 @@ class TelegramTaskService
             $task->update(['status' => TelegramTask::STATUS_FAILED]);
 
             // Handle unsubscribe task failure: revert to pending for retry
-//            if ($action === 'unsubscribe') {
-//                $this->handleUnsubscribeTaskFailure($order, $account, $task, $error);
-//            }
+            //            if ($action === 'unsubscribe') {
+            //                $this->handleUnsubscribeTaskFailure($order, $account, $task, $error);
+            //            }
         }
 
         return ['ok' => true];
@@ -792,15 +810,13 @@ class TelegramTaskService
     /**
      * Schedule an unsubscribe task when a subscribe task completes successfully.
      *
-     * @param Order $order
-     * @param TelegramAccount $account
-     * @param TelegramTask $task The completed subscribe task
+     * @param  TelegramTask  $task  The completed subscribe task
      */
     private function scheduleUnsubscribeTask(Order $order, TelegramAccount $account, TelegramTask $task): void
     {
         // Get duration_days from service
         $service = $order->service;
-        if (!$service) {
+        if (! $service) {
             return;
         }
 
@@ -840,9 +856,7 @@ class TelegramTaskService
     /**
      * Finalize an unsubscribe task when unsubscribe task completes.
      *
-     * @param Order $order
-     * @param TelegramAccount $account
-     * @param TelegramTask $task The completed unsubscribe task
+     * @param  TelegramTask  $task  The completed unsubscribe task
      */
     private function finalizeUnsubscribeTask(Order $order, TelegramAccount $account, TelegramTask $task): void
     {
@@ -855,13 +869,14 @@ class TelegramTaskService
             ->where('status', TelegramUnsubscribeTask::STATUS_PROCESSING)
             ->first();
 
-        if (!$unsubscribeTask) {
+        if (! $unsubscribeTask) {
             Log::warning('Unsubscribe task not found for finalization', [
                 'order_id' => $order->id,
                 'account_id' => $account->id,
                 'link_hash' => $task->link_hash,
                 'telegram_task_id' => $task->id,
             ]);
+
             return;
         }
 
@@ -881,7 +896,7 @@ class TelegramTaskService
     /**
      * Generate tasks from due unsubscribe tasks.
      *
-     * @param int $maxTasks Maximum number of unsubscribe tasks to process
+     * @param  int  $maxTasks  Maximum number of unsubscribe tasks to process
      * @return int Number of tasks generated
      */
     private function generateUnsubscribeTasks(int $maxTasks): int
@@ -915,25 +930,24 @@ class TelegramTaskService
 
     /**
      * Generate a TelegramTask from a TelegramUnsubscribeTask.
-     *
-     * @param TelegramUnsubscribeTask $unsubscribeTask
-     * @return TelegramTask|null
      */
     private function generateTaskFromUnsubscribeTask(TelegramUnsubscribeTask $unsubscribeTask): ?TelegramTask
     {
         $account = $unsubscribeTask->telegramAccount;
-        if (!$account) {
+        if (! $account) {
             Log::warning('Telegram account not found for unsubscribe task', [
                 'unsubscribe_task_id' => $unsubscribeTask->id,
             ]);
+
             return null;
         }
 
         $order = $unsubscribeTask->subject;
-        if (!$order || !($order instanceof Order)) {
+        if (! $order || ! ($order instanceof Order)) {
             Log::warning('Order not found for unsubscribe task', [
                 'unsubscribe_task_id' => $unsubscribeTask->id,
             ]);
+
             return null;
         }
 
@@ -949,7 +963,7 @@ class TelegramTaskService
             $dedupePerLink
         );
 
-        if (!($reserveResult['success'] ?? false)) {
+        if (! ($reserveResult['success'] ?? false)) {
             $reason = (string) ($reserveResult['reason'] ?? 'unknown');
             Log::debug('Failed to reserve account for unsubscribe task', [
                 'unsubscribe_task_id' => $unsubscribeTask->id,
@@ -1025,10 +1039,8 @@ class TelegramTaskService
     /**
      * Handle unsubscribe task failure: revert to pending for retry or mark as failed.
      *
-     * @param Order $order
-     * @param TelegramAccount $account
-     * @param TelegramTask $task The failed unsubscribe task
-     * @param string|null $error Error message
+     * @param  TelegramTask  $task  The failed unsubscribe task
+     * @param  string|null  $error  Error message
      */
     private function handleUnsubscribeTaskFailure(Order $order, TelegramAccount $account, TelegramTask $task, ?string $error): void
     {
@@ -1041,7 +1053,7 @@ class TelegramTaskService
             ->where('status', TelegramUnsubscribeTask::STATUS_PROCESSING)
             ->first();
 
-        if (!$unsubscribeTask) {
+        if (! $unsubscribeTask) {
             return;
         }
 
@@ -1071,7 +1083,7 @@ class TelegramTaskService
      * - execution_meta exists
      * - next_run_at <= now (or missing)
      *
-     * @param int $maxTasks Maximum number of quota tasks to generate
+     * @param  int  $maxTasks  Maximum number of quota tasks to generate
      * @return int Number of tasks generated
      */
     private function generateQuotaTasks(int $maxTasks): int
@@ -1099,12 +1111,12 @@ class TelegramTaskService
             $executionMeta = $providerPayload['execution_meta'] ?? [];
 
             // Check inspection
-            if (!is_array($telegramData) || !($telegramData['ok'] ?? false)) {
+            if (! is_array($telegramData) || ! ($telegramData['ok'] ?? false)) {
                 return false;
             }
 
             // Check execution meta
-            if (!is_array($executionMeta)) {
+            if (! is_array($executionMeta)) {
                 return false;
             }
 
@@ -1147,9 +1159,6 @@ class TelegramTaskService
 
     /**
      * Generate a single task for a quota.
-     *
-     * @param ClientServiceQuota $quota
-     * @return TelegramTask|null
      */
     private function generateTaskForQuota(ClientServiceQuota $quota): ?TelegramTask
     {
@@ -1157,7 +1166,7 @@ class TelegramTaskService
         $executionMeta = $providerPayload['execution_meta'] ?? [];
         $telegramData = $providerPayload['telegram'] ?? [];
 
-        if (!is_array($executionMeta) || !is_array($telegramData)) {
+        if (! is_array($executionMeta) || ! is_array($telegramData)) {
             return null;
         }
 
@@ -1198,7 +1207,7 @@ class TelegramTaskService
             $executor
         );
 
-        if (!$account) {
+        if (! $account) {
             $errorMessage = $executor === 'local_mtproto'
                 ? 'No local MTProto accounts available'
                 : 'No available Telegram account (cooldown/cap/dedupe constraints)';
@@ -1206,6 +1215,7 @@ class TelegramTaskService
                 'provider_last_error' => $errorMessage,
                 'provider_last_error_at' => now(),
             ]);
+
             return null;
         }
 
@@ -1266,15 +1276,12 @@ class TelegramTaskService
     /**
      * Get post_id for quota task (handles posts snapshot for last-N-post quotas).
      *
-     * @param ClientServiceQuota $quota
-     * @param array $parsed
-     * @param string $action
      * @return int|false Returns post_id or false if snapshot refresh failed/empty
      */
     private function getPostIdForQuota(ClientServiceQuota $quota, array $parsed, string $action): int|false
     {
         // For non-post actions, use post_id from parsed if available
-        if (!in_array($action, ['view', 'react', 'comment'], true)) {
+        if (! in_array($action, ['view', 'react', 'comment'], true)) {
             return $parsed['post_id'] ?? 0;
         }
 
@@ -1301,7 +1308,7 @@ class TelegramTaskService
         }
 
         // Refresh snapshot if missing or stale
-        if (!$postsSnapshot || $snapshotStale) {
+        if (! $postsSnapshot || $snapshotStale) {
             $newSnapshot = $this->refreshPostsSnapshot($quota, $parsed);
             if ($newSnapshot === false) {
                 // Refresh failed, set error and skip
@@ -1309,6 +1316,7 @@ class TelegramTaskService
                     'provider_last_error' => 'Failed to fetch posts snapshot for quota',
                     'provider_last_error_at' => now(),
                 ]);
+
                 return false;
             }
 
@@ -1345,8 +1353,6 @@ class TelegramTaskService
     /**
      * Refresh posts snapshot for quota.
      *
-     * @param ClientServiceQuota $quota
-     * @param array $parsed
      * @return array|false Returns snapshot array or false on failure
      */
     private function refreshPostsSnapshot(ClientServiceQuota $quota, array $parsed): array|false
@@ -1369,10 +1375,6 @@ class TelegramTaskService
     /**
      * Select account with reserve claim for quota (reuses order logic).
      *
-     * @param string $action
-     * @param ClientServiceQuota $quota
-     * @param string $linkHash
-     * @param bool $dedupePerLink
      * @return array{TelegramAccount|null, array}
      */
     private function selectAccountWithReserveForQuota(
@@ -1410,8 +1412,8 @@ class TelegramTaskService
             &$skippedLock,
             $action,
             $linkHash,
-            $dedupePerLink,
-            $needsCap
+            $dedupePerLink
+
         ): bool {
             $scanned++;
 
@@ -1423,24 +1425,28 @@ class TelegramTaskService
                 $dedupePerLink
             );
 
-            if (!($reserveResult['success'] ?? false)) {
+            if (! ($reserveResult['success'] ?? false)) {
                 $reason = (string) ($reserveResult['reason'] ?? 'unknown');
 
                 if (in_array($reason, ['dedupe', 'dedupe_race', 'state_already_subscribed', 'state_not_subscribed'], true)) {
                     $skippedDedupe++;
+
                     return false;
                 }
 
                 if ($reason === 'locked') {
                     $skippedLock++;
+
                     return false;
                 }
 
                 $skippedDedupe++;
+
                 return false;
             }
 
             $account = $candidate;
+
             return true;
         };
 
@@ -1463,11 +1469,12 @@ class TelegramTaskService
                         return false;
                     }
                 }
+
                 return true;
             });
 
         // PASS 2: wrap-around
-        if (!$account && $startFromId > 0 && $scanned < $maxScanLimit) {
+        if (! $account && $startFromId > 0 && $scanned < $maxScanLimit) {
             TelegramAccount::query()
                 ->select($baseSelect)
                 ->where('is_active', true)
@@ -1484,6 +1491,7 @@ class TelegramTaskService
                             return false;
                         }
                     }
+
                     return true;
                 });
         }
@@ -1509,13 +1517,6 @@ class TelegramTaskService
     /**
      * Handle quota task report.
      *
-     * @param TelegramTask $task
-     * @param ClientServiceQuota $quota
-     * @param TelegramAccount $account
-     * @param string $state
-     * @param bool $ok
-     * @param string|null $error
-     * @param int|null $retryAfter
      * @return array{ok: bool, error?: string}
      */
     private function handleQuotaTaskReport(
@@ -1553,6 +1554,7 @@ class TelegramTaskService
                 $providerPayload['execution_meta'] = $executionMeta;
                 $quota->update(['provider_payload' => $providerPayload]);
             }
+
             return ['ok' => true];
         }
 
@@ -1574,7 +1576,7 @@ class TelegramTaskService
                 $needsCap
             );
 
-            if (!($commitResult['success'] ?? false)) {
+            if (! ($commitResult['success'] ?? false)) {
                 Log::warning('Failed to commit claim for quota task', [
                     'task_id' => $task->id,
                     'quota_id' => $quota->id,
@@ -1649,12 +1651,6 @@ class TelegramTaskService
      * Handle report for account-driven order claim task (claim flow).
      * Updates telegram_order_memberships (order_id = orders.id) and order remains.
      *
-     * @param TelegramTask $task
-     * @param Order $order
-     * @param string $state
-     * @param bool $ok
-     * @param string|null $error
-     * @param int|null $retryAfter
      * @return array{ok: bool, error?: string}
      */
     private function handleOrderClaimTaskReport(
@@ -1682,6 +1678,7 @@ class TelegramTaskService
                     'leased_until' => now()->addSeconds(max(60, min(300, (int) $retryAfter))),
                 ]);
             }
+
             return ['ok' => true];
         }
 
@@ -1689,6 +1686,7 @@ class TelegramTaskService
         $linkHash = $task->link_hash ?? '';
         if ($accountPhone === null || $accountPhone === '') {
             Log::warning('Order claim task report missing account_phone in payload', ['task_id' => $task->id]);
+
             return ['ok' => true];
         }
         $accountPhone = TelegramAccountLinkState::normalizePhone((string) $accountPhone);
@@ -1761,8 +1759,7 @@ class TelegramTaskService
         } else {
             if ($order->dripfeed_enabled) {
                 $order->update([
-                    'dripfeed_delivered_in_run' =>
-                        max(0, $order->dripfeed_delivered_in_run - 1)
+                    'dripfeed_delivered_in_run' => max(0, $order->dripfeed_delivered_in_run - 1),
                 ]);
             }
             if ($globalState) {
@@ -1824,7 +1821,7 @@ class TelegramTaskService
                 return ['ok' => false, 'error' => 'Scope mismatch'];
             }
             $order->loadMissing('service');
-            if (!TelegramPremiumTemplateScope::isPremiumTemplateKey($order->service?->template_key)) {
+            if (! TelegramPremiumTemplateScope::isPremiumTemplateKey($order->service?->template_key)) {
                 return ['ok' => false, 'error' => 'Scope mismatch'];
             }
 
@@ -1834,4 +1831,3 @@ class TelegramTaskService
         return null;
     }
 }
-

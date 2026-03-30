@@ -6,6 +6,7 @@ use App\Models\Service;
 use App\Support\Links\LinkInspectorManager;
 use App\Support\TelegramLinkParser;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 /**
@@ -26,7 +27,8 @@ class StoreFastOrderRequest extends FormRequest
         if ($link === '' || preg_match('#^https?://#i', $link)) {
             return $link;
         }
-        return 'https://' . $link;
+
+        return 'https://'.$link;
     }
 
     private function service(): ?Service
@@ -36,26 +38,38 @@ class StoreFastOrderRequest extends FormRequest
         }
         $id = $this->input('service_id');
         $this->cachedService = $id ? Service::with('category')->find($id) : null;
+
         return $this->cachedService;
     }
 
     protected function prepareForValidation(): void
     {
         $input = $this->all();
-        if (!empty($input['link'])) {
+        if (! empty($input['link'])) {
             $input['link'] = $this->ensureLinkHasScheme(trim((string) $input['link']));
         }
-        if (!empty($input['link_2'])) {
+        if (! empty($input['link_2'])) {
             $input['link_2'] = $this->ensureLinkHasScheme(trim((string) $input['link_2']));
         }
         if (isset($input['targets']) && is_array($input['targets'])) {
             foreach ($input['targets'] as $i => $t) {
-                if (!empty($t['link'])) {
+                if (! empty($t['link'])) {
                     $input['targets'][$i]['link'] = $this->ensureLinkHasScheme(trim((string) $t['link']));
                 }
             }
         }
         $this->replace($input);
+
+        $service = $this->service();
+        if ($service && $service->template_key === 'telegram_premium_folder') {
+            $input = $this->all();
+            if (! isset($input['targets']) || ! is_array($input['targets'])) {
+                $input['targets'] = [['link' => '', 'quantity' => 1]];
+            }
+            $input['targets'][0]['quantity'] = 1;
+            $input['duration_days'] = 30;
+            $this->replace($input);
+        }
 
         $service = $this->service();
         if ($service && $service->service_type === 'custom_comments') {
@@ -74,7 +88,7 @@ class StoreFastOrderRequest extends FormRequest
 
         $service = $this->service();
 
-        if (!$service) {
+        if (! $service) {
             return $rules;
         }
 
@@ -85,13 +99,15 @@ class StoreFastOrderRequest extends FormRequest
                 'string',
                 'min:1',
                 function ($attribute, $value, $fail) use ($minQuantity) {
-                    if (empty($value)) return;
+                    if (empty($value)) {
+                        return;
+                    }
                     $lines = array_filter(
                         array_map('trim', explode("\n", (string) $value)),
                         fn ($line) => $line !== ''
                     );
                     if (count($lines) < $minQuantity) {
-                        $fail("Minimum {$minQuantity} comments required. You have entered " . count($lines) . " comment(s).");
+                        $fail("Minimum {$minQuantity} comments required. You have entered ".count($lines).' comment(s).');
                     }
                 },
             ];
@@ -104,7 +120,7 @@ class StoreFastOrderRequest extends FormRequest
                 'max:2048',
                 function ($attribute, $value, $fail) use ($driver, $manager) {
                     $result = $manager->inspect($driver, trim((string) $value));
-                    if (!$result['valid'] && $result['error'] !== null) {
+                    if (! $result['valid'] && $result['error'] !== null) {
                         $fail($result['error']);
                     }
                 },
@@ -114,6 +130,24 @@ class StoreFastOrderRequest extends FormRequest
             $rules['targets.0.link'] = ['required', 'string', 'max:2048', $this->telegramLinkRule()];
             $rules['targets.0.quantity'] = ['required', 'integer', 'min:1'];
             $rules['link_2'] = ['required', 'string', 'max:2048', $this->telegramLinkRule()];
+        } elseif ($service->template_key === 'telegram_premium_folder') {
+            $durationOpts = $service->template()['duration_options'] ?? [3, 14, 30];
+            $rules['targets'] = ['required', 'array', 'size:1'];
+            $driver = $service->category?->link_driver ?? 'generic';
+            $manager = app(LinkInspectorManager::class);
+            $rules['targets.0.link'] = [
+                'required',
+                'string',
+                'max:2048',
+                function ($attribute, $value, $fail) use ($driver, $manager) {
+                    $result = $manager->inspect($driver, trim((string) $value));
+                    if (! $result['valid'] && $result['error'] !== null) {
+                        $fail($result['error']);
+                    }
+                },
+            ];
+            $rules['targets.0.quantity'] = ['nullable', 'integer'];
+            $rules['duration_days'] = ['required', 'integer', Rule::in($durationOpts)];
         } else {
             $rules['targets'] = ['required', 'array', 'min:1'];
             $driver = $service->category?->link_driver ?? 'generic';
@@ -124,7 +158,7 @@ class StoreFastOrderRequest extends FormRequest
                 'max:2048',
                 function ($attribute, $value, $fail) use ($driver, $manager) {
                     $result = $manager->inspect($driver, trim((string) $value));
-                    if (!$result['valid'] && $result['error'] !== null) {
+                    if (! $result['valid'] && $result['error'] !== null) {
                         $fail($result['error']);
                     }
                 },
@@ -140,7 +174,7 @@ class StoreFastOrderRequest extends FormRequest
                         $totalQuantity += (int) $t['quantity'];
                     }
                 }
-                $rules['dripfeed_quantity'] = ['required', 'integer', 'min:1', 'max:' . max(1, $totalQuantity)];
+                $rules['dripfeed_quantity'] = ['required', 'integer', 'min:1', 'max:'.max(1, $totalQuantity)];
                 $rules['dripfeed_interval'] = ['required', 'integer', 'min:1'];
                 $rules['dripfeed_interval_unit'] = ['required', 'string', 'in:minutes,hours,days'];
             }
@@ -157,12 +191,18 @@ class StoreFastOrderRequest extends FormRequest
     {
         return function ($attribute, $value, $fail) {
             $value = trim((string) $value);
-            if ($value === '') return;
+            if ($value === '') {
+                return;
+            }
             $parsed = TelegramLinkParser::parse($value);
             $kind = $parsed['kind'] ?? 'unknown';
-            if ($kind === 'unknown') $fail('Invalid Telegram link format.');
-            elseif ($kind === 'special') $fail('Link is not a joinable chat.');
-            elseif ($kind === 'private_post') $fail('Private post links are not supported.');
+            if ($kind === 'unknown') {
+                $fail('Invalid Telegram link format.');
+            } elseif ($kind === 'special') {
+                $fail('Link is not a joinable chat.');
+            } elseif ($kind === 'private_post') {
+                $fail('Private post links are not supported.');
+            }
         };
     }
 
@@ -180,9 +220,11 @@ class StoreFastOrderRequest extends FormRequest
         $validator->after(function (Validator $v) {
             $categoryId = (int) $this->input('category_id');
             $serviceId = (int) $this->input('service_id');
-            if (!$categoryId || !$serviceId) return;
+            if (! $categoryId || ! $serviceId) {
+                return;
+            }
             $service = $this->service();
-            if (!$service || (int) $service->category_id !== $categoryId || !(bool) $service->is_active) {
+            if (! $service || (int) $service->category_id !== $categoryId || ! (bool) $service->is_active) {
                 $v->errors()->add('service_id', 'The selected service is invalid or inactive.');
             }
         });
@@ -203,7 +245,9 @@ class StoreFastOrderRequest extends FormRequest
 
         if (isset($validated['link'])) {
             $link = trim((string) $validated['link']);
-            if ($link !== '') $payload['link'] = $link;
+            if ($link !== '') {
+                $payload['link'] = $link;
+            }
         }
         if (isset($validated['link_2'])) {
             $payload['link_2'] = trim((string) $validated['link_2']);
@@ -215,7 +259,7 @@ class StoreFastOrderRequest extends FormRequest
         if ($service && $service->service_type !== 'custom_comments') {
             $targets = $validated['targets'] ?? [];
             $payload['targets'] = collect(is_array($targets) ? $targets : [])
-                ->filter(fn ($t) => !empty($t['link']) && isset($t['quantity']))
+                ->filter(fn ($t) => ! empty($t['link']) && isset($t['quantity']))
                 ->map(fn ($t) => [
                     'link' => trim((string) $t['link']),
                     'quantity' => (int) $t['quantity'],
@@ -229,12 +273,22 @@ class StoreFastOrderRequest extends FormRequest
         $dripfeedEnabled = $this->boolean('dripfeed_enabled', false);
         if ($dripfeedEnabled) {
             $payload['dripfeed_enabled'] = true;
-            if (isset($validated['dripfeed_quantity'])) $payload['dripfeed_quantity'] = (int) $validated['dripfeed_quantity'];
-            if (isset($validated['dripfeed_interval'])) $payload['dripfeed_interval'] = (int) $validated['dripfeed_interval'];
-            if (isset($validated['dripfeed_interval_unit'])) $payload['dripfeed_interval_unit'] = (string) $validated['dripfeed_interval_unit'];
+            if (isset($validated['dripfeed_quantity'])) {
+                $payload['dripfeed_quantity'] = (int) $validated['dripfeed_quantity'];
+            }
+            if (isset($validated['dripfeed_interval'])) {
+                $payload['dripfeed_interval'] = (int) $validated['dripfeed_interval'];
+            }
+            if (isset($validated['dripfeed_interval_unit'])) {
+                $payload['dripfeed_interval_unit'] = (string) $validated['dripfeed_interval_unit'];
+            }
         }
         if (isset($validated['speed_tier'])) {
             $payload['speed_tier'] = (string) $validated['speed_tier'];
+        }
+
+        if (($service->template_key ?? '') === 'telegram_premium_folder') {
+            $payload['duration_days'] = (int) $validated['duration_days'];
         }
 
         return $payload;
