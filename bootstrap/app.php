@@ -86,10 +86,10 @@ return Application::configure(basePath: dirname(__DIR__))
             ->onOneServer();
 
         // Partial orders: fetch stats hourly for dashboard
-        $schedule->job(new \App\Jobs\ProcessPartialOrdersJob())
-            ->hourly()
-            ->withoutOverlapping(15)
-            ->onOneServer();
+//        $schedule->job(new \App\Jobs\ProcessPartialOrdersJob())
+//            ->hourly()
+//            ->withoutOverlapping(15)
+//            ->onOneServer();
 
         // Sync Adtag provider services into local services table
         //        $schedule->job(new \App\Jobs\AdtagSyncServicesJob())
