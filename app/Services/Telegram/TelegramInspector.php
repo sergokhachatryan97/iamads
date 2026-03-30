@@ -39,23 +39,23 @@ class TelegramInspector
         ];
 
 
-        return [
-            'ok' => true,
-            'parsed' => $parsed,
-            'chat_type' => 'channel',
-            'title' => $parsed['username'],
-            'member_count' => null,
-            'is_paid_join' => false,
-            'error_code' => null,
-            'error' => null,
-            'resolved' => [
-                'source' => 'test',
-            ],
-            'audience_type' => 'subscribers',
-            'is_channel' => true,
-            'is_group' => false,
-            'is_boost' => false,
-        ];
+//        return [
+//            'ok' => true,
+//            'parsed' => $parsed,
+//            'chat_type' => 'channel',
+//            'title' => $parsed['username'],
+//            'member_count' => null,
+//            'is_paid_join' => false,
+//            'error_code' => null,
+//            'error' => null,
+//            'resolved' => [
+//                'source' => 'test',
+//            ],
+//            'audience_type' => 'subscribers',
+//            'is_channel' => true,
+//            'is_group' => false,
+//            'is_boost' => false,
+//        ];
 
         if (count($templateKey) > 0 && ! in_array($parsed['kind'], $templateKey, true)) {
             return $this->fail($result, 'INVALID_FORMAT', 'Invalid Telegram link format');
