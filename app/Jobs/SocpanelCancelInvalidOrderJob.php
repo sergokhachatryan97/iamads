@@ -160,6 +160,7 @@ class SocpanelCancelInvalidOrderJob implements ShouldQueue
         $lower = strtolower($message);
         return str_contains($lower, 'already canceled')
             || str_contains($lower, 'already cancelled')
+            || str_contains($lower, 'already_canceled')
             || str_contains($lower, 'already completed')
             || str_contains($lower, 'not found');
     }
