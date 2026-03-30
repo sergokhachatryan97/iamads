@@ -153,14 +153,22 @@ Log::info('Socpanel getOrders', ['response' => $response, 'query' => $query]);
 
         if (!$response->successful()) {
             throw new \RuntimeException(
-                'Socpanel editOrder failed: ' . $response->body()
+                'Socpanel editOrder failed: HTTP ' . $response->status() . ' ' . $response->body()
             );
         }
 
         $body = $response->json();
 
-        if (!is_array($body) || !array_key_exists('ok', $body)) {
-            throw new \RuntimeException('Socpanel editOrder returned invalid response');
+        if (!is_array($body)) {
+            throw new \RuntimeException(
+                'Socpanel editOrder returned non-JSON: ' . substr((string) $response->body(), 0, 200)
+            );
+        }
+
+        // Normalize: Socpanel may return {ok:true}, {status:"canceled"}, {error:"..."}, etc.
+        if (!array_key_exists('ok', $body)) {
+            $hasError = isset($body['error']) && $body['error'] !== '';
+            $body['ok'] = !$hasError;
         }
 
         return $body;
