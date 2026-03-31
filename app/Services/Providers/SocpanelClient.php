@@ -46,7 +46,7 @@ class SocpanelClient
         $response = Http::timeout($this->timeout)
             ->acceptJson()
             ->get($url, $query);
-Log::info('Socpanel getOrders', ['response' => $response, 'query' => $query]);
+
         if (!$response->successful()) {
             throw new \RuntimeException(
                 'Socpanel getOrders failed: ' . $response->body()
