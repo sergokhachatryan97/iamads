@@ -3,23 +3,30 @@
 namespace App\Services\YouTube;
 
 use App\Models\Order;
-use App\Models\YouTubeAccountTargetState;
 use App\Models\YouTubeTask;
 use App\Services\ProviderActionLogService;
 use App\Support\Performer\OrderDripfeedClaimHelper;
 use App\Support\YouTube\YouTubeTargetNormalizer;
 use Carbon\Carbon;
-use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-/**
- * YouTube performer claim: dynamic action from order (execution_meta.action), dripfeed-aware,
- * lightweight (view, comment, …) vs stateful subscribe (global target state).
- */
 class YouTubeTaskClaimService
 {
     private const LEASE_TTL_SECONDS = 180;
+
+    /** How many random offset attempts before fallback. */
+    private const MAX_RANDOM_ATTEMPTS = 5;
+
+    /** Rows to grab per random offset attempt. */
+    private const BATCH_SIZE = 50;
+
+    /** Cache TTL for ID range (seconds). */
+    private const RANGE_CACHE_TTL = 10;
+
+    /** Resolved once per process. */
+    private static ?int $youtubeCategoryId = null;
 
     public function __construct(
         private ProviderActionLogService $actionLogService
@@ -32,19 +39,57 @@ class YouTubeTaskClaimService
             return null;
         }
 
+        $categoryId = $this->getYoutubeCategoryId();
+        if ($categoryId === null) {
+            return null;
+        }
+
         $now = now();
 
-        // Fetch eligible orders in random order — every performer gets a different
-        // order on each request, no cursor, no starvation, fair distribution.
-        $orders = $this->baseEligibleOrdersQuery()
-            ->inRandomOrder()
-            ->get()
-            ->filter(function (Order $order) use ($now) {
-                $dueAt = $this->computeOrderDueAt($order);
-                return $dueAt === null || $dueAt->lte($now);
-            });
+        // Cached ID range — avoids MIN/MAX scan on every request.
+        // 10s TTL: new orders appear within 10s, stale range just means
+        // a slightly wider random window (harmless).
+        $range = $this->getEligibleIdRange($categoryId);
+        if ($range === null) {
+            return null;
+        }
+
+        [$minId, $maxId] = $range;
+
+        // Try random ID offsets — jump to random point, grab a small batch.
+        for ($attempt = 0; $attempt < self::MAX_RANDOM_ATTEMPTS; $attempt++) {
+            $randomId = random_int($minId, $maxId);
+
+            $result = $this->tryClaimFromOffset($categoryId, $randomId, $now, $accountIdentity);
+            if ($result !== null) {
+                return $result;
+            }
+        }
+
+        // Fallback: scan from the start (catches low-ID orders missed by random jumps)
+        return $this->tryClaimFromOffset($categoryId, 0, $now, $accountIdentity);
+    }
+
+    /**
+     * Load a batch of orders starting from $fromId, filter due, try to claim.
+     */
+    private function tryClaimFromOffset(int $categoryId, int $fromId, Carbon $now, string $accountIdentity): ?array
+    {
+        $orders = Order::query()
+            ->whereIn('status', [Order::STATUS_AWAITING, Order::STATUS_IN_PROGRESS, Order::STATUS_PENDING])
+            ->where('remains', '>', 0)
+            ->where('category_id', $categoryId)
+            ->where('id', '>=', $fromId)
+            ->orderBy('id')
+            ->limit(self::BATCH_SIZE)
+            ->get();
 
         foreach ($orders as $order) {
+            $dueAt = $this->computeOrderDueAt($order);
+            if ($dueAt !== null && $dueAt->gt($now)) {
+                continue;
+            }
+
             $result = $this->tryClaimForOrder($order, $accountIdentity);
             if ($result !== null) {
                 return $result;
@@ -54,36 +99,43 @@ class YouTubeTaskClaimService
         return null;
     }
 
-    private function baseEligibleOrdersQuery()
+    /**
+     * Cached MIN/MAX of eligible order IDs. 10s TTL — cheap and avoids full scan.
+     *
+     * @return array{0: int, 1: int}|null
+     */
+    private function getEligibleIdRange(int $categoryId): ?array
     {
-        return Order::query()
-            ->whereIn('status', [
-                Order::STATUS_AWAITING,
-                Order::STATUS_IN_PROGRESS,
-                Order::STATUS_PENDING,
-            ])
-            ->where('remains', '>', 0)
-            ->whereHas('service', function ($q) {
-                $q->whereHas('category', function ($q2) {
-                    $q2->where('link_driver', 'youtube');
-                });
-            });
-    }
+        return Cache::remember('yt:claim:id_range', self::RANGE_CACHE_TTL, function () use ($categoryId) {
+            $range = Order::query()
+                ->whereIn('status', [Order::STATUS_AWAITING, Order::STATUS_IN_PROGRESS, Order::STATUS_PENDING])
+                ->where('remains', '>', 0)
+                ->where('category_id', $categoryId)
+                ->selectRaw('MIN(id) as min_id, MAX(id) as max_id')
+                ->first();
 
-    private function resolveExecutionPlan(Order $order): array
-    {
-        return YouTubeExecutionPlanResolver::resolve($order);
-    }
+            if (! $range || ! $range->min_id) {
+                return null;
+            }
 
-
-    private function stepsContainStatefulAction(array $steps): bool
-    {
-        return YouTubeExecutionPlanResolver::stepsContainSubscribe($steps);
+            return [(int) $range->min_id, (int) $range->max_id];
+        });
     }
 
     /**
-     * When is this order due for claiming (dripfeed or next_run_at). Align with Telegram computeSubscribeDueAt.
+     * Single youtube category ID — resolved once per process.
      */
+    private function getYoutubeCategoryId(): ?int
+    {
+        if (self::$youtubeCategoryId === null) {
+            self::$youtubeCategoryId = (int) \App\Models\Category::query()
+                ->where('link_driver', 'youtube')
+                ->value('id');
+        }
+
+        return self::$youtubeCategoryId ?: null;
+    }
+
     private function computeOrderDueAt(Order $order): ?Carbon
     {
         if ((bool) ($order->dripfeed_enabled ?? false)) {
@@ -91,18 +143,22 @@ class YouTubeTaskClaimService
             if (!$v) {
                 return null;
             }
+
             try {
                 return Carbon::parse($v);
             } catch (\Throwable) {
                 return null;
             }
         }
+
         $providerPayload = $order->provider_payload ?? [];
         $executionMeta = is_array($providerPayload['execution_meta'] ?? null) ? $providerPayload['execution_meta'] : [];
         $nextRunAt = $executionMeta['next_run_at'] ?? null;
+
         if (!$nextRunAt) {
             return null;
         }
+
         try {
             return Carbon::parse($nextRunAt);
         } catch (\Throwable) {
@@ -112,24 +168,29 @@ class YouTubeTaskClaimService
 
     private function tryClaimForOrder(Order $order, string $accountIdentity): ?array
     {
-        return DB::transaction(function () use ($order, $accountIdentity): ?array {
+        // Keep the service from the outer query — no need to reload it inside the lock.
+        $preloadedService = $order->relationLoaded('service') ? $order->service : null;
+
+        return DB::transaction(function () use ($order, $accountIdentity, $preloadedService): ?array {
+            // Lock only — order already validated. Just re-check remains under lock.
             $order = Order::query()
                 ->where('id', $order->id)
                 ->where('remains', '>', 0)
-                ->whereHas('service', function ($q) {
-                    $q->whereHas('category', function ($q2) {
-                        $q2->where('link_driver', 'youtube');
-                    });
-                })
                 ->lockForUpdate()
-                ->with(['service', 'service.category'])
                 ->first();
 
             if ($order === null) {
                 return null;
             }
 
-            $plan = $this->resolveExecutionPlan($order);
+            // Use preloaded service if available, otherwise load once.
+            if ($preloadedService !== null) {
+                $order->setRelation('service', $preloadedService);
+            } else {
+                $order->loadMissing(['service', 'service.category']);
+            }
+
+            $plan = YouTubeExecutionPlanResolver::resolve($order);
             $action = $plan['action'];
             $steps = $plan['steps'];
             $mode = $plan['mode'];
@@ -145,11 +206,11 @@ class YouTubeTaskClaimService
             if (!OrderDripfeedClaimHelper::canClaimTaskNow($order)) {
                 return null;
             }
-            $order->refresh();
 
+            // In-flight count — uses idx_yt_tasks_order_status index
             $inFlight = YouTubeTask::query()
                 ->where('order_id', $order->id)
-                ->whereIn('status', [YouTubeTask::STATUS_LEASED])
+                ->where('status', YouTubeTask::STATUS_LEASED)
                 ->count();
 
             $target = $order->target_quantity;
@@ -162,14 +223,14 @@ class YouTubeTaskClaimService
             $parsed = $youtube['parsed'] ?? [];
             $targetHashForLog = $parsed['target_hash'] ?? $linkHash;
 
-            $actionNames = YouTubeExecutionPlanResolver::stepsToActionNames($steps);
+//            $actionNames = YouTubeExecutionPlanResolver::stepsToActionNames($steps);
             // TODO: uniqueness check disabled — same account can get same link+action again
             // if ($this->hasStepConflict($accountIdentity, $linkHash, $targetHashForLog, $actionNames)) {
             //     return null;
             // }
-            $actionForLog = $mode === YouTubeExecutionPlanResolver::MODE_COMBO
-                ? YouTubeExecutionPlanResolver::compositeActionForLog($steps)
-                : $action;
+//            $actionForLog = $mode === YouTubeExecutionPlanResolver::MODE_COMBO
+//                ? YouTubeExecutionPlanResolver::compositeActionForLog($steps)
+//                : $action;
 
             $targetType = null;
             $normalizedTarget = null;
@@ -240,43 +301,27 @@ class YouTubeTaskClaimService
                 'per_call' => $perCall,
                 'action' => $action,
             ];
+
             if ($mode === YouTubeExecutionPlanResolver::MODE_COMBO) {
                 $payload['mode'] = 'combo';
                 $payload['steps'] = $steps;
-            }
-            // comment_custom: works like default comment — multiple comments (one per line), pick by index
-            if (in_array('comment_custom', $steps, true) && !empty(trim((string) ($order->comment_text ?? '')))) {
-                $comments = array_values(array_filter(array_map('trim', explode("\n", (string) $order->comment_text))));
-                $index = (int) $order->delivered + $inFlight;
-                $commentForPayload = null;
-                if (!empty($comments)) {
-                    $commentForPayload = $comments[$index % count($comments)];
-                } else {
-                    $commentForPayload = trim((string) $order->comment_text);
-                }
-                if ($commentForPayload !== '') {
-                    $payload['comment_text'] = $commentForPayload;
-                }
-            }
-            if ($targetHashForRow !== null) {
-                $payload['target_hash'] = $targetHashForRow;
-                $payload['normalized_target'] = $normalizedTarget;
-            }
-            // For combo: view/react use video target, subscribe uses channel. Store video hash for recording.
-            if ($mode === YouTubeExecutionPlanResolver::MODE_COMBO) {
                 $payload['video_target_hash'] = $targetHashForLog;
             }
 
-            $taskTargetHash = $targetHashForRow ?? $targetHashForLog;
+            $commentForPayload = $this->resolveComment($order, $steps, $action, $inFlight);
+            if ($commentForPayload !== null) {
+                $payload['comment_text'] = $commentForPayload;
+            }
+
             $task = YouTubeTask::create([
                 'order_id' => $order->id,
                 'account_identity' => $accountIdentity,
                 'action' => $action,
                 'link' => $link,
                 'link_hash' => $linkHash,
-                'target_type' => $targetType,
-                'normalized_target' => $normalizedTarget !== null ? mb_substr($normalizedTarget, 0, 500) : null,
-                'target_hash' => $taskTargetHash,
+                'target_type' => null,
+                'normalized_target' => null,
+                'target_hash' => $targetHashForLog,
                 'status' => YouTubeTask::STATUS_LEASED,
                 'leased_until' => $leasedUntil,
                 'payload' => $payload,
@@ -290,39 +335,12 @@ class YouTubeTaskClaimService
             OrderDripfeedClaimHelper::afterTaskClaimed($order);
             $order->update(['status' => Order::STATUS_IN_PROGRESS]);
 
-            Log::debug('YouTube task claimed', [
-                'task_id' => $task->id,
-                'order_id' => $order->id,
-                'action' => $action,
-            ]);
-
             $service = $order->service;
             $category = $service?->category;
 
-            $commentTextForTask = null;
-            if ($mode === YouTubeExecutionPlanResolver::MODE_COMBO) {
-                if (in_array('comment_custom', $steps, true) && !empty(trim((string) ($order->comment_text ?? '')))) {
-                    $comments = array_values(array_filter(array_map('trim', explode("\n", (string) $order->comment_text))));
-                    $index = (int) $order->delivered + $inFlight;
-                    if (!empty($comments)) {
-                        $commentTextForTask = $comments[$index % count($comments)];
-                    } else {
-                        $commentTextForTask = trim((string) $order->comment_text);
-                    }
-                }
-            } elseif ($action === 'comment' && !empty(trim((string) ($order->comment_text ?? '')))) {
-                $comments = array_values(array_filter(array_map('trim', explode("\n", (string) $order->comment_text))));
-                $index = (int) $order->delivered + $inFlight;
-                if ($index < count($comments)) {
-                    $commentTextForTask = $comments[$index];
-                }
-            }
-
             $serviceDescription = $service?->description_for_performer ?? '';
-
-            if ($commentTextForTask !== null && trim((string) $commentTextForTask) !== '') {
-                $serviceDescription .= ($serviceDescription !== '' ? "\n" : '')
-                    . trim((string) $commentTextForTask);
+            if ($commentForPayload !== null && $commentForPayload !== '') {
+                $serviceDescription .= ($serviceDescription !== '' ? "\n" : '') . $commentForPayload;
             }
 
             $result = [
@@ -331,11 +349,7 @@ class YouTubeTaskClaimService
                 'link_hash' => $linkHash,
                 'action' => $action,
                 'order_id' => (int) $order->id,
-                'target' => $targetType !== null ? [
-                    'type' => $targetType,
-                    'normalized' => $normalizedTarget,
-                    'hash' => $targetHashForRow,
-                ] : null,
+                'target' => null,
                 'order' => [
                     'id' => (string) $order->id,
                     'quantity' => $order->quantity,
@@ -347,7 +361,7 @@ class YouTubeTaskClaimService
                 'service' => [
                     'id' => $service?->id,
                     'name' => $service?->name ?? '',
-                    'description' => $serviceDescription ?? '',
+                    'description' => $serviceDescription,
                     'service_description' => $serviceDescription,
                 ],
                 'category' => $category ? [
@@ -355,99 +369,44 @@ class YouTubeTaskClaimService
                     'name' => $category->name ?? '',
                 ] : null,
             ];
+
             if ($mode === YouTubeExecutionPlanResolver::MODE_COMBO) {
                 $result['mode'] = 'combo';
                 $result['steps'] = $steps;
             }
-            if ($commentTextForTask !== null && $commentTextForTask !== '') {
-                $result['comment_text'] = $commentTextForTask;
+            if ($commentForPayload !== null && $commentForPayload !== '') {
+                $result['comment_text'] = $commentForPayload;
             }
+
             return $result;
         });
     }
 
-    /**
-     * Unified step-based conflict: any requested action already active or performed
-     * for the same account_identity + link_hash blocks the claim.
-     * Works for both single-action and combo orders.
-     *
-     * @param  array<string>  $actionNames  Normalized action names (subscribe, view, react, comment)
-     */
-    private function hasStepConflict(
-        string $accountIdentity,
-        string $linkHash,
-        string $videoTargetHash,
-        array $actionNames
-    ): bool {
-        $activeStatuses = [YouTubeTask::STATUS_LEASED, YouTubeTask::STATUS_PENDING];
-
-        // 1. Active tasks: single tasks with overlapping action, or combo tasks with overlapping steps
-        $activeTasks = YouTubeTask::query()
-            ->where('account_identity', $accountIdentity)
-            ->where('link_hash', $linkHash)
-            ->whereIn('status', $activeStatuses)
-            ->get(['id', 'action', 'payload']);
-
-        foreach ($activeTasks as $task) {
-            if (in_array($task->action, $actionNames, true)) {
-                return true; // Single task with same action
-            }
-            if ($task->action === 'combo') {
-                $payload = $task->payload;
-                $steps = is_array($payload) ? ($payload['steps'] ?? []) : [];
-                $existingNames = YouTubeExecutionPlanResolver::stepsToActionNames($steps);
-                if (array_intersect($actionNames, $existingNames) !== []) {
-                    return true; // Combo overlaps with our actions
-                }
-            }
+    private function resolveComment(Order $order, array $steps, string $action, int $inFlight): ?string
+    {
+        $raw = trim((string) ($order->comment_text ?? ''));
+        if ($raw === '') {
+            return null;
         }
 
-        // 2. Performed actions: any requested step already done for this account + same video target
-        foreach ($actionNames as $actionName) {
-            if ($this->actionLogService->hasPerformed(
-                ProviderActionLogService::PROVIDER_YOUTUBE,
-                $accountIdentity,
-                $videoTargetHash,
-                $actionName
-            )) {
-                return true;
-            }
+        $isCombo = in_array('comment_custom', $steps, true);
+        $isSingleComment = $action === 'comment';
+
+        if (! $isCombo && ! $isSingleComment) {
+            return null;
         }
 
-        // 3. Composite combo (exact combo already done; only when multiple actions)
-        if (count($actionNames) > 1) {
-            foreach (['like', 'react'] as $reactStep) {
-                $stepNames = [];
-                foreach ($actionNames as $name) {
-                    $stepNames[] = ($name === 'react' || $name === 'like') ? $reactStep : $name;
-                }
-                $compositeAction = YouTubeExecutionPlanResolver::compositeActionForLog($stepNames);
-                if ($this->actionLogService->hasPerformed(
-                    ProviderActionLogService::PROVIDER_YOUTUBE,
-                    $accountIdentity,
-                    $videoTargetHash,
-                    $compositeAction
-                )) {
-                    return true;
-                }
-            }
+        $comments = array_values(array_filter(array_map('trim', explode("\n", $raw))));
+        if (empty($comments)) {
+            return $raw;
         }
 
-        return false;
-    }
+        $index = (int) $order->delivered + $inFlight;
 
-    private function revertGlobalState(
-        ?YouTubeAccountTargetState $global,
-        bool $globalRowCreated,
-        ?string $previousGlobalState
-    ): void {
-        if ($global === null) {
-            return;
+        if ($isSingleComment && ! $isCombo) {
+            return $index < count($comments) ? $comments[$index] : null;
         }
-        if ($globalRowCreated) {
-            $global->delete();
-        } elseif ($previousGlobalState !== null) {
-            $global->update(['state' => $previousGlobalState]);
-        }
+
+        return $comments[$index % count($comments)];
     }
 }
