@@ -155,6 +155,19 @@ return [
                 'memory' => 512,
             ],
 
+            'max-inspect' => [
+                'connection' => 'redis',
+                'queue' => ['max-inspect'],
+                'balance' => 'auto',
+                'autoScalingStrategy' => 'time',
+                'maxProcesses' => 2,
+                'balanceMaxShift' => 1,
+                'balanceCooldown' => 3,
+                'tries' => 1,
+                'timeout' => 120,
+                'memory' => 128,
+            ],
+
             'main' => [
                 'connection' => 'redis',
                 'queue' => ['socpanel-poll', 'memberpro-poll', 'providers', 'default'],
@@ -217,6 +230,18 @@ return [
                 'tries' => 2,
                 'timeout' => 900,
                 'memory' => 512,
+            ],
+            'max-inspect' => [
+                'connection' => 'redis',
+                'queue' => ['max-inspect'],
+                'balance' => 'auto',
+                'autoScalingStrategy' => 'time',
+                'maxProcesses' => 2,
+                'balanceMaxShift' => 1,
+                'balanceCooldown' => 3,
+                'tries' => 1,
+                'timeout' => 120,
+                'memory' => 128,
             ],
             'main' => [
                 'connection' => 'redis',
