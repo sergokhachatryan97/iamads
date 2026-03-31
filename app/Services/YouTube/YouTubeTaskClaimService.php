@@ -56,18 +56,20 @@ class YouTubeTaskClaimService
 
         [$minId, $maxId] = $range;
 
-        // Try random ID offsets — jump to random point, grab a small batch.
+        // Mix random offsets with low-ID scan so old orders aren't starved.
+        // Each attempt: 80% random jump, 20% scan from a low offset.
         for ($attempt = 0; $attempt < self::MAX_RANDOM_ATTEMPTS; $attempt++) {
-            $randomId = random_int($minId, $maxId);
+            $fromId = random_int(1, 5) === 1
+                ? random_int($minId, min($minId + 1000, $maxId))  // low range — old orders
+                : random_int($minId, $maxId);                      // full range — random
 
-            $result = $this->tryClaimFromOffset($categoryId, $randomId, $now, $accountIdentity);
+            $result = $this->tryClaimFromOffset($categoryId, $fromId, $now, $accountIdentity);
             if ($result !== null) {
                 return $result;
             }
         }
 
-        // Fallback: scan from the start (catches low-ID orders missed by random jumps)
-        return $this->tryClaimFromOffset($categoryId, 0, $now, $accountIdentity);
+        return null;
     }
 
     /**
