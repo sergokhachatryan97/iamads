@@ -22,15 +22,15 @@ return Application::configure(basePath: dirname(__DIR__))
         //            ->timezone(config('app.timezone'));
         //
         //        // Poll provider status every 10 minutes as fallback to webhooks
-        $schedule->command('orders:sync-provider-status')
-            ->daily()
-            ->withoutOverlapping()
-            ->runInBackground();
+//        $schedule->command('orders:sync-provider-status')
+//            ->daily()
+//            ->withoutOverlapping()
+//            ->runInBackground();
 
-        $schedule->command('orders:process-validating-with-provider-sending')
-            ->everyFiveMinutes()
-            ->withoutOverlapping()
-            ->runInBackground();
+//        $schedule->command('orders:process-validating-with-provider-sending')
+//            ->everyFiveMinutes()
+//            ->withoutOverlapping()
+//            ->runInBackground();
 
         // Telegram phone-claim: move completed/canceled orders to unsubscribing after duration_days
         $schedule->command('telegram:activate-unsubscribing-phase')
@@ -38,10 +38,10 @@ return Application::configure(basePath: dirname(__DIR__))
             ->withoutOverlapping()
             ->runInBackground();
 
-        $schedule->command('telegram:process-folder-expirations')
-            ->everyFiveMinutes()
-            ->withoutOverlapping()
-            ->runInBackground();
+//        $schedule->command('telegram:process-folder-expirations')
+//            ->everyFiveMinutes()
+//            ->withoutOverlapping()
+//            ->runInBackground();
 
         // Process due unsubscribe tasks every minute
         //        $schedule->job(new \App\Jobs\ProcessTelegramUnsubscribeTasksJob())
