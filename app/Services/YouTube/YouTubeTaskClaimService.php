@@ -14,23 +14,19 @@ use Illuminate\Support\Facades\Log;
 
 class YouTubeTaskClaimService
 {
-    private const LEASE_TTL_SECONDS = 180;
+    private const LEASE_TTL_SECONDS = 3600;
 
-    /** How many random offset attempts before fallback. */
-    private const MAX_RANDOM_ATTEMPTS = 5;
+    private const ELIGIBLE_CACHE_TTL = 10;
 
-    /** Rows to grab per random offset attempt. */
-    private const BATCH_SIZE = 50;
-
-    /** Cache TTL for ID range (seconds). */
-    private const RANGE_CACHE_TTL = 10;
-
-    /** Resolved once per process. */
     private static ?int $youtubeCategoryId = null;
 
     public function __construct(
         private ProviderActionLogService $actionLogService
     ) {}
+
+    // =========================================================================
+    //  Public API
+    // =========================================================================
 
     public function claim(string $accountIdentity): ?array
     {
@@ -46,87 +42,122 @@ class YouTubeTaskClaimService
 
         $now = now();
 
-        // Cached ID range — avoids MIN/MAX scan on every request.
-        // 10s TTL: new orders appear within 10s, stale range just means
-        // a slightly wider random window (harmless).
-        $range = $this->getEligibleIdRange($categoryId);
-        if ($range === null) {
+        // Cached eligible orders: id, remains, timing fields.
+        // 10s TTL — shared across all performers.
+        $eligible = $this->getEligibleOrders($categoryId);
+        if (empty($eligible)) {
             return null;
         }
 
-        [$minId, $maxId] = $range;
+        // Pre-filter: remove orders not due yet (dripfeed / speed limit).
+        // This avoids loading and locking orders that will be rejected.
+        $due = array_filter($eligible, fn (object $row) => $this->isTimingDue($row, $now));
+        if (empty($due)) {
+            return null;
+        }
 
-        // Mix random offsets with low-ID scan so old orders aren't starved.
-        // Each attempt: 80% random jump, 20% scan from a low offset.
-        for ($attempt = 0; $attempt < self::MAX_RANDOM_ATTEMPTS; $attempt++) {
-            $fromId = random_int(1, 5) === 1
-                ? random_int($minId, min($minId + 1000, $maxId))  // low range — old orders
-                : random_int($minId, $maxId);                      // full range — random
+        // Priority: smallest remains first, random within equal remains.
+        // Older orders naturally have smaller remains → get slight preference.
+        $due = array_values($due);
+        shuffle($due);
+        usort($due, fn ($a, $b) => $a->remains <=> $b->remains);
 
-            $result = $this->tryClaimFromOffset($categoryId, $fromId, $now, $accountIdentity);
-            if ($result !== null) {
-                return $result;
+        // Load full models in batches of 50, try to claim
+        foreach (array_chunk($due, 50) as $batch) {
+            $ids = array_map(fn ($r) => $r->id, $batch);
+
+            $orders = Order::query()
+                ->whereIn('id', $ids)
+                ->where('remains', '>', 0)
+                ->with(['service', 'service.category'])
+                ->get()
+                ->keyBy('id');
+
+            foreach ($batch as $row) {
+                $order = $orders->get($row->id);
+                if (! $order) {
+                    continue;
+                }
+
+                $result = $this->tryClaimForOrder($order, $accountIdentity);
+                if ($result !== null) {
+                    return $result;
+                }
             }
         }
 
         return null;
     }
 
-    /**
-     * Load a batch of orders starting from $fromId, filter due, try to claim.
-     */
-    private function tryClaimFromOffset(int $categoryId, int $fromId, Carbon $now, string $accountIdentity): ?array
-    {
-        $orders = Order::query()
-            ->whereIn('status', [Order::STATUS_AWAITING, Order::STATUS_IN_PROGRESS, Order::STATUS_PENDING])
-            ->where('remains', '>', 0)
-            ->where('category_id', $categoryId)
-            ->where('id', '>=', $fromId)
-            ->orderBy('id')
-            ->limit(self::BATCH_SIZE)
-            ->get();
-
-        foreach ($orders as $order) {
-            $dueAt = $this->computeOrderDueAt($order);
-            if ($dueAt !== null && $dueAt->gt($now)) {
-                continue;
-            }
-
-            $result = $this->tryClaimForOrder($order, $accountIdentity);
-            if ($result !== null) {
-                return $result;
-            }
-        }
-
-        return null;
-    }
+    // =========================================================================
+    //  Eligible orders cache
+    // =========================================================================
 
     /**
-     * Cached MIN/MAX of eligible order IDs. 10s TTL — cheap and avoids full scan.
+     * Cached eligible orders with only the fields needed for pre-filtering + sorting.
+     * Extracts next_run_at from JSON during cache build — no full payload in cache.
+     * ~20KB for 1000 rows. 10s TTL in Redis.
      *
-     * @return array{0: int, 1: int}|null
+     * @return object[] {id, remains, dripfeed_enabled, dripfeed_next_run_at, next_run_at}
      */
-    private function getEligibleIdRange(int $categoryId): ?array
+    private function getEligibleOrders(int $categoryId): array
     {
-        return Cache::remember('yt:claim:id_range', self::RANGE_CACHE_TTL, function () use ($categoryId) {
-            $range = Order::query()
+        return Cache::remember('yt:claim:eligible', self::ELIGIBLE_CACHE_TTL, function () use ($categoryId) {
+            return DB::table('orders')
+                ->select('id', 'remains', 'dripfeed_enabled', 'dripfeed_next_run_at', 'provider_payload')
                 ->whereIn('status', [Order::STATUS_AWAITING, Order::STATUS_IN_PROGRESS, Order::STATUS_PENDING])
                 ->where('remains', '>', 0)
                 ->where('category_id', $categoryId)
-                ->selectRaw('MIN(id) as min_id, MAX(id) as max_id')
-                ->first();
+                ->get()
+                ->map(function ($row) {
+                    // Extract only next_run_at from JSON — don't cache the full payload
+                    $nextRunAt = null;
+                    if (is_string($row->provider_payload)) {
+                        $payload = json_decode($row->provider_payload, true);
+                        $nextRunAt = $payload['execution_meta']['next_run_at'] ?? null;
+                    }
 
-            if (! $range || ! $range->min_id) {
-                return null;
-            }
-
-            return [(int) $range->min_id, (int) $range->max_id];
+                    return (object) [
+                        'id' => $row->id,
+                        'remains' => (int) $row->remains,
+                        'dripfeed_enabled' => $row->dripfeed_enabled,
+                        'dripfeed_next_run_at' => $row->dripfeed_next_run_at,
+                        'next_run_at' => $nextRunAt,
+                    ];
+                })
+                ->all();
         });
     }
 
     /**
-     * Single youtube category ID — resolved once per process.
+     * Pre-filter: is this order due for a new task right now?
+     * Uses pre-extracted fields from cache — no JSON parsing per call.
      */
+    private function isTimingDue(object $row, Carbon $now): bool
+    {
+        // Dripfeed timing
+        if (! empty($row->dripfeed_enabled) && ! empty($row->dripfeed_next_run_at)) {
+            try {
+                if (Carbon::parse($row->dripfeed_next_run_at)->gt($now)) {
+                    return false;
+                }
+            } catch (\Throwable) {
+            }
+        }
+
+        // Speed limit timing (extracted during cache build)
+        if (! empty($row->next_run_at)) {
+            try {
+                if (Carbon::parse($row->next_run_at)->gt($now)) {
+                    return false;
+                }
+            } catch (\Throwable) {
+            }
+        }
+
+        return true;
+    }
+
     private function getYoutubeCategoryId(): ?int
     {
         if (self::$youtubeCategoryId === null) {
@@ -138,43 +169,15 @@ class YouTubeTaskClaimService
         return self::$youtubeCategoryId ?: null;
     }
 
-    private function computeOrderDueAt(Order $order): ?Carbon
-    {
-        if ((bool) ($order->dripfeed_enabled ?? false)) {
-            $v = $order->dripfeed_next_run_at ?? null;
-            if (!$v) {
-                return null;
-            }
-
-            try {
-                return Carbon::parse($v);
-            } catch (\Throwable) {
-                return null;
-            }
-        }
-
-        $providerPayload = $order->provider_payload ?? [];
-        $executionMeta = is_array($providerPayload['execution_meta'] ?? null) ? $providerPayload['execution_meta'] : [];
-        $nextRunAt = $executionMeta['next_run_at'] ?? null;
-
-        if (!$nextRunAt) {
-            return null;
-        }
-
-        try {
-            return Carbon::parse($nextRunAt);
-        } catch (\Throwable) {
-            return null;
-        }
-    }
+    // =========================================================================
+    //  Claim transaction
+    // =========================================================================
 
     private function tryClaimForOrder(Order $order, string $accountIdentity): ?array
     {
-        // Keep the service from the outer query — no need to reload it inside the lock.
         $preloadedService = $order->relationLoaded('service') ? $order->service : null;
 
         return DB::transaction(function () use ($order, $accountIdentity, $preloadedService): ?array {
-            // Lock only — order already validated. Just re-check remains under lock.
             $order = Order::query()
                 ->where('id', $order->id)
                 ->where('remains', '>', 0)
@@ -185,11 +188,20 @@ class YouTubeTaskClaimService
                 return null;
             }
 
-            // Use preloaded service if available, otherwise load once.
             if ($preloadedService !== null) {
                 $order->setRelation('service', $preloadedService);
             } else {
                 $order->loadMissing(['service', 'service.category']);
+            }
+
+            // Dripfeed gate (authoritative, under lock)
+            if (! OrderDripfeedClaimHelper::canClaimTaskNow($order)) {
+                return null;
+            }
+
+            // Speed limit gate (authoritative, under lock)
+            if (! $this->canClaimBySpeedLimit($order)) {
+                return null;
             }
 
             $plan = YouTubeExecutionPlanResolver::resolve($order);
@@ -205,11 +217,7 @@ class YouTubeTaskClaimService
 
             $linkHash = YouTubeTargetNormalizer::linkHash($link);
 
-            if (!OrderDripfeedClaimHelper::canClaimTaskNow($order)) {
-                return null;
-            }
-
-            // In-flight count — uses idx_yt_tasks_order_status index
+            // In-flight count
             $inFlight = YouTubeTask::query()
                 ->where('order_id', $order->id)
                 ->where('status', YouTubeTask::STATUS_LEASED)
@@ -225,22 +233,18 @@ class YouTubeTaskClaimService
             $parsed = $youtube['parsed'] ?? [];
             $targetHashForLog = $parsed['target_hash'] ?? $linkHash;
 
-//            $actionNames = YouTubeExecutionPlanResolver::stepsToActionNames($steps);
+            // $actionNames = YouTubeExecutionPlanResolver::stepsToActionNames($steps);
             // TODO: uniqueness check disabled — same account can get same link+action again
             // if ($this->hasStepConflict($accountIdentity, $linkHash, $targetHashForLog, $actionNames)) {
             //     return null;
             // }
-//            $actionForLog = $mode === YouTubeExecutionPlanResolver::MODE_COMBO
-//                ? YouTubeExecutionPlanResolver::compositeActionForLog($steps)
-//                : $action;
+            // $actionForLog = $mode === YouTubeExecutionPlanResolver::MODE_COMBO
+            //     ? YouTubeExecutionPlanResolver::compositeActionForLog($steps)
+            //     : $action;
 
             $targetType = null;
             $normalizedTarget = null;
             $targetHashForRow = null;
-
-            $global = null;
-            $globalRowCreated = false;
-            $previousGlobalState = null;
 
             // TODO: global target state check disabled — same account can subscribe to same target again
             // $statefulActionForTarget = $this->stepsContainStatefulAction($steps) ? 'subscribe' : null;
@@ -297,6 +301,7 @@ class YouTubeTaskClaimService
             //     return null;
             // }
 
+            // Build task
             $leasedUntil = now()->addSeconds(self::LEASE_TTL_SECONDS);
             $payload = [
                 'order_id' => $order->id,
@@ -329,14 +334,15 @@ class YouTubeTaskClaimService
                 'payload' => $payload,
             ]);
 
-            // TODO: global state update disabled
-            // if ($global !== null) {
-            //     $global->update(['last_task_id' => $task->id]);
-            // }
-
+            // Post-claim: update dripfeed counters
             OrderDripfeedClaimHelper::afterTaskClaimed($order);
+
+            // Post-claim: set speed-limit next_run_at
+            $this->setNextRunAt($order);
+
             $order->update(['status' => Order::STATUS_IN_PROGRESS]);
 
+            // Build response
             $service = $order->service;
             $category = $service?->category;
 
@@ -383,6 +389,57 @@ class YouTubeTaskClaimService
             return $result;
         });
     }
+
+    // =========================================================================
+    //  Speed limit
+    // =========================================================================
+
+    /**
+     * Check if order's speed-limit allows claiming now (execution_meta.next_run_at).
+     */
+    private function canClaimBySpeedLimit(Order $order): bool
+    {
+        $providerPayload = $order->provider_payload ?? [];
+        $executionMeta = is_array($providerPayload['execution_meta'] ?? null) ? $providerPayload['execution_meta'] : [];
+        $nextRunAt = $executionMeta['next_run_at'] ?? null;
+
+        if ($nextRunAt === null) {
+            return true;
+        }
+
+        try {
+            return Carbon::parse($nextRunAt)->lte(now());
+        } catch (\Throwable) {
+            return true;
+        }
+    }
+
+    /**
+     * After task claimed: set next_run_at based on service speed config.
+     * interval = base_interval / speed_multiplier
+     *   normal:     base / 1.0
+     *   fast:       base / 1.5
+     *   super_fast: base / 2.0
+     */
+    private function setNextRunAt(Order $order): void
+    {
+        $providerPayload = $order->provider_payload ?? [];
+        $executionMeta = is_array($providerPayload['execution_meta'] ?? null) ? $providerPayload['execution_meta'] : [];
+
+        $baseInterval = (int) ($executionMeta['interval_seconds'] ?? 30);
+        $speed = (float) ($order->speed_multiplier ?? ($executionMeta['speed_multiplier'] ?? 1));
+        $speed = $speed > 0 ? $speed : 1.0;
+
+        $effectiveInterval = (int) max(1, round($baseInterval / $speed));
+        $executionMeta['next_run_at'] = now()->addSeconds($effectiveInterval)->toDateTimeString();
+
+        $providerPayload['execution_meta'] = $executionMeta;
+        $order->update(['provider_payload' => $providerPayload]);
+    }
+
+    // =========================================================================
+    //  Comment resolver
+    // =========================================================================
 
     private function resolveComment(Order $order, array $steps, string $action, int $inFlight): ?string
     {
