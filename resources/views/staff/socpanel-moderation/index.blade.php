@@ -156,9 +156,9 @@
                                         </td>
                                         <td class="px-4 py-2 whitespace-nowrap text-sm text-right text-gray-900">{{ $order->charge !== null ? number_format($order->charge, 4) : '—' }}</td>
                                         <td class="px-4 py-2 whitespace-nowrap text-sm text-right text-gray-900">{{ $order->remains ?? '—' }}</td>
-                                        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{{ $order->fetched_at?->format('Y-m-d H:i') ?? '—' }}</td>
-                                        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{{ $order->created_at?->format('Y-m-d H:i') ?? '—' }}</td>
-                                        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{{ $order->updated_at?->format('Y-m-d H:i') ?? '—' }}</td>
+                                        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{{ $order->fetched_at ? \Illuminate\Support\Str::substr($order->fetched_at, 0, 16) : '—' }}</td>
+                                        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{{ $order->created_at ? \Illuminate\Support\Str::substr($order->created_at, 0, 16) : '—' }}</td>
+                                        <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{{ $order->updated_at ? \Illuminate\Support\Str::substr($order->updated_at, 0, 16) : '—' }}</td>
                                         <td class="px-4 py-2 text-sm text-gray-500 max-w-xs truncate" title="{{ $order->provider_last_error }}">{{ $order->provider_last_error ?: '—' }}</td>
                                     </tr>
                                 @endforeach
