@@ -72,14 +72,12 @@ class StoreOrderRequest extends FormRequest
             $this->replace($input);
         }
 
-        // When service has single speed tier, set speed_tier automatically (no selection needed)
+        // Speed limit: tier comes from service (fast or super_fast only; default fast)
         if ($service && $service->speed_limit_enabled) {
-            $tierMode = $service->speed_limit_tier_mode ?? 'both';
-            if ($tierMode === 'fast' || $tierMode === 'super_fast') {
-                $input = $this->all();
-                $input['speed_tier'] = $tierMode;
-                $this->replace($input);
-            }
+            $input = $this->all();
+            $tierMode = $service->speed_limit_tier_mode ?? 'fast';
+            $input['speed_tier'] = $tierMode === 'super_fast' ? 'super_fast' : 'fast';
+            $this->replace($input);
         }
 
         if ($service && $service->template_key === 'telegram_premium_folder') {
@@ -304,15 +302,8 @@ class StoreOrderRequest extends FormRequest
             }
         }
 
-        // ---------- Speed tier ----------
-        // When both tiers: client must select. When single tier: we set it in prepareForValidation
-        $tierMode = $service->speed_limit_tier_mode ?? 'both';
         if ($service->speed_limit_enabled) {
-            if ($tierMode === 'both') {
-                $rules['speed_tier'] = ['required', 'string', 'in:normal,fast,super_fast'];
-            } else {
-                $rules['speed_tier'] = ['nullable', 'string', 'in:normal,fast,super_fast'];
-            }
+            $rules['speed_tier'] = ['nullable', 'string', 'in:normal,fast,super_fast'];
         }
 
         return $rules;

@@ -193,12 +193,7 @@
                                             $customRate = $service->client_price ?? $defaultRate;
                                             $hasCustomRate = $service->has_custom_rate ?? false;
                                         @endphp
-                                        @if($service->speed_limit_enabled ?? false)
-                                            <div class="flex flex-col gap-0.5">
-                                                <span>{{ __('Fast') }}: ${{ number_format((float) ($service->rate_multiplier_fast ?? 0), 2) }}</span>
-                                                <span>{{ __('Super Fast') }}: ${{ number_format((float) ($service->rate_multiplier_super_fast ?? 0), 2) }}</span>
-                                            </div>
-                                        @elseif($hasCustomRate && $customRate != 0 && $defaultRate != $customRate)
+                                        @if($hasCustomRate && $customRate != 0 && $defaultRate != $customRate)
                                             <div class="flex flex-col">
                                                 <span class="text-gray-500 line-through text-xs">${{ number_format($defaultRate, 2) }}</span>
                                                 <span class="text-indigo-600 font-semibold">${{ number_format($customRate, 2) }}</span>

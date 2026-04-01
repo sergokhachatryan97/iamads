@@ -14,7 +14,9 @@ class Service extends Model
 
     // Mode constants
     public const MODE_MANUAL = 'manual';
+
     public const MODE_PROVIDER = 'provider';
+
     public const MODE_DEFAULT = 'manual';
 
     // Service type constants
@@ -22,7 +24,9 @@ class Service extends Model
 
     // Target type constants
     public const TARGET_TYPE_BOT = 'bot';
+
     public const TARGET_TYPE_CHANNEL = 'channel';
+
     public const TARGET_TYPE_GROUP = 'group';
 
     /**
@@ -128,8 +132,6 @@ class Service extends Model
      * Get the template configuration for this service.
      * Returns template from config or template_snapshot if available.
      * For YouTube category uses youtube_service_templates; otherwise telegram_service_templates.
-     *
-     * @return array|null
      */
     public function template(): ?array
     {
@@ -137,7 +139,7 @@ class Service extends Model
             return $this->template_snapshot;
         }
 
-        if (!$this->template_key) {
+        if (! $this->template_key) {
             return null;
         }
 
@@ -171,38 +173,35 @@ class Service extends Model
 
     /**
      * Get the action from template.
-     *
-     * @return string|null
      */
     public function action(): ?string
     {
         $template = $this->template();
+
         return $template['action'] ?? null;
     }
 
     /**
      * Get the policy key from template.
-     *
-     * @return string|null
      */
     public function policyKey(): ?string
     {
         $template = $this->template();
+
         return $template['policy_key'] ?? null;
     }
 
     /**
      * Get the display name for tables/UI: template label if service has a template,
      * otherwise the service name (default for that category).
-     *
-     * @return string
      */
     public function getDisplayName(): string
     {
         $template = $this->template();
-        if ($template && !empty($template['label'])) {
+        if ($template && ! empty($template['label'])) {
             return $template['label'];
         }
+
         return $this->name ?? '';
     }
 
@@ -215,70 +214,64 @@ class Service extends Model
     public function executor(): string
     {
         $mode = (string) ($this->mode ?? self::MODE_PROVIDER);
+
         return $mode === self::MODE_PROVIDER ? 'local_mtproto' : 'remote_provider';
     }
 
     /**
      * Get allowed link kinds from template.
-     *
-     * @return array
      */
     public function allowedLinkKinds(): array
     {
         $template = $this->template();
+
         return $template['allowed_link_kinds'] ?? [];
     }
 
     /**
      * Get allowed peer types from template.
-     *
-     * @return array
      */
     public function allowedPeerTypes(): array
     {
         $template = $this->template();
+
         return $template['allowed_peer_types'] ?? [];
     }
 
     /**
      * Check if template requires start param.
-     *
-     * @return bool
      */
     public function requiresStartParam(): bool
     {
         $template = $this->template();
+
         return (bool) ($template['requires_start_param'] ?? false);
     }
 
     /**
      * Get speed multiplier for a given tier.
      *
-     * @param string $tier normal|fast|super_fast
-     * @return float
+     * @param  string  $tier  normal|fast|super_fast
      */
     public function getSpeedMultiplier(string $tier): float
     {
-        return match($tier) {
+        return match ($tier) {
             'fast' => (float) ($this->speed_multiplier_fast ?? 1.50),
-            'super_fast' => (float) ($this->speed_multiplier_super_fast ?? 2.00),
+            'super_fast' => (float) ($this->speed_multiplier_super_fast ?? 2),
             default => 1.00,
         };
     }
 
+    /**
+     * Legacy name: price does not vary by speed tier (always 1.0 for billing).
+     */
     public function rateMultiplierForTier(string $tier): float
     {
-        return match($tier) {
-            'fast' => $this->rate_multiplier_fast,
-            'super_fast' => $this->rate_multiplier_super_fast,
-            default => $this->rate_per_1000,
-        };
+        return 1.0;
     }
 
     /**
      * Check if speed limit and dripfeed are mutually exclusive.
-     *
-     * @return bool
      */
     public function hasConflictingOptions(): bool
     {

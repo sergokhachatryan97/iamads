@@ -77,6 +77,14 @@ class StoreFastOrderRequest extends FormRequest
             unset($input['targets']);
             $this->replace($input);
         }
+
+        $service = $this->service();
+        if ($service && $service->speed_limit_enabled) {
+            $input = $this->all();
+            $tierMode = $service->speed_limit_tier_mode ?? 'fast';
+            $input['speed_tier'] = $tierMode === 'super_fast' ? 'super_fast' : 'fast';
+            $this->replace($input);
+        }
     }
 
     public function rules(): array
@@ -181,7 +189,7 @@ class StoreFastOrderRequest extends FormRequest
         }
 
         if ($service->speed_limit_enabled) {
-            $rules['speed_tier'] = ['required', 'string', 'in:normal,fast,super_fast'];
+            $rules['speed_tier'] = ['nullable', 'string', 'in:normal,fast,super_fast'];
         }
 
         return $rules;

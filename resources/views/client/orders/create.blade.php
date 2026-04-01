@@ -561,31 +561,8 @@
                                 </div>
                             </div>
 
-                            <!-- Speed Tier: when both tiers, show selector; when single tier, use hidden (no selection needed) -->
                             <div class="mb-6" x-show="selectedService?.speed_limit_enabled === true" x-cloak>
-                                <template x-if="(selectedService?.speed_limit_tier_mode || 'both') === 'both'">
-                                    <div>
-                                        <label for="speed_tier" class="block text-sm font-medium text-gray-700 mb-2">
-                                            {{ __('Speed Tier') }} <span class="text-red-500">*</span>
-                                        </label>
-                                        <select
-                                            id="speed_tier"
-                                            name="speed_tier"
-                                            x-model="speedTier"
-                                            @change="updateSpeedTierPrice()"
-                                            required
-                                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                                            <option value="fast" x-text="'{{ __('Fast') }} (' + (selectedService?.speed_multiplier_fast || 1.50).toFixed(2) + 'x)'"></option>
-                                            <option value="super_fast" x-text="'{{ __('Super Fast') }} (' + (selectedService?.speed_multiplier_super_fast || 2.00).toFixed(2) + 'x)'"></option>
-                                        </select>
-                                        <p class="mt-1 text-xs text-gray-500">
-                                            {{ __('Select delivery speed. Faster speeds have higher prices.') }}
-                                        </p>
-                                    </div>
-                                </template>
-                                <template x-if="(selectedService?.speed_limit_tier_mode || 'both') !== 'both'">
-                                    <input type="hidden" name="speed_tier" :value="speedTier">
-                                </template>
+                                <input type="hidden" name="speed_tier" :value="speedTier">
                                 @error('speed_tier')
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                 @enderror
@@ -598,9 +575,6 @@
                                     <p>
                                         <span class="font-medium">{{ __('Order price') }}:</span>
                                         $<span x-text="Number(calculateCharge() || 0).toFixed(2)"></span>
-                                    </p>
-                                    <p class="text-xs text-gray-500 mt-2" x-show="selectedService?.speed_limit_enabled && (selectedService?.speed_limit_tier_mode || 'both') === 'both'">
-                                        {{ __('Faster speed tiers increase the price above.') }}
                                     </p>
                                 </div>
 
@@ -1002,7 +976,7 @@
                 dripfeedIntervalUnit: @json(old('dripfeed_interval_unit')),
                 dripfeedQuantityError: '',
                 // Speed Tier (default 'fast' when service has speed enabled, set in updateServiceInfo)
-                speedTier: '{{ old('speed_tier', 'normal') }}',
+                speedTier: '{{ old('speed_tier', 'fast') }}',
                 // YouTube combo custom comment / App custom review
                 commentText: @json(old('comment_text', '')),
                 commentTextError: '',
@@ -1245,15 +1219,13 @@
                         this.dripfeedIntervalUnit = '';
                         this.dripfeedQuantityError = '';
                     }
-                    // Reset speed tier: normal when speed disabled; when speed enabled, use tier_mode
                     if (this.selectedService) {
                         if (!this.selectedService.speed_limit_enabled) {
                             this.speedTier = 'normal';
                         } else {
-                            const tierMode = this.selectedService.speed_limit_tier_mode || 'both';
-                            this.speedTier = (tierMode === 'fast' || tierMode === 'super_fast') ? tierMode : 'fast';
+                            const tierMode = this.selectedService.speed_limit_tier_mode === 'super_fast' ? 'super_fast' : 'fast';
+                            this.speedTier = tierMode;
                         }
-                        this.updateSpeedTierPrice();
                     }
                     // Invite subscribers: sync invite quantity with min
                     if (this.selectedService?.template_key === 'invite_subscribers_from_other_channel') {
@@ -1298,10 +1270,9 @@
                         return;
                     }
 
-                    // Calculate charge per comment: rate_per_1000 / 1000 * speed multiplier
+                    // Charge per comment: rate_per_1000 / 1000 (speed tier does not change price)
                     const rate = parseFloat(this.selectedService.rate_per_1000) || 0;
-                    const multiplier = this.getSpeedMultiplier();
-                    this.chargePerComment = Math.round((rate / 1000) * multiplier * 100) / 100;
+                    this.chargePerComment = Math.round((rate / 1000) * 100) / 100;
 
                     // Total charge = charge per comment * number of comments
                     this.commentsTotalCharge = Math.round(this.chargePerComment * this.commentsCount * 100) / 100;
@@ -1474,35 +1445,14 @@
                     });
                 },
 
-                getSpeedMultiplier() {
-                    if (!this.selectedService?.speed_limit_enabled || !this.speedTier || this.speedTier === 'normal') {
-                        return 1.0;
-                    }
-                    if (this.speedTier === 'fast') {
-                        return parseFloat(this.selectedService.speed_multiplier_fast || 1.50);
-                    }
-                    if (this.speedTier === 'super_fast') {
-                        return parseFloat(this.selectedService.speed_multiplier_super_fast || 2.00);
-                    }
-                    return 1.0;
-                },
-
-                updateSpeedTierPrice() {
-                    // Recalculate charges when speed tier changes
-                    if (this.selectedService?.service_type === 'custom_comments') {
-                        this.calculateCommentsTotal();
-                    }
-                },
-
                 calculateCharge() {
                     if (!this.selectedService) return 0;
                     const rate = Number(this.selectedService.rate_per_1000) || 0;
-                    const multiplier = this.getSpeedMultiplier();
                     if (this.selectedService.hide_quantity === true) {
-                        return Number((rate * multiplier).toFixed(2));
+                        return Number(rate.toFixed(2));
                     }
                     const totalQty = this.getTotalQuantity();
-                    return Number(((totalQty * rate * multiplier) / 1000).toFixed(2));
+                    return Number(((totalQty * rate) / 1000).toFixed(2));
                 },
 
                 submitForm(event) {

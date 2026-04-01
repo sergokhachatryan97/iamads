@@ -100,10 +100,10 @@ class OrderService implements OrderServiceInterface
             // 7) Base rate from service (per-1000 for normal services; for hide_quantity templates, same field = flat order price)
             $baseRate = (float) $this->pricingService->priceForClient($service, $client);
 
-            // 7b) Speed tier multiplier (1.0 / fast / super_fast); base rate from PricingService
+            // 7b) Speed tier affects delivery timing only; price uses base rate from PricingService
             $speedTier = $service->speed_limit_enabled ? ($data['speed_tier'] ?? 'normal') : 'normal';
             $speedMultiplier = $service->getSpeedMultiplier($speedTier);
-            $effectiveRate = $baseRate * $speedMultiplier;
+            $effectiveRate = $baseRate;
 
             $serviceTemplate = $service->template();
             $isFlatOrderPrice = is_array($serviceTemplate) && ! empty($serviceTemplate['hide_quantity']);
@@ -127,12 +127,12 @@ class OrderService implements OrderServiceInterface
                     // One fixed price per order row (rate field is dollars for the service, not per 1000)
                     $charge = round($effectiveRate, 2);
                     $cost = $service->service_cost_per_1000 !== null
-                        ? round((float) $service->service_cost_per_1000 * $speedMultiplier, 2)
+                        ? round((float) $service->service_cost_per_1000, 2)
                         : null;
                 } else {
                     $charge = round(($qty / 1000) * $effectiveRate, 2);
                     $cost = $service->service_cost_per_1000 !== null
-                        ? round(($qty / 1000) * (float) $service->service_cost_per_1000 * $speedMultiplier, 2)
+                        ? round(($qty / 1000) * (float) $service->service_cost_per_1000, 2)
                         : null;
                 }
 
@@ -188,7 +188,8 @@ class OrderService implements OrderServiceInterface
                 $pricingSnapshot = [
                     'speed_tier' => $speedTier,
                     'base_rate_per_100' => $baseRate,
-                    'rate_multiplier' => $speedMultiplier,
+                    'speed_multiplier' => $speedMultiplier,
+                    'rate_multiplier' => 1.0,
                     'final_rate_per_100' => $effectiveRate,
                     'pricing_model' => $isFlatOrderPrice ? 'flat_order' : 'per_1000',
                     'quantity' => $row['quantity'],
@@ -292,7 +293,6 @@ class OrderService implements OrderServiceInterface
             $serviceId = (int) $data['service_id'];
             $link = trim((string) $data['link']);
             $quantity = (int) $data['quantity'];
-            $speedTier = $data['speed_tier'] ?? 'normal';
             $meta = $data['meta'] ?? [];
 
             $existing = Order::query()
@@ -313,6 +313,12 @@ class OrderService implements OrderServiceInterface
 
             $categoryId = (int) $service->category_id;
             $service = $this->serviceService->getServicesByIdAndCategoryId($serviceId, $categoryId);
+
+            $speedTier = $data['speed_tier'] ?? 'normal';
+            if ($service->speed_limit_enabled) {
+                $tierMode = $service->speed_limit_tier_mode ?? 'fast';
+                $speedTier = $tierMode === 'super_fast' ? 'super_fast' : 'fast';
+            }
 
             if ($service->service_type === 'custom_comments') {
                 throw ValidationException::withMessages([
@@ -348,10 +354,10 @@ class OrderService implements OrderServiceInterface
             }
 
             $effectiveRate = (float) $this->pricingService->priceForClient($service, $client);
-            $rateMultiplier = $service->speed_limit_enabled ? $service->getSpeedMultiplier($speedTier) : 1.0;
-            $charge = round(($quantity / 1000) * $effectiveRate * $rateMultiplier, 2);
+            $speedMultiplier = $service->speed_limit_enabled ? $service->getSpeedMultiplier($speedTier) : 1.0;
+            $charge = round(($quantity / 1000) * $effectiveRate, 2);
             $cost = $service->service_cost_per_1000 !== null
-                ? round(($quantity / 1000) * (float) $service->service_cost_per_1000 * $rateMultiplier, 2)
+                ? round(($quantity / 1000) * (float) $service->service_cost_per_1000, 2)
                 : null;
 
             if ($client->balance < $charge) {
@@ -366,7 +372,8 @@ class OrderService implements OrderServiceInterface
             $pricingSnapshot = [
                 'speed_tier' => $speedTier,
                 'base_rate_per_100' => $effectiveRate,
-                'rate_multiplier' => $rateMultiplier,
+                'speed_multiplier' => $speedMultiplier,
+                'rate_multiplier' => 1.0,
                 'external_order_id' => $externalOrderId,
                 'meta' => $meta,
             ];
@@ -463,9 +470,9 @@ class OrderService implements OrderServiceInterface
             $speedTier = $service->speed_limit_enabled ? ($data['speed_tier'] ?? 'normal') : 'normal';
             $speedMultiplier = $service->getSpeedMultiplier($speedTier);
 
-            $chargePerComment = round(($effectiveRate / 1000) * $speedMultiplier, 2);
+            $chargePerComment = round($effectiveRate / 1000, 2);
             $costPerComment = $service->service_cost_per_1000 !== null
-                ? round(((float) $service->service_cost_per_1000 / 1000) * $speedMultiplier, 2)
+                ? round((float) $service->service_cost_per_1000 / 1000, 2)
                 : null;
 
             $commentCount = count($comments);

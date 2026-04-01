@@ -46,7 +46,7 @@ class FastOrderService
      */
     public function setPaymentMethod(FastOrder $fastOrder, string $method): FastOrder
     {
-        if (!in_array($fastOrder->status, [FastOrder::STATUS_DRAFT, FastOrder::STATUS_PENDING_PAYMENT], true)) {
+        if (! in_array($fastOrder->status, [FastOrder::STATUS_DRAFT, FastOrder::STATUS_PENDING_PAYMENT], true)) {
             throw ValidationException::withMessages([
                 'fast_order' => 'Fast order is not in a state that allows setting payment method.',
             ]);
@@ -70,7 +70,7 @@ class FastOrderService
             return $this->buildConversionResponse($fastOrder);
         }
 
-        if (!in_array($fastOrder->status, [FastOrder::STATUS_DRAFT, FastOrder::STATUS_PENDING_PAYMENT], true)) {
+        if (! in_array($fastOrder->status, [FastOrder::STATUS_DRAFT, FastOrder::STATUS_PENDING_PAYMENT], true)) {
             throw ValidationException::withMessages([
                 'fast_order' => 'Fast order cannot be converted (invalid status).',
             ]);
@@ -98,7 +98,7 @@ class FastOrderService
             $fastOrder->update([
                 'status' => FastOrder::STATUS_CONVERTED,
                 'payment_status' => FastOrder::PAYMENT_STATUS_PAID,
-                'payment_reference' => 'simulated_' . Str::random(8),
+                'payment_reference' => 'simulated_'.Str::random(8),
                 'generated_email' => $email,
                 'client_id' => $client->id,
                 'order_id' => $firstOrder?->id,
@@ -124,9 +124,8 @@ class FastOrderService
                 return 0.0;
             }
             $effectiveRate = (float) $this->pricingService->priceForGuest($service);
-            $speedTier = $service->speed_limit_enabled ? ($payload['speed_tier'] ?? 'normal') : 'normal';
-            $speedMultiplier = $service->getSpeedMultiplier($speedTier);
-            $chargePerComment = round(($effectiveRate / 1000) * $speedMultiplier, 2);
+            $chargePerComment = round($effectiveRate / 1000, 2);
+
             return round($chargePerComment * $commentCount, 2);
         }
 
@@ -135,13 +134,13 @@ class FastOrderService
             return 0.0;
         }
 
-        $speedTier = $service->speed_limit_enabled ? ($payload['speed_tier'] ?? 'normal') : 'normal';
-        $finalRate = (float) ($service->rateMultiplierForTier($speedTier) ?? $service->rate_per_1000 ?? 0);
+        $finalRate = (float) $this->pricingService->priceForGuest($service);
         $total = 0.0;
         foreach ($targets as $target) {
             $qty = (int) ($target['quantity'] ?? 0);
             $total += round(($qty / 1000) * $finalRate, 2);
         }
+
         return round($total, 2);
     }
 
@@ -150,8 +149,8 @@ class FastOrderService
         $domain = config('fast_order.guest_email_domain', 'fastorder.local');
         $maxAttempts = 50;
         for ($i = 0; $i < $maxAttempts; $i++) {
-            $email = 'fastuser_' . Str::lower(Str::random(12)) . '@' . $domain;
-            if (!Client::where('email', $email)->exists()) {
+            $email = 'fastuser_'.Str::lower(Str::random(12)).'@'.$domain;
+            if (! Client::where('email', $email)->exists()) {
                 return $email;
             }
         }

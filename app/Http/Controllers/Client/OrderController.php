@@ -413,9 +413,9 @@ class OrderController extends Controller
 
                     // Speed limit settings
                     'speed_limit_enabled' => (bool) ($service->speed_limit_enabled ?? false),
-                    'speed_limit_tier_mode' => $service->speed_limit_tier_mode ?? 'both',
+                    'speed_limit_tier_mode' => $service->speed_limit_tier_mode ?? 'fast',
                     'speed_multiplier_fast' => $service->speed_multiplier_fast !== null ? (float) $service->speed_multiplier_fast : 1.50,
-                    'speed_multiplier_super_fast' => $service->speed_multiplier_super_fast !== null ? (float) $service->speed_multiplier_super_fast : 2.00,
+                    'speed_multiplier_super_fast' => $service->speed_multiplier_super_fast !== null ? (float) $service->speed_multiplier_super_fast : 2,
 
                     // YouTube watch-time (yt_watch_time): client chooses seconds per order
                     'youtube_requires_watch_time' => (bool) (config("youtube_service_templates.{$service->template_key}.requires_watch_time") ?? false),

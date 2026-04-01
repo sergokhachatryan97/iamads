@@ -41,7 +41,7 @@ class StoreServiceRequest extends FormRequest
             'overflow_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'dripfeed_enabled' => ['nullable', 'boolean'],
             'speed_limit_enabled' => ['nullable', 'boolean'],
-            'speed_limit_tier_mode' => ['nullable', 'string', 'in:both,fast,super_fast'],
+            'speed_limit_tier_mode' => ['nullable', 'string', 'in:fast,super_fast'],
             'speed_multiplier_fast' => ['nullable', 'numeric', 'min:1', 'max:10'],
             'speed_multiplier_super_fast' => ['nullable', 'numeric', 'min:1', 'max:10'],
             'rate_multiplier_fast' => ['nullable', 'numeric', 'min:1', 'max:10'],
@@ -79,27 +79,14 @@ class StoreServiceRequest extends FormRequest
             }
         }
 
-        // Validate speed multipliers if speed limit is enabled
-        $tierMode = $this->input('speed_limit_tier_mode', 'both');
+        // Speed tiers affect delivery timing only; base rate_per_1000 is the price
+        $tierMode = $this->input('speed_limit_tier_mode', 'fast');
         if ($this->boolean('speed_limit_enabled')) {
-            if ($tierMode === 'fast' || $tierMode === 'super_fast') {
-                if ($tierMode === 'fast') {
-                    $rules['speed_multiplier_fast'] = ['required', 'numeric', 'min:1', 'max:10'];
-                    $rules['rate_multiplier_fast'] = ['required', 'numeric', 'min:1', 'max:10'];
-                } else {
-                    $rules['speed_multiplier_super_fast'] = ['required', 'numeric', 'min:1', 'max:10'];
-                    $rules['rate_multiplier_super_fast'] = ['required', 'numeric', 'min:1', 'max:10'];
-                }
+            if ($tierMode === 'super_fast') {
+                $rules['speed_multiplier_super_fast'] = ['required', 'numeric', 'min:1', 'max:10'];
             } else {
                 $rules['speed_multiplier_fast'] = ['required', 'numeric', 'min:1', 'max:10'];
-                $rules['speed_multiplier_super_fast'] = ['required', 'numeric', 'min:1', 'max:10'];
-                $rules['rate_multiplier_fast'] = ['required', 'numeric', 'min:1', 'max:10'];
-                $rules['rate_multiplier_super_fast'] = ['required', 'numeric', 'min:1', 'max:10'];
             }
-        } else {
-            // If speed limit disabled, force rate multipliers to 1.000
-            $rules['rate_multiplier_fast'] = ['nullable', 'numeric', 'min:1', 'max:10'];
-            $rules['rate_multiplier_super_fast'] = ['nullable', 'numeric', 'min:1', 'max:10'];
         }
 
         // Validate required_subscription_template_key if requires_subscription is enabled
@@ -117,7 +104,7 @@ class StoreServiceRequest extends FormRequest
     {
         $validator->after(function ($validator) {
             // Auto complete requires parsing to be enabled
-            if ($this->input('auto_complete_enabled') && !$this->input('start_count_parsing_enabled')) {
+            if ($this->input('auto_complete_enabled') && ! $this->input('start_count_parsing_enabled')) {
                 $validator->errors()->add('auto_complete_enabled', 'Auto Complete can only be enabled when Start count parsing is enabled.');
             }
 

@@ -10,14 +10,10 @@ class ServiceService implements ServiceServiceInterface
 {
     public function __construct(
         private ServiceRepositoryInterface $serviceRepository
-    ) {
-    }
+    ) {}
 
     /**
      * Get all services with their category.
-     *
-     * @param array $filters
-     * @return Collection
      */
     public function getAllServicesWithCategory(array $filters = []): Collection
     {
@@ -26,8 +22,6 @@ class ServiceService implements ServiceServiceInterface
 
     /**
      * Get all services.
-     *
-     * @return Collection
      */
     public function getAllServices(): Collection
     {
@@ -36,27 +30,16 @@ class ServiceService implements ServiceServiceInterface
 
     /**
      * Get services by category ID.
-     *
-     * @param int $categoryId
-     * @param bool $activeOnly
-     * @return Collection
      */
     public function getServicesByCategoryId(int $categoryId, bool $activeOnly = false): Collection
     {
         return $this->serviceRepository->getByCategoryId($categoryId, $activeOnly);
     }
 
-
-    /**
-     * @param int $serviceId
-     * @param int $categoryId
-     * @return Service
-     */
     public function getServicesByIdAndCategoryId(int $serviceId, int $categoryId): Service
     {
         return $this->serviceRepository->getServicesByIdAndCategoryId($serviceId, $categoryId);
     }
-
 
     public function getActiveServicesByCategoryIds(array $categoryIds): Collection
     {
@@ -65,9 +48,6 @@ class ServiceService implements ServiceServiceInterface
 
     /**
      * Find a service by ID.
-     *
-     * @param int $id
-     * @return Service|null
      */
     public function getServiceById(int $id): ?Service
     {
@@ -76,9 +56,6 @@ class ServiceService implements ServiceServiceInterface
 
     /**
      * Create a new service.
-     *
-     * @param array $data
-     * @return Service
      */
     public function createService(array $data): Service
     {
@@ -105,26 +82,26 @@ class ServiceService implements ServiceServiceInterface
         }
 
         // Enforce mutual exclusivity of speed_limit_enabled and dripfeed_enabled
-        if (!empty($data['speed_limit_enabled']) && !empty($data['dripfeed_enabled'])) {
+        if (! empty($data['speed_limit_enabled']) && ! empty($data['dripfeed_enabled'])) {
             // If both are set, prioritize speed_limit_enabled
             $data['dripfeed_enabled'] = false;
         }
 
-        // If speed_limit_enabled is false or not set, force rate multipliers to 1.000
-        if (empty($data['speed_limit_enabled'])) {
-            $data['rate_multiplier_fast'] = 1.000;
-            $data['rate_multiplier_super_fast'] = 1.000;
+        if (! empty($data['speed_limit_enabled']) && empty($data['speed_limit_tier_mode'])) {
+            $data['speed_limit_tier_mode'] = 'fast';
         }
 
-        // Single tier mode: use placeholder for unused multiplier (columns are NOT NULL)
-        $tierMode = $data['speed_limit_tier_mode'] ?? 'both';
-        if (!empty($data['speed_limit_enabled']) && $tierMode !== 'both') {
-            if ($tierMode === 'fast') {
-                $data['speed_multiplier_super_fast'] = 1.00;
-                $data['rate_multiplier_super_fast'] = 1.000;
-            } else {
+        // Price does not vary by speed tier; DB columns kept for schema compatibility
+        $data['rate_multiplier_fast'] = 1.000;
+        $data['rate_multiplier_super_fast'] = 1.000;
+
+        // Single tier: neutralize unused speed multiplier column (NOT NULL)
+        $tierMode = $data['speed_limit_tier_mode'] ?? 'fast';
+        if (! empty($data['speed_limit_enabled'])) {
+            if ($tierMode === 'super_fast') {
                 $data['speed_multiplier_fast'] = 1.00;
-                $data['rate_multiplier_fast'] = 1.000;
+            } else {
+                $data['speed_multiplier_super_fast'] = 2.00;
             }
         }
 
@@ -133,9 +110,6 @@ class ServiceService implements ServiceServiceInterface
 
     /**
      * Determine target_type from template's allowed_peer_types.
-     *
-     * @param array $template
-     * @return string|null
      */
     private function getTargetTypeFromTemplate(array $template): ?string
     {
@@ -152,22 +126,19 @@ class ServiceService implements ServiceServiceInterface
         if (in_array('group', $peerTypes, true) || in_array('supergroup', $peerTypes, true)) {
             return 'group';
         }
+
         return null;
     }
 
     /**
      * Generate service name from template.
-     *
-     * @param string $templateKey
-     * @param int|null $durationDays
-     * @return string
      */
     private function generateServiceName(string $templateKey, ?int $durationDays): string
     {
         $template = config("telegram_service_templates.{$templateKey}")
             ?? config("youtube_service_templates.{$templateKey}")
             ?? config("app_service_templates.{$templateKey}");
-        if (!$template) {
+        if (! $template) {
             return 'Service';
         }
 
@@ -183,6 +154,7 @@ class ServiceService implements ServiceServiceInterface
             if (str_contains($cleanLabel, 'Group Subscribe')) {
                 return "Group Subscribe {$durationDays}d";
             }
+
             return "{$cleanLabel} {$durationDays}d";
         }
 
@@ -191,10 +163,6 @@ class ServiceService implements ServiceServiceInterface
 
     /**
      * Update a service.
-     *
-     * @param Service $service
-     * @param array $data
-     * @return bool
      */
     public function updateService(Service $service, array $data): bool
     {
@@ -234,21 +202,22 @@ class ServiceService implements ServiceServiceInterface
             $data['speed_limit_enabled'] = false;
         }
 
-        // If speed_limit_enabled is false, force rate multipliers to 1.000
-        if (isset($data['speed_limit_enabled']) && !$data['speed_limit_enabled']) {
-            $data['rate_multiplier_fast'] = 1.000;
-            $data['rate_multiplier_super_fast'] = 1.000;
-        }
+        $data['rate_multiplier_fast'] = 1.000;
+        $data['rate_multiplier_super_fast'] = 1.000;
 
-        // Single tier mode: use placeholder for unused multiplier (columns are NOT NULL)
-        $tierMode = $data['speed_limit_tier_mode'] ?? 'both';
-        if (!empty($data['speed_limit_enabled']) && $tierMode !== 'both') {
-            if ($tierMode === 'fast') {
-                $data['speed_multiplier_super_fast'] = 1.00;
-                $data['rate_multiplier_super_fast'] = 1.000;
-            } else {
+        $tierMode = $data['speed_limit_tier_mode'] ?? $service->speed_limit_tier_mode ?? 'fast';
+        if ($tierMode === 'both') {
+            $tierMode = 'fast';
+            $data['speed_limit_tier_mode'] = 'fast';
+        }
+        $speedOn = array_key_exists('speed_limit_enabled', $data)
+            ? (bool) $data['speed_limit_enabled']
+            : (bool) $service->speed_limit_enabled;
+        if ($speedOn) {
+            if ($tierMode === 'super_fast') {
                 $data['speed_multiplier_fast'] = 1.00;
-                $data['rate_multiplier_fast'] = 1.000;
+            } else {
+                $data['speed_multiplier_super_fast'] = 2.00;
             }
         }
 
@@ -258,9 +227,6 @@ class ServiceService implements ServiceServiceInterface
     /**
      * Delete a service.
      * This performs a soft delete and cleans up related data.
-     *
-     * @param Service $service
-     * @return bool
      */
     public function deleteService(Service $service): bool
     {
@@ -273,21 +239,16 @@ class ServiceService implements ServiceServiceInterface
 
     /**
      * Toggle service status (enable/disable).
-     *
-     * @param Service $service
-     * @return bool
      */
     public function toggleServiceStatus(Service $service): bool
     {
-        $service->is_active = !$service->is_active;
+        $service->is_active = ! $service->is_active;
+
         return $service->save();
     }
 
     /**
      * Duplicate a service.
-     *
-     * @param Service $service
-     * @return Service
      */
     public function duplicateService(Service $service): Service
     {
@@ -302,7 +263,7 @@ class ServiceService implements ServiceServiceInterface
         );
 
         // Append " (Copy)" to the service name
-        $data['name'] = $data['name'] . ' (Copy)';
+        $data['name'] = $data['name'].' (Copy)';
 
         // Ensure the duplicated service is active by default
         $data['is_active'] = true;
@@ -312,13 +273,9 @@ class ServiceService implements ServiceServiceInterface
 
     /**
      * Restore a soft-deleted service.
-     *
-     * @param Service $service
-     * @return bool
      */
     public function restoreService(Service $service): bool
     {
         return $this->serviceRepository->restore($service);
     }
 }
-

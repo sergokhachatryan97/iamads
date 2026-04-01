@@ -234,7 +234,8 @@ class HomeController extends Controller
         ];
 
         if ($service->speed_limit_enabled) {
-            $payload['speed_tier'] = 'normal';
+            $tierMode = $service->speed_limit_tier_mode ?? 'fast';
+            $payload['speed_tier'] = $tierMode === 'super_fast' ? 'super_fast' : 'fast';
         }
 
         try {
