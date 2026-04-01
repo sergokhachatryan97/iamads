@@ -522,4 +522,44 @@ class OrderController extends Controller
                 ->with('error', $e->getMessage());
         }
     }
+
+    /**
+     * JSON status + progress for orders on the current page (live table updates).
+     */
+    public function getStatuses(Request $request): JsonResponse
+    {
+        $orderIds = $request->input('order_ids', []);
+        if (empty($orderIds) && $request->has('order_ids')) {
+            $orderIds = $request->query('order_ids', []);
+        }
+        if (empty($orderIds) || ! is_array($orderIds)) {
+            return response()->json(['statuses' => []]);
+        }
+        $orderIds = array_filter(array_map('intval', $orderIds));
+        if (empty($orderIds)) {
+            return response()->json(['statuses' => []]);
+        }
+
+        $orders = Order::query()
+            ->where('client_id', $this->client->id)
+            ->whereIn('id', $orderIds)
+            ->select(['id', 'status', 'delivered', 'quantity', 'remains'])
+            ->get();
+
+        $statuses = [];
+        foreach ($orders as $order) {
+            $delivered = $order->delivered ?? 0;
+            $quantity = $order->quantity ?? 1;
+            $progress = $quantity > 0 ? round(($delivered / $quantity) * 100, 1) : 0;
+            $statuses[$order->id] = [
+                'status' => $order->status,
+                'remains' => $order->remains,
+                'delivered' => $delivered,
+                'quantity' => $quantity,
+                'progress' => $progress,
+            ];
+        }
+
+        return response()->json(['statuses' => $statuses]);
+    }
 }

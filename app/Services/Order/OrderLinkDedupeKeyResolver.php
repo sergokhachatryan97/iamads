@@ -24,7 +24,7 @@ class OrderLinkDedupeKeyResolver
             return $this->telegramKey($raw);
         }
 
-        return 'raw:' . strtolower($raw);
+        return 'raw:'.strtolower($raw);
     }
 
     /**
@@ -36,14 +36,13 @@ class OrderLinkDedupeKeyResolver
         $kind = $parsed['kind'] ?? 'unknown';
 
         return match ($kind) {
-            'public_username', 'public_post', 'bot_start' =>
-                $kind . ':' . strtolower((string) ($parsed['username'] ?? '')),
+            'public_username', 'bot_start' => $kind.':'.strtolower((string) ($parsed['username'] ?? '')),
 
-            'invite' =>
-                $kind . ':' . (string) ($parsed['hash'] ?? ''),
+            'public_post' => $kind.':'.strtolower((string) ($parsed['username'] ?? '')).':'.(string) ($parsed['post_id'] ?? ''),
 
-            default =>
-                'raw:' . strtolower($raw),
+            'invite' => $kind.':'.(string) ($parsed['hash'] ?? ''),
+
+            default => 'raw:'.strtolower($raw),
         };
     }
 }

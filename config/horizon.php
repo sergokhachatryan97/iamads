@@ -54,6 +54,18 @@ return [
             'timeout' => 900, // 🔥 long jobs
             'memory' => 512,
         ],
+        'tg-panel-inspect' => [
+            'connection' => 'redis',
+            'queue' => ['tg-panel-inspect'],
+            'balance' => 'auto',
+            'autoScalingStrategy' => 'time',
+            'maxProcesses' => 3,
+            'balanceMaxShift' => 1,
+            'balanceCooldown' => 3,
+            'tries' => 2,
+            'timeout' => 900, // 🔥 long jobs
+            'memory' => 512,
+        ],
 
         'yt-inspect' => [
             'connection' => 'redis',
@@ -110,6 +122,19 @@ return [
                 'balance' => 'auto',
                 'autoScalingStrategy' => 'time',
                 'maxProcesses' => 7,
+                'balanceMaxShift' => 1,
+                'balanceCooldown' => 3,
+                'tries' => 2,
+                'timeout' => 900,
+                'memory' => 512,
+            ],
+
+            'tg-panel-inspect' => [
+                'connection' => 'redis',
+                'queue' => ['tg-panel-inspect'],
+                'balance' => 'auto',
+                'autoScalingStrategy' => 'time',
+                'maxProcesses' => 6,
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 3,
                 'tries' => 2,

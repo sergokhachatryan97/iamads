@@ -4,7 +4,7 @@ namespace App\Services\Telegram;
 
 use App\Models\Order;
 use App\Models\TelegramOrderMembership;
-use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -14,150 +14,104 @@ use Illuminate\Support\Facades\Log;
  */
 class TelegramUnsubscribePhaseActivator
 {
-    /**
-     * Activate unsubscribing phase for all eligible orders. Idempotent per order.
-     *
-     * @return int Number of orders updated this run
-     */
     public function activate(): int
     {
-        $activated = 0;
-        $activatedIds = [];
+        $categoryId = $this->getTelegramCategoryId();
+        if (! $categoryId) {
+            return 0;
+        }
 
-        Order::query()
+        // Get service IDs with duration_days > 0 in telegram category (cached 1hr)
+        $serviceIds = $this->getEligibleServiceIds($categoryId);
+        if (empty($serviceIds)) {
+            return 0;
+        }
+
+        $now = now();
+
+        // Single query: find all candidate order IDs.
+        // No nested whereHas — uses direct column filters + exists subquery on memberships.
+        $candidateIds = DB::table('orders')
             ->whereIn('status', [Order::STATUS_COMPLETED, Order::STATUS_CANCELED])
             ->whereNotNull('completed_at')
+            ->where('category_id', $categoryId)
+            ->whereIn('service_id', $serviceIds)
             ->where(function ($q) {
                 $q->whereNull('execution_phase')
                     ->orWhere('execution_phase', '!=', Order::EXECUTION_PHASE_UNSUBSCRIBING);
             })
-            ->whereHas('service', function ($q) {
-                $q->whereHas('category', function ($q2) {
-                    $q2->where('link_driver', 'telegram');
-                })
-                    ->whereNotNull('duration_days')
-                    ->where('duration_days', '>', 0);
-            })
-            ->whereHas('telegramOrderMemberships', function ($q) {
-                $q->where('state', TelegramOrderMembership::STATE_SUBSCRIBED)
+            ->whereExists(function ($q) {
+                $q->select(DB::raw(1))
+                    ->from('telegram_order_memberships')
+                    ->whereColumn('telegram_order_memberships.order_id', 'orders.id')
+                    ->where('state', TelegramOrderMembership::STATE_SUBSCRIBED)
                     ->whereNull('unsubscribed_at');
             })
-            ->orderBy('id')
-            ->chunkById(200, function ($orders) use (&$activated, &$activatedIds): void {
-                foreach ($orders as $order) {
-                    $order->loadMissing('service');
+            ->pluck('id')
+            ->all();
 
-                    if (!$this->isDueForUnsubscribePhase($order)) {
-                        continue;
-                    }
+        if (empty($candidateIds)) {
+            return 0;
+        }
 
-                    DB::transaction(function () use ($order, &$activated, &$activatedIds): void {
-                        $locked = Order::query()
-                            ->whereKey($order->id)
-                            ->lockForUpdate()
-                            ->first();
+        // Load orders with service in one query (no N+1)
+        $orders = Order::query()
+            ->whereIn('id', $candidateIds)
+            ->with('service')
+            ->get();
 
-                        if ($locked === null) {
-                            return;
-                        }
+        // Filter by due date in PHP — avoids complex SQL date math
+        $dueOrderIds = [];
+        foreach ($orders as $order) {
+            $durationDays = (int) ($order->service?->duration_days ?? 0);
+            if ($durationDays <= 0 || ! $order->completed_at) {
+                continue;
+            }
 
-                        if ($locked->execution_phase === Order::EXECUTION_PHASE_UNSUBSCRIBING) {
-                            return;
-                        }
+            $dueAt = $order->completed_at->copy()->addDays(max(1, $durationDays));
+            if ($dueAt->lte($now)) {
+                $dueOrderIds[] = $order->id;
+            }
+        }
 
-                        if (!in_array($locked->status, [Order::STATUS_COMPLETED, Order::STATUS_CANCELED], true)) {
-                            return;
-                        }
+        if (empty($dueOrderIds)) {
+            return 0;
+        }
 
-                        if ($locked->completed_at === null) {
-                            return;
-                        }
-
-                        $locked->loadMissing('service');
-                        if (!$this->serviceEligibleForPhase($locked)) {
-                            return;
-                        }
-
-                        if (!$this->isDueForUnsubscribePhase($locked)) {
-                            return;
-                        }
-
-                        if (!$this->hasSubscribedMembershipAwaitingUnsubscribe($locked->id)) {
-                            return;
-                        }
-
-                        $locked->update(['execution_phase' => Order::EXECUTION_PHASE_UNSUBSCRIBING]);
-                        $activated++;
-                        $activatedIds[] = (int) $locked->id;
-                    });
-                }
-            });
+        // Bulk update — single query instead of per-order transaction
+        $activated = Order::query()
+            ->whereIn('id', $dueOrderIds)
+            ->whereIn('status', [Order::STATUS_COMPLETED, Order::STATUS_CANCELED])
+            ->where(function ($q) {
+                $q->whereNull('execution_phase')
+                    ->orWhere('execution_phase', '!=', Order::EXECUTION_PHASE_UNSUBSCRIBING);
+            })
+            ->update(['execution_phase' => Order::EXECUTION_PHASE_UNSUBSCRIBING]);
 
         if ($activated > 0) {
             Log::info('Telegram orders moved to unsubscribing phase', [
                 'count' => $activated,
-                'order_ids' => array_slice($activatedIds, 0, 50),
+                'order_ids' => array_slice($dueOrderIds, 0, 50),
             ]);
         }
 
         return $activated;
     }
 
-    /**
-     * Same due window as TelegramTaskClaimService::claimUnsubscribe()
-     * (completed_at + max(1, duration_days)).
-     */
-    private function isDueForUnsubscribePhase(Order $order): bool
+    private function getTelegramCategoryId(): ?int
     {
-        return $this->unsubscribeDueAt($order)?->lte(now()) ?? false;
+        return Cache::remember('tg:category_id', 3600, fn () => \App\Models\Category::where('link_driver', 'telegram')->value('id')
+        );
     }
 
-    private function unsubscribeDueAt(Order $order): ?Carbon
+    private function getEligibleServiceIds(int $categoryId): array
     {
-        if ($order->completed_at === null) {
-            return null;
-        }
-
-        $service = $order->service;
-        if ($service === null) {
-            return null;
-        }
-
-        $durationDays = (int) ($service->duration_days ?? 0);
-        if ($durationDays <= 0) {
-            return null;
-        }
-
-        return $order->completed_at->copy()
-            ->addDays(max(1, $durationDays));
-    }
-
-    private function serviceEligibleForPhase(Order $order): bool
-    {
-        $service = $order->service;
-        if ($service === null) {
-            return false;
-        }
-
-        $category = $service->relationLoaded('category') ? $service->category : $service->category()->first();
-        if ($category?->link_driver !== 'telegram') {
-            return false;
-        }
-
-        // Match claimUnsubscribe: duration_days must be positive for timed unsubscribe
-        if ($service->duration_days === null || (int) $service->duration_days <= 0) {
-            return false;
-        }
-
-        return true;
-    }
-
-    private function hasSubscribedMembershipAwaitingUnsubscribe(int $orderId): bool
-    {
-        return TelegramOrderMembership::query()
-            ->where('order_id', $orderId)
-            ->where('state', TelegramOrderMembership::STATE_SUBSCRIBED)
-            ->whereNull('unsubscribed_at')
-            ->exists();
+        return Cache::remember('tg:unsub_service_ids', 3600, fn () => DB::table('services')
+            ->where('category_id', $categoryId)
+            ->whereNotNull('duration_days')
+            ->where('duration_days', '>', 0)
+            ->pluck('id')
+            ->all()
+        );
     }
 }

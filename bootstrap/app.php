@@ -22,26 +22,26 @@ return Application::configure(basePath: dirname(__DIR__))
         //            ->timezone(config('app.timezone'));
         //
         //        // Poll provider status every 10 minutes as fallback to webhooks
-//        $schedule->command('orders:sync-provider-status')
-//            ->daily()
-//            ->withoutOverlapping()
-//            ->runInBackground();
+        //        $schedule->command('orders:sync-provider-status')
+        //            ->daily()
+        //            ->withoutOverlapping()
+        //            ->runInBackground();
 
-//        $schedule->command('orders:process-validating-with-provider-sending')
-//            ->everyFiveMinutes()
-//            ->withoutOverlapping()
-//            ->runInBackground();
+        //        $schedule->command('orders:process-validating-with-provider-sending')
+        //            ->everyFiveMinutes()
+        //            ->withoutOverlapping()
+        //            ->runInBackground();
 
         // Telegram phone-claim: move completed/canceled orders to unsubscribing after duration_days
         $schedule->command('telegram:activate-unsubscribing-phase')
-            ->everyFiveMinutes()
+            ->daily()
             ->withoutOverlapping()
             ->runInBackground();
 
-//        $schedule->command('telegram:process-folder-expirations')
-//            ->everyFiveMinutes()
-//            ->withoutOverlapping()
-//            ->runInBackground();
+        //        $schedule->command('telegram:process-folder-expirations')
+        //            ->everyFiveMinutes()
+        //            ->withoutOverlapping()
+        //            ->runInBackground();
 
         // Process due unsubscribe tasks every minute
         //        $schedule->job(new \App\Jobs\ProcessTelegramUnsubscribeTasksJob())
@@ -76,20 +76,20 @@ return Application::configure(basePath: dirname(__DIR__))
             ->everyMinute()
             ->withoutOverlapping(10);
 
-        $schedule->job(new \App\Jobs\CleanExpiredYouTubeTasksJob())
+        $schedule->job(new \App\Jobs\CleanExpiredYouTubeTasksJob)
             ->hourly()
             ->withoutOverlapping(2);
 
-        $schedule->job(new \App\Jobs\SyncCompletedProviderOrdersJob())
+        $schedule->job(new \App\Jobs\SyncCompletedProviderOrdersJob)
             ->everyFiveMinutes()
             ->withoutOverlapping(30)
             ->onOneServer();
 
         // Partial orders: fetch stats hourly for dashboard
-//        $schedule->job(new \App\Jobs\ProcessPartialOrdersJob())
-//            ->hourly()
-//            ->withoutOverlapping(15)
-//            ->onOneServer();
+        //        $schedule->job(new \App\Jobs\ProcessPartialOrdersJob())
+        //            ->hourly()
+        //            ->withoutOverlapping(15)
+        //            ->onOneServer();
 
         // Sync Adtag provider services into local services table
         //        $schedule->job(new \App\Jobs\AdtagSyncServicesJob())

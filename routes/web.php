@@ -1,23 +1,16 @@
 <?php
 
+use App\Http\Controllers\Auth\AcceptInvitationController;
+use App\Http\Controllers\Auth\ClientSocialAuthController;
 use App\Http\Controllers\Client\AccountController;
+use App\Http\Controllers\Client\Auth\ClientAuthenticatedSessionController;
+use App\Http\Controllers\Client\Auth\ClientRegisteredUserController;
 use App\Http\Controllers\Client\BalanceController;
 use App\Http\Controllers\Client\OrderController;
 use App\Http\Controllers\Client\ServiceController as ClientServiceController;
 use App\Http\Controllers\GoogleGmailOAuthController;
-use App\Http\Controllers\Staff\InvitationController;
-use App\Http\Controllers\Staff\SubscriptionPlanController;
-use App\Http\Controllers\Staff\UserController;
-use App\Http\Controllers\Staff\ClientController;
-use App\Http\Controllers\Staff\ClientLoginLogController;
-use App\Http\Controllers\Staff\PaymentController;
-use App\Http\Controllers\Staff\ServiceController;
-use App\Http\Controllers\Staff\ProviderOrderStatsController;
-use App\Http\Controllers\Staff\SocpanelModerationController;
-use App\Http\Controllers\Auth\AcceptInvitationController;
-use App\Http\Controllers\Auth\ClientSocialAuthController;
-use App\Http\Controllers\Client\Auth\ClientAuthenticatedSessionController;
-use App\Http\Controllers\Client\Auth\ClientRegisteredUserController;
+use App\Http\Controllers\HomeController;
+use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Settings\RoleController;
 use App\Http\Controllers\Settings\SettingsController;
@@ -25,15 +18,17 @@ use App\Http\Controllers\Staff\Auth\StaffAuthenticatedSessionController;
 use App\Http\Controllers\Staff\Auth\StaffEmailVerificationNotificationController;
 use App\Http\Controllers\Staff\Auth\StaffEmailVerificationPromptController;
 use App\Http\Controllers\Staff\Auth\StaffVerifyEmailController;
+use App\Http\Controllers\Staff\ClientController;
+use App\Http\Controllers\Staff\ClientLoginLogController;
+use App\Http\Controllers\Staff\InvitationController;
+use App\Http\Controllers\Staff\PaymentController;
+use App\Http\Controllers\Staff\ProviderOrderStatsController;
+use App\Http\Controllers\Staff\ServiceController;
+use App\Http\Controllers\Staff\SocpanelModerationController;
+use App\Http\Controllers\Staff\SubscriptionPlanController;
+use App\Http\Controllers\Staff\UserController;
 use App\Http\Middleware\BlockClientFromStaffRoutes;
 use App\Http\Middleware\UseStaffSession;
-use App\Jobs\SocpanelPollOrdersJob;
-use App\Http\Controllers\HomeController;
-use App\Http\Controllers\LocaleController;
-use App\Jobs\SocpanelValidateOrderJob;
-use App\Jobs\SyncValidatingProviderOrdersJob;
-use App\Services\Telegram\TelegramLinkInspector;
-use App\Services\YouTube\YouTubeInspector;
 use Illuminate\Support\Facades\Route;
 
 Route::get('locale/{locale}', [LocaleController::class, 'switch'])->name('locale.switch');
@@ -41,7 +36,7 @@ Route::get('locale/{locale}', [LocaleController::class, 'switch'])->name('locale
 Route::get('/', function () {
     return view('welcome');
 });
-//Route::get('/', [HomeController::class, 'index'])->name('home');
+// Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/contacts', [HomeController::class, 'contacts'])->name('contacts');
 Route::post('/order/create-from-main', [HomeController::class, 'createOrder'])->name('home.create-order');
 
@@ -97,6 +92,7 @@ Route::middleware('auth:client')->group(function () {
     Route::get('orders/services/by-category', [OrderController::class, 'servicesByCategory'])->name('client.orders.services.by-category');
     Route::post('orders/{order}/cancel', [OrderController::class, 'cancelFull'])->name('client.orders.cancelFull');
     Route::post('orders/{order}/cancel-partial', [OrderController::class, 'cancelPartial'])->name('client.orders.cancelPartial');
+    Route::get('orders/statuses', [OrderController::class, 'getStatuses'])->name('client.orders.statuses');
 
     // API Access
     Route::get('api', [\App\Http\Controllers\Client\ApiController::class, 'index'])->name('client.api.index');
@@ -104,8 +100,6 @@ Route::middleware('auth:client')->group(function () {
     Route::post('api/regenerate', [\App\Http\Controllers\Client\ApiController::class, 'regenerate'])->name('client.api.regenerate');
     Route::get('api/reveal-key', [\App\Http\Controllers\Client\ApiController::class, 'revealKey'])->name('client.api.reveal-key');
 });
-
-
 
 // Staff Auth Routes (guest only, under /staff prefix)
 // Block clients from accessing staff routes
@@ -278,6 +272,5 @@ Route::get('/oauth/google/redirect', [GoogleGmailOAuthController::class, 'redire
 
 Route::get('/oauth/google/callback', [GoogleGmailOAuthController::class, 'callback'])
     ->name('oauth.google.callback');
-
 
 require __DIR__.'/auth.php';

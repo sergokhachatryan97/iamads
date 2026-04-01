@@ -12,7 +12,7 @@
     </x-slot>
 
     <div class="py-12">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+        <div class="m-auto sm:px-6 lg:px-8" style="width: 95%">
             <div x-data="{ show: true }"
                  x-init="setTimeout(() => show = false, 3000)"
                  x-show="show"
@@ -188,355 +188,40 @@
 
             <div id="client-orders-container">
             @if($orders->count() > 0)
+                <div
+                    id="client-orders-live-region"
+                    x-data="{ sortBy: @js($sortBy), sortDir: @js($sortDir) }"
+                >
+                    @include('client.orders.orders-table-inner', ['orders' => $orders])
+                </div>
+            @else
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    @php
-                                        if (!function_exists('getSortUrl')) {
-                                            function getSortUrl($column, $currentSortBy, $currentSortDir, $currentStatus, $currentSource = 'all') {
-                                                $params = request()->except(['sort_by', 'sort_dir', 'page']);
-                                                $params['sort_by'] = $column;
-
-                                                if ($currentSortBy === $column) {
-                                                    $params['sort_dir'] = $currentSortDir === 'asc' ? 'desc' : 'asc';
-                                                } else {
-                                                    $params['sort_dir'] = 'asc';
-                                                }
-
-                                                if ($currentStatus !== 'all') {
-                                                    $params['status'] = $currentStatus;
-                                                }
-                                                if ($currentSource !== 'all') {
-                                                    $params['source'] = $currentSource;
-                                                }
-
-                                                return route('client.orders.index', $params);
-                                            }
-                                        }
-
-                                        if (!function_exists('getSortIcon')) {
-                                            function getSortIcon($column, $currentSortBy, $currentSortDir) {
-                                                if ($currentSortBy !== $column) {
-                                                    return '<svg class="w-4 h-4 inline ml-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path></svg>';
-                                                }
-
-                                                if ($currentSortDir === 'asc') {
-                                                    return '<svg class="w-4 h-4 inline ml-1 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>';
-                                                } else {
-                                                    return '<svg class="w-4 h-4 inline ml-1 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>';
-                                                }
-                                            }
-                                        }
-                                    @endphp
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        <a href="{{ getSortUrl('id', $sortBy, $sortDir, $currentStatus, $currentSource ?? 'all') }}" class="group inline-flex items-center hover:text-gray-700">
-                                            {{ __('ID') }}
-                                            {!! getSortIcon('id', $sortBy, $sortDir) !!}
-                                        </a>
-                                    </th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        <a href="{{ getSortUrl('created_at', $sortBy, $sortDir, $currentStatus, $currentSource ?? 'all') }}" class="group inline-flex items-center hover:text-gray-700">
-                                            {{ __('Date') }}
-                                            {!! getSortIcon('created_at', $sortBy, $sortDir) !!}
-                                        </a>
-                                    </th>
-{{--                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">--}}
-{{--                                        {{ __('Source') }}--}}
-{{--                                    </th>--}}
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        {{ __('Link') }}
-                                    </th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        <a href="{{ getSortUrl('charge', $sortBy, $sortDir, $currentStatus, $currentSource ?? 'all') }}" class="group inline-flex items-center hover:text-gray-700">
-                                            {{ __('Charge') }}
-                                            {!! getSortIcon('charge', $sortBy, $sortDir) !!}
-                                        </a>
-                                    </th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        {{ __('Start count') }}
-                                    </th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        <a href="{{ getSortUrl('quantity', $sortBy, $sortDir, $currentStatus) }}" class="group inline-flex items-center hover:text-gray-700">
-                                            {{ __('Quantity') }}
-                                            {!! getSortIcon('quantity', $sortBy, $sortDir) !!}
-                                        </a>
-                                    </th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        {{ __('Service') }}
-                                    </th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        <a href="{{ getSortUrl('status', $sortBy, $sortDir, $currentStatus, $currentSource ?? 'all') }}" class="group inline-flex items-center hover:text-gray-700">
-                                            {{ __('Status') }}
-                                            {!! getSortIcon('status', $sortBy, $sortDir) !!}
-                                        </a>
-                                    </th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        <a href="{{ getSortUrl('remains', $sortBy, $sortDir, $currentStatus, $currentSource ?? 'all') }}" class="group inline-flex items-center hover:text-gray-700">
-                                            {{ __('Remains') }}
-                                            {!! getSortIcon('remains', $sortBy, $sortDir) !!}
-                                        </a>
-                                    </th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        {{ __('Progress') }}
-                                    </th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        {{ __('Actions') }}
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white divide-y divide-gray-200">
-                                @foreach($orders as $order)
-                                    <tr>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {{ $order->id }}
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {{ $order->created_at->format('Y-m-d H:i:s') }}
-                                        </td>
-{{--                                        <td class="px-6 py-4 whitespace-nowrap">--}}
-{{--                                            @php--}}
-{{--                                                $orderSource = $order->source ?? 'web';--}}
-{{--                                            @endphp--}}
-{{--                                            <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium {{ $orderSource === 'api' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-700' }}">--}}
-{{--                                                {{ $orderSource === 'api' ? __('API') : __('Web') }}--}}
-{{--                                            </span>--}}
-{{--                                        </td>--}}
-                                        <td class="px-6 py-4 text-sm text-gray-900">
-                                            @if($order->link || $order->link_2)
-                                                <div class="space-y-1 max-w-xs">
-                                                    @if($order->link)
-                                                        @php
-                                                            $telegramUrl = $order->link;
-                                                            if (preg_match('/^(https?:\/\/)?(t\.me|telegram\.me|telegram\.dog)\/([A-Za-z0-9_+\/\-]+)/i', $order->link, $matches)) {
-                                                                $username = explode('?', explode('/', $matches[3])[0])[0];
-                                                                $telegramUrl = 'tg://resolve?domain=' . $username;
-                                                            } elseif (preg_match('/^@([A-Za-z0-9_]{3,32})$/i', $order->link, $matches)) {
-                                                                $telegramUrl = 'tg://resolve?domain=' . $matches[1];
-                                                            }
-                                                        @endphp
-                                                        <a href="{{ $telegramUrl }}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-900 hover:underline truncate block" title="{{ $order->link }}">{{ Str::limit($order->link, 30) }}</a>
-                                                    @endif
-                                                    @if($order->link_2)
-                                                        @php
-                                                            $telegramUrl2 = $order->link_2;
-                                                            if (preg_match('/^(https?:\/\/)?(t\.me|telegram\.me|telegram\.dog)\/([A-Za-z0-9_+\/\-]+)/i', $order->link_2, $matches)) {
-                                                                $username = explode('?', explode('/', $matches[3])[0])[0];
-                                                                $telegramUrl2 = 'tg://resolve?domain=' . $username;
-                                                            } elseif (preg_match('/^@([A-Za-z0-9_]{3,32})$/i', $order->link_2, $matches)) {
-                                                                $telegramUrl2 = 'tg://resolve?domain=' . $matches[1];
-                                                            }
-                                                        @endphp
-                                                        <div class="text-xs text-gray-500">{{ __('Source') }}:</div>
-                                                        <a href="{{ $telegramUrl2 }}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-900 hover:underline truncate block text-xs" title="{{ $order->link_2 }}">{{ Str::limit($order->link_2, 30) }}</a>
-                                                    @endif
-                                                </div>
-                                            @else
-                                                <span class="text-gray-400">—</span>
-                                            @endif
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            ${{ $order->charge }}
-                                        </td>
-                                        <td class="px-6 py-4 text-sm text-gray-900">
-                                            @php
-                                                $startCounts = $order->provider_payload['start_counts'] ?? null;
-                                            @endphp
-                                            @if($startCounts && is_array($startCounts))
-                                                <div class="flex flex-wrap gap-x-2 gap-y-0.5 text-xs">
-                                                    @if(isset($startCounts['subscribe']))
-                                                        <span title="{{ __('Subscribers') }}">{{ __('Sub') }}: {{ number_format($startCounts['subscribe']) }}</span>
-                                                    @endif
-                                                    @if(isset($startCounts['view']))
-                                                        <span title="{{ __('Views') }}">{{ __('View') }}: {{ number_format($startCounts['view']) }}</span>
-                                                    @endif
-                                                    @if(isset($startCounts['like']))
-                                                        <span title="{{ __('Likes') }}">{{ __('Like') }}: {{ number_format($startCounts['like']) }}</span>
-                                                    @endif
-                                                    @if(isset($startCounts['comment']))
-                                                        <span title="{{ __('Comments') }}">{{ __('Comment') }}: {{ number_format($startCounts['comment']) }}</span>
-                                                    @endif
-                                                </div>
-                                            @else
-                                                {{ $order->start_count !== null ? number_format($order->start_count) : '—' }}
-                                            @endif
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {{ number_format($order->quantity) }}
-                                        </td>
-                                        <td class="px-6 py-4 text-sm text-gray-900">
-                                            {{ $order?->service?->name }}
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            @php
-                                                $statusColors = [
-                                                    'awaiting' => 'bg-yellow-100 text-yellow-800',
-                                                    'pending' => 'bg-blue-100 text-blue-800',
-                                                    'in_progress' => 'bg-indigo-100 text-indigo-800',
-                                                    'processing' => 'bg-purple-100 text-purple-800',
-                                                    'partial' => 'bg-orange-100 text-orange-800',
-                                                    'completed' => 'bg-green-100 text-green-800',
-                                                    'canceled' => 'bg-red-100 text-red-800',
-                                                    'fail' => 'bg-gray-100 text-gray-800',
-                                                ];
-                                                $statusColor = $statusColors[$order->status] ?? 'bg-gray-100 text-gray-800';
-                                                $statusLabel = ucfirst(str_replace('_', ' ', $order->status));
-                                            @endphp
-                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ $statusColor }}">
-                                                {{ $statusLabel }}
-                                            </span>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {{ number_format($order->remains) }}
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            @php
-                                                $delivered = $order->delivered ?? 0;
-                                                $quantity = $order->quantity ?? 1;
-                                                $progress = $quantity > 0 ? round(($delivered / $quantity) * 100, 1) : 0;
-                                                $p = min(100, max(0, $progress));
-                                                $r = 14;
-                                                $circ = 2 * pi() * $r;
-                                                $dashOffset = $circ * (1 - ($p / 100));
-                                            @endphp
-                                            <div class="flex flex-col items-center">
-                                                <div class="relative h-11 w-11 shrink-0">
-                                                    <svg class="h-10 w-10 -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
-                                                        <circle cx="18" cy="18" r="{{ $r }}" fill="none" stroke="#e5e7eb" stroke-width="4"></circle>
-                                                        <circle
-                                                            cx="18" cy="18" r="{{ $r }}"
-                                                            fill="none"
-                                                            stroke="#4f46e5"
-                                                            stroke-width="4"
-                                                            stroke-linecap="round"
-                                                            stroke-dasharray="{{ number_format($circ, 3, '.', '') }}"
-                                                            stroke-dashoffset="{{ number_format($dashOffset, 3, '.', '') }}"
-                                                        ></circle>
-                                                    </svg>
-                                                    <div class="absolute inset-0 grid place-items-center">
-                                                        <span class="text-[11px] font-semibold text-gray-900">{{ number_format($progress, 0) }}%</span>
-                                                    </div>
-                                                </div>
-                                                <div class="mt-1 text-xs text-gray-500 whitespace-nowrap">
-                                                    {{ number_format($order->remains) }} / {{ number_format($quantity) }}
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                            @php
-                                                $service = $order->service;
-                                                $canCancel = $service && $service->user_can_cancel;
-                                                $isAwaitingOrPending = in_array($order->status, ['awaiting', 'validating']);
-                                                $isInProgressOrProcessing = in_array($order->status, ['in_progress', 'processing']);
-                                            @endphp
-
-                                            <x-dropdown align="right" width="48">
-                                                <x-slot name="trigger">
-                                                    <button class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                                                        {{ __('Actions') }}
-                                                        <svg class="ml-2 -mr-0.5 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                                                        </svg>
-                                                    </button>
-                                                </x-slot>
-
-                                                <x-slot name="content">
-                                                    <button
-                                                        type="button"
-                                                        onclick="window.dispatchEvent(new CustomEvent('open-modal', { detail: 'client-order-details-{{ $order->id }}' }))"
-                                                        class="block w-full px-4 py-2 text-start text-sm leading-5 text-gray-700 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 transition duration-150 ease-in-out"
-                                                    >
-                                                        {{ __('View Details') }}
-                                                    </button>
-                                                    @if($canCancel && $isAwaitingOrPending)
-                                                        <div x-data="{
-                                                            openModal() {
-                                                                $dispatch('open-modal', 'cancel-full-{{ $order->id }}');
-                                                            },
-                                                            submitForm() {
-                                                                document.getElementById('cancel-full-form-{{ $order->id }}').submit();
-                                                            }
-                                                        }"
-                                                        x-on:confirm-action.window="if ($event.detail === 'cancel-full-{{ $order->id }}') { submitForm(); }">
-                                                            <button
-                                                                type="button"
-                                                                @click="openModal()"
-                                                                class="block w-full px-4 py-2 text-start text-sm leading-5 text-red-700 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 transition duration-150 ease-in-out">
-                                                                {{ __('Cancel & Refund') }}
-                                                            </button>
-
-                                                            <x-confirm-modal
-                                                                name="cancel-full-{{ $order->id }}"
-                                                                title="{{ __('Cancel Order') }}"
-                                                                :message="__('Are you sure you want to cancel this order? A full refund of $:amount will be processed.', ['amount' => $order->charge])"
-                                                                confirm-text="{{ __('Yes, Cancel Order') }}"
-                                                                cancel-text="{{ __('No, Keep Order') }}"
-                                                                confirm-button-class="bg-red-600 hover:bg-red-700"
-                                                            >
-                                                                <form
-                                                                    id="cancel-full-form-{{ $order->id }}"
-                                                                    action="{{ route('client.orders.cancelFull', $order) }}"
-                                                                    method="POST"
-                                                                    style="display: none;"
-                                                                >
-                                                                    @csrf
-                                                                </form>
-                                                            </x-confirm-modal>
-                                                        </div>
-                                                    @elseif($canCancel && $isInProgressOrProcessing)
-                                                        <div x-data="{
-                                                            openModal() {
-                                                                $dispatch('open-modal', 'cancel-partial-{{ $order->id }}');
-                                                            },
-                                                            submitForm() {
-                                                                document.getElementById('cancel-partial-form-{{ $order->id }}').submit();
-                                                            }
-                                                        }"
-                                                        x-on:confirm-action.window="if ($event.detail === 'cancel-partial-{{ $order->id }}') { submitForm(); }">
-                                                            <button
-                                                                type="button"
-                                                                @click="openModal()"
-                                                                class="block w-full px-4 py-2 text-start text-sm leading-5 text-orange-700 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 transition duration-150 ease-in-out">
-                                                                {{ __('Cancel (Partial)') }}
-                                                            </button>
-
-                                                            <x-confirm-modal
-                                                                name="cancel-partial-{{ $order->id }}"
-                                                                title="{{ __('Cancel Remaining Part') }}"
-                                                                :message="__('Are you sure you want to cancel the remaining part of this order? A partial refund will be processed for the undelivered quantity.')"
-                                                                confirm-text="{{ __('Yes, Cancel Remaining') }}"
-                                                                cancel-text="{{ __('No, Keep Order') }}"
-                                                                confirm-button-class="bg-orange-600 hover:bg-orange-700"
-                                                            >
-                                                                <form
-                                                                    id="cancel-partial-form-{{ $order->id }}"
-                                                                    action="{{ route('client.orders.cancelPartial', $order) }}"
-                                                                    method="POST"
-                                                                    style="display: none;"
-                                                                >
-                                                                    @csrf
-                                                                </form>
-                                                            </x-confirm-modal>
-                                                        </div>
-                                                    @else
-                                                        <span class="block px-4 py-2 text-sm text-gray-400">{{ __('No actions available') }}</span>
-                                                    @endif
-                                                </x-slot>
-                                            </x-dropdown>
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
+                    <div class="p-6 text-gray-900 text-center">
+                        <p class="text-gray-500">
+                            @if($currentStatus !== 'all' || $filterCategoryId || $filterServiceId || $filterDateFrom || $filterDateTo || ($filterSearch ?? null))
+                                {{ __('No orders found matching your filters.') }}
+                            @else
+                                {{ __('No orders found.') }}
+                            @endif
+                        </p>
+                        @if($currentStatus !== 'all')
+                            <a href="{{ route('client.orders.index') }}"
+                               class="mt-4 inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                {{ __('Clear Filter') }}
+                            </a>
+                        @else
+                            <a href="{{ route('client.orders.create') }}"
+                               class="mt-4 inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
+                                {{ __('Create Your First Order') }}
+                            </a>
+                        @endif
                     </div>
                 </div>
+            @endif
+            </div>
 
-                <div class="mt-4">
-                    {{ $orders->links() }}
-                </div>
-
-                {{-- Order details modals --}}
+            <div id="client-order-modals-root">
+                @if($orders->count() > 0)
                 @foreach($orders as $order)
                 <x-modal name="client-order-details-{{ $order->id }}" maxWidth="2xl">
                     <div class="p-6">
@@ -702,30 +387,7 @@
                     </div>
                 </x-modal>
                 @endforeach
-            @else
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                    <div class="p-6 text-gray-900 text-center">
-                        <p class="text-gray-500">
-                            @if($currentStatus !== 'all' || $filterCategoryId || $filterServiceId || $filterDateFrom || $filterDateTo || ($filterSearch ?? null))
-                                {{ __('No orders found matching your filters.') }}
-                            @else
-                                {{ __('No orders found.') }}
-                            @endif
-                        </p>
-                        @if($currentStatus !== 'all')
-                            <a href="{{ route('client.orders.index') }}"
-                               class="mt-4 inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                                {{ __('Clear Filter') }}
-                            </a>
-                        @else
-                            <a href="{{ route('client.orders.create') }}"
-                               class="mt-4 inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
-                                {{ __('Create Your First Order') }}
-                            </a>
-                        @endif
-                    </div>
-                </div>
-            @endif
+                @endif
             </div>
         </div>
     </div>
@@ -769,9 +431,14 @@
                     const status = new URL(url, window.location.origin).searchParams.get('status');
                     this.currentStatus = status || 'all';
                     const container = document.getElementById('client-orders-container');
+                    const modalsRoot = document.getElementById('client-order-modals-root');
                     if (!container) return;
                     container.style.opacity = '0.6';
                     container.style.pointerEvents = 'none';
+                    if (modalsRoot) {
+                        modalsRoot.style.opacity = '0.6';
+                        modalsRoot.style.pointerEvents = 'none';
+                    }
                     try {
                         const resp = await fetch(url, {
                             headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'text/html' }
@@ -780,9 +447,18 @@
                         const parser = new DOMParser();
                         const doc = parser.parseFromString(html, 'text/html');
                         const newContainer = doc.getElementById('client-orders-container');
+                        const newModals = doc.getElementById('client-order-modals-root');
                         if (newContainer) {
                             container.innerHTML = newContainer.innerHTML;
-                            if (window.Alpine) container.querySelectorAll('[x-data]').forEach(el => Alpine.initTree(el));
+                            if (modalsRoot && newModals) {
+                                modalsRoot.innerHTML = newModals.innerHTML;
+                            }
+                            if (window.Alpine && typeof window.Alpine.initTree === 'function') {
+                                container.querySelectorAll('[x-data]').forEach((el) => Alpine.initTree(el));
+                                if (modalsRoot) {
+                                    modalsRoot.querySelectorAll('[x-data]').forEach((el) => Alpine.initTree(el));
+                                }
+                            }
                             history.pushState({}, '', url);
                         }
                     } catch (e) {
@@ -791,10 +467,208 @@
                     } finally {
                         container.style.opacity = '';
                         container.style.pointerEvents = '';
+                        if (modalsRoot) {
+                            modalsRoot.style.opacity = '';
+                            modalsRoot.style.pointerEvents = '';
+                        }
                     }
                 }
             }));
         });
+
+        window.addEventListener('pagination-change', (e) => {
+            if (e.detail.componentId === 'client-orders-pagination' && typeof window.fetchClientOrdersPage === 'function') {
+                window.fetchClientOrdersPage(e.detail.page);
+            }
+        });
+
+        window.fetchClientOrdersPage = function fetchClientOrdersPage(page, sortByParam = null, sortDirParam = null, customUrl = null) {
+            const live = document.getElementById('client-orders-live-region');
+            const alpineData = live?.__x?.$data;
+            const url = customUrl ? new URL(customUrl, window.location.origin) : new URL(window.location.href);
+            url.searchParams.set('page', String(page));
+
+            let sortBy = sortByParam ?? alpineData?.sortBy ?? url.searchParams.get('sort_by');
+            let sortDir = sortDirParam ?? alpineData?.sortDir ?? url.searchParams.get('sort_dir');
+            if (sortBy) {
+                url.searchParams.set('sort_by', sortBy);
+            }
+            if (sortDir) {
+                url.searchParams.set('sort_dir', sortDir);
+            }
+
+            fetch(url.toString(), {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    Accept: 'text/html',
+                },
+                credentials: 'same-origin',
+            })
+                .then((r) => r.text())
+                .then((html) => {
+                    const doc = new DOMParser().parseFromString(html, 'text/html');
+                    const newTbody = doc.querySelector('#client-orders-table tbody');
+                    const currentTbody = document.querySelector('#client-orders-table tbody');
+
+                    if (!newTbody || !currentTbody) {
+                        window.location.href = url.toString();
+                        return;
+                    }
+
+                    currentTbody.innerHTML = newTbody.innerHTML;
+                    if (window.Alpine && typeof window.Alpine.initTree === 'function') {
+                        window.Alpine.initTree(currentTbody);
+                    }
+
+                    const newPagination = doc.querySelector('#client-orders-table [data-pagination-root]');
+                    const currentPagination = document.querySelector('#client-orders-table [data-pagination-root]');
+                    if (newPagination && currentPagination) {
+                        currentPagination.innerHTML = newPagination.innerHTML;
+                        if (window.Alpine && typeof window.Alpine.initTree === 'function') {
+                            window.Alpine.initTree(currentPagination);
+                        }
+                    }
+
+                    const newModals = doc.getElementById('client-order-modals-root');
+                    const curModals = document.getElementById('client-order-modals-root');
+                    if (newModals && curModals && window.Alpine && typeof window.Alpine.initTree === 'function') {
+                        curModals.innerHTML = newModals.innerHTML;
+                        curModals.querySelectorAll('[x-data]').forEach((el) => window.Alpine.initTree(el));
+                    }
+
+                    window.history.pushState({}, '', url);
+
+                    if (alpineData) {
+                        alpineData.sortBy = url.searchParams.get('sort_by') || alpineData.sortBy;
+                        alpineData.sortDir = url.searchParams.get('sort_dir') || alpineData.sortDir;
+                    }
+                })
+                .catch(() => {
+                    window.location.href = url.toString();
+                });
+        };
+
+        (function clientOrderStatusPolling() {
+            const ofLabel = @json(__('of'));
+
+            function formatStatusLabel(status) {
+                return status.split('_').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+            }
+
+            function updateOrderStatus(orderId, statusData) {
+                const statusBadge = document.querySelector(`.order-status-badge[data-order-id="${orderId}"]`);
+                if (statusBadge) {
+                    const currentStatus = statusBadge.getAttribute('data-status');
+                    if (currentStatus !== statusData.status) {
+                        statusBadge.setAttribute('data-status', statusData.status);
+                        const dot = statusBadge.querySelector('span.rounded-full');
+                        const label = statusBadge.querySelectorAll('span')[1];
+
+                        const dotClasses = {
+                            validating: 'bg-cyan-500',
+                            invalid_link: 'bg-red-500',
+                            restricted: 'bg-orange-500',
+                            awaiting: 'bg-yellow-500',
+                            pending: 'bg-blue-500',
+                            in_progress: 'bg-indigo-500',
+                            processing: 'bg-purple-500',
+                            partial: 'bg-orange-500',
+                            completed: 'bg-green-500',
+                            canceled: 'bg-red-500',
+                            fail: 'bg-gray-500',
+                        };
+
+                        if (dot) {
+                            dot.className = `h-2.5 w-2.5 rounded-full ${dotClasses[statusData.status] || 'bg-gray-500'}`;
+                        }
+                        if (label) {
+                            label.textContent = formatStatusLabel(statusData.status);
+                        }
+
+                        statusBadge.classList.add('animate-pulse');
+                        setTimeout(() => statusBadge.classList.remove('animate-pulse'), 1000);
+                    }
+                }
+
+                const progressDetail = document.querySelector(`.order-progress-detail[data-order-id="${orderId}"]`);
+                if (progressDetail) {
+                    progressDetail.textContent = `${new Intl.NumberFormat().format(statusData.delivered)} ${ofLabel} ${new Intl.NumberFormat().format(statusData.quantity)}`;
+                }
+
+                const serviceRing = document.querySelector(`.order-service-ring[data-order-id="${orderId}"]`);
+                if (serviceRing) {
+                    const p = Math.min(100, Math.max(0, statusData.progress));
+                    serviceRing.style.background = `conic-gradient(#0ea5f5 calc(${p} * 1%), rgba(255,255,255,.25) 0)`;
+                    serviceRing.setAttribute('data-progress', p.toFixed(1));
+                }
+            }
+
+            function pollOrderStatuses() {
+                const orderBadges = document.querySelectorAll('.order-status-badge');
+                const orderIds = Array.from(orderBadges)
+                    .map((badge) => parseInt(badge.getAttribute('data-order-id'), 10))
+                    .filter((id) => !Number.isNaN(id));
+
+                if (orderIds.length === 0) {
+                    return;
+                }
+
+                const pollUrl = new URL(@json(route('client.orders.statuses')), window.location.origin);
+                orderIds.forEach((id) => pollUrl.searchParams.append('order_ids[]', id));
+
+                fetch(pollUrl.toString(), {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        Accept: 'application/json',
+                    },
+                    credentials: 'same-origin',
+                })
+                    .then((response) => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then((data) => {
+                        if (data.statuses) {
+                            Object.entries(data.statuses).forEach(([orderId, statusData]) => {
+                                updateOrderStatus(parseInt(orderId, 10), statusData);
+                            });
+                        }
+                    })
+                    .catch((error) => console.error('Error polling order statuses:', error));
+            }
+
+            let pollInterval;
+
+            function startPolling() {
+                stopPolling();
+                pollOrderStatuses();
+                pollInterval = setInterval(pollOrderStatuses, 3000);
+            }
+
+            function stopPolling() {
+                if (pollInterval) {
+                    clearInterval(pollInterval);
+                    pollInterval = null;
+                }
+            }
+
+            if (document.visibilityState === 'visible') {
+                startPolling();
+            }
+
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') {
+                    startPolling();
+                } else {
+                    stopPolling();
+                }
+            });
+
+            window.addEventListener('beforeunload', stopPolling);
+        })();
     </script>
 </x-client-layout>
 

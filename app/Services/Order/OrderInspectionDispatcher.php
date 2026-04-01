@@ -26,7 +26,7 @@ class OrderInspectionDispatcher
 
         if ($driver === 'telegram') {
             InspectTelegramLinkJob::dispatch($order->id)
-                ->onQueue('tg-inspect')
+                ->onQueue('tg-panel-inspect')
                 ->afterCommit();
 
             return;
