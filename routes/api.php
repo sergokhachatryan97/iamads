@@ -61,18 +61,8 @@ Route::prefix('external')->middleware('auth.api_client')->group(function () {
 
 
 Route::middleware(['auth.provider'])->prefix('provider/telegram')->group(function () {
-    Route::post('/accounts/sync', [TelegramAccountSyncController::class, 'sync'])
-        ->name('provider.telegram.accounts.sync');
-
-    Route::post('/tasks/pull', [TelegramTaskPullController::class, 'pull'])
-        ->name('provider.telegram.tasks.pull');
-
-    Route::post('/tasks/claim', [TelegramTaskClaimController::class, 'claim'])
-        ->name('provider.telegram.tasks.claim');
-
     Route::get('/getOrder', [TelegramTaskClaimController::class, 'claim'])
         ->name('provider.telegram.tasks.getOrder');
-
 
     Route::get('/check', [TelegramTaskReportController::class, 'check'])
         ->name('provider.telegram.tasks.check');
@@ -88,9 +78,6 @@ Route::middleware(['auth.provider'])->prefix('provider/telegram')->group(functio
 
     Route::get('/premium/ignore', [TelegramTaskReportController::class, 'ignorePremium'])
         ->name('provider.telegram.premium.tasks.ignore');
-
-    Route::post('/tasks/report', [TelegramTaskReportController::class, 'report'])
-        ->name('provider.telegram.tasks.report');
 });
 
 // YouTube performer (same structure as Telegram: getOrder, check, ignore)
