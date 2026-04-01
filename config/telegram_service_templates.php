@@ -154,6 +154,17 @@ return [
         'default_priority' => 60,
     ],
 
+    'group_join' => [
+        'label' => 'Join To Group',
+        'action' => 'subscribe',
+        'policy_key' => 'default',
+        'allowed_link_kinds' => ['public_username', 'invite'],
+        'allowed_peer_types' => ['group', 'supergroup'],
+        'requires_duration_days' => false,
+        'requires_start_param' => false,
+        'default_priority' => 60,
+    ],
+
     // ------------------------------------------------------------
     // POST VIEWS / REACTIONS / COMMENTS (PUBLIC CHANNEL POSTS)
     // ------------------------------------------------------------
