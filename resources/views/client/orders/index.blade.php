@@ -68,11 +68,12 @@
                         </svg>
                     </button>
 
-                    {{-- Status Tabs --}}
-                    <div class="flex flex-wrap items-center gap-1.5">
+                    {{-- Status Tabs (synced on AJAX filter so counts match category/service/date/search) --}}
+                    <div id="client-orders-status-tabs-root" class="flex flex-wrap items-center gap-1.5">
                         @php
                             $statusButtons = [
                                 'all' => __('All'),
+                                \App\Models\Order::STATUS_VALIDATING => __('Validating'),
                                 \App\Models\Order::STATUS_AWAITING => __('Awaiting'),
                                 \App\Models\Order::STATUS_IN_PROGRESS => __('In Progress'),
                                 \App\Models\Order::STATUS_PARTIAL => __('Partial'),
@@ -134,6 +135,7 @@
                      x-transition:leave-end="opacity-0 -translate-y-2"
                      x-cloak
                      class="mt-4 border-t border-gray-200 pt-4">
+                    <div id="client-orders-advanced-filters-root">
                     <form method="GET" action="{{ route('client.orders.index') }}" class="client-orders-filter-form flex">
                         @if(request()->has('status') && request('status') !== 'all')
                             <input type="hidden" name="status" value="{{ request('status') }}">
@@ -183,6 +185,7 @@
                             </a>
                         </div>
                     </form>
+                    </div>
                 </div>
             </div>
 
@@ -248,6 +251,7 @@
                                     <div class="text-xs font-medium text-gray-500 uppercase mb-1">{{ __('Status') }}</div>
                                     @php
                                         $detailStatusColors = [
+                                            'validating' => 'bg-cyan-100 text-cyan-800',
                                             'awaiting' => 'bg-yellow-100 text-yellow-800',
                                             'pending' => 'bg-blue-100 text-blue-800',
                                             'in_progress' => 'bg-indigo-100 text-indigo-800',
@@ -452,6 +456,19 @@
                             container.innerHTML = newContainer.innerHTML;
                             if (modalsRoot && newModals) {
                                 modalsRoot.innerHTML = newModals.innerHTML;
+                            }
+                            const newStatusRoot = doc.getElementById('client-orders-status-tabs-root');
+                            const curStatusRoot = document.getElementById('client-orders-status-tabs-root');
+                            if (newStatusRoot && curStatusRoot) {
+                                curStatusRoot.innerHTML = newStatusRoot.innerHTML;
+                                if (window.Alpine && typeof window.Alpine.initTree === 'function') {
+                                    window.Alpine.initTree(curStatusRoot);
+                                }
+                            }
+                            const newAdvRoot = doc.getElementById('client-orders-advanced-filters-root');
+                            const curAdvRoot = document.getElementById('client-orders-advanced-filters-root');
+                            if (newAdvRoot && curAdvRoot) {
+                                curAdvRoot.innerHTML = newAdvRoot.innerHTML;
                             }
                             if (window.Alpine && typeof window.Alpine.initTree === 'function') {
                                 container.querySelectorAll('[x-data]').forEach((el) => Alpine.initTree(el));

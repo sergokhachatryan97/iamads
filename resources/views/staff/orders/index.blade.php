@@ -143,7 +143,8 @@
                             </div>
                         </div>
 
-                        <div class="flex flex-wrap items-center gap-1.5">
+                        {{-- Synced on AJAX so status badge counts match category/service/date/search --}}
+                        <div id="staff-orders-status-tabs-root" class="flex flex-wrap items-center gap-1.5">
                         @php
                             $statusButtons = [
                                 'all' => __('All'),
@@ -196,6 +197,7 @@
                      x-transition:leave-end="opacity-0 -translate-y-2"
                      x-cloak
                      class="mt-4 border-t border-gray-200 pt-4">
+                    <div id="staff-orders-advanced-filters-root">
                     <form method="GET" action="{{ route('staff.orders.index') }}" class="staff-orders-filter-form flex flex-wrap">
                         @if(request()->has('status') && request('status') !== 'all')
                             <input type="hidden" name="status" value="{{ request('status') }}">
@@ -240,6 +242,7 @@
                             </a>
                         </div>
                     </form>
+                    </div>
                 </div>
             </div>
 
@@ -1197,6 +1200,20 @@
                         if (window.Alpine && typeof window.Alpine.initTree === 'function') {
                             window.Alpine.initTree(currentPagination);
                         }
+                    }
+
+                    const newStatusRoot = doc.getElementById('staff-orders-status-tabs-root');
+                    const curStatusRoot = document.getElementById('staff-orders-status-tabs-root');
+                    if (newStatusRoot && curStatusRoot) {
+                        curStatusRoot.innerHTML = newStatusRoot.innerHTML;
+                        if (window.Alpine && typeof window.Alpine.initTree === 'function') {
+                            window.Alpine.initTree(curStatusRoot);
+                        }
+                    }
+                    const newAdvRoot = doc.getElementById('staff-orders-advanced-filters-root');
+                    const curAdvRoot = document.getElementById('staff-orders-advanced-filters-root');
+                    if (newAdvRoot && curAdvRoot) {
+                        curAdvRoot.innerHTML = newAdvRoot.innerHTML;
                     }
 
                     // update URL

@@ -147,6 +147,7 @@ class OrderController extends Controller
         // Get all available statuses for filter
         $statuses = [
             'all' => __('All Statuses'),
+            Order::STATUS_VALIDATING => __('Validating'),
             Order::STATUS_AWAITING => __('Awaiting'),
             Order::STATUS_IN_PROGRESS => __('In Progress'),
             Order::STATUS_PROCESSING => __('Processing'),
