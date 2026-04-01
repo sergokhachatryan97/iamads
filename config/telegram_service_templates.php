@@ -100,10 +100,10 @@ return [
     // SUBSCRIBE - PUBLIC CHANNEL (FAST)  -> policy_key=sub_public
     // ------------------------------------------------------------
     'channel_subscribe' => [
-        'label' => 'Channel Subscribe (Public, Live time)',
+        'label' => 'Channel Subscribe (Public/Private, Live time)',
         'action' => 'subscribe',
         'policy_key' => 'default',
-        'allowed_link_kinds' => ['public_username'],
+        'allowed_link_kinds' => ['public_username', 'invite'],
         'allowed_peer_types' => ['channel'],
         'requires_duration_days' => false,
         'requires_start_param' => false,
