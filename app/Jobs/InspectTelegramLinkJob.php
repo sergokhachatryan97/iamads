@@ -91,8 +91,6 @@ class InspectTelegramLinkJob implements ShouldQueue
             $serviceType = $order->service->service_type ?? 'default';
             $template = $order->service->template();
             $serviceTemplateKey = $template['allowed_link_kinds'] ?? null;
-            $isTwoLinkOrder = !empty($order->link_2)
-                && ($order->service->template_key ?? null) === 'invite_subscribers_from_other_channel';
 
             $temporaryCodes = [
                 'MTPROTO_DEADLINE_EXCEEDED',
@@ -123,37 +121,12 @@ class InspectTelegramLinkJob implements ShouldQueue
                 }
             }
 
-//            $inspectionResult2 = null;
-//            if ($isTwoLinkOrder) {
-//                $inspectionResult2 = $inspector->inspect($order->link_2 ?? '', $serviceTemplateKey, forB2c: true);
-//
-//                if (($inspectionResult2['ok'] ?? false) !== true) {
-//                    $code2 = strtoupper((string)($inspectionResult2['error_code'] ?? ''));
-//                    $message2 = $inspectionResult2['error'] ?? 'Validation failed (source link)';
-//
-//                    if (in_array($code2, $temporaryCodes, true)) {
-//                        $order->update([
-//                            'status' => Order::STATUS_VALIDATING,
-//                            'provider_last_error' => $message2,
-//                            'provider_last_error_at' => now(),
-//                            'provider_payload' => array_filter([
-//                                'telegram' => $inspectionResult,
-//                                'telegram_link_2' => $inspectionResult2,
-//                            ]),
-//                        ]);
-//
-//                        return;
-//                    }
-//                }
-//            }
 
             // 3) Merge inspection result(s) into provider_payload
             $providerPayload = $order->provider_payload ?? [];
             if (!is_array($providerPayload)) $providerPayload = [];
             $providerPayload['telegram'] = $inspectionResult;
-//            if ($inspectionResult2 !== null) {
-//                $providerPayload['telegram_link_2'] = $inspectionResult2;
-//            }
+
 
             // 4) Extract and store post_id for post-related services (react, comment, view)
             $parsed = $inspectionResult['parsed'] ?? [];
@@ -164,12 +137,7 @@ class InspectTelegramLinkJob implements ShouldQueue
             // 4) Validate against service template rules (if template exists)
             if ($template) {
                 $validationErrors = $this->validateAgainstTemplate($inspectionResult, $template, 'target');
-//                if ($inspectionResult2 !== null) {
-//                    $validationErrors = array_merge(
-//                        $validationErrors,
-//                        $this->validateAgainstTemplate($inspectionResult2, $template, 'source')
-//                    );
-//                }
+
                 if (!empty($validationErrors)) {
                     $errorMessage = implode('; ', $validationErrors);
 
@@ -194,40 +162,6 @@ class InspectTelegramLinkJob implements ShouldQueue
                 }
             }
 
-            // 5) Handle inspection failure (link or link_2)
-//            if ($inspectionResult2 !== null && !($inspectionResult2['ok'] ?? false)) {
-//                $errorCode = (string) ($inspectionResult2['error_code'] ?? 'UNKNOWN_ERROR');
-//                $errorMessage = (string) ($inspectionResult2['error'] ?? 'Source link validation failed');
-//
-//                if ($this->isRetryableInspectionError($errorCode)) {
-//                    $order->update([
-//                        'status' => Order::STATUS_VALIDATING,
-//                        'provider_last_error' => $errorMessage,
-//                        'provider_last_error_at' => now(),
-//                        'provider_sending_at' => null,
-//                        'provider_payload' => $providerPayload,
-//                    ]);
-//                    throw new \RuntimeException("Retryable inspection error (source link): {$errorCode} - {$errorMessage}");
-//                }
-//
-//                $newStatus = strtoupper($errorCode) === 'RESTRICTED' ? Order::STATUS_RESTRICTED : Order::STATUS_INVALID_LINK;
-//                $order->update([
-//                    'status' => $newStatus,
-//                    'provider_last_error' => $errorMessage,
-//                    'provider_last_error_at' => now(),
-//                    'provider_sending_at' => null,
-//                    'provider_payload' => $providerPayload,
-//                ]);
-//                $orderService->refundInvalid($order, $errorMessage);
-//                Log::info('Order source link inspection failed (final)', [
-//                    'order_id' => $this->orderId,
-//                    'error_code' => $errorCode,
-//                    'error' => $errorMessage,
-//                    'status' => $newStatus,
-//                ]);
-//
-//                return;
-//            }
 
             if (!($inspectionResult['ok'] ?? false)) {
                 $errorCode = (string) ($inspectionResult['error_code'] ?? 'UNKNOWN_ERROR');
