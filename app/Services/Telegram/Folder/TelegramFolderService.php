@@ -4,6 +4,7 @@ namespace App\Services\Telegram\Folder;
 
 use Amp\CancelledException;
 use App\Models\MtprotoTelegramAccount;
+use App\Models\TelegramFolderMembership;
 use App\Services\Telegram\MtprotoClientFactory;
 use App\Support\TelegramLinkParser;
 use danog\MadelineProto\API;
@@ -43,20 +44,10 @@ class TelegramFolderService
 
             foreach ($includePeers as $existing) {
                 if ($this->samePeerId($existing, $inputPeer)) {
-                    // Already in folder — just retrieve the share link (filter is untouched,
-                    // so chatlist state is consistent and getExportedInvites is safe).
-                    $share = $this->getOrCreateShareLink(
-                        $api, $folderId, $filterTitle, $this->filterShareablePeers($includePeers)
-                    );
-
                     return [
-                        'ok' => true,
-                        'folder_id' => (int) ($targetFilter['id'] ?? $folderId),
+                        'ok' => false,
+                        'error' => 'This channel already exists in the folder',
                         'already_exists' => true,
-                        'was_added' => false,
-                        'input_peer' => $inputPeer,
-                        'folder_share_link' => $share['link'] ?? null,
-                        'folder_share_slug' => $share['slug'] ?? null,
                     ];
                 }
             }
@@ -94,11 +85,11 @@ class TelegramFolderService
                 filter: $this->sanitizeFilterForUpdate($targetFilter),
             );
 
-            // 8) Update the folder invite link so it shows ALL current channels
-            //    (including the one just added). The peers list in the invite
-            //    controls what users see when they click the link.
+            // 8) Update the folder invite link with only ACTIVE channels.
+            //    Exclude channels that have been removed (TelegramFolderMembership STATUS_REMOVED).
             $shareablePeers = $this->filterShareablePeers($resolvedPeers);
-            $share = $this->updateFolderInviteLink($api, (int) $targetFilter['id'], $filterTitle, $shareablePeers, $existingInvite);
+            $activePeers = $this->excludeRemovedPeers($shareablePeers, $folderId);
+            $share = $this->updateFolderInviteLink($api, (int) $targetFilter['id'], $filterTitle, $activePeers, $existingInvite);
 
             return [
                 'ok' => true,
@@ -321,6 +312,47 @@ class TelegramFolderService
     {
         return array_values(array_filter($peers, function (array $peer): bool {
             return ($peer['_'] ?? '') === 'inputPeerChannel';
+        }));
+    }
+
+    /**
+     * Exclude peers that have a TelegramFolderMembership with STATUS_REMOVED for this folder.
+     * These channels were removed by the expiration command and should not appear in the invite link.
+     */
+    private function excludeRemovedPeers(array $peers, int $folderId): array
+    {
+        if (empty($peers)) {
+            return [];
+        }
+
+        // Get all removed channel IDs for this folder
+        $removedPeerIds = TelegramFolderMembership::query()
+            ->where('folder_id', $folderId)
+            ->where('status', TelegramFolderMembership::STATUS_REMOVED)
+            ->pluck('target_peer_id')
+            ->filter()
+            ->map(function (string $peerIdStr): int {
+                // target_peer_id is stored as "channel:123456" — extract the numeric part
+                if (str_starts_with($peerIdStr, 'channel:')) {
+                    return (int) substr($peerIdStr, 8);
+                }
+                if (str_starts_with($peerIdStr, 'chat:')) {
+                    return (int) substr($peerIdStr, 5);
+                }
+
+                return 0;
+            })
+            ->filter()
+            ->all();
+
+        if (empty($removedPeerIds)) {
+            return $peers;
+        }
+
+        return array_values(array_filter($peers, function (array $peer) use ($removedPeerIds): bool {
+            $peerId = $this->extractPeerId($peer);
+
+            return $peerId === 0 || ! in_array($peerId, $removedPeerIds, true);
         }));
     }
 

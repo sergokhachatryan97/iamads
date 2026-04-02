@@ -52,16 +52,16 @@ class ExecuteTelegramPremiumFolderOrderJob implements ShouldQueue
             return;
         }
 
-        // Idempotency: if membership already exists, just update the order and return
-        $existingMembership = TelegramFolderMembership::query()
+        // Idempotency: if THIS order already has an active membership, skip
+        $existingForOrder = TelegramFolderMembership::query()
             ->where('order_id', $order->id)
             ->where('status', TelegramFolderMembership::STATUS_ACTIVE)
             ->first();
 
-        if ($existingMembership) {
-            Log::info('PremiumFolder: membership already exists, skipping', [
+        if ($existingForOrder) {
+            Log::info('PremiumFolder: membership already exists for this order, skipping', [
                 'order_id' => $order->id,
-                'membership_id' => $existingMembership->id,
+                'membership_id' => $existingForOrder->id,
             ]);
 
             return;
@@ -137,23 +137,53 @@ class ExecuteTelegramPremiumFolderOrderJob implements ShouldQueue
             $folderShareLink = isset($result['folder_share_link']) ? (string) $result['folder_share_link'] : null;
             $folderShareSlug = isset($result['folder_share_slug']) ? (string) $result['folder_share_slug'] : null;
 
-            TelegramFolderMembership::query()->create([
-                'order_id' => $order->id,
-                'mtproto_telegram_account_id' => $account->id,
-                'target_link' => $link,
-                'target_link_hash' => $linkHash,
-                'peer_type' => $telegram['chat_type'] ?? null,
-                'target_username' => isset($parsed['username']) ? strtolower((string) $parsed['username']) : null,
-                'target_peer_id' => $peerSummary,
-                'folder_id' => $folderId,
-                'folder_title' => $account->premium_folder_title,
-                'folder_share_link' => $folderShareLink,
-                'folder_share_slug' => $folderShareSlug,
-                'added_at' => now(),
-                'remove_at' => now()->addDays(max(1, $durationDays)),
-                'status' => TelegramFolderMembership::STATUS_ACTIVE,
-                'last_error' => null,
-            ]);
+            $newRemoveAt = now()->addDays(max(1, $durationDays));
+
+            // If this channel already has an ACTIVE membership in this folder — just extend it.
+            // No duplicate row. One channel = one membership row.
+            $existingForChannel = TelegramFolderMembership::query()
+                ->where('folder_id', $folderId)
+                ->where('target_link_hash', $linkHash)
+                ->where('status', TelegramFolderMembership::STATUS_ACTIVE)
+                ->first();
+
+            if ($existingForChannel) {
+                $extendedRemoveAt = $existingForChannel->remove_at->gt($newRemoveAt)
+                    ? $existingForChannel->remove_at
+                    : $newRemoveAt;
+
+                $existingForChannel->update([
+                    'order_id' => $order->id,
+                    'remove_at' => $extendedRemoveAt,
+                    'folder_share_link' => $folderShareLink ?? $existingForChannel->folder_share_link,
+                    'folder_share_slug' => $folderShareSlug ?? $existingForChannel->folder_share_slug,
+                    'last_error' => null,
+                ]);
+
+                Log::info('PremiumFolder: extended existing membership', [
+                    'order_id' => $order->id,
+                    'membership_id' => $existingForChannel->id,
+                    'remove_at' => $extendedRemoveAt->toDateTimeString(),
+                ]);
+            } else {
+                TelegramFolderMembership::query()->create([
+                    'order_id' => $order->id,
+                    'mtproto_telegram_account_id' => $account->id,
+                    'target_link' => $link,
+                    'target_link_hash' => $linkHash,
+                    'peer_type' => $telegram['chat_type'] ?? null,
+                    'target_username' => isset($parsed['username']) ? strtolower((string) $parsed['username']) : null,
+                    'target_peer_id' => $peerSummary,
+                    'folder_id' => $folderId,
+                    'folder_title' => $account->premium_folder_title,
+                    'folder_share_link' => $folderShareLink,
+                    'folder_share_slug' => $folderShareSlug,
+                    'added_at' => now(),
+                    'remove_at' => $newRemoveAt,
+                    'status' => TelegramFolderMembership::STATUS_ACTIVE,
+                    'last_error' => null,
+                ]);
+            }
 
             $providerPayload = is_array($order->provider_payload) ? $order->provider_payload : [];
             $providerPayload['telegram_premium_folder'] = array_merge(
@@ -172,6 +202,13 @@ class ExecuteTelegramPremiumFolderOrderJob implements ShouldQueue
                 $account->increment('subscription_count', 1);
             }
             $account->recordSuccess();
+
+            // Make order claimable by performers via GET /premium/getOrder.
+            // The performer needs to add the shared folder to their Telegram.
+            $order->update([
+                'status' => Order::STATUS_AWAITING,
+                'execution_phase' => Order::EXECUTION_PHASE_RUNNING,
+            ]);
 
         } finally {
             try {
