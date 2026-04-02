@@ -451,10 +451,10 @@ class TelegramTaskClaimService
             return null;
         }
 
-        // Priority: smallest remains first, random within equal
+        // Fair random distribution — every due order has equal chance.
+        // Speed limit (next_run_at) controls per-order pacing.
         $due = array_values($due);
         shuffle($due);
-        usort($due, fn ($a, $b) => $a->remains <=> $b->remains);
 
         // Batch load
         foreach (array_chunk($due, self::BATCH_SIZE) as $batch) {

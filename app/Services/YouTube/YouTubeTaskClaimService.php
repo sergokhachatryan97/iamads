@@ -56,11 +56,11 @@ class YouTubeTaskClaimService
             return null;
         }
 
-        // Priority: smallest remains first, random within equal remains.
-        // Older orders naturally have smaller remains → get slight preference.
+        // Fair random distribution — every due order has equal chance.
+        // Speed limit (next_run_at) controls per-order pacing.
+        // No remains sorting — that starves new orders.
         $due = array_values($due);
         shuffle($due);
-        usort($due, fn ($a, $b) => $a->remains <=> $b->remains);
 
         // Load full models in batches of 50, try to claim
         foreach (array_chunk($due, 50) as $batch) {
