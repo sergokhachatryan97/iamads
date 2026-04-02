@@ -92,7 +92,7 @@ return [
         'allowed_link_kinds' => ['bot_start', 'public_username'],
         'allowed_peer_types' => ['bot'],
         'requires_duration_days' => false,
-        'requires_start_param' => true,
+        'requires_start_param' => false,
         'default_priority' => 50,
     ],
 
