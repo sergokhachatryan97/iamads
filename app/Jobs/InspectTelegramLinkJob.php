@@ -271,55 +271,55 @@ class InspectTelegramLinkJob implements ShouldQueue
                 return;
             }
 
-            if ($template && TelegramSystemManagedTemplate::isSystemManagedTemplateKey($order->service->template_key)) {
-                $folderCfg = is_array($providerPayload['telegram_premium_folder'] ?? null)
-                    ? $providerPayload['telegram_premium_folder']
-                    : [];
-                $duration = (int) ($folderCfg['duration_days'] ?? 0);
-                $durationOpts = $template['duration_options'] ?? [30];
-                if (! in_array($duration, $durationOpts, true)) {
-                    $errorMessage = 'Invalid or missing subscription duration for this service';
-
-                    $order->update([
-                        'status' => Order::STATUS_INVALID_LINK,
-                        'provider_last_error' => $errorMessage,
-                        'provider_last_error_at' => now(),
-                        'provider_sending_at' => null,
-                        'provider_payload' => $providerPayload,
-                    ]);
-
-                    $orderService->refundInvalid($order, $errorMessage);
-
-                    Log::warning('System-managed Telegram order failed duration validation', [
-                        'order_id' => $this->orderId,
-                        'duration' => $duration,
-                    ]);
-
-                    return;
-                }
-
-                $providerPayload['execution_meta'] = [
-                    'system_managed' => true,
-                    'template_key' => $order->service->template_key,
-                    'action' => (string) ($template['action'] ?? 'folder_add'),
-                ];
-
-                $order->update([
-                    'status' => Order::STATUS_PROCESSING,
-                    'execution_phase' => null,
-                    'start_count' => (int) ($inspectionResult['member_count'] ?? 0),
-                    'provider_last_error' => null,
-                    'provider_last_error_at' => null,
-                    'provider_sending_at' => null,
-                    'provider_payload' => $providerPayload,
-                ]);
-
-                ExecuteTelegramPremiumFolderOrderJob::dispatch($order->id)
-                    ->onQueue('tg-inspect')
-                    ->afterCommit();
-
-                return;
-            }
+//            if ($template && TelegramSystemManagedTemplate::isSystemManagedTemplateKey($order->service->template_key)) {
+//                $folderCfg = is_array($providerPayload['telegram_premium_folder'] ?? null)
+//                    ? $providerPayload['telegram_premium_folder']
+//                    : [];
+//                $duration = (int) ($folderCfg['duration_days'] ?? 0);
+//                $durationOpts = $template['duration_options'] ?? [30];
+//                if (! in_array($duration, $durationOpts, true)) {
+//                    $errorMessage = 'Invalid or missing subscription duration for this service';
+//
+//                    $order->update([
+//                        'status' => Order::STATUS_INVALID_LINK,
+//                        'provider_last_error' => $errorMessage,
+//                        'provider_last_error_at' => now(),
+//                        'provider_sending_at' => null,
+//                        'provider_payload' => $providerPayload,
+//                    ]);
+//
+//                    $orderService->refundInvalid($order, $errorMessage);
+//
+//                    Log::warning('System-managed Telegram order failed duration validation', [
+//                        'order_id' => $this->orderId,
+//                        'duration' => $duration,
+//                    ]);
+//
+//                    return;
+//                }
+//
+//                $providerPayload['execution_meta'] = [
+//                    'system_managed' => true,
+//                    'template_key' => $order->service->template_key,
+//                    'action' => (string) ($template['action'] ?? 'folder_add'),
+//                ];
+//
+//                $order->update([
+//                    'status' => Order::STATUS_PROCESSING,
+//                    'execution_phase' => null,
+//                    'start_count' => (int) ($inspectionResult['member_count'] ?? 0),
+//                    'provider_last_error' => null,
+//                    'provider_last_error_at' => null,
+//                    'provider_sending_at' => null,
+//                    'provider_payload' => $providerPayload,
+//                ]);
+//
+//                ExecuteTelegramPremiumFolderOrderJob::dispatch($order->id)
+//                    ->onQueue('tg-inspect')
+//                    ->afterCommit();
+//
+//                return;
+//            }
 
             // Calculate execution metadata using new interval formula
             $action = (string) ($policy['action'] ?? 'subscribe');
