@@ -154,6 +154,17 @@ return [
         'default_priority' => 60,
     ],
 
+    'subscribe_daily_by_geo_account' => [
+        'label' => 'Channel/Group Subscribe Daily by Geo-Based Account',
+        'action' => 'subscribe',
+        'policy_key' => 'default',
+        'allowed_link_kinds' => ['public_username', 'invite'],
+        'allowed_peer_types' => ['channel', 'group', 'supergroup'],
+        'requires_duration_days' => true,
+        'requires_start_param' => false,
+        'default_priority' => 60,
+    ],
+
     'group_join' => [
         'label' => 'Join To Group',
         'action' => 'subscribe',
