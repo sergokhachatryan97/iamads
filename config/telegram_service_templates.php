@@ -223,16 +223,16 @@ return [
         'default_priority' => 50,
     ],
 
-    //    'channel_post_comment_reaction' => [
-    //        'label' => 'TG Channel Post Comment Reaction',
-    //        'action' => 'react',
-    //        'policy_key' => 'comment_reaction',
-    //        'allowed_link_kinds' => ['public_post_comment_reaction'],
-    //        'allowed_peer_types' => ['channel'],
-    //        'requires_duration_days' => false,
-    //        'requires_start_param' => false,
-    //        'default_priority' => 50,
-    //    ],
+        'channel_post_comment_reaction' => [
+            'label' => 'TG Channel Post Comment Reaction',
+            'action' => 'react',
+            'policy_key' => 'comment_reaction',
+            'allowed_link_kinds' => ['public_post_comment_reaction'],
+            'allowed_peer_types' => ['channel'],
+            'requires_duration_days' => false,
+            'requires_start_param' => false,
+            'default_priority' => 50,
+        ],
 
     //    'channel_post_comment' => [
     //        'label' => 'TG Channel Post Comment',
@@ -245,27 +245,27 @@ return [
     //        'default_priority' => 50,
     //    ],
 
-    //    'story_repost' => [
-    //        'label' => 'TG Channel Story Repost',
-    //        'action' => 'story_repost',
-    //        'policy_key' => 'story_repost',
-    //        'allowed_link_kinds' => ['story_link'],
-    //        'allowed_peer_types' => ['channel'],
-    //        'requires_duration_days' => false,
-    //        'requires_start_param' => false,
-    //        'default_priority' => 50,
-    //    ],
+        'story_repost' => [
+            'label' => 'TG Channel Story Repost',
+            'action' => 'story_repost',
+            'policy_key' => 'story_repost',
+            'allowed_link_kinds' => ['story_link'],
+            'allowed_peer_types' => ['channel'],
+            'requires_duration_days' => false,
+            'requires_start_param' => false,
+            'default_priority' => 50,
+        ],
 
-    //    'story_like' => [
-    //        'label' => 'TG Channel Story Like',
-    //        'action' => 'story_like',
-    //        'policy_key' => 'story_like',
-    //        'allowed_link_kinds' => ['story_link'],
-    //        'allowed_peer_types' => ['channel'],
-    //        'requires_duration_days' => false,
-    //        'requires_start_param' => false,
-    //        'default_priority' => 50,
-    //    ],
+        'story_like' => [
+            'label' => 'TG Channel Story Like',
+            'action' => 'story_like',
+            'policy_key' => 'story_like',
+            'allowed_link_kinds' => ['story_link'],
+            'allowed_peer_types' => ['channel'],
+            'requires_duration_days' => false,
+            'requires_start_param' => false,
+            'default_priority' => 50,
+        ],
 
     //    'invite_subscribers_from_other_channel' => [
     //        'label' => 'Invite Subscribers From Other Channel',
