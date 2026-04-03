@@ -46,7 +46,7 @@ Route::post('webhooks/payments/{provider}', [PaymentWebhookController::class, 'h
 
 // Provider-style API (Socpanel / Perfect Panel compatible)
 // POST /api/v2 with JSON body: key, action, and action-specific fields
-Route::get('v2', [ProviderApiController::class, 'handle'])
+Route::post('v2', [ProviderApiController::class, 'handle'])
     ->middleware('auth.provider_api_key')
     ->name('provider-api.v2');
 

@@ -5,7 +5,9 @@ namespace App\Services;
 use App\Models\Client;
 use App\Models\FastOrder;
 use App\Models\Service;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -62,9 +64,9 @@ class FastOrderService
 
     /**
      * Simulate payment success: create client, create real order(s), link fast order.
-     * Real payment callback should call this same method.
+     * Real payment webhook should call this same method with the gateway reference.
      */
-    public function markAsPaidAndConvert(FastOrder $fastOrder): array
+    public function markAsPaidAndConvert(FastOrder $fastOrder, ?string $paymentReference = null): array
     {
         if ($fastOrder->status === FastOrder::STATUS_CONVERTED && $fastOrder->order_id !== null) {
             return $this->buildConversionResponse($fastOrder);
@@ -76,12 +78,13 @@ class FastOrderService
             ]);
         }
 
-        return DB::transaction(function () use ($fastOrder) {
+        return DB::transaction(function () use ($fastOrder, $paymentReference) {
             $plainPassword = Str::random(16);
             $email = $this->generateUniqueGuestEmail();
+            $guestName = $this->generateUniqueGuestUsername();
 
             $client = Client::create([
-                'name' => 'Fast Order User',
+                'name' => $guestName,
                 'email' => $email,
                 'password' => $plainPassword,
                 'balance' => (float) $fastOrder->total_amount,
@@ -98,11 +101,23 @@ class FastOrderService
             $fastOrder->update([
                 'status' => FastOrder::STATUS_CONVERTED,
                 'payment_status' => FastOrder::PAYMENT_STATUS_PAID,
-                'payment_reference' => 'simulated_'.Str::random(8),
+                'payment_reference' => $paymentReference ?? ('simulated_'.Str::random(8)),
                 'generated_email' => $email,
                 'client_id' => $client->id,
                 'order_id' => $firstOrder?->id,
             ]);
+
+            $uuid = $fastOrder->fresh()->uuid;
+            $clientId = $client->id;
+
+            DB::afterCommit(function () use ($uuid, $clientId, $plainPassword) {
+                $ttl = now()->addMinutes(30);
+                Cache::put('fast_order_auto_login:'.$uuid, [
+                    'client_id' => $clientId,
+                    'plain_password' => $plainPassword,
+                ], $ttl);
+                Cache::put('fast_order_return_gate:'.$uuid, true, $ttl);
+            });
 
             return $this->buildConversionResponse($fastOrder->fresh(), $plainPassword);
         });
@@ -157,6 +172,22 @@ class FastOrderService
         throw new \RuntimeException('Unable to generate unique guest email.');
     }
 
+    /**
+     * Guest display name; must not collide with existing clients.
+     */
+    private function generateUniqueGuestUsername(): string
+    {
+        $maxAttempts = 50;
+        for ($i = 0; $i < $maxAttempts; $i++) {
+            $name = 'User_'.Str::lower(Str::random(8));
+            if (! Client::query()->where('name', $name)->exists()) {
+                return $name;
+            }
+        }
+
+        return 'User_'.Str::lower(Str::random(16));
+    }
+
     private function buildConversionResponse(FastOrder $fastOrder, ?string $plainPassword = null): array
     {
         $fastOrder->load(['client', 'order', 'order.service', 'order.category']);
@@ -170,7 +201,7 @@ class FastOrderService
             $credentials['password'] = $plainPassword;
         }
 
-        return [
+        $response = [
             'fast_order' => [
                 'uuid' => $fastOrder->uuid,
                 'status' => $fastOrder->status,
@@ -192,5 +223,15 @@ class FastOrderService
             ] : null,
             'credentials' => $credentials,
         ];
+
+        if ($plainPassword !== null) {
+            $response['auto_login_url'] = URL::temporarySignedRoute(
+                'fast-order.session',
+                now()->addMinutes(30),
+                ['uuid' => $fastOrder->uuid]
+            );
+        }
+
+        return $response;
     }
 }

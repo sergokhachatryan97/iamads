@@ -59,8 +59,11 @@ class CategoryRepository implements CategoryRepositoryInterface
         // Don't filter if only category_id is set (we want to show the category even if empty)
         $shouldFilterEmpty = !empty($filters['show_deleted']) && $filters['show_deleted'] === '1';
         
-        if ($shouldFilterEmpty || ((!empty($filters['search']) || !empty($filters['min']) || !empty($filters['max']) || 
-            (!empty($filters['status']) && $filters['status'] !== 'all')) && empty($filters['category_id']))) {
+        $favoritesOnly = !empty($filters['favorites_only']) && ($filters['favorites_only'] === '1' || $filters['favorites_only'] === true || $filters['favorites_only'] === 1);
+
+        if ($shouldFilterEmpty || ((!empty($filters['search']) || !empty($filters['min']) || !empty($filters['max']) ||
+            (!empty($filters['status']) && $filters['status'] !== 'all') ||
+            $favoritesOnly) && empty($filters['category_id']))) {
             $categories = $categories->filter(function ($category) {
                 return $category->services->isNotEmpty();
             })->values();
@@ -120,6 +123,17 @@ class CategoryRepository implements CategoryRepositoryInterface
         // Status filter
         if (!empty($filters['status']) && $filters['status'] !== 'all') {
             $query->where('is_active', $filters['status'] === 'active' ? 1 : 0);
+        }
+
+        // Client favorites-only list
+        if (!empty($filters['favorites_only']) && ($filters['favorites_only'] === '1' || $filters['favorites_only'] === true || $filters['favorites_only'] === 1)) {
+            $ids = $filters['favorite_service_ids'] ?? [];
+            $ids = is_array($ids) ? array_values(array_filter($ids, static fn ($id) => $id !== null && $id !== '')) : [];
+            if (count($ids) > 0) {
+                $query->whereIn('id', $ids);
+            } else {
+                $query->whereRaw('0 = 1');
+            }
         }
 
         // Sorting

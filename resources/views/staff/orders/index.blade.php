@@ -198,44 +198,44 @@
                      x-cloak
                      class="mt-4 border-t border-gray-200 pt-4">
                     <div id="staff-orders-advanced-filters-root">
-                    <form method="GET" action="{{ route('staff.orders.index') }}" class="staff-orders-filter-form flex flex-wrap">
+                    <form method="GET" action="{{ route('staff.orders.index') }}" class="staff-orders-filter-form flex w-full min-w-0 flex-wrap items-end gap-x-4 gap-y-3">
                         @if(request()->has('status') && request('status') !== 'all')
                             <input type="hidden" name="status" value="{{ request('status') }}">
                         @endif
-                        <div>
+                        <div class="min-w-0 w-full shrink-0 basis-full sm:basis-[11rem] sm:w-auto sm:flex-1 sm:min-w-[10rem]">
                             <label for="filter-category" class="mb-1 block text-xs font-medium text-gray-500">{{ __('Category') }}</label>
-                            <select name="category_id" id="filter-category" class="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500">
+                            <select name="category_id" id="filter-category" class="w-full max-w-full rounded-full border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500">
                                 <option value="">{{ __('All') }}</option>
                                 @foreach($categories ?? [] as $cat)
                                     <option value="{{ $cat->id }}" {{ ($filterCategoryId ?? '') == $cat->id ? 'selected' : '' }}>{{ $cat->name }}</option>
                                 @endforeach
                             </select>
                         </div>
-                        <div style="padding: 0 10px 0 10px">
+                        <div class="min-w-0 w-full shrink-0 basis-full sm:basis-[14rem] sm:w-auto sm:flex-[1.35] sm:min-w-[12rem]">
                             <label for="filter-service" class="mb-1 block text-xs font-medium text-gray-500">{{ __('Service') }}</label>
-                            <select name="service_id" id="filter-service" class="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500">
+                            <select name="service_id" id="filter-service" class="w-full max-w-full rounded-full border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500">
                                 <option value="">{{ __('All') }}</option>
                                 @foreach($services ?? [] as $svc)
                                     <option value="{{ $svc->id }}" {{ ($filterServiceId ?? '') == $svc->id ? 'selected' : '' }}>ID{{ $svc->id }} - {{ Str::limit($svc->name, 40) }}</option>
                                 @endforeach
                             </select>
                         </div>
-                        <div>
+                        <div class="min-w-0 w-full shrink-0 basis-full sm:w-auto sm:max-w-full">
                             <label for="filter-date-from" class="mb-1 block text-xs font-medium text-gray-500">{{ __('Date') }}</label>
-                            <div class="flex gap-2">
+                            <div class="flex min-w-0 flex-wrap gap-2">
                                 <input type="date" name="date_from" id="filter-date-from" value="{{ $filterDateFrom ?? '' }}"
-                                       class="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500">
+                                       class="min-w-0 flex-1 rounded-full border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 sm:min-w-[9.5rem] sm:flex-none">
                                 <input type="date" name="date_to" id="filter-date-to" value="{{ $filterDateTo ?? '' }}"
-                                       class="rounded-full border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500">
+                                       class="min-w-0 flex-1 rounded-full border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 sm:min-w-[9.5rem] sm:flex-none">
                             </div>
                         </div>
-                        <div class="gap-2" style="margin: auto; margin-top: 16px">
-                            <button type="submit" class="rounded-full bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                        <div class="flex w-full min-w-0 shrink-0 items-center justify-end gap-2 sm:ml-auto sm:w-auto sm:justify-start">
+                            <button type="submit" class="inline-flex h-10 shrink-0 items-center justify-center rounded-full border border-indigo-600 bg-indigo-600 px-5 text-sm font-semibold text-white box-border hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
                                 {{ __('Apply') }}
                             </button>
                             <a href="{{ route('staff.orders.index', array_filter(['status' => request('status') !== 'all' ? request('status') : null])) }}"
-                               class="inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                               class="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-full border border-gray-300 bg-white px-5 text-sm font-semibold text-gray-700 box-border hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                                <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                                 </svg>
                                 {{ __('Reset filter') }}

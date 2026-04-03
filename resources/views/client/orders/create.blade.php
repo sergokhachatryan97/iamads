@@ -1,14 +1,173 @@
-<x-client-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('New Order') }}
-        </h2>
-    </x-slot>
+<x-client-layout :title="__('New Order')">
+    <style>
+        .new-order-page { max-width: 540px; margin: 0 auto; padding: 8px 0 48px; }
+        .new-order-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 26px 22px 28px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+        }
+        [data-theme="light"] .new-order-card { box-shadow: 0 12px 40px rgba(0, 0, 0, 0.06); }
+        .new-order-card-head { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
+        .new-order-card-icon {
+            width: 44px; height: 44px; border-radius: 50%;
+            background: var(--purple);
+            color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; flex-shrink: 0;
+        }
+        .new-order-card-title { margin: 0; font-size: 1.35rem; font-weight: 800; color: var(--text); letter-spacing: -0.02em; }
+        .new-order-lab {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 13px; font-weight: 600; color: var(--text2);
+            margin-bottom: 8px;
+        }
+        .new-order-lab i { width: 18px; text-align: center; color: var(--purple-light); opacity: 0.95; }
+        .new-order-page select,
+        .new-order-page input[type="text"],
+        .new-order-page input[type="number"],
+        .new-order-page input[type="url"],
+        .new-order-page textarea {
+            width: 100%;
+            padding: 12px 14px !important;
+            border-radius: 12px !important;
+            border: 1px solid var(--border) !important;
+            background: rgba(0, 0, 0, 0.28) !important;
+            color: var(--text) !important;
+            font-size: 14px !important;
+            box-shadow: none !important;
+        }
+        [data-theme="light"] .new-order-page select,
+        [data-theme="light"] .new-order-page input[type="text"],
+        [data-theme="light"] .new-order-page input[type="number"],
+        [data-theme="light"] .new-order-page input[type="url"],
+        [data-theme="light"] .new-order-page textarea {
+            background: var(--card2) !important;
+        }
+        .new-order-page select:focus,
+        .new-order-page input:focus,
+        .new-order-page textarea:focus {
+            border-color: var(--purple-light) !important;
+            outline: none !important;
+            ring: none !important;
+            box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.2) !important;
+        }
+        .new-order-page select:disabled {
+            opacity: 0.65;
+            cursor: not-allowed;
+        }
+        .new-order-page select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%238892a4'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E") !important;
+            background-repeat: no-repeat !important;
+            background-position: right 12px center !important;
+            background-size: 18px !important;
+            padding-right: 40px !important;
+        }
+        .new-order-page label.block.text-sm.font-medium.text-gray-700,
+        .new-order-page label.block.text-sm.font-semibold.text-gray-800 {
+            color: var(--text2) !important;
+        }
+        .new-order-tabs { border-bottom-color: var(--border) !important; margin-bottom: 22px !important; }
+        .new-order-tabs button {
+            color: var(--text3) !important;
+            border-color: transparent !important;
+        }
+        .new-order-tabs button.border-indigo-500 {
+            color: var(--purple-light) !important;
+            border-color: var(--purple) !important;
+        }
+        .new-order-page .bg-red-100 {
+            background: rgba(225, 112, 85, 0.12) !important;
+            border-color: rgba(225, 112, 85, 0.4) !important;
+            color: #fab1a0 !important;
+        }
+        .new-order-page .text-red-600, .new-order-page .text-red-700 { color: #ff7675 !important; }
+        .new-order-page .bg-gray-50,
+        .new-order-page .bg-indigo-50 {
+            background: rgba(0, 0, 0, 0.2) !important;
+            border-color: var(--border) !important;
+        }
+        .new-order-page .text-gray-700, .new-order-page .text-gray-800, .new-order-page .text-gray-900 {
+            color: var(--text2) !important;
+        }
+        .new-order-page .text-gray-500, .new-order-page .text-gray-600 { color: var(--text3) !important; }
+        .new-order-page .border-gray-200, .new-order-page .border-gray-300 { border-color: var(--border) !important; }
+        .new-order-total-box {
+            text-align: center;
+            padding: 20px 16px;
+            border-radius: 14px;
+            margin: 22px 0 8px;
+            background: linear-gradient(145deg, rgba(0, 210, 211, 0.12), rgba(108, 92, 231, 0.1));
+            border: 1px solid rgba(0, 210, 211, 0.25);
+        }
+        .new-order-total-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); margin-bottom: 6px; }
+        .new-order-total-amount { font-size: 2rem; font-weight: 800; color: var(--teal); letter-spacing: -0.02em; }
+        .new-order-total-hint { font-size: 12px; color: var(--text3); margin-top: 8px; }
+        .new-order-submit {
+            width: 100%;
+            margin-top: 20px;
+            padding: 15px 20px;
+            border: none;
+            border-radius: 14px;
+            background: var(--purple);
+            color: #fff !important;
+            font-size: 14px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: 0 6px 24px rgba(108, 92, 231, 0.4);
+            transition: filter 0.15s;
+        }
+        .new-order-submit:hover:not(:disabled) { filter: brightness(1.06); }
+        .new-order-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+        .new-order-actions { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+        .new-order-cancel { text-align: center; font-size: 13px; color: var(--text3); text-decoration: none; }
+        .new-order-cancel:hover { color: var(--text2); }
+        .new-order-icon-x {
+            width: 38px;
+            height: 38px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 118, 117, 0.45);
+            background: rgba(255, 118, 117, 0.1);
+            color: #ff7675;
+            font-size: 15px;
+            line-height: 1;
+            cursor: pointer;
+            transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.12s ease;
+        }
+        .new-order-icon-x:hover {
+            background: rgba(255, 118, 117, 0.22);
+            border-color: rgba(255, 154, 153, 0.7);
+            color: #fab1a0;
+        }
+        .new-order-icon-x:active { transform: scale(0.96); }
+        [data-theme="light"] .new-order-icon-x {
+            border-color: rgba(220, 38, 38, 0.35);
+            background: rgba(220, 38, 38, 0.08);
+            color: #dc2626;
+        }
+        [data-theme="light"] .new-order-icon-x:hover {
+            background: rgba(220, 38, 38, 0.14);
+            border-color: rgba(220, 38, 38, 0.5);
+            color: #b91c1c;
+        }
+        .new-order-charge-legacy { display: none !important; }
+    </style>
 
-    <div class="py-12">
-        <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6 text-gray-900">
+    <div class="new-order-page">
+        <div class="new-order-card">
                     @if ($errors->any())
                         @php
                             $errorLabels = [
@@ -53,9 +212,14 @@
                         </div>
                     @endif
 
+                    <div class="new-order-card-head">
+                        <span class="new-order-card-icon" aria-hidden="true"><i class="fa-solid fa-plus"></i></span>
+                        <h1 class="new-order-card-title">{{ __('New Order') }}</h1>
+                    </div>
+
                     <div x-data="orderForm()" x-init="init()">
                         <!-- Tabs -->
-                        <div class="mb-6 border-b border-gray-200">
+                        <div class="mb-6 border-b border-gray-200 new-order-tabs">
                             <nav class="-mb-px flex space-x-8" aria-label="Tabs">
                                 <button
                                     type="button"
@@ -80,10 +244,11 @@
                             @csrf
                             <input type="hidden" name="form_type" value="single">
 
-                            <!-- Category -->
+                            <!-- Category (platform / social media) -->
                             <div class="mb-6">
-                                <label for="category_id" class="block text-sm font-medium text-gray-700 mb-2">
-                                    {{ __('Category') }} <span class="text-red-500">*</span>
+                                <label for="category_id" class="new-order-lab">
+                                    <i class="fa-solid fa-globe" aria-hidden="true"></i>
+                                    {{ __('common.social_media') }} <span class="text-red-400">*</span>
                                 </label>
                                 <select
                                     id="category_id"
@@ -92,7 +257,7 @@
                                     @change="onCategoryChange(); if (categoryId) loadServices()"
                                     required
                                     class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                                    <option value="">{{ __('Select a category') }}</option>
+                                    <option value="">{{ __('common.select_platform') }}</option>
                                     @foreach($categories as $category)
                                         <option value="{{ $category->id }}" {{ old('category_id', $preselectedCategoryId ?? '') == $category->id ? 'selected' : '' }}>{{ $category->name }}</option>
                                     @endforeach
@@ -104,8 +269,9 @@
 
                             <!-- Service -->
                             <div class="mb-6">
-                                <label for="service_id" class="block text-sm font-medium text-gray-700 mb-2">
-                                    {{ __('Service') }} <span class="text-red-500">*</span>
+                                <label for="service_id" class="new-order-lab">
+                                    <i class="fa-solid fa-gear" aria-hidden="true"></i>
+                                    {{ __('Service') }} <span class="text-red-400">*</span>
                                 </label>
                                 <select
                                     id="service_id"
@@ -115,7 +281,7 @@
                                     :disabled="!categoryId || loading"
                                     :required="categoryId"
                                     class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed">
-                                    <option value="" x-text="loading ? '{{ __('Loading...') }}' : '{{ __('Select a service') }}'"></option>
+                                    <option value="" x-text="loading ? '{{ __('Loading...') }}' : '{{ __('common.select_service_placeholder') }}'"></option>
                                     <template x-for="service in (Array.isArray(services) ? services : [])" :key="'service-' + service.id">
                                         <option :value="service.id" :selected="serviceId == service.id" x-text="service.name"></option>
                                     </template>
@@ -211,9 +377,10 @@
 
                             <!-- Link field for custom_comments (uses category link type) -->
                             <div class="mb-6" x-show="selectedService?.service_type === 'custom_comments'">
-                                <label for="comments_link" class="block text-sm font-medium text-gray-700 mb-2">
+                                <label for="comments_link" class="new-order-lab">
+                                    <i class="fa-solid fa-link" aria-hidden="true"></i>
                                     {{ __('Link') }}
-                                    <span class="text-red-500">*</span>
+                                    <span class="text-red-400">*</span>
                                 </label>
                                 <input
                                     type="text"
@@ -419,6 +586,7 @@
                                                         :required="selectedService?.service_type !== 'custom_comments' && selectedService?.template_key !== 'invite_subscribers_from_other_channel'"
                                                         :disabled="selectedService?.template_key === 'invite_subscribers_from_other_channel'"
                                                         :class="getTargetError(index, 'quantity') ? 'border-red-300' : 'border-gray-300'"
+                                                        placeholder="{{ __('common.enter_quantity') }}"
                                                         class="no-spinner block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm pr-12">
                                                     <div class="absolute inset-y-0 right-0 flex flex-col justify-center">
                                                         <button
@@ -445,13 +613,15 @@
                                                 </div>
                                                 <p x-show="getTargetError(index, 'quantity')" class="mt-1 text-xs text-red-600" x-text="getTargetError(index, 'quantity')"></p>
                                             </div>
-                                            <div class="pt-6">
+                                            <div class="flex items-center pt-6 flex-shrink-0">
                                                 <button
                                                     type="button"
                                                     @click="removeTargetRow(index)"
                                                     x-show="targets.length > 1"
-                                                    class="px-3 py-2 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors">
-                                                    {{ __('Remove') }}
+                                                    class="new-order-icon-x"
+                                                    aria-label="{{ __('Remove') }}"
+                                                    title="{{ __('Remove') }}">
+                                                    <i class="fa-solid fa-xmark" aria-hidden="true"></i>
                                                 </button>
                                             </div>
                                         </div>
@@ -571,7 +741,7 @@
                             <!-- Service Info -->
                             <div class="mt-4 p-3 bg-gray-50 rounded-md" x-show="selectedService">
                                 <!-- Fixed order price (e.g. premium folder: one unit, no per-1000 framing) -->
-                                <div class="text-sm text-gray-800" x-show="selectedService?.hide_quantity === true" x-cloak>
+                                <div class="text-sm text-gray-800 new-order-charge-legacy" x-show="selectedService?.hide_quantity === true" x-cloak>
                                     <p>
                                         <span class="font-medium">{{ __('Order price') }}:</span>
                                         $<span x-text="Number(calculateCharge() || 0).toFixed(2)"></span>
@@ -630,30 +800,36 @@
                                 </div>
                             </div>
 
-                            <p class="mt-2 text-sm text-gray-700" x-show="selectedService?.service_type === 'custom_comments' && commentsCount > 0">
+                            <p class="mt-2 text-sm text-gray-700 new-order-charge-legacy" x-show="selectedService?.service_type === 'custom_comments' && commentsCount > 0">
                                 {{ __('Total quantity') }}: <span x-text="commentsCount"></span> |
                                 {{ __('Estimated charge') }}: $<span x-text="(commentsTotalCharge || 0).toFixed(2)"></span>
                             </p>
 
 
-                            <p class="mt-2 text-sm text-gray-700" x-show="selectedService?.service_type !== 'custom_comments' && selectedService && getTotalQuantity() > 0 && selectedService?.hide_quantity !== true">
+                            <p class="mt-2 text-sm text-gray-700 new-order-charge-legacy" x-show="selectedService?.service_type !== 'custom_comments' && selectedService && getTotalQuantity() > 0 && selectedService?.hide_quantity !== true">
                                 {{ __('Total quantity') }}: <span x-text="getTotalQuantity()"></span> |
                                 {{ __('Estimated charge') }}: $<span x-text="Number(calculateCharge() || 0).toFixed(2)"></span>
                             </p>
 
+                            <div class="new-order-total-box">
+                                <div class="new-order-total-label">{{ __('common.total_price') }}</div>
+                                <div class="new-order-total-amount">$<span x-text="displayOrderTotalAmount"></span></div>
+                                <div class="new-order-total-hint" x-show="!selectedService">{{ __('common.select_service_pricing_hint') }}</div>
+                            </div>
+
                             <!-- Submit Button -->
-                            <div class="flex items-center justify-end gap-4 mt-6">
-                                <a href="{{ route('client.orders.index') }}"
-                                   class="text-sm text-gray-600 hover:text-gray-900">
-                                    {{ __('Cancel') }}
-                                </a>
+                            <div class="new-order-actions">
                                 <button
                                     type="submit"
                                     :disabled="submitting"
-                                    class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition ease-in-out duration-150">
-                                    <span x-show="!submitting">Create</span>
+                                    class="new-order-submit">
+                                    <i class="fa-solid fa-paper-plane" aria-hidden="true"></i>
+                                    <span x-show="!submitting">{{ __('home.place_order') }}</span>
                                     <span x-show="submitting">{{ __('Creating...') }}</span>
                                 </button>
+                                <a href="{{ route('client.orders.index') }}" class="new-order-cancel">
+                                    {{ __('Cancel') }}
+                                </a>
                             </div>
                         </form>
 
@@ -664,10 +840,11 @@
                             @csrf
                             <input type="hidden" name="form_type" value="multi">
 
-                            <!-- Category -->
+                            <!-- Category (platform) -->
                             <div class="mb-6">
-                                <label for="multi_category_id" class="block text-sm font-medium text-gray-700 mb-2">
-                                    {{ __('Category') }} <span class="text-red-500">*</span>
+                                <label for="multi_category_id" class="new-order-lab">
+                                    <i class="fa-solid fa-globe" aria-hidden="true"></i>
+                                    {{ __('common.social_media') }} <span class="text-red-400">*</span>
                                 </label>
                                 <select
                                     id="multi_category_id"
@@ -676,7 +853,7 @@
                                     @change="loadMultiServices"
                                     required
                                     class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                                    <option value="">{{ __('Select a category') }}</option>
+                                    <option value="">{{ __('common.select_platform') }}</option>
                                     @foreach($categories as $category)
                                         <option value="{{ $category->id }}" {{ old('category_id', $preselectedCategoryId ?? '') == $category->id ? 'selected' : '' }}>{{ $category->name }}</option>
                                     @endforeach
@@ -688,8 +865,9 @@
 
                             <!-- Link (Single) -->
                             <div class="mb-6">
-                                <label for="multi_link" class="block text-sm font-medium text-gray-700 mb-2">
-                                    {{ __('Link') }} <span class="text-red-500">*</span>
+                                <label for="multi_link" class="new-order-lab">
+                                    <i class="fa-solid fa-link" aria-hidden="true"></i>
+                                    {{ __('Link') }} <span class="text-red-400">*</span>
                                 </label>
                                 <input
                                     type="text"
@@ -697,6 +875,7 @@
                                     name="link"
                                     x-model="multiLink"
                                     @input="multiLinkValid = validateLink(multiLink, multiLinkType)"
+                                    placeholder="{{ __('common.paste_link') }}"
                                     :class="multiLinkValid ? 'border-gray-300' : 'border-red-300'"
                                     :placeholder="linkPlaceholder(multiLinkType)"
                                     required
@@ -787,8 +966,16 @@
                                                     </template>
                                                     <p x-show="getServiceError(index, 'quantity')" class="mt-1 text-xs text-red-600" x-text="getServiceError(index, 'quantity')"></p>
                                                 </div>
-                                                <div class="w-32 pt-6">
-                                                    <button type="button" @click="removeMultiServiceRow(index)" x-show="multiSelectedServices.length > 1" class="px-3 py-2 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors">{{ __('Remove') }}</button>
+                                                <div class="flex items-center justify-center pt-6 flex-shrink-0">
+                                                    <button
+                                                        type="button"
+                                                        @click="removeMultiServiceRow(index)"
+                                                        x-show="multiSelectedServices.length > 1"
+                                                        class="new-order-icon-x"
+                                                        aria-label="{{ __('Remove') }}"
+                                                        title="{{ __('Remove') }}">
+                                                        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                                                    </button>
                                                 </div>
                                                 <div class="w-36 pt-6" x-show="serviceRow.service_id">
                                                     <div class="text-xs text-gray-600">
@@ -839,34 +1026,30 @@
                             </div>
 
                             <!-- Total Preview -->
-                            <div class="mb-6 p-4 bg-indigo-50 rounded-lg border border-indigo-200" x-show="multiSelectedServices.length > 0">
-                                <div class="flex justify-between items-center">
-                                    <span class="font-medium text-gray-900">{{ __('Total Charge') }}:</span>
-                                    <span class="text-xl font-bold text-indigo-600">$<span x-text="calculateMultiTotalCharge().toFixed(2)"></span></span>
-                                </div>
-                                <div class="mt-2 text-sm text-gray-600">
+                            <div class="new-order-total-box" x-show="multiSelectedServices.length > 0" x-cloak>
+                                <div class="new-order-total-label">{{ __('common.total_price') }}</div>
+                                <div class="new-order-total-amount">$<span x-text="calculateMultiTotalCharge().toFixed(2)"></span></div>
+                                <div class="new-order-total-hint">
                                     <span x-text="multiSelectedServices.length"></span> {{ __('service(s) selected') }}
                                 </div>
                             </div>
 
                             <!-- Submit Button -->
-                            <div class="flex items-center justify-end gap-4 mt-6">
-                                <a href="{{ route('client.orders.index') }}"
-                                   class="text-sm text-gray-600 hover:text-gray-900">
-                                    {{ __('Cancel') }}
-                                </a>
+                            <div class="new-order-actions">
                                 <button
                                     type="submit"
                                     :disabled="submitting || multiSelectedServices.length === 0"
-                                    class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition ease-in-out duration-150">
-                                    <span x-show="!submitting">{{ __('Place Orders') }}</span>
+                                    class="new-order-submit">
+                                    <i class="fa-solid fa-paper-plane" aria-hidden="true"></i>
+                                    <span x-show="!submitting">{{ __('common.place_orders') }}</span>
                                     <span x-show="submitting">{{ __('Creating...') }}</span>
                                 </button>
+                                <a href="{{ route('client.orders.index') }}" class="new-order-cancel">
+                                    {{ __('Cancel') }}
+                                </a>
                             </div>
                         </form>
                     </div>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -931,6 +1114,16 @@
                     const s = (this.multiServices || []).find(x => x.id == row.service_id);
                     return s && (s.needs_star_rating === true || s.needs_star_rating === 1);
                 },
+                get displayOrderTotalAmount() {
+                    if (!this.selectedService) {
+                        return '0.00';
+                    }
+                    if (this.selectedService.service_type === 'custom_comments') {
+                        return this.commentsTotalCharge || 0;
+                    }
+                    return this.calculateCharge() || 0;
+                },
+
                 get linkErrorMessage() {
                     return this.linkErrorForType(this.linkType);
                 },
@@ -1040,6 +1233,9 @@
                                                 target.quantity = minQty;
                                             }
                                         });
+                                        if (this.selectedService.service_type === 'custom_comments' && this.comments) {
+                                            this.calculateCommentsTotal();
+                                        }
                                     }
                                 });
                             }
@@ -1333,6 +1529,9 @@
                     if (this.selectedService?.template_key === 'telegram_premium_folder') {
                         return 1;
                     }
+                    if (this.selectedService?.template_key === 'invite_subscribers_from_other_channel') {
+                        return parseInt(this.inviteQuantity, 10) || 0;
+                    }
                     return this.targets.reduce((sum, target) => {
                         return sum + (parseInt(target.quantity) || 0);
                     }, 0);
@@ -1449,10 +1648,10 @@
                     if (!this.selectedService) return 0;
                     const rate = Number(this.selectedService.rate_per_1000) || 0;
                     if (this.selectedService.hide_quantity === true) {
-                        return Number(rate.toFixed(2));
+                        return rate;
                     }
                     const totalQty = this.getTotalQuantity();
-                    return Number(((totalQty * rate) / 1000).toFixed(2));
+                    return ((totalQty * rate) / 1000);
                 },
 
                 submitForm(event) {

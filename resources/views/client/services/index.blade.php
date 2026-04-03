@@ -1,183 +1,417 @@
-<x-client-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Services') }}
-        </h2>
-    </x-slot>
+<x-client-layout :title="__('Services')">
+    @php
+        $svcCurrentCategoryId = request('category_id', '');
+        $svcCurrentFavoritesOnly = request('favorites_only') === '1' ? '1' : '0';
+        $svcCurrentSearch = request('search', '');
+        $svcCurrentMin = request('min', '');
+        $svcCurrentMax = request('max', '');
+        $svcFiltersOpenInitial = ($svcCurrentMin !== '' && $svcCurrentMin !== null) || ($svcCurrentMax !== '' && $svcCurrentMax !== null);
+        $serviceConfig = [
+            'filtersOpen' => $svcFiltersOpenInitial,
+            'sort' => request('sort', 'id'),
+            'dir' => request('dir', 'asc'),
+            'favoriteServiceIds' => $favoriteServiceIds ?? [],
+            'categoriesList' => isset($categoriesList) ? $categoriesList->map(fn ($c) => ['id' => $c->id, 'name' => $c->name])->values()->all() : [],
+            'activeCategoryId' => (string) $svcCurrentCategoryId,
+            'activeFavoritesOnly' => $svcCurrentFavoritesOnly,
+            'activeSearch' => $svcCurrentSearch,
+        ];
+        $serviceTabCounts = $serviceTabCounts ?? ['all' => 0, 'favorites' => 0, 'categories' => []];
+    @endphp
+    <style>
+        /* Filter bar — same tokens as client orders (scoped to this page) */
+        .client-services-page .client-orders-filter-panel {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            margin-bottom: 1rem;
+            padding: 1rem;
+            overflow: visible;
+        }
+        [data-theme="light"] .client-services-page .client-orders-filter-panel {
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+        }
+        .client-services-page .client-orders-filter-panel .co-filter-toggle-idle {
+            background: rgba(0, 0, 0, 0.22) !important;
+            color: var(--text2) !important;
+            border: 1px solid var(--border);
+        }
+        .client-services-page .client-orders-filter-panel .co-filter-toggle-idle:hover {
+            background: rgba(108, 92, 231, 0.15) !important;
+            color: var(--text) !important;
+        }
+        [data-theme="light"] .client-services-page .client-orders-filter-panel .co-filter-toggle-idle {
+            background: rgba(0, 0, 0, 0.05) !important;
+        }
+        .client-services-page .client-orders-filter-panel .co-filter-toggle-active {
+            background: var(--purple) !important;
+            color: #fff !important;
+            border: 1px solid var(--purple);
+        }
+        .client-services-page .client-orders-filter-panel .co-filter-tab-idle {
+            color: var(--text3) !important;
+            border: 1px solid transparent;
+        }
+        .client-services-page .client-orders-filter-panel .co-filter-tab-idle:hover {
+            color: var(--text) !important;
+            background: rgba(108, 92, 231, 0.1) !important;
+        }
+        .client-services-page .client-orders-filter-panel .co-filter-tab-active {
+            background: var(--purple) !important;
+            color: #fff !important;
+            border-color: var(--purple) !important;
+        }
+        .client-services-page .client-orders-filter-panel .co-filter-tab-badge-idle {
+            background: rgba(0, 0, 0, 0.25) !important;
+            color: var(--text2) !important;
+        }
+        [data-theme="light"] .client-services-page .client-orders-filter-panel .co-filter-tab-badge-idle {
+            background: rgba(0, 0, 0, 0.08) !important;
+            color: var(--text2) !important;
+        }
+        .client-services-page .client-orders-filter-panel .co-filter-tab-badge-active {
+            background: rgba(255, 255, 255, 0.25) !important;
+            color: #fff !important;
+        }
+        .client-services-page .client-orders-filter-panel .co-filter-search {
+            border-color: var(--border) !important;
+            background: rgba(0, 0, 0, 0.22) !important;
+            color: var(--text) !important;
+        }
+        .client-services-page .client-orders-filter-panel .co-filter-search::placeholder {
+            color: var(--text3);
+        }
+        [data-theme="light"] .client-services-page .client-orders-filter-panel .co-filter-search {
+            background: var(--card2) !important;
+        }
+        .client-services-page .client-orders-filter-panel .co-filter-search-icon {
+            color: var(--text3) !important;
+        }
+        .client-services-page .client-orders-filter-panel .co-filter-search-clear {
+            color: var(--text3) !important;
+        }
+        .client-services-page .client-orders-filter-panel .co-filter-search-clear:hover {
+            background: rgba(108, 92, 231, 0.15) !important;
+            color: var(--text) !important;
+        }
+        .client-services-page .client-orders-filter-panel .co-filter-advanced {
+            border-top-color: var(--border) !important;
+        }
+        .client-services-page .client-orders-filter-panel .co-filter-label {
+            color: var(--text3) !important;
+        }
+        .client-services-page .client-orders-filter-panel .co-filter-field {
+            border-color: var(--border) !important;
+            background: rgba(0, 0, 0, 0.22) !important;
+            color: var(--text) !important;
+        }
+        [data-theme="light"] .client-services-page .client-orders-filter-panel .co-filter-field {
+            background: var(--card2) !important;
+        }
+        .client-services-page .client-orders-filter-panel .co-filter-apply {
+            background: var(--purple) !important;
+            border: 1px solid var(--purple) !important;
+            color: #fff !important;
+            box-sizing: border-box;
+        }
+        .client-services-page .client-orders-filter-panel .co-filter-apply:hover {
+            filter: brightness(1.06);
+        }
+        .client-services-page .client-orders-filter-panel .co-filter-reset {
+            border: 1px solid var(--border) !important;
+            background: rgba(0, 0, 0, 0.18) !important;
+            color: var(--text2) !important;
+            box-sizing: border-box;
+        }
+        .client-services-page .client-orders-filter-panel .co-filter-reset:hover {
+            background: rgba(108, 92, 231, 0.12) !important;
+            color: var(--text) !important;
+        }
+        [data-theme="light"] .client-services-page .client-orders-filter-panel .co-filter-reset {
+            background: #fff !important;
+        }
+        [data-theme="dark"] .client-services-page .client-orders-filter-panel select.co-filter-field {
+            color-scheme: dark;
+        }
+        [data-theme="dark"] .client-services-page .client-orders-filter-panel select.co-filter-field option {
+            background-color: #1a1a2e;
+            color: #ffffff;
+        }
 
-    <div class="py-12"
-         x-data="serviceManagement(@js($filters ?? []))"
+        .client-services-table-wrap {
+            width: 100%;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+            overflow: hidden;
+        }
+        [data-theme="light"] .client-services-table-wrap {
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+        }
+        .client-services-table-wrap .divide-y.divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+            border-color: var(--border) !important;
+        }
+        .client-services-table-wrap thead.bg-gray-50 {
+            background: rgba(0, 0, 0, 0.32) !important;
+        }
+        [data-theme="light"] .client-services-table-wrap thead.bg-gray-50 {
+            background: var(--card2) !important;
+        }
+        .client-services-table-wrap thead th.bg-gray-50 {
+            background: transparent !important;
+        }
+        .client-services-table-wrap thead .text-gray-500 {
+            color: var(--text3) !important;
+        }
+        .client-services-table-wrap thead .text-gray-400 {
+            color: var(--text3) !important;
+        }
+        .client-services-table-wrap thead .hover\:text-gray-700:hover {
+            color: var(--text) !important;
+        }
+        [data-theme="dark"] .client-services-table-wrap thead .text-gray-300 {
+            color: rgba(255, 255, 255, 0.35) !important;
+        }
+        [data-theme="light"] .client-services-table-wrap thead .text-gray-300 {
+            color: #d1d5db !important;
+        }
+        .client-services-table-wrap thead .text-indigo-600 {
+            color: var(--purple-light) !important;
+        }
+        .client-services-table-wrap tbody {
+            background: var(--card) !important;
+        }
+        .client-services-table-wrap tbody > tr {
+            border-color: var(--border) !important;
+        }
+        .client-services-table-wrap tbody.bg-white {
+            background: var(--card) !important;
+        }
+        .client-services-table-wrap tr.bg-gray-50 {
+            background: rgba(0, 0, 0, 0.25) !important;
+        }
+        [data-theme="light"] .client-services-table-wrap tr.bg-gray-50 {
+            background: var(--card2) !important;
+        }
+        .client-services-table-wrap tr.bg-gray-50.border-b-2.border-gray-200 {
+            border-color: var(--border) !important;
+        }
+        .client-services-table-wrap .text-gray-900 {
+            color: var(--text) !important;
+        }
+        .client-services-table-wrap .text-gray-500 {
+            color: var(--text2) !important;
+        }
+        .client-services-table-wrap .text-gray-400 {
+            color: var(--text3) !important;
+        }
+        .client-services-table-wrap tbody tr.hover\:bg-gray-50:hover {
+            background: rgba(108, 92, 231, 0.08) !important;
+        }
+        [data-theme="light"] .client-services-table-wrap tbody tr.hover\:bg-gray-50:hover {
+            background: rgba(0, 0, 0, 0.04) !important;
+        }
+        .client-services-table-wrap .hover\:bg-gray-100:hover {
+            background: rgba(108, 92, 231, 0.12) !important;
+        }
+        .client-services-table-wrap .text-indigo-600 {
+            color: var(--purple-light) !important;
+        }
+        .client-services-table-wrap .border-indigo-600 {
+            border-color: var(--purple) !important;
+        }
+        .client-services-table-wrap .hover\:bg-indigo-50:hover {
+            background: rgba(108, 92, 231, 0.15) !important;
+        }
+
+        #client-service-modals-root .client-smm-modal-backdrop {
+            background: rgba(0, 0, 0, 0.72) !important;
+        }
+        [data-theme="light"] #client-service-modals-root .client-smm-modal-backdrop {
+            background: rgba(15, 23, 42, 0.45) !important;
+        }
+        #client-service-modals-root .client-smm-modal-panel {
+            background: var(--card) !important;
+            color: var(--text);
+        }
+        #client-service-modals-root .client-smm-modal-panel .text-gray-900,
+        #client-service-modals-root .client-smm-modal-panel .text-gray-700,
+        #client-service-modals-root .client-smm-modal-panel .text-gray-600,
+        #client-service-modals-root .client-smm-modal-panel .text-gray-500 {
+            color: var(--text) !important;
+        }
+        #client-service-modals-root .client-smm-modal-panel .border-gray-200,
+        #client-service-modals-root .client-smm-modal-panel .border-gray-300 {
+            border-color: var(--border) !important;
+        }
+        #client-service-modals-root .client-smm-modal-panel .bg-white {
+            background: rgba(0, 0, 0, 0.2) !important;
+            color: var(--text2) !important;
+        }
+        #client-service-modals-root .client-smm-modal-panel .hover\:bg-gray-50:hover {
+            background: rgba(108, 92, 231, 0.12) !important;
+        }
+        [data-theme="light"] #client-service-modals-root .client-smm-modal-panel .bg-white,
+        [data-theme="light"] #client-service-modals-root .client-smm-modal-panel .hover\:bg-gray-50:hover {
+            background: var(--card2) !important;
+        }
+        #client-service-modals-root .client-smm-modal-panel .text-indigo-600 {
+            color: var(--purple-light) !important;
+        }
+        #client-service-modals-root .client-smm-modal-panel .bg-indigo-600 {
+            background: var(--purple) !important;
+        }
+        #client-service-modals-root .client-smm-modal-panel .hover\:bg-indigo-700:hover {
+            filter: brightness(1.08);
+        }
+        #client-service-modals-root .client-smm-modal-panel .text-gray-400 {
+            color: var(--text3) !important;
+        }
+        #client-service-modals-root .client-smm-modal-panel .hover\:text-gray-500:hover {
+            color: var(--text2) !important;
+        }
+
+        .client-services-loading .cs-loading-spinner {
+            border-width: 2px;
+            border-style: solid;
+            border-color: var(--border);
+            border-top-color: var(--purple);
+            border-radius: 9999px;
+        }
+        .client-services-loading {
+            color: var(--text2);
+        }
+    </style>
+    <div class="client-services-page py-12 overflow-visible"
+         x-data="serviceManagement(@js($serviceConfig))"
          @sort-table.window="sortTable($event.detail.column)"
-         @filter-applied.window="handleFormSubmit($event)"
          x-init="
              window.addEventListener('popstate', () => { window.location.reload(); });
-
-             // Initialize active filters from form inputs
              $nextTick(() => {
-                 if (typeof this.updateActiveFilters === 'function') {
-                     this.updateActiveFilters();
-                 }
-                 if (typeof this.updateFilterCount === 'function') {
-                     this.updateFilterCount();
-                 }
-                 if (typeof this.performAjaxSearch === 'function') {
-                     this.performAjaxSearch();
-                 }
-                 if (typeof this.initScrollSync === 'function') {
-                     this.initScrollSync();
-                 }
+                 if (typeof this.updateActiveFilters === 'function') this.updateActiveFilters();
+                 if (typeof this.initScrollSync === 'function') this.initScrollSync();
              });
          ">
-        <div class="max-w-[95%] mx-auto sm:px-6 lg:px-8">
-            <!-- Search Bar and Filter Button -->
-            <div class="mb-6 relative z-10" style="isolation: isolate;">
-                <form method="GET" action="{{ route('client.services.index') }}" id="filter-form" @submit.prevent="handleFormSubmit($event)">
-                    @php
-                        $currentCategoryId = request('category_id', '');
-                        $currentFavoritesOnly = request('favorites_only', '');
-                        $currentSearch = request('search', '');
+        <div class="max-w-[95%] mx-auto sm:px-6 lg:px-8 overflow-visible">
+            <div class="client-orders-filter-panel relative z-10"
+                 @submit.capture.prevent="handleFormSubmit($event)">
+                <form method="GET" action="{{ route('client.services.index') }}" id="filter-form" class="client-services-filter-form flex flex-wrap items-center gap-3">
+                    <input type="hidden" name="sort" :value="currentSort">
+                    <input type="hidden" name="dir" :value="currentDir">
+                    <input type="hidden" name="category_id" :value="activeCategoryId">
+                    <input type="hidden" name="favorites_only" :value="activeFavoritesOnly">
 
-                        // Calculate initial filter count
-                        $initialFilterCount = 0;
-                        if ($currentCategoryId) $initialFilterCount++;
-                        if ($currentFavoritesOnly === '1') $initialFilterCount++;
-                        if ($currentSearch) $initialFilterCount++;
-                    @endphp
+                    <button type="button"
+                            @click="filtersOpen = !filtersOpen"
+                            :class="filtersOpen ? 'co-filter-toggle-active' : 'co-filter-toggle-idle'"
+                            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-[var(--card)]"
+                            title="{{ __('Filters') }}"
+                            :aria-expanded="filtersOpen">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+                        </svg>
+                    </button>
 
-                    <!-- Hidden inputs for filters (initialized from URL parameters) -->
-                    <input type="hidden" name="category_id" value="{{ $currentCategoryId }}">
-                    <input type="hidden" name="favorites_only" value="{{ $currentFavoritesOnly === '1' ? '1' : '0' }}">
-
-                    <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 mb-4 justify-end">
-                        <!-- Filter Button with Badge -->
-                        <x-filter-button count="activeFiltersCount">
-                            <x-slot name="trigger">
-                                <button
-                                    type="button"
-                                    class="relative inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                                >
-                                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
-                                    </svg>
-                                </button>
-                            </x-slot>
-
-                            <x-slot name="dropdown">
-                                @php
-                                    $currentCategoryId = request('category_id', '');
-                                    $currentFavoritesOnly = request('favorites_only', '');
-                                @endphp
-
-                                <!-- Filter List -->
-                                <div class="space-y-1">
-                                    <!-- All Option -->
-                                    <button type="button"
-                                            @click="selectFilter('', false); $dispatch('close-filter-dropdown');"
-                                            class="w-full text-left px-3 py-2 text-sm rounded-md transition-colors"
-                                            :class="!getActiveCategoryId() && getActiveFavoritesOnly() !== '1' && !getActiveSearch() ? 'text-blue-500 bg-blue-50' : 'text-gray-700 hover:bg-gray-100'">
-                                        {{ __('All') }}
-                                    </button>
-
-                                    <!-- Favorite Services Option -->
-                                    <button type="button"
-                                            @click="selectFilter('', true); $dispatch('close-filter-dropdown');"
-                                            class="w-full text-left px-3 py-2 text-sm rounded-md transition-colors flex items-center gap-2"
-                                            :class="!getActiveCategoryId() && getActiveFavoritesOnly() === '1' && !getActiveSearch() ? 'text-blue-500 bg-blue-50' : 'text-gray-700 hover:bg-gray-100'">
-                                        <svg class="w-4 h-4" :class="!getActiveCategoryId() && getActiveFavoritesOnly() === '1' && !getActiveSearch() ? 'text-blue-500' : 'text-gray-400'" fill="currentColor" viewBox="0 0 20 20">
-                                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
-                                        </svg>
-                                        <span>{{ __('Favorite services') }}</span>
-                                    </button>
-
-                                    <!-- Category Options -->
-                                    @if(isset($categoriesList) && $categoriesList)
-                                        @foreach($categoriesList as $category)
-                                            <button type="button"
-                                                    @click="selectFilter('{{ $category->id }}', false); $dispatch('close-filter-dropdown');"
-                                                    class="w-full text-left px-3 py-2 text-sm rounded-md transition-colors flex items-center gap-2"
-                                                    :class="String(getActiveCategoryId()) === '{{ $category->id }}' && getActiveFavoritesOnly() !== '1' && !getActiveSearch() ? 'text-blue-500 bg-blue-50' : 'text-gray-700 hover:bg-gray-100'">
-                                                @if($category->icon)
-                                                    <span class="text-base flex-shrink-0">
-                                                        @if(Str::startsWith($category->icon, '<svg'))
-                                                            <span class="inline-block w-4 h-4" :class="String(getActiveCategoryId()) === '{{ $category->id }}' && getActiveFavoritesOnly() !== '1' && !getActiveSearch() ? 'text-blue-500' : 'text-gray-400'">{!! $category->icon !!}</span>
-                                                        @elseif(Str::startsWith($category->icon, 'data:'))
-                                                            <img src="{{ $category->icon }}" alt="icon" class="w-4 h-4 object-contain">
-                                                        @elseif(Str::startsWith($category->icon, 'fas ') || Str::startsWith($category->icon, 'far ') || Str::startsWith($category->icon, 'fab ') || Str::startsWith($category->icon, 'fal ') || Str::startsWith($category->icon, 'fad '))
-                                                            <i class="{{ $category->icon }}" :class="String(getActiveCategoryId()) === '{{ $category->id }}' && getActiveFavoritesOnly() !== '1' && !getActiveSearch() ? 'text-blue-500' : 'text-gray-400'"></i>
-                                                        @else
-                                                            <span class="inline-block" :class="String(getActiveCategoryId()) === '{{ $category->id }}' && getActiveFavoritesOnly() !== '1' && !getActiveSearch() ? 'text-blue-500' : 'text-gray-400'">{{ $category->icon }}</span>
-                                                        @endif
-                                                    </span>
-                                                @endif
-                                                <span>{{ $category->name }}</span>
-                                            </button>
-                                        @endforeach
-                                    @endif
-                                </div>
-
-                                <!-- Clear Filter Button -->
-                                <x-filter-actions
-                                    clear-route="client.services.index"
-                                    :closeOnClick="false"
-                                    :showApply="false"
-                                />
-                            </x-slot>
-                        </x-filter-button>
-
-                        <!-- Search Input -->
-                        <div class="relative" style="max-width: 300px;">
-                            <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                                </svg>
-                            </div>
-                            <input type="text"
-                                   name="search"
-                                   id="search"
-                                   value="{{ request('search', '') }}"
-                                   placeholder="{{ __('Search by service name') }}"
-                                   @input.debounce.500ms="handleSearchInput($event.target.value)"
-                                   class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm">
-                        </div>
+                    <div id="client-services-tabs-root" class="flex flex-wrap items-center gap-1.5">
+                        <button type="button"
+                                @click.prevent="selectServiceTab('all')"
+                                class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
+                                :class="getServiceTab() === 'all' ? 'co-filter-tab-active' : 'co-filter-tab-idle'">
+                            {{ __('All') }}
+                            @if(($serviceTabCounts['all'] ?? 0) > 0)
+                                <span class="rounded-full px-1.5 py-0.5 text-xs font-bold"
+                                      :class="getServiceTab() === 'all' ? 'co-filter-tab-badge-active' : 'co-filter-tab-badge-idle'">{{ number_format($serviceTabCounts['all']) }}</span>
+                            @endif
+                        </button>
+                        <button type="button"
+                                @click.prevent="selectServiceTab('favorites')"
+                                class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
+                                :class="getServiceTab() === 'favorites' ? 'co-filter-tab-active' : 'co-filter-tab-idle'">
+                            {{ __('Favorites') }}
+                            @if(($serviceTabCounts['favorites'] ?? 0) > 0)
+                                <span class="rounded-full px-1.5 py-0.5 text-xs font-bold"
+                                      :class="getServiceTab() === 'favorites' ? 'co-filter-tab-badge-active' : 'co-filter-tab-badge-idle'">{{ number_format($serviceTabCounts['favorites']) }}</span>
+                            @endif
+                        </button>
+                        @foreach($categoriesList ?? [] as $category)
+                            @php $tabCount = $serviceTabCounts['categories'][$category->id] ?? 0; @endphp
+                            <button type="button"
+                                    @click.prevent="selectServiceTab('{{ $category->id }}')"
+                                    class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors max-w-[200px]"
+                                    :class="getServiceTab() === '{{ $category->id }}' ? 'co-filter-tab-active' : 'co-filter-tab-idle'">
+                                <span class="truncate">{{ $category->name }}</span>
+                                @if($tabCount > 0)
+                                    <span class="rounded-full px-1.5 py-0.5 text-xs font-bold shrink-0"
+                                          :class="getServiceTab() === '{{ $category->id }}' ? 'co-filter-tab-badge-active' : 'co-filter-tab-badge-idle'">{{ number_format($tabCount) }}</span>
+                                @endif
+                            </button>
+                        @endforeach
                     </div>
 
-                    <!-- Active Filters Display -->
-                    <div x-show="hasActiveFilters()" x-cloak class="flex flex-wrap items-center gap-2 mb-4" style="display: none;">
-                        <span class="text-sm text-gray-600">{{ __('Active filters:') }}</span>
-                        <div class="flex flex-wrap gap-2">
-                            <template x-if="getActiveCategoryId()">
-                                <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-gray-200 text-gray-800">
-                                    <span x-text="'{{ __('Category') }}: ' + getCategoryName(getActiveCategoryId())"></span>
-                                    <button type="button" @click="clearFilter('category_id')" class="hover:text-gray-900">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                        </svg>
-                                    </button>
-                                </span>
-                            </template>
-                            <template x-if="getActiveFavoritesOnly() === '1'">
-                                <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-gray-200 text-gray-800">
-                                    {{ __('Favorite services') }}
-                                    <button type="button" @click="clearFilter('favorites_only')" class="hover:text-gray-900">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                        </svg>
-                                    </button>
-                                </span>
-                            </template>
-                            <template x-if="getActiveSearch()">
-                                <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-gray-200 text-gray-800">
-                                    <span x-text="'{{ __('Search') }}: ' + getActiveSearch()"></span>
-                                    <button type="button" @click="clearFilter('search')" class="hover:text-gray-900">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                        </svg>
-                                    </button>
-                                </span>
-                            </template>
+                    <div class="ml-auto flex-1 min-w-[200px] max-w-md">
+                        <div class="relative">
+                            <svg class="co-filter-search-icon absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                            </svg>
+                            <input type="text" name="search" id="search" x-model="searchValue"
+                                   @input.debounce.400ms="handleSearchDebounced()"
+                                   placeholder="{{ __('Search by service name') }}"
+                                   class="co-filter-search w-full rounded-full border py-2 pl-10 pr-10 text-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/40">
+                            <button type="button" x-show="searchValue" x-cloak
+                                    @click="searchValue = ''; syncSearchToForm(); performAjaxSearch();"
+                                    class="co-filter-search-clear absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
                         </div>
                     </div>
                 </form>
+
+                <div x-show="filtersOpen"
+                     x-transition:enter="transition ease-out duration-200"
+                     x-transition:enter-start="opacity-0 -translate-y-2"
+                     x-transition:enter-end="opacity-100 translate-y-0"
+                     x-transition:leave="transition ease-in duration-150"
+                     x-transition:leave-start="opacity-100 translate-y-0"
+                     x-transition:leave-end="opacity-0 -translate-y-2"
+                     x-cloak
+                     class="co-filter-advanced mt-4 border-t pt-4">
+                    <form method="GET" action="{{ route('client.services.index') }}" class="client-services-filter-form flex w-full min-w-0 flex-wrap items-end gap-x-4 gap-y-3">
+                        <input type="hidden" name="category_id" :value="activeCategoryId">
+                        <input type="hidden" name="favorites_only" :value="activeFavoritesOnly">
+                        <input type="hidden" name="search" :value="searchValue">
+                        <input type="hidden" name="sort" :value="currentSort">
+                        <input type="hidden" name="dir" :value="currentDir">
+                        <div>
+                            <label for="svc-filter-min" class="co-filter-label mb-1 block text-xs font-medium">{{ __('Min quantity') }}</label>
+                            <input type="number" name="min" id="svc-filter-min" value="{{ $svcCurrentMin }}"
+                                   min="0" step="1"
+                                   class="co-filter-field w-full min-w-[120px] rounded-full border px-4 py-2 text-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/40">
+                        </div>
+                        <div>
+                            <label for="svc-filter-max" class="co-filter-label mb-1 block text-xs font-medium">{{ __('Max quantity') }}</label>
+                            <input type="number" name="max" id="svc-filter-max" value="{{ $svcCurrentMax }}"
+                                   min="0" step="1"
+                                   class="co-filter-field w-full min-w-[120px] rounded-full border px-4 py-2 text-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/40">
+                        </div>
+                        <div class="flex w-full min-w-0 shrink-0 items-center justify-end gap-2 sm:w-auto sm:justify-start">
+                            <button type="button" @click="performAjaxSearch()"
+                                    class="co-filter-apply inline-flex h-10 shrink-0 items-center justify-center rounded-full px-5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-[var(--card)]">
+                                {{ __('Apply') }}
+                            </button>
+                            <a href="{{ route('client.services.index') }}"
+                               class="co-filter-reset inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-full px-5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-[var(--card)]">
+                                <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                </svg>
+                                {{ __('Reset filter') }}
+                            </a>
+                        </div>
+                    </form>
+                </div>
             </div>
 
             <div id="services-list-container">
@@ -190,160 +424,80 @@
     </div>
 
     <script>
-        function serviceManagement(filters = {}) {
+        function serviceManagement(config = {}) {
             return {
-                currentSort: filters?.sort || 'id',
-                currentDir: filters?.dir || 'asc',
-                favoriteServices: @js($favoriteServiceIds ?? []),
-                categoriesList: @js(isset($categoriesList) ? $categoriesList->map(fn($cat) => ['id' => $cat->id, 'name' => $cat->name])->values()->all() : []),
-                activeFiltersCount: {{ $initialFilterCount }},
-                activeCategoryId: '{{ $currentCategoryId }}',
-                activeFavoritesOnly: '{{ $currentFavoritesOnly === '1' ? '1' : '0' }}',
-                activeSearch: '{{ $currentSearch }}',
+                filtersOpen: !!config.filtersOpen,
+                currentSort: config.sort || 'id',
+                currentDir: config.dir || 'asc',
+                favoriteServices: [...(config.favoriteServiceIds || [])],
+                categoriesList: config.categoriesList || [],
+                activeCategoryId: String(config.activeCategoryId ?? ''),
+                activeFavoritesOnly: config.activeFavoritesOnly === '1' || config.activeFavoritesOnly === 1 ? '1' : '0',
+                searchValue: config.activeSearch ?? '',
 
-                // Helper functions for active filters display
-                getFormData() {
-                    const form = document.getElementById('filter-form');
-                    if (!form) return null;
-                    return new FormData(form);
+                getServiceTab() {
+                    if (this.activeFavoritesOnly === '1') return 'favorites';
+                    if (this.activeCategoryId) return String(this.activeCategoryId);
+                    return 'all';
                 },
-                getActiveCategoryId() {
-                    return this.activeCategoryId || '';
+                syncSearchToForm() {
+                    this.activeSearch = this.searchValue || '';
                 },
-                getActiveFavoritesOnly() {
-                    return this.activeFavoritesOnly || '0';
+                handleSearchDebounced() {
+                    this.syncSearchToForm();
+                    this.updateURL();
+                    this.performAjaxSearch();
                 },
-                getActiveSearch() {
-                    return this.activeSearch || '';
+                collectPayload() {
+                    const payload = { search_by: 'service_name' };
+                    document.querySelectorAll('.client-services-filter-form').forEach((form) => {
+                        new FormData(form).forEach((val, key) => {
+                            if (val !== '' && val !== null && val !== undefined) {
+                                payload[key] = val;
+                            }
+                        });
+                    });
+                    payload.sort = this.currentSort;
+                    payload.dir = this.currentDir;
+                    payload.search = this.searchValue || '';
+                    payload.category_id = this.activeCategoryId || '';
+                    payload.favorites_only = this.activeFavoritesOnly || '0';
+                    return payload;
                 },
                 updateActiveFilters() {
                     const form = document.getElementById('filter-form');
                     if (form) {
-                        const categoryInput = form.querySelector('input[name="category_id"]');
-                        const favoritesInput = form.querySelector('input[name="favorites_only"]');
                         const searchInput = form.querySelector('input[name="search"]');
-
-                        this.activeCategoryId = categoryInput ? categoryInput.value || '' : '';
-                        this.activeFavoritesOnly = favoritesInput ? favoritesInput.value || '0' : '0';
-                        this.activeSearch = searchInput ? searchInput.value || '' : '';
+                        if (searchInput && searchInput.value !== this.searchValue) {
+                            this.searchValue = searchInput.value || '';
+                        }
+                    }
+                },
+                selectServiceTab(tab) {
+                    if (tab === 'all') {
+                        this.selectFilter('', false);
+                    } else if (tab === 'favorites') {
+                        this.selectFilter('', true);
                     } else {
-                        // Fallback to URL params
-                        const urlParams = new URLSearchParams(window.location.search);
-                        this.activeCategoryId = urlParams.get('category_id') || '';
-                        this.activeFavoritesOnly = urlParams.get('favorites_only') || '0';
-                        this.activeSearch = urlParams.get('search') || '';
+                        this.selectFilter(String(tab), false);
                     }
-                },
-                hasActiveFilters() {
-                    const categoryId = this.getActiveCategoryId();
-                    const favoritesOnly = this.getActiveFavoritesOnly();
-                    const search = this.getActiveSearch();
-                    return !!(categoryId || favoritesOnly === '1' || search);
-                },
-                getCategoryName(categoryId) {
-                    if (!categoryId || !this.categoriesList) return 'N/A';
-                    const category = this.categoriesList.find(cat => String(cat.id) === String(categoryId));
-                    return category ? category.name : 'N/A';
-                },
-                updateFilterCount() {
-                    // Update active filter values first
-                    this.updateActiveFilters();
-
-                    let count = 0;
-                    if (this.activeCategoryId) count++;
-                    if (this.activeFavoritesOnly === '1') count++;
-                    if (this.activeSearch) count++;
-
-                    this.activeFiltersCount = count;
-                },
-                handleSearchInput(value) {
-                    const form = document.getElementById('filter-form');
-                    if (form) {
-                        const searchInput = form.querySelector('input[name="search"]');
-                        if (searchInput) searchInput.value = value || '';
-                    }
-                    this.activeSearch = value || '';
-                    this.updateFilterCount();
-                    this.performAjaxSearch();
                 },
                 selectFilter(categoryId, favoritesOnly) {
-                    const form = document.getElementById('filter-form');
-                    if (!form) return;
-
-                    const getOrCreateInput = (name) => {
-                        let input = form.querySelector(`input[name="${name}"]`);
-                        if (!input) {
-                            input = document.createElement('input');
-                            input.type = 'hidden';
-                            input.name = name;
-                            form.appendChild(input);
-                        }
-                        return input;
-                    };
-
-                    // Update category_id
-                    const categoryInput = getOrCreateInput('category_id');
-                    categoryInput.value = categoryId || '';
-                    this.activeCategoryId = categoryId || '';
-
-                    // Update favorites_only
-                    const favoritesInput = getOrCreateInput('favorites_only');
-                    favoritesInput.value = favoritesOnly ? '1' : '0';
+                    this.activeCategoryId = categoryId ? String(categoryId) : '';
                     this.activeFavoritesOnly = favoritesOnly ? '1' : '0';
-
-                    // Update URL
                     this.updateURL();
-
-                    // Update filter count
-                    this.updateFilterCount();
-
-                    // Perform search
-                    this.performAjaxSearch();
-                },
-                clearFilter(filterName) {
-                    const form = document.getElementById('filter-form');
-                    if (!form) return;
-
-                    if (filterName === 'category_id') {
-                        const input = form.querySelector('input[name="category_id"]');
-                        if (input) input.value = '';
-                        this.activeCategoryId = '';
-                    } else if (filterName === 'favorites_only') {
-                        const input = form.querySelector('input[name="favorites_only"]');
-                        if (input) input.value = '0';
-                        this.activeFavoritesOnly = '0';
-                    } else if (filterName === 'search') {
-                        const input = form.querySelector('input[name="search"]');
-                        if (input) input.value = '';
-                        this.activeSearch = '';
-                    }
-
-                    // Update URL
-                    this.updateURL();
-
-                    // Update filter count
-                    this.updateFilterCount();
-
-                    // Perform search
                     this.performAjaxSearch();
                 },
                 updateURL() {
-                    const formData = this.getFormData();
-                    if (!formData) return;
-
+                    const p = this.collectPayload();
                     const params = new URLSearchParams();
-                    const search = formData.get('search');
-                    const categoryId = formData.get('category_id');
-                    const favoritesOnly = formData.get('favorites_only');
-                    const sort = formData.get('sort') || this.currentSort || 'id';
-                    const dir = formData.get('dir') || this.currentDir || 'asc';
-
-                    if (search) params.set('search', search);
-                    if (categoryId) params.set('category_id', categoryId);
-                    if (favoritesOnly === '1') params.set('favorites_only', '1');
-                    if (sort && sort !== 'id') params.set('sort', sort);
-                    if (dir && dir !== 'asc') params.set('dir', dir);
-
+                    if (p.search) params.set('search', p.search);
+                    if (p.category_id) params.set('category_id', p.category_id);
+                    if (p.favorites_only === '1') params.set('favorites_only', '1');
+                    if (p.min) params.set('min', p.min);
+                    if (p.max) params.set('max', p.max);
+                    if (p.sort && p.sort !== 'id') params.set('sort', p.sort);
+                    if (p.dir && p.dir !== 'asc') params.set('dir', p.dir);
                     const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
                     window.history.pushState({}, '', newUrl);
                 },
@@ -354,113 +508,61 @@
                         this.currentSort = column;
                         this.currentDir = 'asc';
                     }
-
-                    // Update hidden inputs
-                    const form = document.getElementById('filter-form');
-                    if (form) {
-                        const getOrCreateInput = (name) => {
-                            let input = form.querySelector(`input[name="${name}"]`);
-                            if (!input) {
-                                input = document.createElement('input');
-                                input.type = 'hidden';
-                                input.name = name;
-                                form.appendChild(input);
-                            }
-                            return input;
-                        };
-                        getOrCreateInput('sort').value = this.currentSort;
-                        getOrCreateInput('dir').value = this.currentDir;
-                    }
                     this.performAjaxSearch();
                 },
-                initScrollSync() {
-                    // Simplified scroll sync for client view
-                },
+                initScrollSync() {},
                 getCsrfToken() {
                     return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
                 },
                 handleFormSubmit(event) {
                     event.preventDefault();
                     this.performAjaxSearch();
-                    // Close dropdown after form submission
-                    this.$dispatch('close-filter-dropdown');
                 },
                 performAjaxSearch() {
-                    const formData = this.getFormData();
-                    if (!formData) return;
-
-                    const searchValue = formData.get('search') || '';
-                    const searchBy = 'service_name'; // Only search by service name
-                    const categoryId = formData.get('category_id') || '';
-                    const favoritesOnly = formData.get('favorites_only') || '0';
-                    const sort = formData.get('sort') || this.currentSort || 'id';
-                    const dir = formData.get('dir') || this.currentDir || 'asc';
-
-                    // Show loading state
+                    const payload = this.collectPayload();
                     const container = document.getElementById('services-list-container');
                     if (container) {
-                        container.innerHTML = '<div class="text-center p-8"><div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div><p class="mt-2 text-gray-500">Searching...</p></div>';
+                        container.innerHTML = '<div class="text-center p-8 client-services-loading"><div class="inline-block animate-spin h-8 w-8 cs-loading-spinner"></div><p class="mt-2 text-sm">Searching...</p></div>';
                     }
 
-                    // Make AJAX request - use relative URL to avoid mixed content issues
                     fetch('{{ parse_url(route("client.services.search"), PHP_URL_PATH) }}', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'X-CSRF-TOKEN': this.getCsrfToken()
                         },
-                        body: JSON.stringify({
-                            search: searchValue,
-                            search_by: searchBy,
-                            category_id: categoryId,
-                            favorites_only: favoritesOnly,
-                            sort: sort,
-                            dir: dir
-                        })
+                        body: JSON.stringify(payload)
                     })
                     .then(response => response.json())
                     .then(data => {
                         if (container) {
                             container.innerHTML = data.html;
-                            // Update favoriteServices from the response
-                            // Extract favorite service IDs from the rendered HTML or update from server
-                            // Re-initialize Alpine.js for the new content
                             if (window.Alpine) {
                                 Alpine.initTree(container);
                             }
-                            // Update active filters and count after AJAX search
-                            if (typeof this.updateActiveFilters === 'function') {
-                                this.updateActiveFilters();
-                            }
-                            if (typeof this.updateFilterCount === 'function') {
-                                this.updateFilterCount();
-                            }
-                            // Re-initialize scroll sync after AJAX update
                             this.$nextTick(() => {
                                 if (typeof this.initScrollSync === 'function') {
                                     this.initScrollSync();
                                 }
                             });
                         }
+                        this.updateURL();
                     })
                     .catch(error => {
                         console.error('Search error:', error);
                         if (container) {
-                            container.innerHTML = '<div class="text-center p-8 text-red-500">Error loading results. Please refresh the page.</div>';
+                            container.innerHTML = '<div class="text-center p-8 text-sm client-services-loading" style="color: #f87171;">Error loading results. Please refresh the page.</div>';
                         }
                     });
                 },
                 toggleFavorite(serviceId) {
-                    const button = event.target.closest('button');
-                    const originalState = this.favoriteServices.includes(serviceId);
+                    const sid = Number(serviceId);
+                    const originalState = this.favoriteServices.some((id) => Number(id) === sid);
 
-                    // Optimistic update
                     if (originalState) {
-                        this.favoriteServices = this.favoriteServices.filter(id => id !== serviceId);
-                    } else {
-                        if (!this.favoriteServices.includes(serviceId)) {
-                            this.favoriteServices.push(serviceId);
-                        }
+                        this.favoriteServices = this.favoriteServices.filter((id) => Number(id) !== sid);
+                    } else if (!this.favoriteServices.some((id) => Number(id) === sid)) {
+                        this.favoriteServices.push(sid);
                     }
 
                     fetch(`{{ route('client.services.favorite.toggle', ':id') }}`.replace(':id', serviceId), {
@@ -479,32 +581,30 @@
                     .then(data => {
                         if (data.ok) {
                             if (data.favorited) {
-                                if (!this.favoriteServices.includes(serviceId)) {
-                                    this.favoriteServices.push(serviceId);
+                                if (!this.favoriteServices.some((id) => Number(id) === sid)) {
+                                    this.favoriteServices.push(sid);
                                 }
                             } else {
-                                this.favoriteServices = this.favoriteServices.filter(id => id !== serviceId);
+                                this.favoriteServices = this.favoriteServices.filter((id) => Number(id) !== sid);
                             }
                         } else {
-                            // Revert optimistic update
                             if (originalState) {
-                                if (!this.favoriteServices.includes(serviceId)) {
-                                    this.favoriteServices.push(serviceId);
+                                if (!this.favoriteServices.some((id) => Number(id) === sid)) {
+                                    this.favoriteServices.push(sid);
                                 }
                             } else {
-                                this.favoriteServices = this.favoriteServices.filter(id => id !== serviceId);
+                                this.favoriteServices = this.favoriteServices.filter((id) => Number(id) !== sid);
                             }
                             alert(data.error || 'An error occurred');
                         }
                     })
                     .catch(error => {
-                        // Revert optimistic update
                         if (originalState) {
-                            if (!this.favoriteServices.includes(serviceId)) {
-                                this.favoriteServices.push(serviceId);
+                            if (!this.favoriteServices.some((id) => Number(id) === sid)) {
+                                this.favoriteServices.push(sid);
                             }
                         } else {
-                            this.favoriteServices = this.favoriteServices.filter(id => id !== serviceId);
+                            this.favoriteServices = this.favoriteServices.filter((id) => Number(id) !== sid);
                         }
                         console.error('Error toggling favorite:', error);
                         alert('Failed to update favorite. Please try again.');
@@ -518,9 +618,10 @@
     </script>
 
     {{-- Service View Modal --}}
+    <div id="client-service-modals-root">
     @foreach($categories as $category)
         @foreach($category->services->where('is_active', true) as $service)
-            <x-modal name="service-view-{{ $service->id }}" maxWidth="2xl">
+            <x-modal name="service-view-{{ $service->id }}" maxWidth="2xl" theme="smm">
                 <div class="p-6">
                     <div class="flex items-center justify-between mb-6">
                         <h3 class="text-lg font-semibold text-gray-900">{{ $service->name }}</h3>
@@ -562,10 +663,6 @@
                                 <label class="block text-sm font-medium text-gray-700 mb-1">{{ __('Max Quantity') }}</label>
                                 <p class="text-sm text-gray-900">{{ number_format($service->max_quantity ?? 1) }}</p>
                             </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">{{ __('Average Time') }}</label>
-                                <p class="text-sm text-gray-900">{{ __('2 hours 30 minutes') }}</p>
-                            </div>
                         </div>
 
                         @if($service->description)
@@ -597,5 +694,6 @@
             </x-modal>
         @endforeach
     @endforeach
+    </div>
 </x-client-layout>
 

@@ -1,137 +1,253 @@
-<x-client-account-layout>
-    <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-        <div class="p-6 text-gray-900">
-            <div class="mb-6">
-                <h3 class="text-lg font-medium text-gray-900">{{ __('Add Balance') }}</h3>
-                <p class="mt-1 text-sm text-gray-600">{{ __('Select a payment method and enter the amount you want to add to your account.') }}</p>
+@php
+    $providerCode = array_key_first($paymentTypes ?? []);
+@endphp
+
+<x-client-layout :title="__('Add Funds')">
+    <style>
+        .add-funds-wrap { max-width: 560px; margin: 0 auto; }
+        .add-funds-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 26px 24px 28px;
+            box-shadow: 0 24px 48px rgba(0, 0, 0, 0.25);
+        }
+        [data-theme="light"] .add-funds-card { box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08); }
+        .add-funds-balance-box {
+            padding: 18px 20px;
+            border-radius: 14px;
+            border: 1px solid rgba(0, 210, 211, 0.35);
+            background: rgba(0, 210, 211, 0.06);
+            margin-bottom: 26px;
+        }
+        .add-funds-balance-label { font-size: 13px; font-weight: 500; color: var(--text3); margin-bottom: 6px; }
+        .add-funds-balance-val { font-size: 2rem; font-weight: 800; color: var(--teal); letter-spacing: -0.02em; }
+        .add-funds-field-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text2);
+            margin-bottom: 10px;
+        }
+        .add-funds-field-label i { color: var(--text3); font-size: 14px; }
+        .add-funds-input-wrap { position: relative; margin-bottom: 14px; }
+        .add-funds-input {
+            width: 100%;
+            padding: 14px 16px 14px 36px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: rgba(0, 0, 0, 0.28);
+            color: var(--text);
+            font-size: 16px;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        [data-theme="light"] .add-funds-input { background: var(--card2, #f0f2f7); }
+        .add-funds-input:focus { border-color: var(--purple-light); }
+        .add-funds-input::placeholder { color: var(--text3); }
+        .add-funds-input-prefix {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text3);
+            font-size: 15px;
+            font-weight: 600;
+            pointer-events: none;
+        }
+        .add-funds-presets { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 28px; }
+        .add-funds-preset {
+            padding: 10px 16px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text);
+            font-size: 13px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+        }
+        .add-funds-preset:hover {
+            border-color: rgba(108, 92, 231, 0.45);
+            background: rgba(108, 92, 231, 0.12);
+        }
+        .add-funds-pay-label { margin-bottom: 12px; }
+        .add-funds-method {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            padding: 18px 18px;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.03);
+        }
+        .add-funds-method-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            background: rgba(253, 121, 43, 0.15);
+            color: #fd7b2b;
+            flex-shrink: 0;
+        }
+        .add-funds-method-title { font-size: 15px; font-weight: 700; color: var(--text); margin: 0 0 4px; }
+        .add-funds-method-sub { font-size: 12px; color: var(--text3); margin: 0; line-height: 1.4; }
+        .add-funds-submit {
+            width: 100%;
+            margin-top: 26px;
+            padding: 16px 20px;
+            border: none;
+            border-radius: 14px;
+            background: var(--purple);
+            color: #fff !important;
+            font-size: 15px;
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: 0 6px 24px rgba(108, 92, 231, 0.45);
+            transition: filter 0.15s, transform 0.15s;
+        }
+        .add-funds-submit:hover:not(:disabled) { filter: brightness(1.06); transform: translateY(-1px); }
+        .add-funds-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+        .add-funds-alert {
+            padding: 14px 16px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            border: 1px solid var(--border);
+        }
+        .add-funds-alert.info { background: rgba(108, 92, 231, 0.12); border-color: rgba(108, 92, 231, 0.35); color: var(--purple-light); }
+        .add-funds-alert.ok { background: rgba(0, 184, 148, 0.12); border-color: rgba(0, 184, 148, 0.35); color: #00d9a5; }
+        .add-funds-alert.warn { background: rgba(253, 203, 110, 0.12); border-color: rgba(253, 203, 110, 0.35); color: #fdcb6e; }
+        .add-funds-alert.neutral { background: var(--card2); color: var(--text2); }
+        .add-funds-alert a { color: inherit; font-weight: 600; text-decoration: underline; }
+        .add-funds-error { margin-top: 8px; font-size: 13px; color: #ff7675; }
+        .add-funds-cancel { display: block; text-align: center; margin-top: 16px; font-size: 13px; color: var(--text3); text-decoration: none; }
+        .add-funds-cancel:hover { color: var(--text2); }
+    </style>
+
+    <div class="add-funds-wrap">
+        @if (request()->query('return_to') === 'order' && session('pending_order'))
+            <div class="add-funds-alert info">
+                <p class="m-0 mb-3">{{ session('info', __('Add funds to complete your order.')) }}</p>
+                <a href="{{ route('home.complete-order') }}">{{ __('Complete Your Order') }}</a>
             </div>
+        @endif
 
-            @if (request()->query('return_to') === 'order' && session('pending_order'))
-                <div class="mb-4 p-4 bg-indigo-50 border border-indigo-200 rounded-md">
-                    <p class="text-sm text-indigo-800 mb-3">{{ session('info', __('Add funds to complete your order.')) }}</p>
-                    <a href="{{ route('home.complete-order') }}" class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700">
-                        {{ __('Complete Your Order') }}
-                    </a>
-                </div>
-            @endif
+        @if (session('status'))
+            <div class="add-funds-alert ok">
+                <p class="m-0">{{ session('status') }}</p>
+            </div>
+        @endif
 
-            @if (session('status'))
-                <div class="mb-4 p-4 bg-green-50 border border-green-200 rounded-md">
-                    <p class="text-sm text-green-800">{{ session('status') }}</p>
-                </div>
-            @endif
-
-            {{-- Payment redirect status (balance credited only after webhook confirms) --}}
-            @if (isset($redirectStatus))
-                @if ($redirectStatus === 'success' && $payment)
-                    @if ($payment->status === 'paid')
-                        <div class="mb-4 p-4 bg-green-50 border border-green-200 rounded-md">
-                            <p class="text-sm text-green-800">{{ __('Payment confirmed. Your balance has been updated.') }}</p>
-                        </div>
-                    @else
-                        <div class="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-md">
-                            <p class="text-sm text-amber-800">{{ __('Payment received. Your balance will be updated shortly once confirmed.') }}</p>
-                        </div>
-                    @endif
-                @elseif ($redirectStatus === 'return' && $payment)
-                    <div class="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-md">
-                        <p class="text-sm text-gray-800">{{ __('You returned from the payment page. Complete the payment to add balance.') }}</p>
+        @if (isset($redirectStatus))
+            @if ($redirectStatus === 'success' && $payment)
+                @if ($payment->status === 'paid')
+                    <div class="add-funds-alert ok">
+                        <p class="m-0">{{ __('Payment confirmed. Your balance has been updated.') }}</p>
+                    </div>
+                @else
+                    <div class="add-funds-alert warn">
+                        <p class="m-0">{{ __('Payment received. Your balance will be updated shortly once confirmed.') }}</p>
                     </div>
                 @endif
+            @elseif ($redirectStatus === 'return' && $payment)
+                <div class="add-funds-alert neutral">
+                    <p class="m-0">{{ __('You returned from the payment page. Complete the payment to add balance.') }}</p>
+                </div>
             @endif
+        @endif
 
-            <form method="POST" action="{{ route('client.balance.store') }}" class="space-y-6">
-                @csrf
-
-                <!-- Current Balance Display -->
-                <div class="p-4 bg-gray-50 rounded-md">
-                    <div class="text-sm font-medium text-gray-500 mb-1">{{ __('Current Balance') }}</div>
-                    <div class="text-2xl font-bold text-gray-900">${{ number_format($client->balance, 2) }}</div>
+        @if (! $providerCode)
+            <div class="add-funds-alert warn">
+                <p class="m-0">{{ __('No payment methods are configured. Please contact support.') }}</p>
+            </div>
+        @else
+            <div class="add-funds-card">
+                <div class="add-funds-balance-box">
+                    <div class="add-funds-balance-label">{{ __('Current Balance') }}</div>
+                    <div class="add-funds-balance-val">${{ number_format($client->balance, 2) }}</div>
                 </div>
 
-                <!-- Amount -->
-                <div>
-                    <x-input-label for="amount" :value="__('Amount')" />
-                    <div class="mt-1 relative rounded-md shadow-sm">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <span class="text-gray-500 sm:text-sm">$</span>
-                        </div>
-                        <x-text-input 
-                            id="amount" 
-                            name="amount" 
-                            type="number" 
+                <form method="POST" action="{{ route('client.balance.store') }}" id="add-funds-form">
+                    @csrf
+                    <input type="hidden" name="payment_type" value="{{ $providerCode }}">
+
+                    <div class="add-funds-field-label">
+                        <i class="fa-solid fa-dollar-sign" aria-hidden="true"></i>
+                        {{ __('Amount') }}
+                    </div>
+                    <div class="add-funds-input-wrap">
+                        <span class="add-funds-input-prefix" aria-hidden="true">$</span>
+                        <input
+                            id="amount"
+                            name="amount"
+                            type="number"
                             step="0.01"
                             min="1"
-                            class="block w-full pl-7 pr-12" 
-                            :value="old('amount')" 
-                            required 
-                            autofocus 
-                            placeholder="0.00"
-                        />
+                            class="add-funds-input"
+                            value="{{ old('amount') }}"
+                            required
+                            autofocus
+                            placeholder="{{ __('Enter amount…') }}"
+                            autocomplete="off"
+                        >
                     </div>
-                    <x-input-error class="mt-2" :messages="$errors->get('amount')" />
-                    <p class="mt-1 text-xs text-gray-500">{{ __('Enter the amount you want to add to your balance.') }}</p>
-                </div>
+                    @error('amount')
+                        <p class="add-funds-error">{{ $message }}</p>
+                    @enderror
 
-                <!-- Payment Type -->
-                <div>
-                    <x-input-label for="payment_type" :value="__('Payment Method')" />
-                    <div class="mt-2 space-y-2">
-                        @foreach($paymentTypes as $key => $label)
-                            <label class="flex items-center p-4 border rounded-md cursor-pointer hover:bg-gray-50 transition {{ old('payment_type') === $key ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300' }}">
-                                <input 
-                                    type="radio" 
-                                    name="payment_type" 
-                                    value="{{ $key }}" 
-                                    class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
-                                    {{ old('payment_type') === $key ? 'checked' : '' }}
-                                    required
-                                >
-                                <span class="ml-3 text-sm font-medium text-gray-700">{{ $label }}</span>
-                            </label>
+                    <div class="add-funds-presets" role="group" aria-label="{{ __('Quick amounts') }}">
+                        @foreach ([5, 10, 25, 50, 100] as $preset)
+                            <button type="button" class="add-funds-preset" data-amount="{{ $preset }}">${{ $preset }}</button>
                         @endforeach
                     </div>
-                    <x-input-error class="mt-2" :messages="$errors->get('payment_type')" />
-                </div>
 
-                <!-- Payment Details (will be shown based on selected payment type) -->
-                <div id="payment-details" class="hidden">
-                    <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-                        <p class="text-sm text-yellow-800">
-                            {{ __('Payment processing details will be displayed here based on your selected payment method.') }}
-                        </p>
+                    <div class="add-funds-field-label add-funds-pay-label">
+                        <i class="fa-solid fa-credit-card" aria-hidden="true"></i>
+                        {{ __('Payment method') }}
                     </div>
-                </div>
+                    <div class="add-funds-method">
+                        <div class="add-funds-method-icon" aria-hidden="true">
+                            <i class="fa-solid fa-bolt"></i>
+                        </div>
+                        <div>
+                            <p class="add-funds-method-title">{{ __('Heleket payment') }}</p>
+                            <p class="add-funds-method-sub">{{ $paymentTypes[$providerCode] ?? __('Pay with cryptocurrency via Heleket.') }}</p>
+                        </div>
+                    </div>
+                    @error('payment_type')
+                        <p class="add-funds-error">{{ $message }}</p>
+                    @enderror
 
-                <div class="flex items-center justify-end gap-4">
-                    <a href="{{ route('client.account.edit') }}" class="text-sm text-gray-600 hover:text-gray-900">
-                        {{ __('Cancel') }}
-                    </a>
-                    <x-primary-button>
-                        {{ __('Continue to Payment') }}
-                    </x-primary-button>
-                </div>
-            </form>
-        </div>
+                    <button type="submit" class="add-funds-submit">
+                        <i class="fa-solid fa-lock" aria-hidden="true"></i>
+                        {{ __('Pay Now') }}
+                    </button>
+                </form>
+
+                <a href="{{ route('client.account.edit') }}" class="add-funds-cancel">{{ __('Cancel') }}</a>
+            </div>
+        @endif
     </div>
 
     <script>
-        // Show payment details when a payment type is selected
-        document.querySelectorAll('input[name="payment_type"]').forEach(radio => {
-            radio.addEventListener('change', function() {
-                const detailsDiv = document.getElementById('payment-details');
-                if (this.checked) {
-                    detailsDiv.classList.remove('hidden');
-                }
+        document.querySelectorAll('.add-funds-preset').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var input = document.getElementById('amount');
+                if (input) input.value = this.getAttribute('data-amount');
             });
         });
-
-        // Show details if a payment type is already selected (on page reload with errors)
-        const selectedPayment = document.querySelector('input[name="payment_type"]:checked');
-        if (selectedPayment) {
-            document.getElementById('payment-details').classList.remove('hidden');
-        }
     </script>
-</x-client-account-layout>
-
-
+</x-client-layout>

@@ -6,9 +6,10 @@
     'cancelText' => 'Cancel',
     'confirmButtonClass' => 'bg-red-600 hover:bg-red-700',
     'show' => false,
+    'theme' => 'default',
 ])
 
-<x-modal :name="$name" :show="$show" maxWidth="lg">
+<x-modal :name="$name" :show="$show" maxWidth="lg" :theme="$theme">
     <div class="p-6">
         <div class="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 rounded-full mb-4">
             <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

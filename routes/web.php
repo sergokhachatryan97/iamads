@@ -6,9 +6,12 @@ use App\Http\Controllers\Client\AccountController;
 use App\Http\Controllers\Client\Auth\ClientAuthenticatedSessionController;
 use App\Http\Controllers\Client\Auth\ClientRegisteredUserController;
 use App\Http\Controllers\Client\BalanceController;
+use App\Http\Controllers\Client\DashboardController;
 use App\Http\Controllers\Client\OrderController;
 use App\Http\Controllers\Client\ServiceController as ClientServiceController;
 use App\Http\Controllers\GoogleGmailOAuthController;
+use App\Http\Controllers\FastOrderAfterPaymentController;
+use App\Http\Controllers\FastOrderSessionController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\ProfileController;
@@ -33,17 +36,23 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('locale/{locale}', [LocaleController::class, 'switch'])->name('locale.switch');
 
-Route::get('/', function () {
-    return view('welcome');
-});
-// Route::get('/', [HomeController::class, 'index'])->name('home');
+// Route::get('/', function () {
+//    return view('welcome');
+// });
+Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/contacts', [HomeController::class, 'contacts'])->name('contacts');
 Route::post('/order/create-from-main', [HomeController::class, 'createOrder'])->name('home.create-order');
 
+Route::get('/fast-order/after-payment/{uuid}', FastOrderAfterPaymentController::class)
+    ->name('fast-order.after-payment')
+    ->whereUuid('uuid');
+Route::get('/fast-order/session/{uuid}', [FastOrderSessionController::class, 'establish'])
+    ->middleware('signed')
+    ->name('fast-order.session')
+    ->whereUuid('uuid');
+
 // Client Dashboard
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth:client'])->name('dashboard');
+Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth:client'])->name('dashboard');
 
 // Client Auth Routes (guest only)
 Route::middleware('guest')->group(function () {
@@ -92,6 +101,7 @@ Route::middleware('auth:client')->group(function () {
     Route::get('orders/services/by-category', [OrderController::class, 'servicesByCategory'])->name('client.orders.services.by-category');
     Route::post('orders/{order}/cancel', [OrderController::class, 'cancelFull'])->name('client.orders.cancelFull');
     Route::post('orders/{order}/cancel-partial', [OrderController::class, 'cancelPartial'])->name('client.orders.cancelPartial');
+    Route::post('orders/bulk-action', [OrderController::class, 'bulkAction'])->name('client.orders.bulk-action');
     Route::get('orders/statuses', [OrderController::class, 'getStatuses'])->name('client.orders.statuses');
 
     // API Access

@@ -1,28 +1,38 @@
-{{-- Staff-style order table (client: no User column, no bulk checkboxes) --}}
-<div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+{{-- Staff-style order table (client: no User column) — styles in index.blade.php --}}
+<div class="client-orders-table-wrap rounded-xl overflow-hidden">
     <x-table id="client-orders-table">
         <x-slot name="header">
             <tr>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" class="co-th co-th-checkbox px-3 py-3 text-center text-xs font-medium uppercase tracking-wider w-12">
+                    <span class="sr-only">{{ __('Select') }}</span>
+                    <input
+                        type="checkbox"
+                        @change="toggleSelectAll($event.target.checked)"
+                        x-bind:checked="isAllSelected()"
+                        class="co-bulk-checkbox rounded border-[var(--border)] text-[var(--purple)] focus:ring-[var(--purple)]"
+                    />
+                </th>
+                <th scope="col" class="co-th px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
                     {{ __('Order') }}
                 </th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" class="co-th px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
                     {{ __('Service') }}
                 </th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" class="co-th px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
                     {{ __('Start') }}
                 </th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" class="co-th px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
                     {{ __('Progress') }}
                 </th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" class="co-th px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
                     {{ __('Price') }}
                 </th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th scope="col" class="co-th px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
                     {{ __('Date') }}
                 </th>
-                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    {{ __('Actions') }}
+                <th scope="col" class="co-th co-th-actions px-3 py-3 text-center text-xs font-medium uppercase tracking-wider">
+                    <span class="sr-only">{{ __('Actions') }}</span>
+                    <i class="fa-solid fa-ellipsis-vertical text-base opacity-80" aria-hidden="true"></i>
                 </th>
             </tr>
         </x-slot>
@@ -41,6 +51,12 @@
                         \App\Models\Order::STATUS_IN_PROGRESS,
                         \App\Models\Order::STATUS_PROCESSING,
                     ], true);
+                    $isBulkFullEligible = in_array($order->status, [
+                        \App\Models\Order::STATUS_AWAITING,
+                        \App\Models\Order::STATUS_PENDING,
+                        \App\Models\Order::STATUS_PROCESSING,
+                    ], true);
+                    $canSelectForBulk = $canCancel && ($isBulkFullEligible || $isInProgressOrProcessing);
                     $delivered = (int) ($order->delivered ?? 0);
                     $quantity = (int) ($order->quantity ?? 0);
                     $progress = $quantity > 0 ? round(($delivered / $quantity) * 100, 1) : 0;
@@ -67,17 +83,31 @@
                     $charge = (float) ($order->charge ?? 0);
                     $sourceLabel = $order->source === \App\Models\Order::SOURCE_API ? 'API' : 'WEB';
                     $sourceClasses = $order->source === \App\Models\Order::SOURCE_API
-                        ? 'bg-gray-100 text-gray-700'
-                        : 'bg-indigo-50 text-indigo-700';
+                        ? 'order-source-api'
+                        : 'order-source-web';
                 @endphp
                 <tr>
+                    <td class="co-th-checkbox px-3 py-4 whitespace-nowrap text-center align-middle">
+                        @if($canSelectForBulk)
+                            <input
+                                type="checkbox"
+                                name="order_ids[]"
+                                value="{{ $order->id }}"
+                                @change="toggleOrder({{ $order->id }}, $event.target.checked)"
+                                x-bind:checked="isOrderSelected({{ $order->id }})"
+                                class="co-bulk-checkbox rounded border-[var(--border)] text-[var(--purple)] focus:ring-[var(--purple)]"
+                            />
+                        @else
+                            <span class="co-text-muted text-sm">—</span>
+                        @endif
+                    </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <div class="flex flex-col gap-1">
                             <div class="flex items-center gap-2">
-                                <span class="text-sm font-semibold text-gray-900">#{{ $order->id }}</span>
+                                <span class="co-text text-sm font-semibold">#{{ $order->id }}</span>
                                 <button
                                     type="button"
-                                    class="text-gray-400 hover:text-gray-700"
+                                    class="co-copy-btn"
                                     title="{{ __('Copy') }}"
                                     onclick="navigator.clipboard?.writeText('{{ $order->id }}')"
                                 >
@@ -99,8 +129,8 @@
                                 data-progress="{{ number_format(min(100, max(0, $progress)), 1, '.', '') }}"
                                 style="background: conic-gradient(#0ea5f5 calc({{ number_format(min(100, max(0, $progress)), 1, '.', '') }} * 1%), rgba(255,255,255,.25) 0);"
                             >
-                                <div class="absolute inset-[3px] rounded-full bg-[#fff] flex items-center justify-center">
-                                    <div class="h-9 w-9 rounded-full bg-[#fff] border border-white/10 flex items-center justify-center text-sky-400">
+                                <div class="client-order-avatar-cutout absolute inset-[3px] rounded-full flex items-center justify-center">
+                                    <div class="client-order-avatar-inner h-9 w-9 rounded-full border flex items-center justify-center text-sky-400">
                                         @if($categoryIcon)
                                             @if(\Illuminate\Support\Str::startsWith($categoryIcon, '<svg'))
                                                 <span class="h-5 w-5 [&_svg]:h-5 [&_svg]:w-5 [&_svg]:text-sky-400">{!! $categoryIcon !!}</span>
@@ -121,18 +151,18 @@
                             </div>
                             <div class="min-w-0">
                                 <div class="flex items-center gap-2">
-                                    <span class="text-sm font-semibold text-gray-900">{{ $order->service_id }}</span>
-                                    <span class="text-sm text-gray-700 truncate">{{ $order->service->name ?? '—' }}</span>
+                                    <span class="co-text text-sm font-semibold">{{ $order->service_id }}</span>
+                                    <span class="co-text-secondary text-sm truncate">{{ $order->service->name ?? '—' }}</span>
                                 </div>
                                 @if($order->link)
-                                    <a href="{{ $order->link }}" target="_blank" rel="noopener noreferrer" class="text-xs text-indigo-600 hover:underline truncate block" title="{{ $order->link }}">
+                                    <a href="{{ $order->link }}" target="_blank" rel="noopener noreferrer" class="co-link text-xs hover:underline truncate block" title="{{ $order->link }}">
                                         {{ \Illuminate\Support\Str::limit($order->link, 40) }}
                                     </a>
                                 @endif
                             </div>
                         </div>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td class="co-text px-6 py-4 whitespace-nowrap text-sm">
                         @php
                             $displayStart = $order->start_count;
                             if (is_array($payload) && isset($payload['youtube']['parsed']['start_counts'])) {
@@ -146,39 +176,36 @@
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <div class="flex flex-col gap-1">
-                            <div class="flex items-center gap-2 text-sm font-semibold text-gray-900 order-status-badge" data-order-id="{{ $order->id }}" data-status="{{ $order->status }}">
+                            <div class="co-text flex items-center gap-2 text-sm font-semibold order-status-badge" data-order-id="{{ $order->id }}" data-status="{{ $order->status }}">
                                 <span class="h-2.5 w-2.5 rounded-full {{ $dotClass }}"></span>
                                 <span>{{ $statusLabel }}</span>
                             </div>
-                            <div class="text-xs text-gray-500 order-progress-detail" data-order-id="{{ $order->id }}">
+                            <div class="co-text-muted text-xs order-progress-detail" data-order-id="{{ $order->id }}">
                                 {{ number_format($delivered) }} {{ __('of') }} {{ number_format($quantity) }}
                             </div>
                         </div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="text-sm font-semibold text-gray-900">${{ number_format($charge, 4) }}</div>
+                        <div class="co-text text-sm font-semibold">${{ number_format($charge, 4) }}</div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <div class="flex flex-col gap-1">
-                            <div class="text-sm font-semibold text-gray-900">{{ $order->created_at->format('d M') }}</div>
-                            <div class="text-xs text-gray-500">{{ $order->created_at->format('H:i') }}</div>
+                            <div class="co-text text-sm font-semibold">{{ $order->created_at->format('d M') }}</div>
+                            <div class="co-text-muted text-xs">{{ $order->created_at->format('H:i') }}</div>
                         </div>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <x-dropdown align="right" width="48">
+                    <td class="px-3 py-4 whitespace-nowrap text-sm font-medium text-center">
+                        <x-dropdown align="right" width="48" contentClasses="py-1 client-order-dropdown-panel ring-0">
                             <x-slot name="trigger">
-                                <button class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                                    {{ __('Actions') }}
-                                    <svg class="ml-2 -mr-0.5 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                                    </svg>
+                                <button type="button" class="co-actions-btn-icon focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:ring-offset-2 focus:ring-offset-[var(--card)]" title="{{ __('Actions') }}" aria-label="{{ __('Actions') }}">
+                                    <i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i>
                                 </button>
                             </x-slot>
                             <x-slot name="content">
                                 <button
                                     type="button"
                                     onclick="window.dispatchEvent(new CustomEvent('open-modal', { detail: 'client-order-details-{{ $order->id }}' }))"
-                                    class="block w-full px-4 py-2 text-start text-sm leading-5 text-gray-700 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 transition duration-150 ease-in-out"
+                                    class="co-order-dropdown-action block w-full px-4 py-2 text-start text-sm leading-5 transition duration-150 ease-in-out"
                                 >
                                     {{ __('View Details') }}
                                 </button>
@@ -193,12 +220,13 @@
                                         <button
                                             type="button"
                                             @click="openModal()"
-                                            class="block w-full px-4 py-2 text-start text-sm leading-5 text-red-700 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 transition duration-150 ease-in-out"
+                                            class="co-order-dropdown-action co-order-dropdown-action-danger block w-full px-4 py-2 text-start text-sm leading-5 transition duration-150 ease-in-out"
                                         >
                                             {{ __('Cancel & Refund') }}
                                         </button>
                                         <x-confirm-modal
                                             name="cancel-full-{{ $order->id }}"
+                                            theme="smm"
                                             title="{{ __('Cancel Order') }}"
                                             :message="__('Are you sure you want to cancel this order? A full refund of $:amount will be processed.', ['amount' => $order->charge])"
                                             confirm-text="{{ __('Yes, Cancel Order') }}"
@@ -221,12 +249,13 @@
                                         <button
                                             type="button"
                                             @click="openModal()"
-                                            class="block w-full px-4 py-2 text-start text-sm leading-5 text-orange-700 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 transition duration-150 ease-in-out"
+                                            class="co-order-dropdown-action co-order-dropdown-action-warn block w-full px-4 py-2 text-start text-sm leading-5 transition duration-150 ease-in-out"
                                         >
                                             {{ __('Cancel (Partial)') }}
                                         </button>
                                         <x-confirm-modal
                                             name="cancel-partial-{{ $order->id }}"
+                                            theme="smm"
                                             title="{{ __('Cancel Remaining Part') }}"
                                             :message="__('Are you sure you want to cancel the remaining part of this order? A partial refund will be processed for the undelivered quantity.')"
                                             confirm-text="{{ __('Yes, Cancel Remaining') }}"

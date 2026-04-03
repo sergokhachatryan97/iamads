@@ -27,8 +27,12 @@ class HomeController extends Controller
     /**
      * Main landing page: categories, services, order form.
      */
-    public function index(): View
+    public function index(Request $request): View|RedirectResponse
     {
+        if ($request->filled('fast_order') && $request->query('payment') === 'success') {
+            return redirect()->route('fast-order.after-payment', ['uuid' => $request->query('fast_order')]);
+        }
+
         $filters = ['for_client' => true];
         $categories = $this->categoryService->getAllCategoriesWithServices($filters);
 
@@ -118,14 +122,30 @@ class HomeController extends Controller
 
     /**
      * Contacts page with Help Desk, Telegram, and Cooperation cards.
+     * Authenticated clients use the dashboard shell with sidebar; guests keep the landing-style page.
      */
     public function contacts(): View
     {
-        return view('contacts', [
-            'contactTelegram' => config('contact.telegram', ''),
-            'contactEmail' => config('contact.email', ''),
-            'contactCooperationEmail' => config('contact.cooperation_email', ''),
-        ]);
+        $contactTelegram = trim((string) config('contact.telegram', ''));
+        $contactEmail = trim((string) config('contact.email', ''));
+        if ($contactEmail === '') {
+            $contactEmail = trim((string) config('mail.from.address', ''));
+        }
+        $contactCooperationEmail = trim((string) config('contact.cooperation_email', ''));
+
+        $data = [
+            'contactTelegram' => $contactTelegram,
+            'contactEmail' => $contactEmail,
+            'contactCooperationEmail' => $contactCooperationEmail,
+        ];
+
+        if (Auth::guard('client')->check()) {
+            return view('client.contacts', array_merge($data, [
+                'client' => Auth::guard('client')->user(),
+            ]));
+        }
+
+        return view('contacts', $data);
     }
 
     /**

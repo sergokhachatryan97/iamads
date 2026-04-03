@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Application\Payments;
 
 use App\Domain\Payments\PaymentStatus;
+use App\Models\FastOrder;
 use App\Models\Payment;
 use App\Models\PaymentEvent;
+use App\Services\FastOrderService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -19,6 +21,7 @@ final class HandleWebhookService
     public function __construct(
         private PaymentGatewayResolver $resolver,
         private CreditPaymentToBalanceService $creditService,
+        private FastOrderService $fastOrderService,
     ) {}
 
     public function handle(string $provider, string $rawBody, array $headers, string $ip): void
@@ -31,7 +34,7 @@ final class HandleWebhookService
             ->where('provider', $provider)
             ->first();
 
-        if (!$payment) {
+        if (! $payment) {
             // Fallback: find by provider_ref (some providers send uuid but not order_id)
             $payment = Payment::query()
                 ->where('provider_ref', $event->providerRef)
@@ -39,13 +42,13 @@ final class HandleWebhookService
                 ->first();
         }
 
-        if (!$payment) {
+        if (! $payment) {
             return; // Unknown order, return OK to avoid retries
         }
 
         $eventHash = hash('sha256', $rawBody);
 
-        DB::transaction(function () use ($payment, $event, $eventHash, $rawBody, $provider) {
+        DB::transaction(function () use ($payment, $event, $eventHash, $provider) {
             $payment = Payment::query()
                 ->where('id', $payment->id)
                 ->lockForUpdate()
@@ -84,6 +87,42 @@ final class HandleWebhookService
                     'client_id' => $payment->client_id,
                     'amount' => $payment->amount,
                 ]);
+            }
+
+            // Guest fast order: no client_id; convert draft after Heleket confirms payment
+            if ($wasFirstPaid && ! $payment->client_id) {
+                $meta = is_array($payment->meta) ? $payment->meta : [];
+                $fastUuid = $meta['fast_order_uuid'] ?? null;
+                if (is_string($fastUuid) && $fastUuid !== '') {
+                    $fastOrder = FastOrder::query()->where('uuid', $fastUuid)->first();
+                    if ($fastOrder) {
+                        $expected = round((float) $fastOrder->total_amount, 2);
+                        $paid = round((float) $payment->amount, 2);
+                        if (abs($expected - $paid) > 0.05) {
+                            Log::warning('Fast order payment amount mismatch; skipping conversion', [
+                                'payment_id' => $payment->id,
+                                'fast_order_uuid' => $fastUuid,
+                                'expected' => $expected,
+                                'paid' => $paid,
+                            ]);
+                        } else {
+                            try {
+                                $this->fastOrderService->markAsPaidAndConvert($fastOrder, $payment->provider_ref);
+                                Log::info('Fast order converted via payment webhook', [
+                                    'payment_id' => $payment->id,
+                                    'fast_order_uuid' => $fastUuid,
+                                ]);
+                            } catch (\Throwable $e) {
+                                Log::error('Fast order conversion failed in webhook', [
+                                    'payment_id' => $payment->id,
+                                    'fast_order_uuid' => $fastUuid,
+                                    'error' => $e->getMessage(),
+                                ]);
+                                throw $e;
+                            }
+                        }
+                    }
+                }
             }
 
             PaymentEvent::create([

@@ -16,22 +16,26 @@ class OrderQueryBuilder
      * @param int|null $staffId
      * @return Builder
      */
-    public static function buildQuery(array $filters = [], ?bool $isSuperAdmin = null, ?int $staffId = null): Builder
+    public static function buildQuery(array $filters = [], ?bool $isSuperAdmin = null, ?int $staffId = null, ?int $clientId = null): Builder
     {
         $query = Order::query()
             ->with(['service', 'client', 'category', 'subscription', 'creator']);
 
-        // Apply staff/client permissions
-        if ($isSuperAdmin === null) {
-            $user = Auth::guard('staff')->user();
-            $isSuperAdmin = $user && $user->hasRole('super_admin');
-            $staffId = $staffId ?? ($user ? $user->id : null);
-        }
+        if ($clientId !== null) {
+            $query->where('client_id', $clientId);
+        } else {
+            // Apply staff permissions
+            if ($isSuperAdmin === null) {
+                $user = Auth::guard('staff')->user();
+                $isSuperAdmin = $user && $user->hasRole('super_admin');
+                $staffId = $staffId ?? ($user ? $user->id : null);
+            }
 
-        if (!$isSuperAdmin && $staffId) {
-            $query->whereHas('client', function ($q) use ($staffId) {
-                $q->where('staff_id', $staffId);
-            });
+            if (! $isSuperAdmin && $staffId) {
+                $query->whereHas('client', function ($q) use ($staffId) {
+                    $q->where('staff_id', $staffId);
+                });
+            }
         }
 
         // Status filter
@@ -80,6 +84,10 @@ class OrderQueryBuilder
             $query->where('category_id', $filters['category_id']);
         }
 
+        if (! empty($filters['source']) && in_array($filters['source'], ['web', 'api'], true)) {
+            $query->where('source', $filters['source']);
+        }
+
         // Date range filters
         if (!empty($filters['date_from'])) {
             $query->whereDate('created_at', '>=', $filters['date_from']);
@@ -109,11 +117,12 @@ class OrderQueryBuilder
         array $excludedIds = [],
         array $filters = [],
         ?bool $isSuperAdmin = null,
-        ?int $staffId = null
+        ?int $staffId = null,
+        ?int $clientId = null
     ): Builder {
         if ($selectAll) {
             // Build query from filters
-            $query = self::buildQuery($filters, $isSuperAdmin, $staffId);
+            $query = self::buildQuery($filters, $isSuperAdmin, $staffId, $clientId);
 
             // Exclude manually unselected orders
             if (!empty($excludedIds)) {
@@ -121,7 +130,7 @@ class OrderQueryBuilder
             }
         } else {
             // Build query for specific IDs
-            $query = self::buildQuery([], $isSuperAdmin, $staffId);
+            $query = self::buildQuery([], $isSuperAdmin, $staffId, $clientId);
             $query->whereIn('id', $selectedIds);
         }
 

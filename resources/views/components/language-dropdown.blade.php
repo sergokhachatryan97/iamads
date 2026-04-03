@@ -1,10 +1,88 @@
-@props(['simple' => false])
+@props(['simple' => false, 'variant' => 'default'])
 @php
     $locales = config('locales', []);
     $currentLocale = app()->getLocale();
+    $currentLabel = $locales[$currentLocale]['native'] ?? strtoupper($currentLocale);
 @endphp
 @if(count($locales) > 1)
-@if($simple)
+@if($variant === 'landing')
+@once
+    <style>
+        .lang-landing-details { position: relative; }
+        .lang-landing-details > summary {
+            list-style: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 4px;
+            margin: 0;
+            border: none;
+            background: transparent;
+            color: var(--text2, #8892a4);
+            font-size: 13px;
+            font-weight: 700;
+            font-family: inherit;
+            cursor: pointer;
+            letter-spacing: 0.04em;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .lang-landing-details > summary::-webkit-details-marker { display: none; }
+        .lang-landing-details > summary::marker { content: ''; }
+        .lang-landing-details > summary:hover { color: var(--text, #e2e8f0); }
+        .lang-landing-details > summary i { font-size: 14px; opacity: 0.92; }
+        .lang-landing-dropdown {
+            position: absolute;
+            right: 0;
+            top: calc(100% + 6px);
+            min-width: 148px;
+            padding: 6px 0;
+            background: var(--card, #1a1a2e);
+            border: 1px solid var(--border, var(--border2, rgba(255,255,255,0.08)));
+            border-radius: 10px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+            z-index: 60;
+        }
+        [data-theme="light"] .lang-landing-dropdown {
+            box-shadow: 0 12px 36px rgba(0,0,0,0.12);
+        }
+        .lang-landing-dropdown a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 14px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text2, #8892a4);
+            text-decoration: none;
+        }
+        .lang-landing-dropdown a:hover {
+            background: rgba(108,92,231,0.12);
+            color: var(--text, #e2e8f0);
+        }
+        .lang-landing-dropdown a.is-active {
+            color: var(--purple-light, #a29bfe);
+            font-weight: 700;
+            background: rgba(108,92,231,0.08);
+        }
+        .lang-landing-flag { font-size: 16px; line-height: 1; }
+    </style>
+@endonce
+<details class="lang-landing-details">
+    <summary aria-label="{{ __('common.language') }}">
+        <i class="fa-solid fa-globe" aria-hidden="true"></i>
+        <span>{{ $currentLabel }}</span>
+    </summary>
+    <div class="lang-landing-dropdown">
+        @foreach($locales as $code => $info)
+            <a href="{{ route('locale.switch', $code) }}" class="{{ $code === $currentLocale ? 'is-active' : '' }}">
+                <span class="lang-landing-flag">{{ $info['flag'] ?? '🌐' }}</span>
+                {{ $info['native'] ?? $info['name'] ?? strtoupper($code) }}
+            </a>
+        @endforeach
+    </div>
+</details>
+@elseif($simple)
 <select onchange="window.location.href=this.value" aria-label="{{ __('common.language') }}"
         class="lang-select appearance-none bg-white border border-gray-200 rounded-md px-3 py-2 pr-8 text-sm text-gray-700 cursor-pointer hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
     @foreach($locales as $code => $info)

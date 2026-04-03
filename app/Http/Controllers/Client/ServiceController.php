@@ -24,24 +24,49 @@ class ServiceController extends Controller
      */
     public function index(): View
     {
+        $client = Auth::guard('client')->user();
+        $favoriteServiceIds = $client
+            ? $client->favoriteServices()->where('is_active', true)->pluck('id')->values()->all()
+            : [];
+
         $filters = [
             'search' => request()->get('search', ''),
-            'search_by' => request()->get('search_by', 'all'),
+            'search_by' => request()->get('search_by', 'service_name'),
             'min' => request()->get('min'),
             'max' => request()->get('max'),
             'status' => request()->get('status', 'all'),
             'category_id' => request()->get('category_id'),
+            'favorites_only' => request()->get('favorites_only') === '1' ? '1' : '0',
             'sort' => request()->get('sort', 'id'),
             'dir' => request()->get('dir', 'asc'),
         ];
 
-        // For client views, only show enabled categories with enabled services
         $filters['for_client'] = true;
+        $filters['favorite_service_ids'] = $favoriteServiceIds;
+
         $categories = $this->categoryService->getAllCategoriesWithServices($filters);
-        $categoriesList = $this->categoryService->getAllCategories(true); // Only enabled categories for filter dropdown
-        
-        // Add pricing information to services
-        $client = Auth::guard('client')->user();
+        $categoriesList = $this->categoryService->getAllCategories(true);
+
+        $countFilters = [
+            'for_client' => true,
+            'search' => '',
+            'search_by' => 'service_name',
+            'sort' => 'id',
+            'dir' => 'asc',
+            'favorite_service_ids' => $favoriteServiceIds,
+        ];
+        $categoriesForCounts = $this->categoryService->getAllCategoriesWithServices($countFilters);
+        $serviceTabCounts = [
+            'all' => 0,
+            'favorites' => count($favoriteServiceIds),
+            'categories' => [],
+        ];
+        foreach ($categoriesForCounts as $cat) {
+            $n = $cat->services->count();
+            $serviceTabCounts['categories'][$cat->id] = $n;
+            $serviceTabCounts['all'] += $n;
+        }
+
         if ($client) {
             foreach ($categories as $category) {
                 foreach ($category->services as $service) {
@@ -56,6 +81,8 @@ class ServiceController extends Controller
             'categories' => $categories,
             'categoriesList' => $categoriesList,
             'filters' => $filters,
+            'favoriteServiceIds' => $favoriteServiceIds,
+            'serviceTabCounts' => $serviceTabCounts,
         ]);
     }
 
@@ -64,23 +91,28 @@ class ServiceController extends Controller
      */
     public function search(Request $request): JsonResponse
     {
+        $client = Auth::guard('client')->user();
+        $favoriteServiceIds = $client
+            ? $client->favoriteServices()->where('is_active', true)->pluck('id')->values()->all()
+            : [];
+
         $filters = [
             'search' => $request->get('search', ''),
-            'search_by' => $request->get('search_by', 'all'),
+            'search_by' => $request->get('search_by', 'service_name'),
             'min' => $request->get('min'),
             'max' => $request->get('max'),
             'status' => $request->get('status', 'all'),
             'category_id' => $request->get('category_id'),
+            'favorites_only' => $request->get('favorites_only') === '1' ? '1' : '0',
             'sort' => $request->get('sort', 'id'),
             'dir' => $request->get('dir', 'asc'),
         ];
 
-        // For client views, only show enabled categories with enabled services
         $filters['for_client'] = true;
+        $filters['favorite_service_ids'] = $favoriteServiceIds;
+
         $categories = $this->categoryService->getAllCategoriesWithServices($filters);
-        
-        // Add pricing information to services
-        $client = Auth::guard('client')->user();
+
         if ($client) {
             foreach ($categories as $category) {
                 foreach ($category->services as $service) {
@@ -91,15 +123,15 @@ class ServiceController extends Controller
             }
         }
 
-        // Return HTML for the filtered categories/services
         $html = view('client.services.partials.services-list', [
             'categories' => $categories,
             'showActions' => false,
+            'favoriteServiceIds' => $favoriteServiceIds,
         ])->render();
 
         return response()->json([
             'html' => $html,
-            'count' => $categories->sum(fn($cat) => $cat->services->count()),
+            'count' => $categories->sum(fn ($cat) => $cat->services->count()),
         ]);
     }
 
@@ -133,4 +165,3 @@ class ServiceController extends Controller
         ]);
     }
 }
-

@@ -33,7 +33,7 @@ class HeleketPaymentTest extends TestCase
     private function ensurePaymentsTablesExist(): void
     {
         $schema = DB::getSchemaBuilder();
-        if (!$schema->hasTable('clients')) {
+        if (! $schema->hasTable('clients')) {
             $schema->create('clients', function ($table) {
                 $table->id();
                 $table->string('name');
@@ -44,7 +44,7 @@ class HeleketPaymentTest extends TestCase
                 $table->timestamps();
             });
         }
-        if (!$schema->hasTable('payments')) {
+        if (! $schema->hasTable('payments')) {
             $schema->create('payments', function ($table) {
                 $table->id();
                 $table->foreignId('client_id')->nullable()->constrained('clients')->nullOnDelete();
@@ -60,7 +60,7 @@ class HeleketPaymentTest extends TestCase
                 $table->timestamps();
             });
         }
-        if (!$schema->hasTable('payment_events')) {
+        if (! $schema->hasTable('payment_events')) {
             $schema->create('payment_events', function ($table) {
                 $table->id();
                 $table->foreignId('payment_id')->constrained('payments')->cascadeOnDelete();
@@ -72,7 +72,7 @@ class HeleketPaymentTest extends TestCase
                 $table->timestamps();
             });
         }
-        if (!$schema->hasTable('balance_ledger_entries')) {
+        if (! $schema->hasTable('balance_ledger_entries')) {
             $schema->create('balance_ledger_entries', function ($table) {
                 $table->id();
                 $table->foreignId('client_id')->constrained('clients')->cascadeOnDelete();
@@ -83,6 +83,18 @@ class HeleketPaymentTest extends TestCase
                 $table->json('meta')->nullable();
                 $table->timestamps();
                 $table->unique(['payment_id', 'type'], 'balance_ledger_payment_type_unique');
+            });
+        }
+        if (! $schema->hasTable('client_transactions')) {
+            $schema->create('client_transactions', function ($table) {
+                $table->id();
+                $table->foreignId('client_id')->constrained('clients')->cascadeOnDelete();
+                $table->unsignedBigInteger('order_id')->nullable();
+                $table->foreignId('payment_id')->nullable()->constrained('payments')->nullOnDelete();
+                $table->decimal('amount', 12, 2);
+                $table->string('type');
+                $table->string('description')->nullable();
+                $table->timestamps();
             });
         }
     }
@@ -138,7 +150,7 @@ class HeleketPaymentTest extends TestCase
         ];
         ksort($bodyWithoutSign);
         $body = $bodyWithoutSign;
-        $body['sign'] = md5(base64_encode(json_encode($bodyWithoutSign)) . 'test-payment-key');
+        $body['sign'] = md5(base64_encode(json_encode($bodyWithoutSign)).'test-payment-key');
 
         $this->withServerVariables(['REMOTE_ADDR' => '31.133.220.8']);
 
@@ -161,7 +173,7 @@ class HeleketPaymentTest extends TestCase
     {
         $client = Client::create([
             'name' => 'Test Client',
-            'email' => 'test-ledger-' . uniqid() . '@example.com',
+            'email' => 'test-ledger-'.uniqid().'@example.com',
             'password' => bcrypt('password'),
             'balance' => 0,
         ]);
@@ -184,7 +196,7 @@ class HeleketPaymentTest extends TestCase
         ];
         ksort($bodyWithoutSign);
         $body = $bodyWithoutSign;
-        $body['sign'] = md5(base64_encode(json_encode($bodyWithoutSign)) . 'test-payment-key');
+        $body['sign'] = md5(base64_encode(json_encode($bodyWithoutSign)).'test-payment-key');
 
         $this->postJson('/api/webhooks/payments/heleket', $body)->assertStatus(200);
         $this->postJson('/api/webhooks/payments/heleket', $body)->assertStatus(200);
@@ -241,12 +253,12 @@ class HeleketPaymentTest extends TestCase
             'payment_status' => 'paid_over',
         ];
         ksort($body);
-        $body['sign'] = md5(base64_encode(json_encode($body)) . 'test-payment-key');
+        $body['sign'] = md5(base64_encode(json_encode($body)).'test-payment-key');
         // Re-add sign for the request (it was already in body when we ksort'd - actually ksort mutates, sign is there)
         // After ksort the body has order_id, payment_status, uuid, sign - we compute sign from body without sign
         $bodyWithoutSign = ['order_id' => $body['order_id'], 'payment_status' => $body['payment_status'], 'uuid' => $body['uuid']];
         ksort($bodyWithoutSign);
-        $body['sign'] = md5(base64_encode(json_encode($bodyWithoutSign)) . 'test-payment-key');
+        $body['sign'] = md5(base64_encode(json_encode($bodyWithoutSign)).'test-payment-key');
 
         $this->withServerVariables(['REMOTE_ADDR' => '31.133.220.8']);
 
@@ -276,7 +288,7 @@ class HeleketPaymentTest extends TestCase
         ];
         ksort($bodyWithoutSign);
         $body = $bodyWithoutSign;
-        $body['sign'] = md5(base64_encode(json_encode($bodyWithoutSign)) . 'test-payment-key');
+        $body['sign'] = md5(base64_encode(json_encode($bodyWithoutSign)).'test-payment-key');
 
         $this->withServerVariables(['REMOTE_ADDR' => '31.133.220.8']);
 
@@ -309,7 +321,7 @@ class HeleketPaymentTest extends TestCase
         ];
         ksort($bodyWithoutSign);
         $body = $bodyWithoutSign;
-        $body['sign'] = md5(base64_encode(json_encode($bodyWithoutSign)) . 'test-payment-key');
+        $body['sign'] = md5(base64_encode(json_encode($bodyWithoutSign)).'test-payment-key');
 
         $this->withServerVariables(['REMOTE_ADDR' => '31.133.220.8']);
 

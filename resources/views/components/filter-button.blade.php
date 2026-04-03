@@ -2,6 +2,7 @@
     'active' => [],
     'count' => null, // Alpine expression string, e.g. "activeFiltersCount"
     'badgeClass' => 'absolute -top-2 -right-2',
+    'dropdownTheme' => 'default',
 ])
 
 @php
@@ -9,7 +10,12 @@
     $phpCount = collect($active)->filter(fn ($v) => $v !== null && $v !== '')->count();
 @endphp
 
-<div class="relative z-50 flex-shrink-0" x-data="{ open: false }" @close-filter-dropdown.window="open = false" @filter-applied.window="open = false" style="isolation:isolate;">
+<div
+    class="filter-button-root relative z-[100] inline-block flex-shrink-0 align-top max-w-full"
+    x-data="{ open: false }"
+    @close-filter-dropdown.window="open = false"
+    @filter-applied.window="open = false"
+>
     <div class="relative inline-block" @click="open = !open">
         {{ $trigger }}
 
@@ -32,8 +38,10 @@
         @endif
     </div>
 
-    <x-filter-dropdown-backdrop open="open" />
-    <x-filter-dropdown open="open">
+    @if($dropdownTheme !== 'smm')
+        <x-filter-dropdown-backdrop open="open" />
+    @endif
+    <x-filter-dropdown open="open" :theme="$dropdownTheme">
         {{ $dropdown }}
     </x-filter-dropdown>
 </div>

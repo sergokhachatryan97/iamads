@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Client;
 
+use App\Helpers\OrderQueryBuilder;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ClientBulkOrderActionRequest;
 use App\Http\Requests\MultiStoreOrderRequest;
 use App\Http\Requests\StoreOrderRequest;
 use App\Models\Category;
@@ -102,6 +104,8 @@ class OrderController extends Controller
 
         $query->orderBy($sortBy, $sortDir);
 
+        $ordersIds = (clone $query)->pluck('id')->toArray();
+
         $orders = $query->paginate(20)->withQueryString();
 
         // Per-status counts for this client (respect filters)
@@ -179,7 +183,149 @@ class OrderController extends Controller
             'filterDateFrom' => $request->get('date_from'),
             'filterDateTo' => $request->get('date_to'),
             'filterSearch' => $request->get('search', $request->get('link', $request->get('order_id'))),
+            'ordersIds' => $ordersIds,
         ]);
+    }
+
+    /**
+     * Bulk cancel (full or partial) for the authenticated client's orders only.
+     */
+    public function bulkAction(ClientBulkOrderActionRequest $request): RedirectResponse
+    {
+        $client = $this->client;
+        $action = $request->input('action');
+        $selectAll = $request->boolean('select_all');
+        $selectedIds = $request->input('selected_ids', []);
+        $excludedIds = $request->input('excluded_ids', []);
+        $filters = $request->input('filters', []);
+
+        $query = OrderQueryBuilder::buildBulkQuery(
+            $selectAll,
+            $selectedIds,
+            $excludedIds,
+            $filters,
+            null,
+            null,
+            $client->id
+        );
+
+        $totalMatched = OrderQueryBuilder::countMatching($query);
+
+        if ($totalMatched > ClientBulkOrderActionRequest::getMaxBatchSize()) {
+            return redirect()
+                ->route('client.orders.index')
+                ->with('error', __('Cannot process more than :count orders at once. Please refine your filters.', ['count' => ClientBulkOrderActionRequest::getMaxBatchSize()]));
+        }
+
+        $processedCount = 0;
+        $succeededCount = 0;
+        $failedCount = 0;
+        $failures = [];
+
+        $query->with(['service'])->chunkById(100, function ($orders) use ($action, &$processedCount, &$succeededCount, &$failedCount, &$failures, $client) {
+            foreach ($orders as $order) {
+                $processedCount++;
+
+                try {
+                    if ((int) $order->client_id !== (int) $client->id) {
+                        $failedCount++;
+                        $failures[] = [
+                            'order_id' => $order->id,
+                            'reason' => __('Access denied.'),
+                        ];
+
+                        continue;
+                    }
+
+                    $service = $order->service;
+                    if (! $service || ! $service->user_can_cancel) {
+                        $failures[] = [
+                            'order_id' => $order->id,
+                            'reason' => __('Service does not allow cancellation.'),
+                        ];
+                        $failedCount++;
+
+                        continue;
+                    }
+
+                    if ($action === 'cancel_full') {
+                        if (! in_array($order->status, [Order::STATUS_AWAITING, Order::STATUS_PENDING, Order::STATUS_PROCESSING], true)) {
+                            $failures[] = [
+                                'order_id' => $order->id,
+                                'reason' => __('Cannot be fully canceled (status: :status).', ['status' => $order->status]),
+                            ];
+                            $failedCount++;
+
+                            continue;
+                        }
+                        $this->orderService->cancelFull($order, $client);
+                    } elseif ($action === 'cancel_partial') {
+                        if (! in_array($order->status, [Order::STATUS_IN_PROGRESS, Order::STATUS_PROCESSING], true)) {
+                            $failures[] = [
+                                'order_id' => $order->id,
+                                'reason' => __('Cannot be partially canceled (status: :status).', ['status' => $order->status]),
+                            ];
+                            $failedCount++;
+
+                            continue;
+                        }
+                        $this->orderService->cancelPartial($order, $client);
+                    }
+
+                    $succeededCount++;
+                } catch (ValidationException $e) {
+                    $errorMessages = implode(', ', array_merge(...array_values($e->errors())));
+                    $failures[] = [
+                        'order_id' => $order->id,
+                        'reason' => $errorMessages ?: $e->getMessage(),
+                    ];
+                    $failedCount++;
+                } catch (\Exception $e) {
+                    $failures[] = [
+                        'order_id' => $order->id,
+                        'reason' => $e->getMessage(),
+                    ];
+                    $failedCount++;
+                }
+            }
+        });
+
+        $actionLabel = $action === 'cancel_full'
+            ? __('canceled (full refund)')
+            : __('partially canceled');
+
+        $message = '';
+        if ($succeededCount > 0) {
+            $message = __(':count order(s) :action successfully.', ['count' => $succeededCount, 'action' => $actionLabel]);
+        }
+
+        if ($failedCount > 0) {
+            $message .= ($message !== '' ? ' ' : '').__(':count order(s) failed to process.', ['count' => $failedCount]);
+        }
+
+        if ($processedCount === 0) {
+            $message = __('No orders matched your selection criteria.');
+        }
+
+        $redirect = redirect()->route('client.orders.index');
+
+        if ($succeededCount > 0) {
+            $redirect->with('success', $message);
+        } else {
+            $redirect->with('error', $message);
+        }
+
+        if (! empty($failures)) {
+            $redirect->with('bulk_result', [
+                'total_matched' => $totalMatched,
+                'processed_count' => $processedCount,
+                'succeeded_count' => $succeededCount,
+                'failed_count' => $failedCount,
+                'failures' => $failures,
+            ]);
+        }
+
+        return $redirect;
     }
 
     /**

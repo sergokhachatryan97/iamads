@@ -4,9 +4,9 @@
     $favoriteServiceIds = $favoriteServiceIds ?? [];
 @endphp
 
-<div class="bg-white shadow-sm sm:rounded-lg">
-    <div class="overflow-x-auto">
-        <table class="w-full divide-y divide-gray-200">
+<div class="client-services-table-wrap shadow-sm sm:rounded-lg w-full min-w-0">
+    <div class="overflow-x-auto w-full min-w-0">
+        <table class="w-full min-w-full table-fixed divide-y divide-gray-200">
             <colgroup>
                 <col class="w-20">
                 <col class="w-16">
@@ -14,9 +14,7 @@
                 <col class="w-32">
                 <col class="w-24">
                 <col class="w-24">
-                <col class="w-40">
-                <col style="min-width: 200px;">
-                <col class="w-24">
+                <col class="w-28">
             </colgroup>
             <thead class="bg-gray-50 sticky top-0">
                 <tr>
@@ -98,15 +96,6 @@
                             </span>
                         </button>
                     </th>
-                    <th scope="col" class="px-4 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap bg-gray-50">
-                        Average time
-                        <svg class="inline-block w-4 h-4 ml-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                    </th>
-                    <th scope="col" class="px-4 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50">
-                        Description
-                    </th>
                     <th scope="col" class="px-4 py-1.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap bg-gray-50">
                         View
                     </th>
@@ -115,7 +104,7 @@
             <tbody class="bg-white divide-y divide-gray-200">
                 @if($categories->isEmpty())
                     <tr>
-                        <td colspan="9" class="px-4 py-8 text-center text-gray-500">
+                        <td colspan="7" class="px-4 py-8 text-center text-gray-500">
                             {{ __('No services found matching your search criteria.') }}
                         </td>
                     </tr>
@@ -123,7 +112,7 @@
                     @foreach($categories as $category)
                         {{-- Category Header Row --}}
                         <tr class="bg-gray-50 border-b-2 border-gray-200">
-                            <td colspan="9" class="px-6 py-2">
+                            <td colspan="7" class="px-6 py-2">
                                 <div class="flex items-center gap-3">
                                     @if($category->icon)
                                         <span class="text-xl">
@@ -149,7 +138,7 @@
                         @endphp
                         @if($activeServices->isEmpty())
                             <tr>
-                                <td colspan="9" class="px-4 py-6 text-center text-gray-500">
+                                <td colspan="7" class="px-4 py-6 text-center text-gray-500">
                                     {{ __('No services in this category.') }}
                                 </td>
                             </tr>
@@ -207,18 +196,6 @@
                                     </td>
                                     <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
                                         {{ number_format($service->max_quantity ?? $service->max_order ?? 1) }}
-                                    </td>
-                                    <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                                        {{ __('2 hours 30 minutes') }}
-                                    </td>
-                                    <td class="px-4 py-2 text-sm text-gray-500">
-                                        @if($service->description)
-                                            <div class="max-w-xs lg:max-w-md xl:max-w-lg truncate" title="{{ e($service->description) }}">
-                                                {{ Str::limit($service->description, 50) }}
-                                            </div>
-                                        @else
-                                            <span class="text-gray-400">—</span>
-                                        @endif
                                     </td>
                                     <td class="px-4 py-2 whitespace-nowrap text-center">
                                         <button type="button"

@@ -8,7 +8,7 @@
     'show' => false,
 ])
 
-<x-modal :name="$name" :show="$show" maxWidth="md">
+<x-modal :name="$name" :show="$show" maxWidth="md" theme="smm">
     <div class="p-6">
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-semibold text-gray-900">
