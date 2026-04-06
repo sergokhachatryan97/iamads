@@ -29,6 +29,7 @@ use App\Http\Controllers\Staff\ProviderOrderStatsController;
 use App\Http\Controllers\Staff\ServiceController;
 use App\Http\Controllers\Staff\SocpanelModerationController;
 use App\Http\Controllers\Staff\SubscriptionPlanController;
+use App\Http\Controllers\Staff\TelegramStatsController;
 use App\Http\Controllers\Staff\UserController;
 use App\Http\Middleware\BlockClientFromStaffRoutes;
 use App\Http\Middleware\UseStaffSession;
@@ -207,6 +208,9 @@ Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSess
     Route::get('orders/eligible-ids', [\App\Http\Controllers\Staff\OrderController::class, 'getEligibleIds'])->name('staff.orders.eligible-ids');
     Route::post('orders/bulk-action', [\App\Http\Controllers\Staff\OrderController::class, 'bulkAction'])->name('staff.orders.bulk-action');
     Route::get('orders/statuses', [\App\Http\Controllers\Staff\OrderController::class, 'getStatuses'])->name('staff.orders.statuses');
+
+    // Telegram Statistics
+    Route::get('telegram-stats', [TelegramStatsController::class, 'index'])->name('staff.telegram-stats.index');
 
     // Export Files
     Route::get('exports', [\App\Http\Controllers\Staff\ExportFilesController::class, 'index'])->name('staff.exports.index');

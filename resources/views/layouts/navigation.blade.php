@@ -30,8 +30,11 @@
                         <x-nav-link :href="route('staff.orders.index')" :active="request()->routeIs('staff.orders.*')">
                             {{ __('Orders') }}
                         </x-nav-link>
-                        <x-nav-link :href="route('staff.order-stats.index')" :active="request()->routeIs('staff.order-stats.*')">
-                            {{ __('Order Stats') }}
+{{--                        <x-nav-link :href="route('staff.order-stats.index')" :active="request()->routeIs('staff.order-stats.*')">--}}
+{{--                            {{ __('Order Stats') }}--}}
+{{--                        </x-nav-link>--}}
+                        <x-nav-link :href="route('staff.telegram-stats.index')" :active="request()->routeIs('staff.telegram-stats.*')">
+                            {{ __('Telegram Stats') }}
                         </x-nav-link>
                     @endif
                     @if(Auth::guard('staff')->check())
@@ -140,6 +143,9 @@
                 </x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('staff.order-stats.index')" :active="request()->routeIs('staff.order-stats.*')">
                     {{ __('Order Stats') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('staff.telegram-stats.index')" :active="request()->routeIs('staff.telegram-stats.*')">
+                    {{ __('Telegram Stats') }}
                 </x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('staff.clients.index')" :active="request()->routeIs('staff.clients.*')">
                     {{ __('Clients') }}
