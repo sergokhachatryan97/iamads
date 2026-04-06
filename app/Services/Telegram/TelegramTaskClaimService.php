@@ -793,7 +793,8 @@ class TelegramTaskClaimService
             }
 
             // Speed limit: set next_run_at
-            $baseInterval = (int) ($executionMeta['interval_seconds'] ?? 30);
+//            $baseInterval = (int) ($executionMeta['interval_seconds'] ?? 30);
+            $baseInterval = 60;
             $speed = (float) ($order->speed_multiplier ?? ($executionMeta['speed_multiplier'] ?? 1));
             $speed = $speed > 0 ? $speed : 1.0;
             $executionMeta['next_run_at'] = now()->addSeconds((int) max(1, round($baseInterval / $speed)))->toDateTimeString();
