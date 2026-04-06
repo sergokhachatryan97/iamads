@@ -16,6 +16,17 @@ class AuthenticateProviderApiKey
 {
     public function handle(Request $request, Closure $next): Response
     {
+        \Log::info('Provider API incoming request', [
+            'method' => $request->method(),
+            'url' => $request->fullUrl(),
+            'content_type' => $request->header('Content-Type'),
+            'headers' => $request->headers->all(),
+            'all' => $request->all(),
+            'raw' => $request->getContent(),
+            'key_input' => $request->input('key'),
+            'action_input' => $request->input('action'),
+        ]);
+        
         $apiKey = $request->input('key');
 
         if (!$apiKey || trim((string) $apiKey) === '') {
