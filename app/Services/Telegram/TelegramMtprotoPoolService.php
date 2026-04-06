@@ -479,11 +479,10 @@ class TelegramMtprotoPoolService
 
             try {
                 $result = $madeline->messages->checkChatInvite(['hash' => $hash]);
-                $participantsCount = $result['participants_count'] ?? null;
-                $userName = $result['user']['username'] ?? null;
-                if (! is_numeric($participantsCount) && $userName !== null) {
-                    $fullInfo = $madeline->getFullInfo($userName);
-                    $result['participants_count'] = $fullInfo['full']['participants_count'] ?? null;
+
+                // Try to get participants_count if not returned directly
+                if (! is_numeric($result['participants_count'] ?? null)) {
+                    $result['participants_count'] = $this->resolveInviteParticipantsCount($madeline, $result);
                 }
 
                 Log::info('checkChatInvite', ['result' => $result]);
@@ -562,6 +561,50 @@ class TelegramMtprotoPoolService
                 'raw' => $result,
             ]);
         }, mode: self::MODE_INSPECT, forB2c: $forB2c);
+    }
+
+    /**
+     * Resolve participants_count from checkChatInvite result when not returned directly.
+     *
+     * For chatInviteAlready: the account is already a member, so we can call getFullInfo on the chat.
+     * For chatInvite: try chat.username if present (public group behind invite link).
+     */
+    private function resolveInviteParticipantsCount(\danog\MadelineProto\API $madeline, array $result): ?int
+    {
+        try {
+            $type = (string) ($result['_'] ?? '');
+
+            // chatInviteAlready — we are a member, chat object has id/access_hash
+            if ($type === 'chatInviteAlready') {
+                $chat = $result['chat'] ?? [];
+                if (is_array($chat) && isset($chat['id'])) {
+                    $fullInfo = $madeline->getFullInfo($chat);
+                    $count = $fullInfo['full']['participants_count'] ?? null;
+                    if (is_numeric($count)) {
+                        return (int) $count;
+                    }
+                }
+            }
+
+            // chatInvite — not yet joined; try username if the chat is public
+            if ($type === 'chatInvite' || $type === 'chatInvitePeek') {
+                // Some invite responses include a username for public chats
+                $username = $result['username'] ?? null;
+                if ($username !== null && $username !== '') {
+                    $fullInfo = $madeline->getFullInfo($username);
+                    $count = $fullInfo['full']['participants_count'] ?? null;
+                    if (is_numeric($count)) {
+                        return (int) $count;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::debug('checkInvite: could not resolve participants_count', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return null;
     }
 
     /**
