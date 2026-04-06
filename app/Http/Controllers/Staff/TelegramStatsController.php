@@ -14,6 +14,20 @@ use Illuminate\Support\Facades\DB;
 
 class TelegramStatsController extends Controller
 {
+    /**
+     * Year-month group expression compatible with both SQLite and MySQL.
+     */
+    private function yearMonthExpr(string $column): string
+    {
+        $driver = DB::connection()->getDriverName();
+
+        if ($driver === 'sqlite') {
+            return "strftime('%Y-%m', {$column})";
+        }
+
+        return "DATE_FORMAT({$column}, '%Y-%m')";
+    }
+
     public function index(Request $request): View
     {
         $period = $request->input('period', 'days');
@@ -74,8 +88,8 @@ class TelegramStatsController extends Controller
         if ($period === 'monthly') {
             $chartLabels = collect(range(11, 0))->map(fn ($i) => now()->subMonths($i)->format('Y-m'));
             $rangeStart = now()->subMonths(11)->startOfMonth();
-            $incomeGroupExpr = "DATE_FORMAT(completed_at, '%Y-%m')";
-            $membershipGroupExpr = "DATE_FORMAT(telegram_order_memberships.subscribed_at, '%Y-%m')";
+            $incomeGroupExpr = $this->yearMonthExpr('completed_at');
+            $membershipGroupExpr = $this->yearMonthExpr('telegram_order_memberships.subscribed_at');
 
             // Override top metrics for monthly: current month vs previous month
             $currentMonthStr = now()->format('Y-m');
@@ -86,7 +100,7 @@ class TelegramStatsController extends Controller
                 ->where('status', Order::STATUS_COMPLETED)
                 ->whereNotNull('completed_at')
                 ->where('completed_at', '>=', now()->subMonth()->startOfMonth())
-                ->selectRaw("DATE_FORMAT(completed_at, '%Y-%m') as period, COALESCE(SUM(CAST(charge AS DECIMAL(20,4))), 0) as income")
+                ->selectRaw("{$this->yearMonthExpr('completed_at')} as period, COALESCE(SUM(CAST(charge AS DECIMAL(20,4))), 0) as income")
                 ->groupBy('period')
                 ->get()
                 ->keyBy('period');
@@ -97,7 +111,7 @@ class TelegramStatsController extends Controller
                 ->where('telegram_order_memberships.state', TelegramOrderMembership::STATE_SUBSCRIBED)
                 ->whereNotNull('telegram_order_memberships.subscribed_at')
                 ->where('telegram_order_memberships.subscribed_at', '>=', now()->subMonth()->startOfMonth())
-                ->selectRaw("DATE_FORMAT(telegram_order_memberships.subscribed_at, '%Y-%m') as period, COUNT(*) as completions")
+                ->selectRaw("{$this->yearMonthExpr('telegram_order_memberships.subscribed_at')} as period, COUNT(*) as completions")
                 ->groupBy('period')
                 ->get()
                 ->keyBy('period');
