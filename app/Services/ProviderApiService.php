@@ -42,7 +42,8 @@ class ProviderApiService
                 $services[] = [
                     'service' => (int) $service->id,
                     'name' => $service->name,
-                    'type' => 'default',
+                    'category' => $category->name,
+                    'type' => 'Default',
                     'rate' => number_format($rate, 2, '.', ''),
                     'min' => (string) ($service->min_quantity ?? 1),
                     'max' => $service->max_quantity !== null ? (string) $service->max_quantity : '0',
