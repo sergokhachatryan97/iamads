@@ -66,7 +66,6 @@ class TelegramMtprotoPoolService
                     ],
                 ]);
 
-                Log::info('[MTProto info] ', ['result' => $res]);
             } catch (RPCErrorException $e) {
                 return $this->fail('MTPROTO_RPC', $e->getMessage());
             } catch (CancelledException $e) {
@@ -485,8 +484,6 @@ class TelegramMtprotoPoolService
                     $result['participants_count'] = $this->resolveInviteParticipantsCount($madeline, $result);
                 }
 
-                Log::info('checkChatInvite', ['result' => $result]);
-
             } catch (RPCErrorException $e) {
                 $rpc = strtoupper((string) ($e->rpc ?? ''));
                 $msg = strtoupper((string) $e->getMessage());
@@ -627,7 +624,6 @@ class TelegramMtprotoPoolService
         return $this->executeWithPool(function (MtprotoTelegramAccount $account, \danog\MadelineProto\API $madeline) use ($peer) {
             try {
                 $raw = $madeline->premium->getBoostsStatus(['peer' => $peer]);
-                Log::info('boost', ['peer' => $peer, 'raw' => $raw]);
             } catch (\Throwable $e) {
                 return [
                     'ok' => false,
