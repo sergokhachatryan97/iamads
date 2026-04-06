@@ -479,8 +479,9 @@ class TelegramMtprotoPoolService
             try {
                 $result = $madeline->messages->checkChatInvite(['hash' => $hash]);
 
-                // Try to get participants_count if not returned directly
-                if (! is_numeric($result['participants_count'] ?? null)) {
+                $count = $result['participants_count'] ?? null;
+
+                if ($count === null) {
                     $result['participants_count'] = $this->resolveInviteParticipantsCount($madeline, $result);
                 }
 
