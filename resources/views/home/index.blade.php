@@ -622,7 +622,6 @@ function renderServices(categoryId) {
             <div class="service-radio"></div>
             <div class="service-info">
                 <div class="service-name">${s.name}</div>
-                <div class="service-desc">${s.description || ''}</div>
             </div>
             <div class="service-meta">
                 <div class="service-price">$${s.pricePer1000.toFixed(2)}</div>
