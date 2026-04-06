@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\External;
 
+use App\Models\Service;
+use App\Support\Links\OrderLinkNormalizer;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ExternalOrderStoreRequest extends FormRequest
@@ -31,20 +33,15 @@ class ExternalOrderStoreRequest extends FormRequest
      */
     protected function prepareForValidation(): void
     {
-        if ($this->has('service') && !$this->has('service_id')) {
+        if ($this->has('service') && ! $this->has('service_id')) {
             $this->merge(['service_id' => $this->input('service')]);
         }
         $link = $this->input('link');
-        if (!empty($link)) {
-            $this->merge(['link' => $this->ensureLinkHasScheme(trim((string) $link))]);
+        if (! empty($link)) {
+            $serviceId = (int) ($this->input('service_id') ?? $this->input('service') ?? 0);
+            $service = $serviceId > 0 ? Service::with('category')->find($serviceId) : null;
+            $driver = $service?->category?->link_driver ?? 'generic';
+            $this->merge(['link' => OrderLinkNormalizer::normalize(trim((string) $link), $driver)]);
         }
-    }
-
-    private function ensureLinkHasScheme(string $link): string
-    {
-        if ($link === '' || preg_match('#^https?://#i', $link)) {
-            return $link;
-        }
-        return 'https://' . $link;
     }
 }

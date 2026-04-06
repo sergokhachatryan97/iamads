@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Service;
 use App\Services\ProviderApiService;
+use App\Support\Links\OrderLinkNormalizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -28,8 +30,9 @@ class ProviderApiController extends Controller
         $action = $request->input('action');
         $client = $request->attributes->get('api_client');
 
-        if (!$action || trim((string) $action) === '') {
+        if (! $action || trim((string) $action) === '') {
             $this->logProviderApi($client?->id, null, false, null, 'missing_action');
+
             return $this->errorResponse('Missing action', 400);
         }
 
@@ -46,10 +49,12 @@ class ProviderApiController extends Controller
         } catch (ValidationException $e) {
             $message = collect($e->errors())->flatten()->first() ?? $e->getMessage();
             $this->logProviderApi($client->id, $action, false, null, $message);
+
             return $this->errorResponse($message, 422);
         } catch (\RuntimeException $e) {
             if ($e->getMessage() === 'Order not found') {
                 $this->logProviderApi($client->id, $action, false, null, 'order_not_found');
+
                 return $this->errorResponse('Order not found', 404);
             }
             throw $e;
@@ -61,11 +66,13 @@ class ProviderApiController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
             $this->logProviderApi($client->id, $action, false, null, $e->getMessage());
+
             return $this->errorResponse('An error occurred. Please try again.', 500);
         }
 
         if ($result === null) {
             $this->logProviderApi($client->id, $action, false, null, 'unknown_action');
+
             return $this->errorResponse('Unknown action', 400);
         }
 
@@ -91,10 +98,9 @@ class ProviderApiController extends Controller
         ]);
 
         $link = trim((string) $validated['link']);
-        if (!str_starts_with($link, 'http://') && !str_starts_with($link, 'https://')) {
-            $link = 'https://' . $link;
-        }
-        $validated['link'] = $link;
+        $service = Service::with('category')->find((int) $validated['service']);
+        $driver = $service?->category?->link_driver ?? 'generic';
+        $validated['link'] = OrderLinkNormalizer::normalize($link, $driver);
 
         return $this->providerApiService->add($client, $validated);
     }

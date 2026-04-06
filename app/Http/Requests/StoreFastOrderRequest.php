@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\Service;
 use App\Support\Links\LinkInspectorManager;
+use App\Support\Links\OrderLinkNormalizer;
 use App\Support\TelegramLinkParser;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -22,15 +23,6 @@ class StoreFastOrderRequest extends FormRequest
         return true;
     }
 
-    private function ensureLinkHasScheme(string $link): string
-    {
-        if ($link === '' || preg_match('#^https?://#i', $link)) {
-            return $link;
-        }
-
-        return 'https://'.$link;
-    }
-
     private function service(): ?Service
     {
         if ($this->cachedService !== null) {
@@ -45,16 +37,20 @@ class StoreFastOrderRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $input = $this->all();
+
+        $service = $this->service();
+        $driver = $service?->category?->link_driver ?? 'generic';
+
         if (! empty($input['link'])) {
-            $input['link'] = $this->ensureLinkHasScheme(trim((string) $input['link']));
+            $input['link'] = OrderLinkNormalizer::normalize((string) $input['link'], $driver);
         }
         if (! empty($input['link_2'])) {
-            $input['link_2'] = $this->ensureLinkHasScheme(trim((string) $input['link_2']));
+            $input['link_2'] = OrderLinkNormalizer::normalize((string) $input['link_2'], $driver);
         }
         if (isset($input['targets']) && is_array($input['targets'])) {
             foreach ($input['targets'] as $i => $t) {
                 if (! empty($t['link'])) {
-                    $input['targets'][$i]['link'] = $this->ensureLinkHasScheme(trim((string) $t['link']));
+                    $input['targets'][$i]['link'] = OrderLinkNormalizer::normalize((string) $t['link'], $driver);
                 }
             }
         }

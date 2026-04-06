@@ -164,6 +164,34 @@
         [data-theme="light"] .client-orders-empty-card .co-empty-outline {
             background: #fff !important;
         }
+        .client-orders-empty-card .co-empty-actions {
+            margin-top: 1rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            justify-content: center;
+            align-items: center;
+        }
+        .client-orders-empty-card .co-empty-primary {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            text-decoration: none;
+            border: none;
+            background: linear-gradient(135deg, var(--purple), var(--teal));
+            color: #fff !important;
+            box-shadow: 0 4px 14px rgba(108, 92, 231, 0.35);
+            transition: filter 0.15s ease, transform 0.15s ease;
+        }
+        .client-orders-empty-card .co-empty-primary:hover {
+            filter: brightness(1.08);
+            transform: translateY(-1px);
+        }
 
         /* Orders filter bar (matches SMM client theme) */
         .client-orders-filter-panel {
@@ -994,26 +1022,35 @@
                     </x-modal>
                 </div>
             @else
+                @php
+                    $emptyHasFilters = ($currentStatus !== 'all')
+                        || (($currentSource ?? 'all') !== 'all' && in_array($currentSource ?? '', ['web', 'api'], true))
+                        || filled($filterCategoryId ?? null)
+                        || filled($filterServiceId ?? null)
+                        || filled($filterDateFrom ?? null)
+                        || filled($filterDateTo ?? null)
+                        || filled($filterSearch ?? null);
+                @endphp
                 <div class="client-orders-empty-card overflow-hidden sm:rounded-lg">
                     <div class="p-6 text-center">
                         <p class="co-empty-text">
-                            @if($currentStatus !== 'all' || $filterCategoryId || $filterServiceId || $filterDateFrom || $filterDateTo || ($filterSearch ?? null))
+                            @if($emptyHasFilters)
                                 {{ __('No orders found matching your filters.') }}
                             @else
                                 {{ __('No orders found.') }}
                             @endif
                         </p>
-                        @if($currentStatus !== 'all')
-                            <a href="{{ route('client.orders.index') }}"
-                               class="co-empty-outline mt-4 inline-flex items-center px-4 py-2 border rounded-md shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                                {{ __('Clear Filter') }}
-                            </a>
-                        @else
-                            <a href="{{ route('client.orders.create') }}"
-                               class="mt-4 inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
+                        <div class="co-empty-actions">
+                            @if($emptyHasFilters)
+                                <a href="{{ route('client.orders.index') }}"
+                                   class="co-empty-outline inline-flex items-center px-4 py-2 border rounded-md shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                    {{ __('Clear Filter') }}
+                                </a>
+                            @endif
+                            <a href="{{ route('client.orders.create') }}" class="co-empty-primary focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-[var(--card)]">
                                 {{ __('Create Your First Order') }}
                             </a>
-                        @endif
+                        </div>
                     </div>
                 </div>
             @endif
@@ -1199,12 +1236,23 @@
                 if (!container || !container.contains(e.target)) return;
                 const link = e.target.closest('a');
                 if (!link || link.classList.contains('orders-ajax-link')) return;
+                if (link.getAttribute('target') === '_blank' || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
                 const href = link.getAttribute('href') || link.href;
-                if (href && (href.includes('orders') || href.includes(window.location.pathname))) {
-                    e.preventDefault();
-                    const url = href.startsWith('http') ? href : (window.location.origin + (href.startsWith('/') ? '' : '/') + href);
-                    window.dispatchEvent(new CustomEvent('fetch-client-orders', { detail: { url } }));
+                if (!href || href === '#' || href.startsWith('javascript:')) return;
+                if (!href.includes('orders') && !href.includes(window.location.pathname)) return;
+                let u;
+                try {
+                    u = new URL(href, window.location.href);
+                } catch {
+                    return;
                 }
+                if (u.origin !== window.location.origin) return;
+                // Let real navigations work (AJAX hijack is only for orders list + query variants)
+                if (u.pathname.endsWith('/orders/create')) {
+                    return;
+                }
+                e.preventDefault();
+                window.dispatchEvent(new CustomEvent('fetch-client-orders', { detail: { url: u.href } }));
             });
         })();
 

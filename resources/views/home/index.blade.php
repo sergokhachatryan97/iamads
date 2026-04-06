@@ -358,7 +358,7 @@
                         <input type="hidden" id="formCategoryId">
                         <div class="form-group">
                             <label class="form-label">{{ __('Your Link') }}</label>
-                            <input class="form-input" type="url" id="orderLink" placeholder="{{ __('Paste your link here...') }}">
+                            <input class="form-input" type="text" id="orderLink" placeholder="{{ __('Paste your link here...') }}">
                             <div class="form-error" id="linkError"></div>
                         </div>
                         <div class="form-group">

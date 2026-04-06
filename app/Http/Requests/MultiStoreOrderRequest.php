@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Models\Category;
 use App\Models\Service;
 use App\Support\Links\LinkInspectorManager;
+use App\Support\Links\OrderLinkNormalizer;
 use App\Support\TelegramSystemManagedTemplate;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
@@ -13,21 +14,25 @@ class MultiStoreOrderRequest extends FormRequest
 {
     private ?Category $cachedCategory = null;
 
+    private function category(): ?Category
+    {
+        if ($this->cachedCategory !== null) {
+            return $this->cachedCategory;
+        }
+        $id = $this->input('category_id');
+        $this->cachedCategory = $id ? Category::find($id) : null;
+
+        return $this->cachedCategory;
+    }
+
     protected function prepareForValidation(): void
     {
         $link = $this->input('link');
         if (! empty($link)) {
-            $this->merge(['link' => $this->ensureLinkHasScheme(trim((string) $link))]);
+            $category = $this->category();
+            $driver = $category?->link_driver ?? 'generic';
+            $this->merge(['link' => OrderLinkNormalizer::normalize(trim((string) $link), $driver)]);
         }
-    }
-
-    private function ensureLinkHasScheme(string $link): string
-    {
-        if ($link === '' || preg_match('#^https?://#i', $link)) {
-            return $link;
-        }
-
-        return 'https://'.$link;
     }
 
     /**
@@ -43,17 +48,6 @@ class MultiStoreOrderRequest extends FormRequest
      *
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
      */
-    private function category(): ?Category
-    {
-        if ($this->cachedCategory !== null) {
-            return $this->cachedCategory;
-        }
-        $id = $this->input('category_id');
-        $this->cachedCategory = $id ? Category::find($id) : null;
-
-        return $this->cachedCategory;
-    }
-
     public function rules(): array
     {
         $rules = [
