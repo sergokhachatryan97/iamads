@@ -102,28 +102,28 @@ class TelegramTaskClaimService
     private function claimSingle(string $phone, string $scope, ?int $serviceId): ?array
     {
         // Priority 1: unsubscribe (regular + folder)
-        $result = $this->claimUnsubscribe($phone, $scope, $serviceId);
-        if ($result !== null) {
-            return $result;
-        }
+//        $result = $this->claimUnsubscribe($phone, $scope, $serviceId);
+//        if ($result !== null) {
+//            return $result;
+//        }
 
-        if ($scope === TelegramPremiumTemplateScope::SCOPE_PREMIUM) {
-            $result = $this->claimPremiumFolderUnsubscribe($phone, $serviceId);
-            if ($result !== null) {
-                return $result;
-            }
-        }
-
-        // Priority 2: subscribe — random between folder and regular for premium
-        if ($scope === TelegramPremiumTemplateScope::SCOPE_PREMIUM) {
-            if (random_int(0, 1) === 0) {
-                return $this->claimPremiumFolderSubscribe($phone, $serviceId)
-                    ?? $this->claimSubscribe($phone, $scope, $serviceId);
-            }
-
-            return $this->claimSubscribe($phone, $scope, $serviceId)
-                ?? $this->claimPremiumFolderSubscribe($phone, $serviceId);
-        }
+//        if ($scope === TelegramPremiumTemplateScope::SCOPE_PREMIUM) {
+//            $result = $this->claimPremiumFolderUnsubscribe($phone, $serviceId);
+//            if ($result !== null) {
+//                return $result;
+//            }
+//        }
+//
+//        // Priority 2: subscribe — random between folder and regular for premium
+//        if ($scope === TelegramPremiumTemplateScope::SCOPE_PREMIUM) {
+//            if (random_int(0, 1) === 0) {
+//                return $this->claimPremiumFolderSubscribe($phone, $serviceId)
+//                    ?? $this->claimSubscribe($phone, $scope, $serviceId);
+//            }
+//
+//            return $this->claimSubscribe($phone, $scope, $serviceId)
+//                ?? $this->claimPremiumFolderSubscribe($phone, $serviceId);
+//        }
 
         return $this->claimSubscribe($phone, $scope, $serviceId);
     }
