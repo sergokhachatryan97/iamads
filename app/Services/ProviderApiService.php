@@ -38,12 +38,12 @@ class ProviderApiService
                     continue; // Skip custom_comments for provider API (not supported in add)
                 }
                 $rate = (float) $this->pricingService->priceForClient($service, $client);
-
+                $type = $service->service_type === 'custom_comments' ? 'Custom Comments' : 'Default';
                 $services[] = [
                     'service' => (int) $service->id,
                     'name' => $service->name,
                     'category' => $category->name,
-                    'type' => 'Default',
+                    'type' => $type,
                     'rate' => number_format($rate, 2, '.', ''),
                     'min' => (string) ($service->min_quantity ?? 1),
                     'max' => $service->max_quantity !== null ? (string) $service->max_quantity : '0',
