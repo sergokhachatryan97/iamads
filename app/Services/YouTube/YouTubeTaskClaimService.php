@@ -28,11 +28,34 @@ class YouTubeTaskClaimService
     //  Public API
     // =========================================================================
 
+    private const WATCH_CHUNK_SECONDS = 15;
+
+    /**
+     * @return array|null Task payload, error array ['error' => ..., 'retry_after' => ...], or null
+     */
     public function claim(string $accountIdentity): ?array
     {
         $accountIdentity = trim($accountIdentity);
         if ($accountIdentity === '') {
             return null;
+        }
+
+        // Watch-time cooldown: block if account has an active watch task created < 15s ago
+        $recentWatchTask = YouTubeTask::query()
+            ->where('account_identity', $accountIdentity)
+            ->where('action', 'watch')
+            ->where('status', YouTubeTask::STATUS_LEASED)
+            ->where('created_at', '>=', now()->subSeconds(self::WATCH_CHUNK_SECONDS))
+            ->first();
+
+        if ($recentWatchTask) {
+            $elapsed = now()->diffInSeconds($recentWatchTask->created_at);
+            $retryAfter = max(1, self::WATCH_CHUNK_SECONDS - $elapsed);
+
+            return [
+                'error' => 'Watch time not yet completed. Please wait before requesting a new task.',
+                'retry_after' => $retryAfter,
+            ];
         }
 
         $categoryId = $this->getYoutubeCategoryId();
@@ -217,15 +240,52 @@ class YouTubeTaskClaimService
 
             $linkHash = YouTubeTargetNormalizer::linkHash($link);
 
-            // In-flight count
-            $inFlight = YouTubeTask::query()
-                ->where('order_id', $order->id)
-                ->where('status', YouTubeTask::STATUS_LEASED)
-                ->count();
+            // Watch-time orders: each task = 15s, delivered increments per watch_time/15 tasks
+            $isWatchTime = $action === 'watch';
+            $watchTimeMeta = null;
+            if ($isWatchTime) {
+                $provPayload = $order->provider_payload ?? [];
+                $execMeta = is_array($provPayload['execution_meta'] ?? null) ? $provPayload['execution_meta'] : [];
+                $watchTimeSeconds = (int) ($execMeta['watch_time_seconds'] ?? 0);
+                if ($watchTimeSeconds < 15) {
+                    $watchTimeSeconds = 30;
+                }
 
-            $target = $order->target_quantity;
-            if ((int) $order->delivered + $inFlight >= $target) {
-                return null;
+                $tasksPerUnit = (int) ceil($watchTimeSeconds / 15);
+                $totalTasksNeeded = $tasksPerUnit * $order->target_quantity;
+
+                $watchTimeMeta = [
+                    'watch_time_seconds' => $watchTimeSeconds,
+                    'tasks_per_unit' => $tasksPerUnit,
+                    'total_tasks' => $totalTasksNeeded,
+                    'chunk_seconds' => 15,
+                ];
+
+                // For watch-time: cap by total tasks, not by delivered+remains
+                $existingTasks = YouTubeTask::query()
+                    ->where('order_id', $order->id)
+                    ->whereIn('status', [YouTubeTask::STATUS_LEASED, YouTubeTask::STATUS_DONE])
+                    ->count();
+
+                if ($existingTasks >= $totalTasksNeeded) {
+                    return null;
+                }
+
+                // Override per_call to 0 — delivery is calculated from done task count
+                $perCall = 0;
+            }
+
+                // Standard in-flight check
+                $inFlight = YouTubeTask::query()
+                    ->where('order_id', $order->id)
+                    ->where('status', YouTubeTask::STATUS_LEASED)
+                    ->count();
+
+            if (! $isWatchTime) {
+                $target = $order->target_quantity;
+                if ((int) $order->delivered + $inFlight >= $target) {
+                    return null;
+                }
             }
 
             $providerPayload = $order->provider_payload ?? [];
@@ -309,6 +369,10 @@ class YouTubeTaskClaimService
                 'action' => $action,
             ];
 
+            if ($isWatchTime && $watchTimeMeta !== null) {
+                $payload['watch_time'] = $watchTimeMeta;
+            }
+
             if ($mode === YouTubeExecutionPlanResolver::MODE_COMBO) {
                 $payload['mode'] = 'combo';
                 $payload['steps'] = $steps;
@@ -377,6 +441,10 @@ class YouTubeTaskClaimService
                     'name' => $category->name ?? '',
                 ] : null,
             ];
+
+            if ($isWatchTime && $watchTimeMeta !== null) {
+                $result['watch_time_seconds'] = $watchTimeMeta['chunk_seconds'];
+            }
 
             if ($mode === YouTubeExecutionPlanResolver::MODE_COMBO) {
                 $result['mode'] = 'combo';

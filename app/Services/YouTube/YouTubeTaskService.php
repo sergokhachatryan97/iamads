@@ -93,25 +93,55 @@ class YouTubeTaskService
             //     $actionForLog
             // );
 
-            $perCall = max(1, (int) ($task->payload['per_call'] ?? 1));
-            $currentRemains = (int) $order->remains;
-            $deduct = min($perCall, $currentRemains);
-            $newDelivered = (int) $order->delivered + $deduct;
-            $target = $order->target_quantity;
+            $perCall = (int) ($task->payload['per_call'] ?? 1);
+            $watchTimeMeta = $task->payload['watch_time'] ?? null;
 
-            $orderUpdates = [
-                'remains' => $newDelivered >= $target ? 0 : max(0, $target - $newDelivered),
-                'delivered' => $newDelivered,
-                'provider_last_error' => null,
-                'provider_last_error_at' => null,
-            ];
-            if ($newDelivered >= $target) {
-                $orderUpdates['status'] = Order::STATUS_COMPLETED;
-                $orderUpdates['completed_at'] = $order->completed_at ?? now();
+            if ($watchTimeMeta !== null && $perCall === 0) {
+                // Watch-time order: delivered = doneCount / tasksPerUnit
+                $tasksPerUnit = max(1, (int) ($watchTimeMeta['tasks_per_unit'] ?? 1));
+
+                $doneCount = YouTubeTask::query()
+                    ->where('order_id', $order->id)
+                    ->where('status', YouTubeTask::STATUS_DONE)
+                    ->count();
+
+                $target = $order->target_quantity;
+                $newDelivered = min((int) floor($doneCount / $tasksPerUnit), $target);
+
+                $orderUpdates = [
+                    'delivered' => $newDelivered,
+                    'remains' => max(0, $target - $newDelivered),
+                    'provider_last_error' => null,
+                    'provider_last_error_at' => null,
+                ];
+                if ($newDelivered >= $target) {
+                    $orderUpdates['status'] = Order::STATUS_COMPLETED;
+                    $orderUpdates['completed_at'] = $order->completed_at ?? now();
+                }
+
+                $order->update($orderUpdates);
+            } else {
+                // Standard order: increment delivered by per_call
+                $perCall = max(1, $perCall);
+                $currentRemains = (int) $order->remains;
+                $deduct = min($perCall, $currentRemains);
+                $newDelivered = (int) $order->delivered + $deduct;
+                $target = $order->target_quantity;
+
+                $orderUpdates = [
+                    'remains' => $newDelivered >= $target ? 0 : max(0, $target - $newDelivered),
+                    'delivered' => $newDelivered,
+                    'provider_last_error' => null,
+                    'provider_last_error_at' => null,
+                ];
+                if ($newDelivered >= $target) {
+                    $orderUpdates['status'] = Order::STATUS_COMPLETED;
+                    $orderUpdates['completed_at'] = $order->completed_at ?? now();
+                }
+
+                $this->applyDripfeedCompletionOnReport($order, $perCall, $orderUpdates);
+                $order->update($orderUpdates);
             }
-
-            $this->applyDripfeedCompletionOnReport($order, $perCall, $orderUpdates);
-            $order->update($orderUpdates);
 
             $task->update(['status' => YouTubeTask::STATUS_DONE]);
             // TODO: global state update disabled

@@ -39,6 +39,15 @@ class YouTubeTaskClaimController extends Controller
             ]);
         }
 
+        // Watch-time cooldown error
+        if (isset($payload['error']) && isset($payload['retry_after'])) {
+            return response()->json([
+                'ok' => false,
+                'error' => $payload['error'],
+                'retry_after' => $payload['retry_after'],
+            ], 429);
+        }
+
         $response = [
             'ok' => true,
             'count' => 1,
@@ -65,6 +74,9 @@ class YouTubeTaskClaimController extends Controller
         ];
         if (!empty($payload['comment_text'])) {
             $response['comment_text'] = $payload['comment_text'];
+        }
+        if (isset($payload['watch_time_seconds'])) {
+            $response['watch_time_seconds'] = $payload['watch_time_seconds'];
         }
         return response()->json($response);
     }
