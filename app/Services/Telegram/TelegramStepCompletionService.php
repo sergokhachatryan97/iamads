@@ -238,7 +238,8 @@ class TelegramStepCompletionService
 
         if (is_numeric($retryAfter)) {
             $ra = (int) $retryAfter;
-            return max(1, min($ra, 86400));
+            // Provider can slow us down (backoff) but never below planned interval
+            return max($default, min($ra, 86400));
         }
 
         return $default;

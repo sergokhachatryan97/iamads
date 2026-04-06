@@ -607,8 +607,8 @@ class InspectTelegramLinkJob implements ShouldQueue
             $intervalFinal = max(1, min(900, $intervalWithSpeed));
         }
 
-        // Calculate final ETA
-        $etaSeconds = $stepsTotal * $intervalFinal;
+        // Calculate final ETA (first step is immediate, so we only wait between steps)
+        $etaSeconds = max(0, $stepsTotal - 1) * $intervalFinal;
 
         // Determine member tier for debug
         $memberTier = $this->getMemberTier($memberCount);

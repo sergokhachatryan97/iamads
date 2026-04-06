@@ -415,23 +415,16 @@ class YouTubeTaskClaimService
     }
 
     /**
-     * After task claimed: set next_run_at based on service speed config.
-     * interval = base_interval / speed_multiplier
-     *   normal:     base / 1.0
-     *   fast:       base / 1.5
-     *   super_fast: base / 2.0
+     * After task claimed: set next_run_at using pre-calculated interval.
+     * Speed multiplier is already applied during inspection — no recalculation here.
      */
     private function setNextRunAt(Order $order): void
     {
         $providerPayload = $order->provider_payload ?? [];
         $executionMeta = is_array($providerPayload['execution_meta'] ?? null) ? $providerPayload['execution_meta'] : [];
 
-        $baseInterval = (int) ($executionMeta['interval_seconds'] ?? 30);
-        $speed = (float) ($order->speed_multiplier ?? ($executionMeta['speed_multiplier'] ?? 1));
-        $speed = $speed > 0 ? $speed : 1.0;
-
-        $effectiveInterval = (int) max(1, round($baseInterval / $speed));
-        $executionMeta['next_run_at'] = now()->addSeconds($effectiveInterval)->toDateTimeString();
+        $intervalSeconds = (int) ($executionMeta['interval_seconds'] ?? 30);
+        $executionMeta['next_run_at'] = now()->addSeconds(max(1, $intervalSeconds))->toDateTimeString();
 
         $providerPayload['execution_meta'] = $executionMeta;
         $order->update(['provider_payload' => $providerPayload]);
