@@ -9,6 +9,11 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    <meta property="og:title" content="SMMTool - Best SMM Panel" />
+    <meta property="og:description" content="Grow your social media fast" />
+    <meta property="og:image" content="{{ asset('images/preview.png') }}" />
+    <meta property="og:url" content="{{ url()->current() }}" />
     <style>
         :root { --radius: 12px; --radius-lg: 20px; --radius-sm: 8px; }
         [data-theme="dark"] {

@@ -5,6 +5,11 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
+        <meta property="og:title" content="SMMTool - Best SMM Panel" />
+        <meta property="og:description" content="Grow your social media fast" />
+        <meta property="og:image" content="{{ asset('images/preview.png') }}" />
+        <meta property="og:url" content="{{ url()->current() }}" />
+
         <title>{{ config('app.name', 'Laravel') }}</title>
 
         <!-- Fonts -->
