@@ -9,22 +9,30 @@ use App\Support\App\AppTargetNormalizer;
 use App\Support\Performer\OrderDripfeedClaimHelper;
 use Carbon\Carbon;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
  * App performer claim: tasks for app download + review (positive or custom with star).
- * Mirrors YouTubeTaskClaimService: one task per account_identity, dripfeed-aware,
- * execution_meta.next_run_at support, per-account comment_text, star in description.
+ * Mirrors YouTubeTaskClaimService: cached eligible orders, fair random distribution,
+ * batch loading, dripfeed-aware, speed-limit via execution_meta.next_run_at.
  */
 class AppTaskClaimService
 {
     private const LEASE_TTL_SECONDS = 180;
-    private const LAST_CLAIMED_ORDER_CACHE_KEY = 'app:claim:last_order_id';
+
+    private const ELIGIBLE_CACHE_TTL = 10;
+
+    private static ?int $appCategoryId = null;
 
     public function __construct(
         private ProviderActionLogService $actionLogService
     ) {}
+
+    // =========================================================================
+    //  Public API
+    // =========================================================================
 
     public function claim(string $accountIdentity): ?array
     {
@@ -33,113 +41,168 @@ class AppTaskClaimService
             return null;
         }
 
-        $lastClaimedOrderId = (int) cache()->get(self::LAST_CLAIMED_ORDER_CACHE_KEY, 0);
-        $now = now();
-
-        $ordersAfter = $this->baseEligibleOrdersQuery()
-            ->where('id', '>', $lastClaimedOrderId)
-            ->orderBy('id')
-            ->limit(500)
-            ->get()
-            ->filter(function (Order $order) use ($now) {
-                $dueAt = $this->computeOrderDueAt($order);
-                return $dueAt === null || $dueAt->lte($now);
-            })
-            ->values();
-
-        foreach ($ordersAfter as $order) {
-            $result = $this->tryClaimForOrder($order, $accountIdentity);
-            if ($result !== null) {
-                cache()->forever(self::LAST_CLAIMED_ORDER_CACHE_KEY, (int) $order->id);
-                return $result;
-            }
+        $categoryId = $this->getAppCategoryId();
+        if ($categoryId === null) {
+            return null;
         }
 
-        $ordersBefore = $this->baseEligibleOrdersQuery()
-            ->when($lastClaimedOrderId > 0, fn ($q) => $q->where('id', '<=', $lastClaimedOrderId))
-            ->orderBy('id')
-            ->limit(500)
-            ->get()
-            ->filter(function (Order $order) use ($now) {
-                $dueAt = $this->computeOrderDueAt($order);
-                return $dueAt === null || $dueAt->lte($now);
-            })
-            ->values();
+        $now = now();
 
-        foreach ($ordersBefore as $order) {
-            $result = $this->tryClaimForOrder($order, $accountIdentity);
-            if ($result !== null) {
-                cache()->forever(self::LAST_CLAIMED_ORDER_CACHE_KEY, (int) $order->id);
-                return $result;
+        // Cached eligible orders: id, remains, timing fields.
+        // 10s TTL — shared across all performers.
+        $eligible = $this->getEligibleOrders($categoryId);
+        if (empty($eligible)) {
+            return null;
+        }
+
+        // Pre-filter: remove orders not due yet (dripfeed / speed limit).
+        $due = array_filter($eligible, fn (object $row) => $this->isTimingDue($row, $now));
+        if (empty($due)) {
+            return null;
+        }
+
+        // Fair random distribution — every due order has equal chance.
+        $due = array_values($due);
+        shuffle($due);
+
+        // Load full models in batches of 50, try to claim
+        foreach (array_chunk($due, 50) as $batch) {
+            $ids = array_map(fn ($r) => $r->id, $batch);
+
+            $orders = Order::query()
+                ->whereIn('id', $ids)
+                ->where('remains', '>', 0)
+                ->with(['service', 'service.category'])
+                ->get()
+                ->keyBy('id');
+
+            foreach ($batch as $row) {
+                $order = $orders->get($row->id);
+                if (! $order) {
+                    continue;
+                }
+
+                $result = $this->tryClaimForOrder($order, $accountIdentity);
+                if ($result !== null) {
+                    return $result;
+                }
             }
         }
 
         return null;
     }
 
-    private function baseEligibleOrdersQuery()
+    // =========================================================================
+    //  Eligible orders cache
+    // =========================================================================
+
+    /**
+     * Cached eligible orders with only the fields needed for pre-filtering.
+     * ~20KB for 1000 rows. 10s TTL in Redis.
+     *
+     * @return object[] {id, remains, dripfeed_enabled, dripfeed_next_run_at, next_run_at}
+     */
+    private function getEligibleOrders(int $categoryId): array
     {
-        return Order::query()
-            ->whereIn('status', [
-                Order::STATUS_AWAITING,
-                Order::STATUS_IN_PROGRESS,
-                Order::STATUS_PENDING,
-            ])
-            ->where('remains', '>', 0)
-            ->whereHas('service', fn ($q) => $q->whereHas('category', fn ($q2) => $q2->where('link_driver', 'app')));
+        return Cache::remember('app:claim:eligible', self::ELIGIBLE_CACHE_TTL, function () use ($categoryId) {
+            return DB::table('orders')
+                ->select('id', 'remains', 'dripfeed_enabled', 'dripfeed_next_run_at', 'provider_payload')
+                ->whereIn('status', [Order::STATUS_AWAITING, Order::STATUS_IN_PROGRESS, Order::STATUS_PENDING])
+                ->where('remains', '>', 0)
+                ->where('category_id', $categoryId)
+                ->get()
+                ->map(function ($row) {
+                    $nextRunAt = null;
+                    if (is_string($row->provider_payload)) {
+                        $payload = json_decode($row->provider_payload, true);
+                        $nextRunAt = $payload['execution_meta']['next_run_at'] ?? null;
+                    }
+
+                    return (object) [
+                        'id' => $row->id,
+                        'remains' => (int) $row->remains,
+                        'dripfeed_enabled' => $row->dripfeed_enabled,
+                        'dripfeed_next_run_at' => $row->dripfeed_next_run_at,
+                        'next_run_at' => $nextRunAt,
+                    ];
+                })
+                ->all();
+        });
     }
 
     /**
-     * When is this order due for claiming (dripfeed or execution_meta.next_run_at).
-     * Aligns with YouTubeTaskClaimService::computeOrderDueAt.
+     * Pre-filter: is this order due for a new task right now?
      */
-    private function computeOrderDueAt(Order $order): ?Carbon
+    private function isTimingDue(object $row, Carbon $now): bool
     {
-        if ((bool) ($order->dripfeed_enabled ?? false)) {
-            $v = $order->dripfeed_next_run_at ?? null;
-            if (!$v) {
-                return null;
-            }
+        if (! empty($row->dripfeed_enabled) && ! empty($row->dripfeed_next_run_at)) {
             try {
-                return Carbon::parse($v);
+                if (Carbon::parse($row->dripfeed_next_run_at)->gt($now)) {
+                    return false;
+                }
             } catch (\Throwable) {
-                return null;
             }
         }
-        $providerPayload = $order->provider_payload ?? [];
-        $executionMeta = is_array($providerPayload['execution_meta'] ?? null) ? $providerPayload['execution_meta'] : [];
-        $nextRunAt = $executionMeta['next_run_at'] ?? null;
-        if (!$nextRunAt) {
-            return null;
+
+        if (! empty($row->next_run_at)) {
+            try {
+                if (Carbon::parse($row->next_run_at)->gt($now)) {
+                    return false;
+                }
+            } catch (\Throwable) {
+            }
         }
-        try {
-            return Carbon::parse($nextRunAt);
-        } catch (\Throwable) {
-            return null;
-        }
+
+        return true;
     }
 
-    private function resolveExecutionPlan(Order $order): array
+    private function getAppCategoryId(): ?int
     {
-        return AppExecutionPlanResolver::resolve($order);
+        if (self::$appCategoryId === null) {
+            self::$appCategoryId = (int) \App\Models\Category::query()
+                ->where('link_driver', 'app')
+                ->value('id');
+        }
+
+        return self::$appCategoryId ?: null;
     }
+
+    // =========================================================================
+    //  Claim transaction
+    // =========================================================================
 
     private function tryClaimForOrder(Order $order, string $accountIdentity): ?array
     {
-        return DB::transaction(function () use ($order, $accountIdentity): ?array {
+        $preloadedService = $order->relationLoaded('service') ? $order->service : null;
+
+        return DB::transaction(function () use ($order, $accountIdentity, $preloadedService): ?array {
             $order = Order::query()
                 ->where('id', $order->id)
                 ->where('remains', '>', 0)
-                ->whereHas('service', fn ($q) => $q->whereHas('category', fn ($q2) => $q2->where('link_driver', 'app')))
                 ->lockForUpdate()
-                ->with(['service', 'service.category'])
                 ->first();
 
             if ($order === null) {
                 return null;
             }
 
-            $plan = $this->resolveExecutionPlan($order);
+            if ($preloadedService !== null) {
+                $order->setRelation('service', $preloadedService);
+            } else {
+                $order->loadMissing(['service', 'service.category']);
+            }
+
+            // Dripfeed gate (authoritative, under lock)
+            if (! OrderDripfeedClaimHelper::canClaimTaskNow($order)) {
+                return null;
+            }
+
+            // Speed limit gate (authoritative, under lock)
+            if (! $this->canClaimBySpeedLimit($order)) {
+                return null;
+            }
+
+            $plan = AppExecutionPlanResolver::resolve($order);
             $action = $plan['action'];
             $steps = $plan['steps'];
 
@@ -151,14 +214,10 @@ class AppTaskClaimService
             $linkHash = AppTargetNormalizer::linkHash($link);
             $targetHash = AppTargetNormalizer::targetHash($order);
 
-            if (!OrderDripfeedClaimHelper::canClaimTaskNow($order)) {
-                return null;
-            }
-            $order->refresh();
-
+            // In-flight count
             $inFlight = AppTask::query()
                 ->where('order_id', $order->id)
-                ->whereIn('status', [AppTask::STATUS_LEASED])
+                ->where('status', AppTask::STATUS_LEASED)
                 ->count();
 
             $target = $order->target_quantity;
@@ -166,14 +225,11 @@ class AppTaskClaimService
                 return null;
             }
 
+            // Uniqueness checks
             $actionNames = AppExecutionPlanResolver::stepsToActionNames($steps);
             if ($this->hasStepConflict($accountIdentity, $targetHash, $actionNames)) {
                 return null;
             }
-
-            $actionForLog = count($steps) > 1
-                ? AppExecutionPlanResolver::compositeActionForLog($steps)
-                : $action;
 
             if (AppTask::query()
                 ->where('account_identity', $accountIdentity)
@@ -184,6 +240,7 @@ class AppTaskClaimService
                 return null;
             }
 
+            // Build task
             $leasedUntil = now()->addSeconds(self::LEASE_TTL_SECONDS);
             $payload = [
                 'order_id' => $order->id,
@@ -193,12 +250,12 @@ class AppTaskClaimService
                 'target_hash' => $targetHash,
             ];
 
-            // comment_text: pick one per account_identity (like YouTube) — index = delivered + inFlight
+            // comment_text: pick one per account_identity — index = delivered + inFlight
             $commentTextForTask = null;
-            if (in_array('custom_review', $steps, true) && !empty(trim((string) ($order->comment_text ?? '')))) {
+            if (in_array('custom_review', $steps, true) && ! empty(trim((string) ($order->comment_text ?? '')))) {
                 $comments = array_values(array_filter(array_map('trim', explode("\n", (string) $order->comment_text))));
                 $index = (int) $order->delivered + $inFlight;
-                if (!empty($comments)) {
+                if (! empty($comments)) {
                     $commentTextForTask = $comments[$index % count($comments)];
                 } else {
                     $commentTextForTask = trim((string) $order->comment_text);
@@ -208,7 +265,7 @@ class AppTaskClaimService
                 }
             }
 
-            // star_rating: add for custom_review or positive_review (column first, fallback to provider_payload)
+            // star_rating
             $starRating = $order->star_rating ?? (($order->provider_payload ?? [])['star_rating'] ?? null);
             if ($starRating !== null && $starRating >= 1 && $starRating <= 5) {
                 if (in_array('custom_review', $steps, true) || in_array('positive_review', $steps, true)) {
@@ -237,21 +294,21 @@ class AppTaskClaimService
                 return null;
             }
 
+            // Post-claim: update dripfeed counters
             OrderDripfeedClaimHelper::afterTaskClaimed($order);
+
+            // Post-claim: set speed-limit next_run_at
+            $this->setNextRunAt($order);
+
             $order->update(['status' => Order::STATUS_IN_PROGRESS]);
 
-            Log::debug('App task claimed', [
-                'task_id' => $task->id,
-                'order_id' => $order->id,
-                'action' => $action,
-            ]);
-
+            // Build response
             $service = $order->service;
             $category = $service?->category;
 
             $serviceDescription = $service?->description_for_performer ?? '';
             if ($commentTextForTask !== null && trim((string) $commentTextForTask) !== '') {
-                $serviceDescription .= ($serviceDescription !== '' ? "\n" : '') .sprintf('Review: %d', $commentTextForTask);
+                $serviceDescription .= ($serviceDescription !== '' ? "\n" : '') . sprintf('Review: %s', $commentTextForTask);
             }
             if (isset($payload['star_rating'])) {
                 $serviceDescription .= ($serviceDescription !== '' ? "\n" : '') . sprintf('Star rating: %d', $payload['star_rating']);
@@ -287,7 +344,7 @@ class AppTaskClaimService
                 $result['mode'] = 'combo';
                 $result['steps'] = $steps;
             }
-            if (!empty($payload['comment_text'] ?? '')) {
+            if (! empty($payload['comment_text'] ?? '')) {
                 $result['comment_text'] = $payload['comment_text'];
             }
             if (isset($payload['star_rating'])) {
@@ -297,6 +354,43 @@ class AppTaskClaimService
             return $result;
         });
     }
+
+    // =========================================================================
+    //  Speed limit
+    // =========================================================================
+
+    private function canClaimBySpeedLimit(Order $order): bool
+    {
+        $providerPayload = $order->provider_payload ?? [];
+        $executionMeta = is_array($providerPayload['execution_meta'] ?? null) ? $providerPayload['execution_meta'] : [];
+        $nextRunAt = $executionMeta['next_run_at'] ?? null;
+
+        if ($nextRunAt === null) {
+            return true;
+        }
+
+        try {
+            return Carbon::parse($nextRunAt)->lte(now());
+        } catch (\Throwable) {
+            return true;
+        }
+    }
+
+    private function setNextRunAt(Order $order): void
+    {
+        $providerPayload = $order->provider_payload ?? [];
+        $executionMeta = is_array($providerPayload['execution_meta'] ?? null) ? $providerPayload['execution_meta'] : [];
+
+        $intervalSeconds = (int) ($executionMeta['interval_seconds'] ?? 30);
+        $executionMeta['next_run_at'] = now()->addSeconds(max(1, $intervalSeconds))->toDateTimeString();
+
+        $providerPayload['execution_meta'] = $executionMeta;
+        $order->update(['provider_payload' => $providerPayload]);
+    }
+
+    // =========================================================================
+    //  Conflict checks
+    // =========================================================================
 
     private function hasStepConflict(string $accountIdentity, string $targetHash, array $actionNames): bool
     {

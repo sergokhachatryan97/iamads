@@ -50,12 +50,7 @@ class AppTaskReportController extends Controller
             'task_id' => ['required', 'string'],
         ]);
 
-        $result = $this->taskService->reportTaskResult($validated['task_id'], [
-            'state' => 'failed',
-            'ok' => false,
-            'error' => null,
-            'ignored' => true,
-        ]);
+        $result = $this->taskService->markIgnored($validated['task_id']);
 
         if (!($result['ok'] ?? false)) {
             return response()->json([
