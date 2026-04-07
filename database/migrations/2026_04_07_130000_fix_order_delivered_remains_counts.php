@@ -17,13 +17,13 @@ return new class extends Migration
                 GROUP BY order_id
             ) counts ON counts.order_id = o.id
             SET o.delivered = counts.subscribed_count,
-                o.remains = GREATEST(0, o.target_quantity - counts.subscribed_count),
+                o.remains = GREATEST(0, o.quantity - counts.subscribed_count),
                 o.status = CASE
-                    WHEN counts.subscribed_count >= o.target_quantity THEN 'completed'
+                    WHEN counts.subscribed_count >= o.quantity THEN 'completed'
                     ELSE o.status
                 END,
                 o.completed_at = CASE
-                    WHEN counts.subscribed_count >= o.target_quantity AND o.completed_at IS NULL THEN NOW()
+                    WHEN counts.subscribed_count >= o.quantity AND o.completed_at IS NULL THEN NOW()
                     ELSE o.completed_at
                 END
             WHERE o.delivered < counts.subscribed_count
