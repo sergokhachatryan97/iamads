@@ -123,18 +123,23 @@
                                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Price') }}</th>
                                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Orders') }}</th>
                                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Volume') }}</th>
-                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Balance') }}</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ $hasDateFilter ? __('Income') : __('Income today') }}</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Completed') }}</th>
+{{--                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Balance') }}</th>--}}
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
-                                @forelse($telegramServices as $service)
+                                @forelse($displayedServices as $service)
                                     @php
                                         $stats = $serviceStats[$service->id] ?? null;
                                         $accounts = $accountsPerService[$service->id] ?? 0;
                                         $completionsTodayService = $completionsTodayPerService[$service->id] ?? 0;
+                                        $serviceIncome = $service->rate_per_1000 ? $completionsTodayService * (float) $service->rate_per_1000 / 1000 : 0;
                                         $totalOrders = $stats->total_orders ?? 0;
                                         $totalVolume = $stats->total_volume ?? 0;
                                         $totalBalance = $stats->total_balance ?? 0;
+                                        $completedOrders = $stats->completed_orders ?? 0;
+                                        $completedBalance = $stats->completed_balance ?? 0;
                                         $price = $service->rate_per_1000 ? '$' . (float)$service->rate_per_1000  : '-';
                                     @endphp
                                     <tr class="hover:bg-gray-50">
@@ -158,11 +163,16 @@
                                         <td class="px-4 py-3 text-sm text-right text-gray-900">{{ $price }}</td>
                                         <td class="px-4 py-3 text-sm text-right text-gray-900">{{ number_format($totalOrders) }}</td>
                                         <td class="px-4 py-3 text-sm text-right text-gray-900">{{ number_format($totalVolume) }}</td>
-                                        <td class="px-4 py-3 text-sm text-right text-gray-900 font-medium">${{ number_format((float) $totalBalance, 0, '.', ' ') }}</td>
+                                        <td class="px-4 py-3 text-sm text-right text-emerald-600 font-medium">${{ (float) $serviceIncome }}</td>
+                                        <td class="px-4 py-3 text-sm text-right text-gray-900">
+                                            <div class="font-medium">{{ number_format($completedOrders) }}</div>
+                                            <div class="text-xs text-emerald-600">${{ number_format((float) $completedBalance, 2, '.', ' ') }}</div>
+                                        </td>
+{{--                                        <td class="px-4 py-3 text-sm text-right text-gray-900 font-medium">${{ number_format((float) $totalBalance, 0, '.', ' ') }}</td>--}}
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="7" class="px-4 py-8 text-center text-gray-500">{{ __('No Telegram services found') }}</td>
+                                        <td colspan="9" class="px-4 py-8 text-center text-gray-500">{{ __('No Telegram services found') }}</td>
                                     </tr>
                                 @endforelse
                             </tbody>
