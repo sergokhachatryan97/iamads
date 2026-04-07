@@ -241,7 +241,7 @@ class TelegramStatsController extends Controller
             ->selectRaw("
                 service_id,
                 COUNT(*) as total_orders,
-                COALESCE(SUM(CASE WHEN status IN (?, ?, ?, ?) AND COALESCE(quantity, 0) > COALESCE(delivered, 0) THEN COALESCE(quantity, 0) - COALESCE(delivered, 0) ELSE 0 END), 0) as total_volume,
+                COALESCE(SUM(CASE WHEN status = ? AND COALESCE(quantity, 0) > COALESCE(delivered, 0) THEN COALESCE(quantity, 0) - COALESCE(delivered, 0) ELSE 0 END), 0) as total_volume,
                 COALESCE(SUM(CAST(charge AS DECIMAL(20,4))), 0) as total_balance
             ", [
                 Order::STATUS_IN_PROGRESS,
