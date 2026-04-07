@@ -17,7 +17,7 @@ return new class extends Migration
                 GROUP BY order_id
             ) counts ON counts.order_id = o.id
             SET o.delivered = counts.subscribed_count,
-                o.remains = GREATEST(0, o.quantity - counts.subscribed_count),
+                o.remains = GREATEST(0, CAST(o.quantity AS SIGNED) - CAST(counts.subscribed_count AS SIGNED)),
                 o.status = CASE
                     WHEN counts.subscribed_count >= o.quantity THEN 'completed'
                     ELSE o.status
