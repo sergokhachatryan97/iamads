@@ -1717,8 +1717,8 @@ class TelegramTaskService
                         'last_error' => null,
                     ]);
                 }
-            } elseif (in_array($task->action, ['subscribe', 'invite_subscribers'], true)) {
-                // subscribe and invite_subscribers both increment delivered and set subscribed state
+            } else {
+                // All successful actions: update global state and membership, increment delivered
                 if ($globalState) {
                     $globalState->update([
                         'state' => TelegramAccountLinkState::STATE_SUBSCRIBED,
