@@ -125,14 +125,14 @@ class OrderService implements OrderServiceInterface
 
                 if ($isFlatOrderPrice) {
                     // One fixed price per order row (rate field is dollars for the service, not per 1000)
-                    $charge = round($effectiveRate, 2);
+                    $charge = $effectiveRate;
                     $cost = $service->service_cost_per_1000 !== null
-                        ? round((float) $service->service_cost_per_1000, 2)
+                        ? (float) $service->service_cost_per_1000
                         : null;
                 } else {
-                    $charge = round(($qty / 1000) * $effectiveRate, 2);
+                    $charge = ($qty / 1000) * $effectiveRate;
                     $cost = $service->service_cost_per_1000 !== null
-                        ? round(($qty / 1000) * (float) $service->service_cost_per_1000, 2)
+                        ? ($qty / 1000) * (float) $service->service_cost_per_1000
                         : null;
                 }
 
