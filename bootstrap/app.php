@@ -74,6 +74,10 @@ return Application::configure(basePath: dirname(__DIR__))
             ->hourly()
             ->withoutOverlapping(2);
 
+        $schedule->job(new \App\Jobs\CleanExpiredTelegramTasksJob)
+            ->everyMinute()
+            ->withoutOverlapping(2);
+
         $schedule->job(new \App\Jobs\SyncCompletedProviderOrdersJob)
             ->everyFiveMinutes()
             ->withoutOverlapping(30)
