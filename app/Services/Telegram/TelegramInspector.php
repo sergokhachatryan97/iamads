@@ -533,6 +533,11 @@ class TelegramInspector
                 ?? ($raw['participants_count'] ?? null)
                 ?? ($rawChat['participants_count'] ?? null);
 
+            if ($result['member_count'] === null) {
+                $telegramLinkInspector = $this->telegramLinkInspector->inspect($link);
+                $result['member_count'] = $telegramLinkInspector['subscribers_count'] ?? $telegramLinkInspector['subscribers_count'] ?? null;
+            }
+
             $result['resolved'] = $invite;
 
             return $result;
