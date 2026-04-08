@@ -179,7 +179,8 @@ class Order extends Model
     protected function casts(): array
     {
         return [
-            'cost' => 'decimal:2',
+            'charge' => 'decimal:4',
+            'cost' => 'decimal:4',
             'quantity' => 'integer',
             'dripfeed_enabled' => 'boolean',
             'dripfeed_quantity' => 'integer',
