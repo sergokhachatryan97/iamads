@@ -12,6 +12,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Redis;
 
 class TelegramStatsController extends Controller
 {
@@ -105,8 +106,8 @@ class TelegramStatsController extends Controller
                 ->get()
                 ->keyBy('service_id');
 
-            // Per-service completions + accounts in one query
-            $perServiceQuery = DB::table('telegram_order_memberships as m')
+            // Per-service completions
+            $completionsQuery = DB::table('telegram_order_memberships as m')
                 ->join('orders as o', 'o.id', '=', 'm.order_id')
                 ->whereIn('o.service_id', $telegramServiceIds)
                 ->where('m.state', TelegramOrderMembership::STATE_SUBSCRIBED)
@@ -114,20 +115,42 @@ class TelegramStatsController extends Controller
 
             if ($hasDateFilter) {
                 if ($dateFromParsed) {
-                    $perServiceQuery->where('m.subscribed_at', '>=', $dateFromParsed);
+                    $completionsQuery->where('m.subscribed_at', '>=', $dateFromParsed);
                 }
                 if ($dateToParsed) {
-                    $perServiceQuery->where('m.subscribed_at', '<=', $dateToParsed);
+                    $completionsQuery->where('m.subscribed_at', '<=', $dateToParsed);
                 }
             } else {
-                $perServiceQuery->whereRaw('DATE(m.subscribed_at) = ?', [$todayStr]);
+                $completionsQuery->whereRaw('DATE(m.subscribed_at) = ?', [$todayStr]);
             }
 
-            $perServiceRows = $perServiceQuery
-                ->selectRaw('o.service_id, COUNT(*) as completions_today, COUNT(DISTINCT m.account_phone) as accounts_count')
+            $perServiceRows = $completionsQuery
+                ->selectRaw('o.service_id, COUNT(*) as completions_today')
                 ->groupBy('o.service_id')
                 ->get()
                 ->keyBy('service_id');
+
+            // Active accounts: distinct phones that attempted to claim in the last hour (from Redis HLL)
+            $currentHour = now()->format('Y-m-d-H');
+            $prevHour = now()->subHour()->format('Y-m-d-H');
+            $activeAccounts = collect();
+            foreach ($telegramServiceIds as $sid) {
+                $keys = [
+                    "tg:claim_attempts:{$sid}:{$currentHour}",
+                    "tg:claim_attempts:{$sid}:{$prevHour}",
+                ];
+                $mergedKey = "tg:claim_attempts_merged:{$sid}";
+                try {
+                    Redis::pfmerge($mergedKey, $keys);
+                    Redis::expire($mergedKey, 120);
+                    $count = (int) Redis::pfcount($mergedKey);
+                } catch (\Throwable) {
+                    $count = 0;
+                }
+                if ($count > 0) {
+                    $activeAccounts[$sid] = $count;
+                }
+            }
 
             return [
                 'chartLabels' => $chartLabels,
@@ -139,7 +162,7 @@ class TelegramStatsController extends Controller
                 'completionsYesterday' => $completionsYesterday,
                 'serviceStats' => $serviceStats,
                 'completionsTodayPerService' => $perServiceRows->map(fn ($r) => (int) $r->completions_today),
-                'accountsPerService' => $perServiceRows->map(fn ($r) => (int) $r->accounts_count),
+                'accountsPerService' => $activeAccounts,
                 'period' => $period,
             ];
         });

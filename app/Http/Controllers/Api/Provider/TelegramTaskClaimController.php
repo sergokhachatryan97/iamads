@@ -7,6 +7,7 @@ use App\Services\Telegram\TelegramTaskClaimService;
 use App\Support\TelegramPremiumTemplateScope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Redis;
 
 /**
  * Account-driven claim: performer sends phone, core returns tasks for that phone.
@@ -43,6 +44,11 @@ class TelegramTaskClaimController extends Controller
 
         $phone = $validated['account_identity'];
         $serviceId = (int) $validated['service_id'];
+
+        // Track claim attempt for stats (HyperLogLog, 1h TTL)
+        $hllKey = "tg:claim_attempts:{$serviceId}:" . now()->format('Y-m-d-H');
+        Redis::pfadd($hllKey, [$phone]);
+        Redis::expire($hllKey, 7200);
 
         $tasks = $this->claimService->claimForPhone($phone, 1, $scope, $serviceId);
 
