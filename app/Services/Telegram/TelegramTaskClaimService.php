@@ -590,10 +590,11 @@ class TelegramTaskClaimService
                 $order->loadMissing('service');
             }
 
-            // In-flight check
+            // In-flight check (locked to prevent race condition)
             $inFlight = TelegramOrderMembership::query()
                 ->where('order_id', $order->id)
                 ->where('state', TelegramOrderMembership::STATE_IN_PROGRESS)
+                ->lockForUpdate()
                 ->count();
 
             if ((int) $order->delivered + $inFlight >= $order->target_quantity) {
