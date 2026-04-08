@@ -135,15 +135,10 @@ class TelegramStatsController extends Controller
             $prevHour = now()->subHour()->format('Y-m-d-H');
             $activeAccounts = collect();
             foreach ($telegramServiceIds as $sid) {
-                $keys = [
-                    "tg:claim_attempts:{$sid}:{$currentHour}",
-                    "tg:claim_attempts:{$sid}:{$prevHour}",
-                ];
-                $mergedKey = "tg:claim_attempts_merged:{$sid}";
                 try {
-                    Redis::pfmerge($mergedKey, $keys);
-                    Redis::expire($mergedKey, 120);
-                    $count = (int) Redis::pfcount($mergedKey);
+                    $countCurrent = (int) Redis::pfcount("tg:claim_attempts:{$sid}:{$currentHour}");
+                    $countPrev = (int) Redis::pfcount("tg:claim_attempts:{$sid}:{$prevHour}");
+                    $count = max($countCurrent, $countPrev);
                 } catch (\Throwable) {
                     $count = 0;
                 }
