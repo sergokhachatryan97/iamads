@@ -94,6 +94,7 @@ class TelegramInspector
                 $result['is_channel'] = $telegramLinkInspector['entity_kind'] === 'channel' ?? false;
                 $result['parsed']['kind'] = $telegramLinkInspector['entity_kind'];
                 $result['title'] = $username;
+                $result['member_count'] = $telegramLinkInspector['monthly_users_count'] ?? $telegramLinkInspector['members_count'] ?? $telegramLinkInspector['subscribers_count'] ?? null;
                 $result['resolved'] = [
                     'source' => 'parser_only',
                 ];
