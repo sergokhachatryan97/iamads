@@ -517,10 +517,10 @@
                                                 $profit = $order->cost !== null ? ($charge - (float) $order->cost) : null;
                                             @endphp
                                             <div class="flex flex-col gap-1">
-                                                <div class="text-sm font-semibold text-gray-900">${{ number_format($charge, 4) }}</div>
+                                                <div class="text-sm font-semibold text-gray-900">${{ rtrim(rtrim(number_format($charge, 4), '0'), '.') }}</div>
                                                 @if($profit !== null)
                                                     <div class="text-xs font-semibold {{ $profit >= 0 ? 'text-green-600' : 'text-red-600' }}">
-                                                        {{ __('Profit') }} ${{ number_format($profit, 4) }}
+                                                        {{ __('Profit') }} ${{ rtrim(rtrim(number_format($profit, 4), '0'), '.') }}
                                                     </div>
                                                 @endif
                                             </div>
@@ -893,7 +893,7 @@
                         <div class="grid grid-cols-2 gap-4 text-sm">
                             <div>
                                 <span class="text-gray-600">{{ __('Charge') }}:</span>
-                                <span class="font-medium text-gray-900 ml-2">${{ $order->charge }}</span>
+                                <span class="font-medium text-gray-900 ml-2">${{ rtrim(rtrim(number_format((float) $order->charge, 4), '0'), '.') }}</span>
                             </div>
                             @if($order->cost !== null)
                             <div>

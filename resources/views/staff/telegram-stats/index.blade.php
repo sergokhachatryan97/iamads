@@ -141,7 +141,7 @@
                                         $totalVolume = $stats->total_volume ?? 0;
                                         $completedOrders = $stats->completed_orders ?? 0;
                                         $completedBalance = $stats->completed_balance ?? 0;
-                                        $price = $service->rate_per_1000 ? '$' . (float)$service->rate_per_1000  : '-';
+                                        $price = $service->rate_per_1000 ? '$' . rtrim(rtrim(number_format((float)$service->rate_per_1000, 4), '0'), '.') : '-';
                                     @endphp
                                     <tr class="hover:bg-gray-50">
                                         <td class="px-4 py-3 text-sm text-gray-900">
@@ -177,10 +177,10 @@
                                             <div class="font-medium">{{ number_format($inProgressOrders) }}</div>
                                         </td>
                                         <td class="px-4 py-3 text-sm text-right text-gray-900">{{ number_format($totalVolume) }}</td>
-                                        <td class="px-4 py-3 text-sm text-right text-emerald-600 font-medium">${{ (float) $serviceIncome }}</td>
+                                        <td class="px-4 py-3 text-sm text-right text-emerald-600 font-medium">${{ rtrim(rtrim(number_format((float) $serviceIncome, 4), '0'), '.') }}</td>
                                         <td class="px-4 py-3 text-sm text-right text-gray-900">
                                             <div class="font-medium">{{ number_format($completedOrders) }}</div>
-                                            <div class="text-xs text-emerald-600">${{ number_format((float) $completedBalance, 2, '.', ' ') }}</div>
+                                            <div class="text-xs text-emerald-600">${{ rtrim(rtrim(number_format((float) $completedBalance, 4), '0'), '.') }}</div>
                                         </td>
                                     </tr>
                                 @empty
