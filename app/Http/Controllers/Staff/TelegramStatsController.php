@@ -15,31 +15,26 @@ use Illuminate\Support\Facades\DB;
 
 class TelegramStatsController extends Controller
 {
+    private const CACHE_TTL = 60; // seconds
+
     private function yearMonthExpr(string $column): string
     {
-        $driver = DB::connection()->getDriverName();
-
-        return $driver === 'sqlite'
+        return DB::connection()->getDriverName() === 'sqlite'
             ? "strftime('%Y-%m', {$column})"
             : "DATE_FORMAT({$column}, '%Y-%m')";
     }
 
     public function index(Request $request): View
     {
-        $period = $request->input('period', 'days');
-        if (!in_array($period, ['days', 'monthly'], true)) {
-            $period = 'days';
-        }
+        $period = in_array($request->input('period'), ['days', 'monthly'], true)
+            ? $request->input('period')
+            : 'days';
 
-        // Date filter
         $dateFrom = $request->input('date_from');
         $dateTo = $request->input('date_to');
         $hasDateFilter = $dateFrom || $dateTo;
-
         $dateFromParsed = $dateFrom ? Carbon::parse($dateFrom)->startOfDay() : null;
         $dateToParsed = $dateTo ? Carbon::parse($dateTo)->endOfDay() : null;
-
-        // Service filter
         $serviceId = $request->input('service_id');
 
         $telegramServiceIds = Cache::remember('tg_stats:service_ids', 300, function () {
@@ -55,225 +50,196 @@ class TelegramStatsController extends Controller
             return $this->emptyView($period, $dateFrom, $dateTo, $serviceId);
         }
 
-        // Apply service filter to the IDs used in queries
         $filteredServiceIds = $serviceId && in_array((int) $serviceId, $telegramServiceIds)
             ? [(int) $serviceId]
             : $telegramServiceIds;
 
-        $today = now()->startOfDay();
-        $todayEnd = now()->endOfDay();
-        $todayStr = $today->format('Y-m-d');
-        $yesterdayStr = now()->subDay()->format('Y-m-d');
+        // Cache key based on request parameters
+        $cacheKey = 'tg_stats:data:' . md5(json_encode([
+            'period' => $period,
+            'date_from' => $dateFrom,
+            'date_to' => $dateTo,
+            'service_id' => $serviceId,
+        ]));
 
-        // Base membership query builder (income = completions * service price)
-        $membershipBaseQuery = fn () => DB::table('telegram_order_memberships')
-            ->join('orders', 'orders.id', '=', 'telegram_order_memberships.order_id')
-            ->join('services', 'services.id', '=', 'orders.service_id')
-            ->whereIn('orders.service_id', $filteredServiceIds)
-            ->where('telegram_order_memberships.state', TelegramOrderMembership::STATE_SUBSCRIBED)
-            ->whereNotNull('telegram_order_memberships.subscribed_at');
+        $data = Cache::remember($cacheKey, self::CACHE_TTL, function () use (
+            $period, $hasDateFilter, $dateFromParsed, $dateToParsed,
+            $filteredServiceIds, $telegramServiceIds
+        ) {
+            $todayStr = now()->format('Y-m-d');
+            $yesterdayStr = now()->subDay()->format('Y-m-d');
+            $todayEnd = now()->endOfDay();
 
-        // === Top metrics ===
-        if ($hasDateFilter) {
-            $query = $membershipBaseQuery();
-            if ($dateFromParsed) {
-                $query->where('telegram_order_memberships.subscribed_at', '>=', $dateFromParsed);
-            }
-            if ($dateToParsed) {
-                $query->where('telegram_order_memberships.subscribed_at', '<=', $dateToParsed);
-            }
-            $topRow = $query->selectRaw('COUNT(*) as completions, COALESCE(SUM(services.rate_per_1000 / 1000), 0) as income')->first();
-            $incomeToday = (float) ($topRow->income ?? 0);
-            $completionsToday = (int) ($topRow->completions ?? 0);
-            $incomeYesterday = 0;
-            $completionsYesterday = 0;
-        } else {
-            $topRows = $membershipBaseQuery()
-                ->whereRaw('DATE(telegram_order_memberships.subscribed_at) IN (?, ?)', [$todayStr, $yesterdayStr])
-                ->selectRaw('DATE(telegram_order_memberships.subscribed_at) as day, COUNT(*) as completions, COALESCE(SUM(services.rate_per_1000 / 1000), 0) as income')
-                ->groupBy('day')
-                ->get()
-                ->keyBy('day');
+            [$chartLabels, $rangeStart, $rangeEnd, $groupExpr, $period] =
+                $this->resolveChartRange($hasDateFilter, $dateFromParsed, $dateToParsed, $period, $todayEnd);
 
-            $incomeToday = (float) ($topRows[$todayStr]->income ?? 0);
-            $incomeYesterday = (float) ($topRows[$yesterdayStr]->income ?? 0);
-            $completionsToday = (int) ($topRows[$todayStr]->completions ?? 0);
-            $completionsYesterday = (int) ($topRows[$yesterdayStr]->completions ?? 0);
-        }
-
-        // === Chart data ===
-        if ($hasDateFilter) {
-            // Custom range: build day-by-day or month-by-month labels from the range
-            $rangeStart = $dateFromParsed ?? Carbon::parse('2020-01-01');
-            $rangeEnd = $dateToParsed ?? now()->endOfDay();
-            $daysDiff = $rangeStart->diffInDays($rangeEnd);
-
-            if ($daysDiff > 90) {
-                // Use monthly grouping for large ranges
-                $period = 'monthly';
-                $membershipGroupExpr = $this->yearMonthExpr('telegram_order_memberships.subscribed_at');
-
-                $cursor = $rangeStart->copy()->startOfMonth();
-                $end = $rangeEnd->copy()->startOfMonth();
-                $chartLabels = collect();
-                while ($cursor->lte($end)) {
-                    $chartLabels->push($cursor->format('Y-m'));
-                    $cursor->addMonth();
-                }
-            } else {
-                // Use daily grouping
-                $membershipGroupExpr = 'DATE(telegram_order_memberships.subscribed_at)';
-
-                $cursor = $rangeStart->copy();
-                $chartLabels = collect();
-                while ($cursor->lte($rangeEnd)) {
-                    $chartLabels->push($cursor->format('Y-m-d'));
-                    $cursor->addDay();
-                }
-            }
-        } elseif ($period === 'monthly') {
-            $chartLabels = collect(range(11, 0))->map(fn ($i) => now()->subMonths($i)->format('Y-m'));
-            $rangeStart = now()->subMonths(11)->startOfMonth();
-            $rangeEnd = $todayEnd;
-            $membershipGroupExpr = $this->yearMonthExpr('telegram_order_memberships.subscribed_at');
-
-            // Override top metrics for monthly
-            $currentMonthStr = now()->format('Y-m');
-            $prevMonthStr = now()->subMonth()->format('Y-m');
-
-            $monthlyRows = $membershipBaseQuery()
-                ->where('telegram_order_memberships.subscribed_at', '>=', now()->subMonth()->startOfMonth())
-                ->selectRaw("{$membershipGroupExpr} as period, COUNT(*) as completions, COALESCE(SUM(services.rate_per_1000 / 1000), 0) as income")
-                ->groupBy('period')
+            // Chart data
+            $chartRows = DB::table('telegram_order_memberships as m')
+                ->join('orders as o', 'o.id', '=', 'm.order_id')
+                ->join('services as s', 's.id', '=', 'o.service_id')
+                ->whereIn('o.service_id', $filteredServiceIds)
+                ->where('m.state', TelegramOrderMembership::STATE_SUBSCRIBED)
+                ->whereNotNull('m.subscribed_at')
+                ->where('m.subscribed_at', '>=', $rangeStart)
+                ->where('m.subscribed_at', '<=', $rangeEnd)
+                ->selectRaw("{$groupExpr} as period, COUNT(*) as completions, COALESCE(SUM(s.rate_per_1000 / 1000), 0) as income")
+                ->groupByRaw($groupExpr)
                 ->get()
                 ->keyBy('period');
 
-            $incomeToday = (float) ($monthlyRows[$currentMonthStr]->income ?? 0);
-            $incomeYesterday = (float) ($monthlyRows[$prevMonthStr]->income ?? 0);
-            $completionsToday = (int) ($monthlyRows[$currentMonthStr]->completions ?? 0);
-            $completionsYesterday = (int) ($monthlyRows[$prevMonthStr]->completions ?? 0);
-        } else {
-            $chartLabels = collect(range(6, 0))->map(fn ($i) => now()->subDays($i)->format('Y-m-d'));
-            $rangeStart = now()->subDays(6)->startOfDay();
-            $rangeEnd = $todayEnd;
-            $membershipGroupExpr = 'DATE(telegram_order_memberships.subscribed_at)';
-        }
+            [$incomeToday, $incomeYesterday, $completionsToday, $completionsYesterday] =
+                $this->resolveTopMetrics($hasDateFilter, $period, $chartRows, $todayStr, $yesterdayStr);
 
-        // Chart: completions + income over time (both from memberships * service price)
-        $chartRows = $membershipBaseQuery()
-            ->where('telegram_order_memberships.subscribed_at', '>=', $rangeStart)
-            ->where('telegram_order_memberships.subscribed_at', '<=', $rangeEnd)
-            ->selectRaw("{$membershipGroupExpr} as period, COUNT(*) as completions, COALESCE(SUM(services.rate_per_1000 / 1000), 0) as income")
-            ->groupByRaw($membershipGroupExpr)
-            ->get()
-            ->keyBy('period');
+            // Per-service order stats
+            $serviceStats = DB::table('orders')
+                ->whereIn('service_id', $filteredServiceIds)
+                ->selectRaw("
+                    service_id,
+                    COUNT(*) as total_orders,
+                    COALESCE(SUM(CASE WHEN status = ? AND COALESCE(quantity, 0) > COALESCE(delivered, 0) THEN COALESCE(quantity, 0) - COALESCE(delivered, 0) ELSE 0 END), 0) as total_volume,
+                    COALESCE(SUM(CAST(charge AS DECIMAL(20,4))), 0) as total_balance,
+                    COALESCE(SUM(CASE WHEN status = ? THEN 1 ELSE 0 END), 0) as completed_orders,
+                    COALESCE(SUM(CASE WHEN status = ? THEN CAST(charge AS DECIMAL(20,4)) ELSE 0 END), 0) as completed_balance
+                ", [Order::STATUS_IN_PROGRESS, Order::STATUS_COMPLETED, Order::STATUS_COMPLETED])
+                ->groupBy('service_id')
+                ->get()
+                ->keyBy('service_id');
 
-        $chartIncomeData = $chartLabels->map(fn ($d) => (float) ($chartRows[$d]->income ?? 0))->values();
-        $chartCompletionsData = $chartLabels->map(fn ($d) => (int) ($chartRows[$d]->completions ?? 0))->values();
+            // Per-service completions + accounts in one query
+            $perServiceQuery = DB::table('telegram_order_memberships as m')
+                ->join('orders as o', 'o.id', '=', 'm.order_id')
+                ->whereIn('o.service_id', $telegramServiceIds)
+                ->where('m.state', TelegramOrderMembership::STATE_SUBSCRIBED)
+                ->whereNotNull('m.subscribed_at');
 
-        // === Per-service stats ===
-        // Balance = lifetime total charge (never filtered by date)
-        $serviceStats = DB::table('orders')
-            ->whereIn('service_id', $filteredServiceIds)
-            ->selectRaw("
-                service_id,
-                COUNT(*) as total_orders,
-                COALESCE(SUM(CASE WHEN status = ? AND COALESCE(quantity, 0) > COALESCE(delivered, 0) THEN COALESCE(quantity, 0) - COALESCE(delivered, 0) ELSE 0 END), 0) as total_volume,
-                COALESCE(SUM(CAST(charge AS DECIMAL(20,4))), 0) as total_balance,
-                COALESCE(SUM(CASE WHEN status = ? THEN 1 ELSE 0 END), 0) as completed_orders,
-                COALESCE(SUM(CASE WHEN status = ? THEN CAST(charge AS DECIMAL(20,4)) ELSE 0 END), 0) as completed_balance
-            ", [
-                Order::STATUS_IN_PROGRESS,
-                Order::STATUS_COMPLETED,
-                Order::STATUS_COMPLETED,
-            ])
-            ->groupBy('service_id')
-            ->get()
-            ->keyBy('service_id');
-
-        // Completions per service (scoped by date filter)
-        $completionsPerServiceQuery = DB::table('telegram_order_memberships')
-            ->join('orders', 'orders.id', '=', 'telegram_order_memberships.order_id')
-            ->whereIn('orders.service_id', $telegramServiceIds)
-            ->where('telegram_order_memberships.state', TelegramOrderMembership::STATE_SUBSCRIBED)
-            ->whereNotNull('telegram_order_memberships.subscribed_at');
-
-        if ($hasDateFilter) {
-            if ($dateFromParsed) {
-                $completionsPerServiceQuery->where('telegram_order_memberships.subscribed_at', '>=', $dateFromParsed);
+            if ($hasDateFilter) {
+                if ($dateFromParsed) {
+                    $perServiceQuery->where('m.subscribed_at', '>=', $dateFromParsed);
+                }
+                if ($dateToParsed) {
+                    $perServiceQuery->where('m.subscribed_at', '<=', $dateToParsed);
+                }
+            } else {
+                $perServiceQuery->whereRaw('DATE(m.subscribed_at) = ?', [$todayStr]);
             }
-            if ($dateToParsed) {
-                $completionsPerServiceQuery->where('telegram_order_memberships.subscribed_at', '<=', $dateToParsed);
-            }
-        } else {
-            $completionsPerServiceQuery->whereRaw('DATE(telegram_order_memberships.subscribed_at) = ?', [$todayStr]);
-        }
 
-        $completionsTodayPerService = $completionsPerServiceQuery
-            ->selectRaw('orders.service_id, COUNT(*) as completions_today')
-            ->groupBy('orders.service_id')
-            ->pluck('completions_today', 'service_id');
+            $perServiceRows = $perServiceQuery
+                ->selectRaw('o.service_id, COUNT(*) as completions_today, COUNT(DISTINCT m.account_phone) as accounts_count')
+                ->groupBy('o.service_id')
+                ->get()
+                ->keyBy('service_id');
 
-        // Accounts per service
-        $accountsPerService = DB::table('telegram_order_memberships')
-            ->join('orders', 'orders.id', '=', 'telegram_order_memberships.order_id')
-            ->whereIn('orders.service_id', $telegramServiceIds)
-            ->where('telegram_order_memberships.state', TelegramOrderMembership::STATE_SUBSCRIBED)
-            ->selectRaw('orders.service_id, COUNT(DISTINCT telegram_order_memberships.account_phone) as accounts_count')
-            ->groupBy('orders.service_id')
-            ->pluck('accounts_count', 'service_id');
+            return [
+                'chartLabels' => $chartLabels,
+                'chartIncomeData' => $chartLabels->map(fn ($d) => (float) ($chartRows[$d]->income ?? 0))->values(),
+                'chartCompletionsData' => $chartLabels->map(fn ($d) => (int) ($chartRows[$d]->completions ?? 0))->values(),
+                'incomeToday' => $incomeToday,
+                'incomeYesterday' => $incomeYesterday,
+                'completionsToday' => $completionsToday,
+                'completionsYesterday' => $completionsYesterday,
+                'serviceStats' => $serviceStats,
+                'completionsTodayPerService' => $perServiceRows->map(fn ($r) => (int) $r->completions_today),
+                'accountsPerService' => $perServiceRows->map(fn ($r) => (int) $r->accounts_count),
+                'period' => $period,
+            ];
+        });
 
-        // Column header label
         $completionsColumnLabel = $hasDateFilter ? __('Completions') : __('Completions today');
 
-        // Filter displayed services when a specific service is selected
         $displayedServices = $serviceId && in_array((int) $serviceId, $telegramServiceIds)
             ? $telegramServices->where('id', (int) $serviceId)->values()
             : $telegramServices;
 
-        return view('staff.telegram-stats.index', compact(
-            'incomeToday',
-            'incomeYesterday',
-            'completionsToday',
-            'completionsYesterday',
-            'chartLabels',
-            'chartIncomeData',
-            'chartCompletionsData',
-            'telegramServices',
-            'displayedServices',
-            'serviceStats',
-            'completionsTodayPerService',
-            'accountsPerService',
-            'period',
-            'dateFrom',
-            'dateTo',
-            'hasDateFilter',
-            'serviceId',
-            'completionsColumnLabel',
-        ));
+        return view('staff.telegram-stats.index', array_merge($data, [
+            'telegramServices' => $telegramServices,
+            'displayedServices' => $displayedServices,
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo,
+            'hasDateFilter' => $hasDateFilter,
+            'serviceId' => $serviceId,
+            'completionsColumnLabel' => $completionsColumnLabel,
+        ]));
+    }
+
+    private function resolveChartRange(
+        bool $hasDateFilter, ?Carbon $dateFromParsed, ?Carbon $dateToParsed,
+        string $period, Carbon $todayEnd
+    ): array {
+        if ($hasDateFilter) {
+            $rangeStart = $dateFromParsed ?? Carbon::parse('2020-01-01');
+            $rangeEnd = $dateToParsed ?? $todayEnd;
+
+            if ($rangeStart->diffInDays($rangeEnd) > 90) {
+                $period = 'monthly';
+                $groupExpr = $this->yearMonthExpr('m.subscribed_at');
+                $cursor = $rangeStart->copy()->startOfMonth();
+                $end = $rangeEnd->copy()->startOfMonth();
+                $labels = collect();
+                while ($cursor->lte($end)) {
+                    $labels->push($cursor->format('Y-m'));
+                    $cursor->addMonth();
+                }
+            } else {
+                $groupExpr = 'DATE(m.subscribed_at)';
+                $cursor = $rangeStart->copy();
+                $labels = collect();
+                while ($cursor->lte($rangeEnd)) {
+                    $labels->push($cursor->format('Y-m-d'));
+                    $cursor->addDay();
+                }
+            }
+        } elseif ($period === 'monthly') {
+            $labels = collect(range(11, 0))->map(fn ($i) => now()->subMonths($i)->format('Y-m'));
+            $rangeStart = now()->subMonths(11)->startOfMonth();
+            $rangeEnd = $todayEnd;
+            $groupExpr = $this->yearMonthExpr('m.subscribed_at');
+        } else {
+            $labels = collect(range(6, 0))->map(fn ($i) => now()->subDays($i)->format('Y-m-d'));
+            $rangeStart = now()->subDays(6)->startOfDay();
+            $rangeEnd = $todayEnd;
+            $groupExpr = 'DATE(m.subscribed_at)';
+        }
+
+        return [$labels, $rangeStart, $rangeEnd, $groupExpr, $period];
+    }
+
+    private function resolveTopMetrics(
+        bool $hasDateFilter, string $period, $chartRows,
+        string $todayStr, string $yesterdayStr
+    ): array {
+        if ($hasDateFilter) {
+            return [(float) $chartRows->sum('income'), 0.0, (int) $chartRows->sum('completions'), 0];
+        }
+
+        if ($period === 'monthly') {
+            $current = now()->format('Y-m');
+            $prev = now()->subMonth()->format('Y-m');
+            return [
+                (float) ($chartRows[$current]->income ?? 0),
+                (float) ($chartRows[$prev]->income ?? 0),
+                (int) ($chartRows[$current]->completions ?? 0),
+                (int) ($chartRows[$prev]->completions ?? 0),
+            ];
+        }
+
+        return [
+            (float) ($chartRows[$todayStr]->income ?? 0),
+            (float) ($chartRows[$yesterdayStr]->income ?? 0),
+            (int) ($chartRows[$todayStr]->completions ?? 0),
+            (int) ($chartRows[$yesterdayStr]->completions ?? 0),
+        ];
     }
 
     private function emptyView(string $period, ?string $dateFrom = null, ?string $dateTo = null, ?string $serviceId = null): View
     {
         return view('staff.telegram-stats.index', [
-            'incomeToday' => 0,
-            'incomeYesterday' => 0,
-            'completionsToday' => 0,
-            'completionsYesterday' => 0,
-            'chartLabels' => collect(),
-            'chartIncomeData' => collect(),
-            'chartCompletionsData' => collect(),
-            'telegramServices' => collect(),
-            'displayedServices' => collect(),
-            'serviceStats' => collect(),
-            'incomePerService' => collect(),
-            'completionsTodayPerService' => collect(),
-            'accountsPerService' => collect(),
-            'period' => $period,
-            'dateFrom' => $dateFrom,
-            'dateTo' => $dateTo,
-            'hasDateFilter' => (bool) ($dateFrom || $dateTo),
-            'serviceId' => $serviceId,
+            'incomeToday' => 0, 'incomeYesterday' => 0,
+            'completionsToday' => 0, 'completionsYesterday' => 0,
+            'chartLabels' => collect(), 'chartIncomeData' => collect(), 'chartCompletionsData' => collect(),
+            'telegramServices' => collect(), 'displayedServices' => collect(),
+            'serviceStats' => collect(), 'completionsTodayPerService' => collect(), 'accountsPerService' => collect(),
+            'period' => $period, 'dateFrom' => $dateFrom, 'dateTo' => $dateTo,
+            'hasDateFilter' => (bool) ($dateFrom || $dateTo), 'serviceId' => $serviceId,
             'completionsColumnLabel' => __('Completions today'),
         ]);
     }
