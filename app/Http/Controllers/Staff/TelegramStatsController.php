@@ -107,22 +107,22 @@ class TelegramStatsController extends Controller
                 ->get()
                 ->keyBy('service_id');
 
-            // Per-service completions
-            $completionsQuery = DB::table('telegram_order_memberships as m')
-                ->join('orders as o', 'o.id', '=', 'm.order_id')
+            // Per-service completions: done tasks today from in_progress + completed orders
+            $completionsQuery = DB::table('telegram_tasks as t')
+                ->join('orders as o', 'o.id', '=', 't.order_id')
                 ->whereIn('o.service_id', $filteredServiceIds)
-                ->where('m.state', TelegramOrderMembership::STATE_SUBSCRIBED)
-                ->whereNotNull('m.subscribed_at');
+                ->whereIn('o.status', [Order::STATUS_IN_PROGRESS, Order::STATUS_COMPLETED])
+                ->where('t.status', 'done');
 
             if ($hasDateFilter) {
                 if ($dateFromParsed) {
-                    $completionsQuery->where('m.subscribed_at', '>=', $dateFromParsed);
+                    $completionsQuery->where('t.updated_at', '>=', $dateFromParsed);
                 }
                 if ($dateToParsed) {
-                    $completionsQuery->where('m.subscribed_at', '<=', $dateToParsed);
+                    $completionsQuery->where('t.updated_at', '<=', $dateToParsed);
                 }
             } else {
-                $completionsQuery->where('m.subscribed_at', '>=', $today);
+                $completionsQuery->where('t.updated_at', '>=', $today);
             }
 
             $perServiceRows = $completionsQuery
