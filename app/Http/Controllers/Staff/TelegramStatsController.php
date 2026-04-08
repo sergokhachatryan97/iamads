@@ -48,14 +48,7 @@ class TelegramStatsController extends Controller
         });
 
         $telegramServices = Cache::remember('tg_stats:services', 300, function () use ($telegramServiceIds) {
-            $activeServiceIds = DB::table('orders')
-                ->whereIn('service_id', $telegramServiceIds)
-                ->where('status', Order::STATUS_IN_PROGRESS)
-                ->distinct()
-                ->pluck('service_id')
-                ->all();
-
-            return Service::whereIn('id', $activeServiceIds)->orderBy('priority')->get();
+            return Service::whereIn('id', $telegramServiceIds)->orderBy('priority')->get();
         });
 
         if (empty($telegramServiceIds)) {
