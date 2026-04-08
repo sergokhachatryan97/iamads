@@ -137,7 +137,6 @@
                                         $delaySec = $delayPerService[$service->id] ?? null;
                                         $completionsTodayService = $completionsTodayPerService[$service->id] ?? 0;
                                         $serviceIncome = $service->rate_per_1000 ? $completionsTodayService * (float) $service->rate_per_1000 / 1000 : 0;
-                                        $totalOrders = $stats->total_orders ?? 0;
                                         $inProgressOrders = $stats->in_progress_orders ?? 0;
                                         $totalVolume = $stats->total_volume ?? 0;
                                         $completedOrders = $stats->completed_orders ?? 0;
@@ -176,7 +175,6 @@
                                         <td class="px-4 py-3 text-sm text-right text-gray-900">{{ $price }}</td>
                                         <td class="px-4 py-3 text-sm text-right text-gray-900">
                                             <div class="font-medium">{{ number_format($inProgressOrders) }}</div>
-                                            <div class="text-xs text-gray-400">{{ number_format($totalOrders) }} {{ __('total') }}</div>
                                         </td>
                                         <td class="px-4 py-3 text-sm text-right text-gray-900">{{ number_format($totalVolume) }}</td>
                                         <td class="px-4 py-3 text-sm text-right text-emerald-600 font-medium">${{ (float) $serviceIncome }}</td>
