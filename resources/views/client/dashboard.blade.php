@@ -149,7 +149,7 @@
                                         {{ ucfirst(str_replace('_', ' ', $order->status)) }}
                                         <div style="font-size:11px;margin-top:2px">{{ $del }} / {{ $qty }}</div>
                                     </td>
-                                    <td>${{ number_format((float) $order->charge, 4) }}</td>
+                                    <td>${{ rtrim(rtrim(number_format((float) $order->charge, 4), '0'), '.') }}</td>
                                     <td>{{ $order->created_at->format('M j, H:i') }}</td>
                                     <td><a href="{{ route('client.orders.index') }}">{{ __('Details') }}</a></td>
                                 </tr>

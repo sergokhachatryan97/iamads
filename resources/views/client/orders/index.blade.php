@@ -1196,7 +1196,7 @@
 
                             <div class="bg-gray-50 rounded-lg p-4">
                                 <div class="text-xs font-medium text-gray-500 uppercase mb-1">{{ __('Charge') }}</div>
-                                <div class="text-sm font-semibold text-gray-900">${{ $order->charge }}</div>
+                                <div class="text-sm font-semibold text-gray-900">${{ rtrim(rtrim(number_format((float) $order->charge, 4), '0'), '.') }}</div>
                             </div>
 
                             @if($order->provider_last_error)

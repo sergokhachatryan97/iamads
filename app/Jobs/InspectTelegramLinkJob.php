@@ -451,7 +451,18 @@ class InspectTelegramLinkJob implements ShouldQueue
         $allowedLinkKinds = $template['allowed_link_kinds'] ?? [];
 
         if (!empty($allowedLinkKinds) && !in_array($linkKind, $allowedLinkKinds, true)) {
-            $errors[] = $prefix . "Link kind '{$linkKind}' is not allowed for this service template. Allowed: " . implode(', ', $allowedLinkKinds);
+            // bot_start and bot_start_with_referral are interchangeable
+            $botKindsCompatible = $linkKind === 'bot_start' && in_array('bot_start_with_referral', $allowedLinkKinds, true)
+                || $linkKind === 'bot_start_with_referral' && in_array('bot_start', $allowedLinkKinds, true);
+
+            if (!$botKindsCompatible) {
+                $errors[] = $prefix . "Link kind '{$linkKind}' is not allowed for this service template. Allowed: " . implode(', ', $allowedLinkKinds);
+            }
+        }
+
+        // Normalize: treat bot_start as bot_start_with_referral (start param is optional)
+        if ($linkKind === 'bot_start' && in_array('bot_start_with_referral', $allowedLinkKinds, true)) {
+            $parsed['kind'] = 'bot_start_with_referral';
         }
 
         if ($template['policy_key'] === 'vote' && !$inspectionResult['is_poll']) {
@@ -475,14 +486,7 @@ class InspectTelegramLinkJob implements ShouldQueue
             $errors[] = $prefix . 'Paid Telegram groups are not supported';
         }
 
-        if (!empty($template['requires_start_param'])) {
-            $startParam = (string)($parsed['start'] ?? '');
-            $hasRef = $linkKind === 'bot_start_with_referral' || $startParam !== '';
-
-            if (!$hasRef) {
-                $errors[] = $prefix . 'This service requires a referral start parameter in the bot link';
-            }
-        }
+        // Start param is optional — bot_start links work with or without referral
 
         return $errors;
     }
