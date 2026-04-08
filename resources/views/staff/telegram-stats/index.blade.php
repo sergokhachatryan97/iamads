@@ -120,6 +120,7 @@
                                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Service') }}</th>
                                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ $completionsColumnLabel }}</th>
                                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Accounts') }}</th>
+                                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Delay') }}</th>
                                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Price') }}</th>
                                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Orders') }}</th>
                                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Volume') }}</th>
@@ -133,11 +134,12 @@
                                     @php
                                         $stats = $serviceStats[$service->id] ?? null;
                                         $accounts = $accountsPerService[$service->id] ?? 0;
+                                        $delaySec = $delayPerService[$service->id] ?? null;
                                         $completionsTodayService = $completionsTodayPerService[$service->id] ?? 0;
                                         $serviceIncome = $service->rate_per_1000 ? $completionsTodayService * (float) $service->rate_per_1000 / 1000 : 0;
                                         $totalOrders = $stats->total_orders ?? 0;
+                                        $inProgressOrders = $stats->in_progress_orders ?? 0;
                                         $totalVolume = $stats->total_volume ?? 0;
-                                        $totalBalance = $stats->total_balance ?? 0;
                                         $completedOrders = $stats->completed_orders ?? 0;
                                         $completedBalance = $stats->completed_balance ?? 0;
                                         $price = $service->rate_per_1000 ? '$' . (float)$service->rate_per_1000  : '-';
@@ -160,15 +162,28 @@
                                         <td class="px-4 py-3 text-sm text-right {{ $accounts > 0 ? 'text-emerald-600 font-medium' : 'text-gray-400' }}">
                                             {{ number_format($accounts) }}
                                         </td>
+                                        <td class="px-4 py-3 text-sm text-right {{ $delaySec !== null && $delaySec <= 60 ? 'text-emerald-600' : ($delaySec !== null && $delaySec <= 300 ? 'text-yellow-600' : 'text-gray-400') }}">
+                                            @if($delaySec !== null)
+                                                @if($delaySec >= 60)
+                                                    {{ floor($delaySec / 60) }}m {{ $delaySec % 60 }}s
+                                                @else
+                                                    {{ $delaySec }}s
+                                                @endif
+                                            @else
+                                                -
+                                            @endif
+                                        </td>
                                         <td class="px-4 py-3 text-sm text-right text-gray-900">{{ $price }}</td>
-                                        <td class="px-4 py-3 text-sm text-right text-gray-900">{{ number_format($totalOrders) }}</td>
+                                        <td class="px-4 py-3 text-sm text-right text-gray-900">
+                                            <div class="font-medium">{{ number_format($inProgressOrders) }}</div>
+                                            <div class="text-xs text-gray-400">{{ number_format($totalOrders) }} {{ __('total') }}</div>
+                                        </td>
                                         <td class="px-4 py-3 text-sm text-right text-gray-900">{{ number_format($totalVolume) }}</td>
                                         <td class="px-4 py-3 text-sm text-right text-emerald-600 font-medium">${{ (float) $serviceIncome }}</td>
                                         <td class="px-4 py-3 text-sm text-right text-gray-900">
                                             <div class="font-medium">{{ number_format($completedOrders) }}</div>
                                             <div class="text-xs text-emerald-600">${{ number_format((float) $completedBalance, 2, '.', ' ') }}</div>
                                         </td>
-{{--                                        <td class="px-4 py-3 text-sm text-right text-gray-900 font-medium">${{ number_format((float) $totalBalance, 0, '.', ' ') }}</td>--}}
                                     </tr>
                                 @empty
                                     <tr>

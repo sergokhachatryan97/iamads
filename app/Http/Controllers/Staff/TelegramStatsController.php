@@ -67,7 +67,8 @@ class TelegramStatsController extends Controller
             $period, $hasDateFilter, $dateFromParsed, $dateToParsed,
             $filteredServiceIds, $telegramServiceIds
         ) {
-            $todayStr = now()->format('Y-m-d');
+            $today = now()->startOfDay();
+            $todayStr = $today->format('Y-m-d');
             $yesterdayStr = now()->subDay()->format('Y-m-d');
             $todayEnd = now()->endOfDay();
 
@@ -98,10 +99,10 @@ class TelegramStatsController extends Controller
                     service_id,
                     COUNT(*) as total_orders,
                     COALESCE(SUM(CASE WHEN status = ? AND COALESCE(quantity, 0) > COALESCE(delivered, 0) THEN COALESCE(quantity, 0) - COALESCE(delivered, 0) ELSE 0 END), 0) as total_volume,
-                    COALESCE(SUM(CAST(charge AS DECIMAL(20,4))), 0) as total_balance,
+                    COALESCE(SUM(CASE WHEN status = ? THEN 1 ELSE 0 END), 0) as in_progress_orders,
                     COALESCE(SUM(CASE WHEN status = ? THEN 1 ELSE 0 END), 0) as completed_orders,
                     COALESCE(SUM(CASE WHEN status = ? THEN CAST(charge AS DECIMAL(20,4)) ELSE 0 END), 0) as completed_balance
-                ", [Order::STATUS_IN_PROGRESS, Order::STATUS_COMPLETED, Order::STATUS_COMPLETED])
+                ", [Order::STATUS_IN_PROGRESS, Order::STATUS_IN_PROGRESS, Order::STATUS_COMPLETED, Order::STATUS_COMPLETED])
                 ->groupBy('service_id')
                 ->get()
                 ->keyBy('service_id');
@@ -109,7 +110,7 @@ class TelegramStatsController extends Controller
             // Per-service completions
             $completionsQuery = DB::table('telegram_order_memberships as m')
                 ->join('orders as o', 'o.id', '=', 'm.order_id')
-                ->whereIn('o.service_id', $telegramServiceIds)
+                ->whereIn('o.service_id', $filteredServiceIds)
                 ->where('m.state', TelegramOrderMembership::STATE_SUBSCRIBED)
                 ->whereNotNull('m.subscribed_at');
 
@@ -121,7 +122,7 @@ class TelegramStatsController extends Controller
                     $completionsQuery->where('m.subscribed_at', '<=', $dateToParsed);
                 }
             } else {
-                $completionsQuery->whereRaw('DATE(m.subscribed_at) = ?', [$todayStr]);
+                $completionsQuery->where('m.subscribed_at', '>=', $today);
             }
 
             $perServiceRows = $completionsQuery
@@ -134,16 +135,35 @@ class TelegramStatsController extends Controller
             $currentHour = now()->format('Y-m-d-H');
             $prevHour = now()->subHour()->format('Y-m-d-H');
             $activeAccounts = collect();
-            foreach ($telegramServiceIds as $sid) {
-                try {
-                    $countCurrent = (int) Redis::pfcount("tg:claim_attempts:{$sid}:{$currentHour}");
-                    $countPrev = (int) Redis::pfcount("tg:claim_attempts:{$sid}:{$prevHour}");
-                    $count = max($countCurrent, $countPrev);
-                } catch (\Throwable) {
-                    $count = 0;
+            try {
+                $results = Redis::pipeline(function ($pipe) use ($telegramServiceIds, $currentHour, $prevHour) {
+                    foreach ($telegramServiceIds as $sid) {
+                        $pipe->pfcount("tg:claim_attempts:{$sid}:{$currentHour}");
+                        $pipe->pfcount("tg:claim_attempts:{$sid}:{$prevHour}");
+                    }
+                });
+                foreach ($telegramServiceIds as $i => $sid) {
+                    $count = max((int) ($results[$i * 2] ?? 0), (int) ($results[$i * 2 + 1] ?? 0));
+                    if ($count > 0) {
+                        $activeAccounts[$sid] = $count;
+                    }
                 }
-                if ($count > 0) {
-                    $activeAccounts[$sid] = $count;
+            } catch (\Throwable) {
+            }
+
+            // Avg delay: time between tasks per service (last hour)
+            $tasksLastHour = DB::table('telegram_tasks')
+                ->join('orders', 'orders.id', '=', 'telegram_tasks.order_id')
+                ->whereIn('orders.service_id', $filteredServiceIds)
+                ->where('telegram_tasks.created_at', '>=', now()->subHour())
+                ->selectRaw('orders.service_id, COUNT(*) as task_count')
+                ->groupBy('orders.service_id')
+                ->pluck('task_count', 'service_id');
+
+            $delayPerService = collect();
+            foreach ($tasksLastHour as $sid => $count) {
+                if ($count > 1) {
+                    $delayPerService[$sid] = round(3600 / $count);
                 }
             }
 
@@ -156,6 +176,7 @@ class TelegramStatsController extends Controller
                 'completionsToday' => $completionsToday,
                 'completionsYesterday' => $completionsYesterday,
                 'serviceStats' => $serviceStats,
+                'delayPerService' => $delayPerService,
                 'completionsTodayPerService' => $perServiceRows->map(fn ($r) => (int) $r->completions_today),
                 'accountsPerService' => $activeAccounts,
                 'period' => $period,
@@ -184,7 +205,7 @@ class TelegramStatsController extends Controller
         string $period, Carbon $todayEnd
     ): array {
         if ($hasDateFilter) {
-            $rangeStart = $dateFromParsed ?? Carbon::parse('2020-01-01');
+            $rangeStart = $dateFromParsed ?? now()->subDays(90)->startOfDay();
             $rangeEnd = $dateToParsed ?? $todayEnd;
 
             if ($rangeStart->diffInDays($rangeEnd) > 90) {
@@ -255,7 +276,7 @@ class TelegramStatsController extends Controller
             'completionsToday' => 0, 'completionsYesterday' => 0,
             'chartLabels' => collect(), 'chartIncomeData' => collect(), 'chartCompletionsData' => collect(),
             'telegramServices' => collect(), 'displayedServices' => collect(),
-            'serviceStats' => collect(), 'completionsTodayPerService' => collect(), 'accountsPerService' => collect(),
+            'serviceStats' => collect(), 'delayPerService' => collect(), 'completionsTodayPerService' => collect(), 'accountsPerService' => collect(),
             'period' => $period, 'dateFrom' => $dateFrom, 'dateTo' => $dateTo,
             'hasDateFilter' => (bool) ($dateFrom || $dateTo), 'serviceId' => $serviceId,
             'completionsColumnLabel' => __('Completions today'),
