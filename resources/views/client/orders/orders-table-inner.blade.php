@@ -186,7 +186,7 @@
                         </div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <div class="co-text text-sm font-semibold">${{ number_format($charge, 4) }}</div>
+                        <div class="co-text text-sm font-semibold">${{ rtrim(rtrim(number_format($charge, 4), '0'), '.') }}</div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <div class="flex flex-col gap-1">
