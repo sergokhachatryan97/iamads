@@ -622,17 +622,15 @@ class TelegramTaskClaimService
 
             $action = $this->resolveOrderAction($order);
 
-            // Global state lock
+            // Global state lock: dedup by (phone, link, action) across all orders
             $global = TelegramAccountLinkState::query()
                 ->where('account_phone', $phone)
                 ->where('link_hash', $linkHash)
+                ->where('action', $action)
                 ->lockForUpdate()
                 ->first();
 
-            if ($global && in_array($global->state, [
-                TelegramAccountLinkState::STATE_IN_PROGRESS,
-                TelegramAccountLinkState::STATE_SUBSCRIBED,
-            ], true)) {
+            if ($global && $global->isBlocking()) {
                 return null;
             }
 
@@ -701,7 +699,7 @@ class TelegramTaskClaimService
 
             // === Mutations ===
 
-            // Global state
+            // Global state: set active for (phone, link, action)
             if ($global) {
                 $global->update(['state' => TelegramAccountLinkState::STATE_IN_PROGRESS, 'last_error' => null]);
             } else {
@@ -709,6 +707,7 @@ class TelegramTaskClaimService
                     $global = TelegramAccountLinkState::create([
                         'account_phone' => $phone,
                         'link_hash' => $linkHash,
+                        'action' => $action,
                         'state' => TelegramAccountLinkState::STATE_IN_PROGRESS,
                     ]);
                 } catch (\Throwable $e) {
@@ -718,13 +717,11 @@ class TelegramTaskClaimService
                     $global = TelegramAccountLinkState::query()
                         ->where('account_phone', $phone)
                         ->where('link_hash', $linkHash)
+                        ->where('action', $action)
                         ->lockForUpdate()
                         ->first();
 
-                    if (! $global || in_array($global->state, [
-                        TelegramAccountLinkState::STATE_IN_PROGRESS,
-                        TelegramAccountLinkState::STATE_SUBSCRIBED,
-                    ], true)) {
+                    if (! $global || $global->isBlocking()) {
                         $this->rollbackCapAndCooldown($phone, $scope, $capAction, $cooldownSeconds);
 
                         return null;
@@ -952,6 +949,7 @@ LUA;
         if (! isset($this->activeSubscribedCache[$phone])) {
             $this->activeSubscribedCache[$phone] = TelegramAccountLinkState::query()
                 ->where('account_phone', $phone)
+                ->where('action', 'subscribe')
                 ->where('state', TelegramAccountLinkState::STATE_SUBSCRIBED)
                 ->count();
         }

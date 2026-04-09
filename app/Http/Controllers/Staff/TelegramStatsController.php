@@ -112,7 +112,7 @@ class TelegramStatsController extends Controller
                 ->join('orders as o', 'o.id', '=', 't.order_id')
                 ->whereIn('o.service_id', $filteredServiceIds)
                 ->whereIn('o.status', [Order::STATUS_IN_PROGRESS, Order::STATUS_COMPLETED])
-                ->where('t.status', 'done');
+                ->whereIn('t.status', ['done', 'unsubscribed']);
 
             if ($hasDateFilter) {
                 if ($dateFromParsed) {

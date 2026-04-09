@@ -41,6 +41,7 @@ class TelegramTask extends Model
     public const STATUS_PENDING = 'pending';
     public const STATUS_DONE = 'done';
     public const STATUS_FAILED = 'failed';
+    public const STATUS_UNSUBSCRIBED = 'unsubscribed';
 
     protected static function boot(): void
     {

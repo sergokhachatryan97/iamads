@@ -5,8 +5,10 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Global state per (account_phone, link_hash) for claim flow.
- * Prevents assigning a new subscribe task for the same phone+link while in_progress or subscribed.
+ * Fast global dedup table per (account_phone, link_hash, action).
+ *
+ * Blocking states (in_progress, subscribed) prevent duplicate claims.
+ * Non-blocking states (failed, unsubscribed, expired) are kept for statistics.
  */
 class TelegramAccountLinkState extends Model
 {
@@ -16,14 +18,23 @@ class TelegramAccountLinkState extends Model
     public const STATE_SUBSCRIBED = 'subscribed';
     public const STATE_UNSUBSCRIBED = 'unsubscribed';
     public const STATE_FAILED = 'failed';
+    public const STATE_EXPIRED = 'expired';
+
+    public const BLOCKING_STATES = [self::STATE_IN_PROGRESS, self::STATE_SUBSCRIBED];
 
     protected $fillable = [
         'account_phone',
         'link_hash',
+        'action',
         'state',
         'last_task_id',
         'last_error',
     ];
+
+    public function isBlocking(): bool
+    {
+        return in_array($this->state, self::BLOCKING_STATES, true);
+    }
 
     /**
      * Canonical phone for storage and lookups (consistent with claim/report).
@@ -41,6 +52,7 @@ class TelegramAccountLinkState extends Model
         if ($link === null || $link === '') {
             return hash('sha256', '');
         }
+
         return hash('sha256', strtolower(trim($link)));
     }
 }

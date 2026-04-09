@@ -58,13 +58,14 @@ class CleanExpiredTelegramTasksJob implements ShouldQueue
                 // Clean up TelegramAccountLinkState if it's still in_progress for this task
                 if ($task->link_hash) {
                     $phone = $task->payload['account_phone'] ?? $task->telegram_account_id;
+                    $action = $task->action ?? 'subscribe';
 
                     if ($phone) {
                         $affected = TelegramAccountLinkState::query()
                             ->where('account_phone', $phone)
                             ->where('link_hash', $task->link_hash)
+                            ->where('action', $action)
                             ->where('state', TelegramAccountLinkState::STATE_IN_PROGRESS)
-                            ->where('last_task_id', $task->id)
                             ->update(['state' => TelegramAccountLinkState::STATE_FAILED, 'last_error' => 'Lease expired']);
 
                         $linkStateCleaned += $affected;

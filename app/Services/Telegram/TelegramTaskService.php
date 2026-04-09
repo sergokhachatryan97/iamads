@@ -1697,19 +1697,30 @@ class TelegramTaskService
             ->where('link_hash', $linkHash)
             ->first();
 
+        $action = $task->action ?? 'subscribe';
+
         $globalState = TelegramAccountLinkState::query()
             ->where('account_phone', $accountPhone)
             ->where('link_hash', $linkHash)
+            ->where('action', $action)
             ->first();
 
         if ($ok && $state === 'done') {
-            if ($task->action === 'unsubscribe') {
+            if ($action === 'unsubscribe') {
                 if ($globalState) {
                     $globalState->update([
                         'state' => TelegramAccountLinkState::STATE_UNSUBSCRIBED,
                         'last_error' => null,
                     ]);
                 }
+                // Also release the subscribe link_state so phone can re-subscribe
+                TelegramAccountLinkState::query()
+                    ->where('account_phone', $accountPhone)
+                    ->where('link_hash', $linkHash)
+                    ->where('action', 'subscribe')
+                    ->where('state', TelegramAccountLinkState::STATE_SUBSCRIBED)
+                    ->update(['state' => TelegramAccountLinkState::STATE_UNSUBSCRIBED]);
+
                 if ($membership) {
                     $membership->update([
                         'state' => TelegramOrderMembership::STATE_UNSUBSCRIBED,
