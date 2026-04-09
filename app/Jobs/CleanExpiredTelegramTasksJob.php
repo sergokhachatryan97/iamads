@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Fails Telegram tasks stuck in LEASED status past their lease expiry (5+ minutes).
+ * Fails Telegram tasks stuck in LEASED or PENDING status past their lease expiry (5+ minutes).
  * Cleans up related TelegramAccountLinkState and TelegramOrderMembership records.
  */
 class CleanExpiredTelegramTasksJob implements ShouldQueue
@@ -30,9 +30,17 @@ class CleanExpiredTelegramTasksJob implements ShouldQueue
         $cutoff = now()->subMinutes(self::GRACE_MINUTES);
 
         $expiredTasks = TelegramTask::query()
-            ->where('status', TelegramTask::STATUS_LEASED)
-            ->whereNotNull('leased_until')
-            ->where('leased_until', '<', $cutoff)
+            ->whereIn('status', [TelegramTask::STATUS_LEASED])
+            ->where(function ($q) use ($cutoff) {
+                $q->where(function ($q2) use ($cutoff) {
+                    $q2->whereNotNull('leased_until')
+                        ->where('leased_until', '<', $cutoff);
+                })->orWhere(function ($q2) use ($cutoff) {
+                    // Catch tasks without leased_until that are stuck
+                    $q2->whereNull('leased_until')
+                        ->where('updated_at', '<', $cutoff);
+                });
+            })
             ->get();
 
         $failedCount = 0;
@@ -76,10 +84,24 @@ class CleanExpiredTelegramTasksJob implements ShouldQueue
             });
         }
 
+        // Fail memberships stuck in_progress for more than 5 minutes
+        $stuckMemberships = TelegramOrderMembership::query()
+            ->where('state', TelegramOrderMembership::STATE_IN_PROGRESS)
+            ->where('updated_at', '<', $cutoff)
+            ->update(['state' => TelegramOrderMembership::STATE_FAILED, 'last_error' => 'Stuck in_progress timeout']);
+
+        // Fail link states stuck in_progress for more than 5 minutes
+        $stuckLinkStates = TelegramAccountLinkState::query()
+            ->where('state', TelegramAccountLinkState::STATE_IN_PROGRESS)
+            ->where('updated_at', '<', $cutoff)
+            ->update(['state' => TelegramAccountLinkState::STATE_FAILED, 'last_error' => 'Stuck in_progress timeout']);
+
         Log::info('CleanExpiredTelegramTasksJob', [
             'failed_tasks' => $failedCount,
             'cleaned_link_states' => $linkStateCleaned,
             'cleaned_memberships' => $membershipCleaned,
+            'stuck_memberships' => $stuckMemberships,
+            'stuck_link_states' => $stuckLinkStates,
         ]);
     }
 }
