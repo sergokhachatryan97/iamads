@@ -78,6 +78,18 @@ return Application::configure(basePath: dirname(__DIR__))
             ->everyMinute()
             ->withoutOverlapping(2);
 
+        $schedule->job(new \App\Jobs\CleanExpiredMaxTasksJob)
+            ->everyMinute()
+            ->withoutOverlapping(2);
+
+        $schedule->command('max:clean-expired-subscriptions')
+            ->daily()
+            ->withoutOverlapping(10);
+
+        $schedule->command('telegram:clean-expired-subscriptions')
+            ->daily()
+            ->withoutOverlapping(10);
+
         $schedule->job(new \App\Jobs\SyncCompletedProviderOrdersJob)
             ->everyFiveMinutes()
             ->withoutOverlapping(30)

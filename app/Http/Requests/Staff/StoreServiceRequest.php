@@ -35,7 +35,8 @@ class StoreServiceRequest extends FormRequest
             'template_key' => ['nullable', 'string', Rule::in(array_merge(
                 TelegramPremiumTemplateScope::selectableTelegramTemplateKeys(),
                 array_keys(config('youtube_service_templates', [])),
-                array_keys(config('app_service_templates', []))
+                array_keys(config('app_service_templates', [])),
+                array_keys(config('max_service_templates', []))
             ))],
             'duration_days' => ['nullable', 'integer', 'min:1'],
             'overflow_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],

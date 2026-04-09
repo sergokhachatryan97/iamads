@@ -70,13 +70,15 @@ class ServiceService implements ServiceServiceInterface
         if (isset($data['template_key']) && $data['template_key']) {
             $template = config("telegram_service_templates.{$data['template_key']}")
                 ?? config("youtube_service_templates.{$data['template_key']}")
-                ?? config("app_service_templates.{$data['template_key']}");
+                ?? config("app_service_templates.{$data['template_key']}")
+                ?? config("max_service_templates.{$data['template_key']}");
             if ($template) {
                 $data['template_snapshot'] = $template;
                 if (empty($data['target_type'])) {
                     $data['target_type'] = $this->getTargetTypeFromTemplate($template)
                         ?? (str_starts_with($data['template_key'], 'yt_') ? 'youtube' : null)
-                        ?? (str_starts_with($data['template_key'], 'app_') ? 'app' : null);
+                        ?? (str_starts_with($data['template_key'], 'app_') ? 'app' : null)
+                        ?? (str_starts_with($data['template_key'], 'max_') ? 'max' : null);
                 }
             }
         }
@@ -177,13 +179,15 @@ class ServiceService implements ServiceServiceInterface
         if (isset($data['template_key']) && $data['template_key']) {
             $template = config("telegram_service_templates.{$data['template_key']}")
                 ?? config("youtube_service_templates.{$data['template_key']}")
-                ?? config("app_service_templates.{$data['template_key']}");
+                ?? config("app_service_templates.{$data['template_key']}")
+                ?? config("max_service_templates.{$data['template_key']}");
             if ($template) {
                 $data['template_snapshot'] = $template;
                 if (empty($data['target_type'])) {
                     $data['target_type'] = $this->getTargetTypeFromTemplate($template)
                         ?? (str_starts_with($data['template_key'], 'yt_') ? 'youtube' : null)
-                        ?? (str_starts_with($data['template_key'], 'app_') ? 'app' : null);
+                        ?? (str_starts_with($data['template_key'], 'app_') ? 'app' : null)
+                        ?? (str_starts_with($data['template_key'], 'max_') ? 'max' : null);
                 }
             }
         }

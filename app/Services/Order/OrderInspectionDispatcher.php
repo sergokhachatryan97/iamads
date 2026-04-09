@@ -3,6 +3,7 @@
 namespace App\Services\Order;
 
 use App\Jobs\InspectAppLinkJob;
+use App\Jobs\InspectMaxLinkJob;
 use App\Jobs\InspectTelegramLinkJob;
 use App\Jobs\InspectYouTubeLinkJob;
 use App\Models\Order;
@@ -43,6 +44,14 @@ class OrderInspectionDispatcher
         if ($driver === 'app') {
             InspectAppLinkJob::dispatch($order->id)
                 ->onQueue('app-inspect')
+                ->afterCommit();
+
+            return;
+        }
+
+        if ($driver === 'max') {
+            InspectMaxLinkJob::dispatch($order->id)
+                ->onQueue('max-inspect')
                 ->afterCommit();
 
             return;

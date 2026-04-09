@@ -392,7 +392,7 @@
                                     :class="commentsLinkValid ? 'border-gray-300' : 'border-red-300'"
                                     :placeholder="linkPlaceholder()"
                                     class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                                <p x-show="!commentsLinkValid && commentsLink" class="mt-1 text-xs text-red-600" x-text="linkErrorMessage"></p>
+                                <p x-show="!commentsLinkValid && commentsLink" class="mt-1 text-xs text-red-600" x-text="linkErrorForType(linkType)"></p>
                                 <p class="mt-1 text-xs text-gray-500">
                                     {{ __('Enter the target link for comments. Format depends on the selected category.') }}
                                 </p>
@@ -563,7 +563,7 @@
                                                     :required="selectedService?.service_type !== 'custom_comments' && selectedService?.template_key !== 'invite_subscribers_from_other_channel'"
                                                     :disabled="selectedService?.template_key === 'invite_subscribers_from_other_channel'"
                                                     class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                                                <p x-show="!target.linkValid && target.link" class="mt-1 text-xs text-red-600" x-text="linkErrorMessage"></p>
+                                                <p x-show="!target.linkValid && target.link" class="mt-1 text-xs text-red-600" x-text="linkErrorForType(linkType)"></p>
                                                 <p x-show="getTargetError(index, 'link')" class="mt-1 text-xs text-red-600" x-text="getTargetError(index, 'link')"></p>
                                             </div>
                                             <div class="w-32">
@@ -880,7 +880,7 @@
                                     :placeholder="linkPlaceholder(multiLinkType)"
                                     required
                                     class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                                <p x-show="!multiLinkValid && multiLink" class="mt-1 text-sm text-red-600" x-text="multiLinkErrorMessage"></p>
+                                <p x-show="!multiLinkValid && multiLink" class="mt-1 text-sm text-red-600" x-text="linkErrorForType(multiLinkType)"></p>
                                 @error('link')
                                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                 @enderror
@@ -1124,12 +1124,6 @@
                     return this.calculateCharge() || 0;
                 },
 
-                get linkErrorMessage() {
-                    return this.linkErrorForType(this.linkType);
-                },
-                get multiLinkErrorMessage() {
-                    return this.linkErrorForType(this.multiLinkType);
-                },
                 linkErrorForType(type) {
                     const m = {
                         telegram: @json(__('common.link_error_telegram')),
@@ -1295,6 +1289,8 @@
                 validateMaxLink(link) {
                     if (!link || link.trim() === '') return true;
                     const v = link.trim();
+                    if (/^@[a-zA-Z0-9_]{3,64}$/.test(v)) return true;
+                    if (/^[a-zA-Z0-9_]{3,64}$/.test(v)) return true;
                     return /^(https?:\/\/)?(www\.)?(max\.ru\/[^\s]+|maxapp\.ru\/[^\s]+|web\.maxapp\.ru\/[^\s]+)/i.test(v);
                 },
                 validateWhatsAppLink(link) {

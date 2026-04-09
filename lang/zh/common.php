@@ -8,7 +8,7 @@ return [
     'link_error_youtube' => '请输入有效的 YouTube 链接。',
     'link_error_app' => '请输入有效的 App Store 或 Google Play 链接。',
     'link_error_vk' => '请输入有效的 VK 链接。',
-    'link_error_max' => '请输入有效的 MAX Messenger 链接。',
+    'link_error_max' => '请输入有效的 MAX Messenger 链接（@机器人、max.ru/... 或邀请链接）。',
     'link_error_whatsapp' => '请输入有效的 WhatsApp 链接。',
     'link_error_generic' => '请输入有效的链接。',
     'social_media' => '社交平台',

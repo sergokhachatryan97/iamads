@@ -11,8 +11,6 @@ final class LinkValidator
     public const TYPE_TELEGRAM = 'telegram';
     public const TYPE_YOUTUBE = 'youtube';
     public const TYPE_MAX = 'max';
-    public const TYPE_TIKTOK = 'tiktok';
-    public const TYPE_LIKEE = 'likee';
     public const TYPE_OTHER = 'other';
 
     /**
@@ -28,7 +26,7 @@ final class LinkValidator
             return self::TYPE_YOUTUBE;
         }
         if (stripos($name, 'max') !== false) {
-            return self::TYPE_VK;
+            return self::TYPE_MAX;
         }
         if (stripos($name, 'telegram') !== false) {
             return self::TYPE_TELEGRAM;
@@ -51,7 +49,7 @@ final class LinkValidator
         return match ($linkType) {
             self::TYPE_TELEGRAM => self::validateTelegram($link),
             self::TYPE_YOUTUBE => self::validateYoutube($link),
-            self::TYPE_MAX => self::validateVk($link),
+            self::TYPE_MAX => self::validateMax($link),
             self::TYPE_OTHER => self::validateOther($link),
             default => self::validateTelegram($link),
         };
@@ -86,15 +84,15 @@ final class LinkValidator
             : ['valid' => false, 'error' => __('home.link_error_youtube')];
     }
 
-    private static function validateVk(string $link): array
+    private static function validateMax(string $link): array
     {
-        $ok = (bool) preg_match(
-            '#^(https?://)?(www\.)?vk\.com/(wall|video|clip|[-a-zA-Z0-9_]+)#i',
-            $link
-        );
-        return $ok
-            ? ['valid' => true, 'error' => null]
-            : ['valid' => false, 'error' => __('home.link_error_vk')];
+        $inspector = new \App\Support\Links\Inspectors\MaxLinkInspector();
+        $result = $inspector->inspect($link);
+
+        return [
+            'valid' => $result['valid'],
+            'error' => $result['error'] ?? null,
+        ];
     }
 
     private static function validateOther(string $link): array

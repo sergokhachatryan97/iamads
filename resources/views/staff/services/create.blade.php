@@ -272,40 +272,6 @@
                                         @enderror
                                     </div>
 
-                                    {{-- Template Preview (read-only) --}}
-{{--                                    <div x-show="selectedTemplate" x-cloak class="mt-4 p-4 bg-indigo-50 border border-indigo-200 rounded-md">--}}
-{{--                                        <h4 class="text-sm font-semibold text-indigo-900 mb-3">{{ __('Template Configuration Preview') }}</h4>--}}
-{{--                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">--}}
-{{--                                            <div>--}}
-{{--                                                <span class="font-medium text-gray-700">{{ __('Action') }}:</span>--}}
-{{--                                                <span class="text-gray-900" x-text="templatePreview?.action || 'N/A'"></span>--}}
-{{--                                            </div>--}}
-{{--                                            <div>--}}
-{{--                                                <span class="font-medium text-gray-700">{{ __('Policy Key') }}:</span>--}}
-{{--                                                <span class="text-gray-900" x-text="templatePreview?.policy_key || 'N/A'"></span>--}}
-{{--                                            </div>--}}
-{{--                                            <div>--}}
-{{--                                                <span class="font-medium text-gray-700">{{ __('Allowed Link Kinds') }}:</span>--}}
-{{--                                                <span class="text-gray-900" x-text="templatePreview?.allowed_link_kinds?.join(', ') || 'N/A'"></span>--}}
-{{--                                            </div>--}}
-{{--                                            <div>--}}
-{{--                                                <span class="font-medium text-gray-700">{{ __('Allowed Peer Types') }}:</span>--}}
-{{--                                                <span class="text-gray-900" x-text="templatePreview?.allowed_peer_types?.join(', ') || 'N/A'"></span>--}}
-{{--                                            </div>--}}
-{{--                                            <div>--}}
-{{--                                                <span class="font-medium text-gray-700">{{ __('Requires Start Param') }}:</span>--}}
-{{--                                                <span class="text-gray-900" x-text="templatePreview?.requires_start_param ? 'Yes' : 'No'"></span>--}}
-{{--                                            </div>--}}
-{{--                                            <div x-show="templatePreview?.requires_duration_days">--}}
-{{--                                                <span class="font-medium text-gray-700">{{ __('Requires Duration Days') }}:</span>--}}
-{{--                                                <span class="text-gray-900">Yes</span>--}}
-{{--                                            </div>--}}
-{{--                                            <div x-show="templatePreview?.requires_watch_time">--}}
-{{--                                                <span class="font-medium text-gray-700">{{ __('Requires Watch Time') }}:</span>--}}
-{{--                                                <span class="text-gray-900">Yes (seconds)</span>--}}
-{{--                                            </div>--}}
-{{--                                        </div>--}}
-{{--                                    </div>--}}
 
                                     {{-- Manual mode only fields --}}
                                     <div x-show="mode === 'manual'" x-cloak class="mt-4 pt-4 border-t border-gray-200">
@@ -729,6 +695,10 @@
                     if (!this.categoryId) return false;
                     return (this.categoryLinkDrivers[this.categoryId] || '') === 'app';
                 },
+                get categoryIsMax() {
+                    if (!this.categoryId) return false;
+                    return (this.categoryLinkDrivers[this.categoryId] || '') === 'max';
+                },
                 denyDuplicates: @js(old('deny_link_duplicates', isset($service) ? (string) (int) ($service->deny_link_duplicates ?? false) : '0')),
                 parsingEnabled: @js(old('start_count_parsing_enabled', isset($service) ? (string) (int) ($service->start_count_parsing_enabled ?? false) : '0')),
                 selectedTemplate: @js(old('template_key', isset($service) ? ($service->template_key ?? '') : '')),
@@ -842,6 +812,8 @@
                         this.filteredTemplates = this.allTemplates['youtube'] || {};
                     } else if (this.categoryIsApp) {
                         this.filteredTemplates = this.allTemplates['app'] || {};
+                    } else if (this.categoryIsMax) {
+                        this.filteredTemplates = this.allTemplates['max'] || {};
                     } else {
                         // Merge all templates for Telegram category (bot + channel)
                         const bot = this.allTemplates['bot'] || {};

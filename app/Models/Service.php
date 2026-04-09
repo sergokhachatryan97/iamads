@@ -157,6 +157,11 @@ class Service extends Model
             return config("app_service_templates.{$this->template_key}");
         }
 
+        // Max template keys start with max_
+        if (str_starts_with($this->template_key, 'max_')) {
+            return config("max_service_templates.{$this->template_key}");
+        }
+
         $category = $this->relationLoaded('category') ? $this->category : $this->category()->first();
         $driver = $category?->link_driver ?? 'generic';
 
@@ -166,6 +171,10 @@ class Service extends Model
 
         if ($driver === 'app') {
             return config("app_service_templates.{$this->template_key}");
+        }
+
+        if ($driver === 'max') {
+            return config("max_service_templates.{$this->template_key}");
         }
 
         return config("telegram_service_templates.{$this->template_key}");

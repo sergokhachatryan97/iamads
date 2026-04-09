@@ -21,8 +21,7 @@ class ServiceController extends Controller
     public function __construct(
         private CategoryServiceInterface $categoryService,
         private ServiceServiceInterface $serviceService
-    ) {
-    }
+    ) {}
 
     /**
      * Display a listing of services grouped by category.
@@ -256,7 +255,7 @@ class ServiceController extends Controller
 
         return response()->json([
             'html' => $html,
-            'count' => $categories->sum(fn($cat) => $cat->services->count()),
+            'count' => $categories->sum(fn ($cat) => $cat->services->count()),
         ]);
     }
 
@@ -297,9 +296,10 @@ class ServiceController extends Controller
         );
         $youtubeTemplates = config('youtube_service_templates', []);
         $appTemplates = config('app_service_templates', []);
-        $serviceTemplates = array_merge($telegramTemplates, $youtubeTemplates, $appTemplates);
+        $maxTemplates = config('max_service_templates', []);
+        $serviceTemplates = array_merge($telegramTemplates, $youtubeTemplates, $appTemplates, $maxTemplates);
 
-        $templatesByTargetType = $this->buildTemplatesByTargetType($telegramTemplates, $youtubeTemplates, $appTemplates);
+        $templatesByTargetType = $this->buildTemplatesByTargetType($telegramTemplates, $youtubeTemplates, $appTemplates, $maxTemplates);
         $categoryIdsWithTemplates = $this->getCategoryIdsWithTemplates($categories);
         $categoryLinkDrivers = collect($categories)->pluck('link_driver', 'id')->toArray();
 
@@ -310,7 +310,7 @@ class ServiceController extends Controller
 
             'modeOptions' => [
                 'manual' => 'Manual',
-//                'provider' => 'Provider',
+                //                'provider' => 'Provider',
             ],
 
             'serviceTypeOptions' => [
@@ -349,13 +349,14 @@ class ServiceController extends Controller
         ];
     }
 
-    private function buildTemplatesByTargetType(array $telegramTemplates, array $youtubeTemplates, array $appTemplates = []): array
+    private function buildTemplatesByTargetType(array $telegramTemplates, array $youtubeTemplates, array $appTemplates = [], array $maxTemplates = []): array
     {
         $templatesByTargetType = [
             'bot' => [],
             'channel' => [],
             'youtube' => [],
             'app' => [],
+            'max' => [],
         ];
 
         foreach ($telegramTemplates as $key => $template) {
@@ -382,6 +383,10 @@ class ServiceController extends Controller
             $templatesByTargetType['app'][$key] = $template['label'] ?? $key;
         }
 
+        foreach ($maxTemplates as $key => $template) {
+            $templatesByTargetType['max'][$key] = $template['label'] ?? $key;
+        }
+
         return $templatesByTargetType;
     }
 
@@ -390,7 +395,8 @@ class ServiceController extends Controller
         return collect($categories)
             ->filter(function ($category) {
                 $driver = $category->link_driver ?? '';
-                return stripos($driver, 'telegram') !== false || $driver === 'youtube' || $driver === 'app';
+
+                return stripos($driver, 'telegram') !== false || in_array($driver, ['youtube', 'app', 'max'], true);
             })
             ->pluck('id')
             ->values()

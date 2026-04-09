@@ -103,3 +103,13 @@ Route::middleware(['auth.provider'])->prefix('provider/app')->group(function () 
     Route::get('/ignore', [AppTaskReportController::class, 'ignore'])
         ->name('provider.app.tasks.ignore');
 });
+
+// Max Messenger performer (getOrder, check, ignore)
+Route::middleware(['auth.provider'])->prefix('provider/max')->group(function () {
+    Route::get('/getOrder', [\App\Http\Controllers\Api\Provider\MaxTaskClaimController::class, 'claim'])
+        ->name('provider.max.tasks.getOrder');
+    Route::get('/check', [\App\Http\Controllers\Api\Provider\MaxTaskReportController::class, 'check'])
+        ->name('provider.max.tasks.check');
+    Route::get('/ignore', [\App\Http\Controllers\Api\Provider\MaxTaskReportController::class, 'ignore'])
+        ->name('provider.max.tasks.ignore');
+});
