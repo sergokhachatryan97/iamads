@@ -120,6 +120,7 @@ class TelegramTaskReportController extends Controller
         $validated = $request->validate([
             'order_id' => 'required|string',
             'account_identity' => 'required|string',
+            'error' => 'string|nullable',
         ]);
 
         $result = $this->taskService->reportTaskResult(
@@ -127,7 +128,7 @@ class TelegramTaskReportController extends Controller
             [
                 'state' => 'failed',
                 'ok' => false,
-                'error' => null,
+                'error' => $validated['error'] ?? null,
                 'retry_after' => null,
                 'provider_task_id' => null,
                 'data' => null,
