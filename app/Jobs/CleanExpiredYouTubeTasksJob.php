@@ -14,8 +14,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Fails YouTube tasks stuck in LEASED past their lease expiry (plus a 5-minute grace),
- * rolling back dripfeed counters so the order can resume making progress.
+ * Fails YouTube tasks that have been LEASED for 30+ minutes without a report,
+ * rolling back dripfeed counters so the order can resume making progress and
+ * a new task can be claimed for the same (account, link, action).
  * Runs every minute via Laravel scheduler.
  */
 class CleanExpiredYouTubeTasksJob implements ShouldQueue
@@ -24,18 +25,19 @@ class CleanExpiredYouTubeTasksJob implements ShouldQueue
 
     public int $timeout = 120;
 
-    private const GRACE_MINUTES = 5;
+    private const TIMEOUT_MINUTES = 30;
 
-    private const ERROR_MESSAGE = 'Lease expired — no report received within timeout';
+    private const ERROR_MESSAGE = 'Lease expired — no report received within 30 minutes';
 
     public function handle(): void
     {
-        $cutoff = now()->subMinutes(self::GRACE_MINUTES);
+        // Use created_at as the source of truth (not leased_until) so this also covers
+        // legacy rows claimed under the old 1-hour lease TTL — they fail at 30 min from claim.
+        $cutoff = now()->subMinutes(self::TIMEOUT_MINUTES);
 
         $expiredTasks = YouTubeTask::query()
             ->where('status', YouTubeTask::STATUS_LEASED)
-            ->whereNotNull('leased_until')
-            ->where('leased_until', '<', $cutoff)
+            ->where('created_at', '<', $cutoff)
             ->get();
 
         $failedCount = 0;

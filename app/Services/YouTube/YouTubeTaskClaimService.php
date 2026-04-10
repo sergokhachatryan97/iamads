@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Log;
 
 class YouTubeTaskClaimService
 {
-    private const LEASE_TTL_SECONDS = 3600;
+    private const LEASE_TTL_SECONDS = 1800;
 
     private const ELIGIBLE_CACHE_TTL = 10;
 
@@ -293,73 +293,12 @@ class YouTubeTaskClaimService
             $parsed = $youtube['parsed'] ?? [];
             $targetHashForLog = $parsed['target_hash'] ?? $linkHash;
 
-            // $actionNames = YouTubeExecutionPlanResolver::stepsToActionNames($steps);
-            // TODO: uniqueness check disabled — same account can get same link+action again
-            // if ($this->hasStepConflict($accountIdentity, $linkHash, $targetHashForLog, $actionNames)) {
-            //     return null;
-            // }
-            // $actionForLog = $mode === YouTubeExecutionPlanResolver::MODE_COMBO
-            //     ? YouTubeExecutionPlanResolver::compositeActionForLog($steps)
-            //     : $action;
-
-            $targetType = null;
-            $normalizedTarget = null;
-            $targetHashForRow = null;
-
-            // TODO: global target state check disabled — same account can subscribe to same target again
-            // $statefulActionForTarget = $this->stepsContainStatefulAction($steps) ? 'subscribe' : null;
-            // if ($statefulActionForTarget !== null) {
-            //     $norm = YouTubeTargetNormalizer::forSubscribeTarget($order);
-            //     $targetType = $norm['target_type'];
-            //     $normalizedTarget = $norm['normalized_target'];
-            //     $targetHashForRow = $norm['target_hash'];
-            //
-            //     $global = YouTubeAccountTargetState::query()
-            //         ->where('account_identity', $accountIdentity)
-            //         ->where('action', $statefulActionForTarget)
-            //         ->where('target_hash', $targetHashForRow)
-            //         ->lockForUpdate()
-            //         ->first();
-            //
-            //     if ($global !== null) {
-            //         if (in_array($global->state, [
-            //             YouTubeAccountTargetState::STATE_IN_PROGRESS,
-            //             YouTubeAccountTargetState::STATE_SUBSCRIBED,
-            //         ], true)) {
-            //             return null;
-            //         }
-            //         $previousGlobalState = $global->state;
-            //         $global->update([
-            //             'state' => YouTubeAccountTargetState::STATE_IN_PROGRESS,
-            //             'last_error' => null,
-            //         ]);
-            //     } else {
-            //         try {
-            //             $global = YouTubeAccountTargetState::create([
-            //                 'account_identity' => $accountIdentity,
-            //                 'action' => $statefulActionForTarget,
-            //                 'target_type' => $targetType,
-            //                 'normalized_target' => mb_substr($normalizedTarget, 0, 500),
-            //                 'target_hash' => $targetHashForRow,
-            //                 'state' => YouTubeAccountTargetState::STATE_IN_PROGRESS,
-            //             ]);
-            //             $globalRowCreated = true;
-            //         } catch (UniqueConstraintViolationException) {
-            //             return null;
-            //         }
-            //     }
-            // }
-
-            // TODO: duplicate task check disabled — same account can get same order+link+action again
-            // if (YouTubeTask::query()
-            //     ->where('account_identity', $accountIdentity)
-            //     ->where('order_id', $order->id)
-            //     ->where('link_hash', $linkHash)
-            //     ->where('action', $action)
-            //     ->exists()) {
-            //     $this->revertGlobalState($global, $globalRowCreated, $previousGlobalState);
-            //     return null;
-            // }
+            // Uniqueness: account + action + link must be unique across the system.
+            // Blocks if any requested step is already in-flight or already performed for this account+target.
+            $actionNames = YouTubeExecutionPlanResolver::stepsToActionNames($steps);
+            if ($this->hasStepConflict($accountIdentity, $linkHash, $targetHashForLog, $actionNames)) {
+                return null;
+            }
 
             // Build task
             $leasedUntil = now()->addSeconds(self::LEASE_TTL_SECONDS);
@@ -456,6 +395,81 @@ class YouTubeTaskClaimService
 
             return $result;
         });
+    }
+
+    // =========================================================================
+    //  Uniqueness (account + action + link)
+    // =========================================================================
+
+    /**
+     * Returns true if any of the requested action steps would conflict with:
+     *   1. An in-flight task (LEASED/PENDING) for the same account+link covering the same action(s).
+     *   2. A previously recorded successful action in provider_action_logs (account+target+action).
+     *   3. An exact composite combo already performed for this account+target.
+     *
+     * Mirrors the Telegram-style "account+action+link must be unique" guarantee.
+     *
+     * @param  array<string>  $actionNames  Resolved per-step action names (subscribe|view|react|comment).
+     */
+    private function hasStepConflict(
+        string $accountIdentity,
+        string $linkHash,
+        string $videoTargetHash,
+        array $actionNames
+    ): bool {
+        if (empty($actionNames)) {
+            return false;
+        }
+
+        $activeStatuses = [YouTubeTask::STATUS_LEASED, YouTubeTask::STATUS_PENDING];
+
+        // 1. Active tasks: single tasks with overlapping action, or combo tasks with overlapping steps
+        $activeTasks = YouTubeTask::query()
+            ->where('account_identity', $accountIdentity)
+            ->where('link_hash', $linkHash)
+            ->whereIn('status', $activeStatuses)
+            ->get(['id', 'action', 'payload']);
+
+        foreach ($activeTasks as $task) {
+            if (in_array($task->action, $actionNames, true)) {
+                return true;
+            }
+            if ($task->action === 'combo') {
+                $payload = $task->payload;
+                $steps = is_array($payload) ? ($payload['steps'] ?? []) : [];
+                $existingNames = YouTubeExecutionPlanResolver::stepsToActionNames($steps);
+                if (array_intersect($actionNames, $existingNames) !== []) {
+                    return true;
+                }
+            }
+        }
+
+        // 2. Performed actions: any requested step already done for this account + same video target
+        foreach ($actionNames as $actionName) {
+            if ($this->actionLogService->hasPerformed(
+                ProviderActionLogService::PROVIDER_YOUTUBE,
+                $accountIdentity,
+                $videoTargetHash,
+                $actionName
+            )) {
+                return true;
+            }
+        }
+
+        // 3. Composite combo: exact same combo already done for this account+target
+        if (count($actionNames) > 1) {
+            $compositeAction = YouTubeExecutionPlanResolver::compositeActionForLog($actionNames);
+            if ($this->actionLogService->hasPerformed(
+                ProviderActionLogService::PROVIDER_YOUTUBE,
+                $accountIdentity,
+                $videoTargetHash,
+                $compositeAction
+            )) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // =========================================================================

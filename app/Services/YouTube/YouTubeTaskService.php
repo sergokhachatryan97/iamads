@@ -56,42 +56,45 @@ class YouTubeTaskService
         }
 
         if ($ok && $state === 'done') {
-            // TODO: action log recording disabled — uniqueness checks are off in claim
-            // $targetHash = $task->target_hash ?? $task->link_hash;
-            // $actionForLog = $task->action;
-            // if ($task->action === 'combo') {
-            //     $steps = $task->payload['steps'] ?? [];
-            //     $actionForLog = !empty($steps)
-            //         ? YouTubeExecutionPlanResolver::compositeActionForLog($steps)
-            //         : 'combo';
-            //     $videoTargetHash = $task->payload['video_target_hash'] ?? $targetHash;
-            //     $onePerAccountActions = YouTubeExecutionPlanResolver::onePerAccountSteps($steps);
-            //     foreach ($onePerAccountActions as $individualAction) {
-            //         $this->actionLogService->recordPerformed(
-            //             ProviderActionLogService::PROVIDER_YOUTUBE,
-            //             $task->account_identity,
-            //             $videoTargetHash,
-            //             $individualAction
-            //         );
-            //     }
-            //     if (YouTubeExecutionPlanResolver::stepsContainSubscribe($steps)) {
-            //         $hashForSubscribe = $videoTargetHash ?: $targetHash;
-            //         if ($hashForSubscribe) {
-            //             $this->actionLogService->recordPerformed(
-            //                 ProviderActionLogService::PROVIDER_YOUTUBE,
-            //                 $task->account_identity,
-            //                 $hashForSubscribe,
-            //                 'subscribe'
-            //             );
-            //         }
-            //     }
-            // }
-            // $this->actionLogService->recordPerformed(
-            //     ProviderActionLogService::PROVIDER_YOUTUBE,
-            //     $task->account_identity,
-            //     $targetHash,
-            //     $actionForLog
-            // );
+            // Record uniqueness: account + action + link is unique once delivered.
+            // Future claims will be blocked by hasStepConflict() in YouTubeTaskClaimService.
+            $targetHash = $task->target_hash ?? $task->link_hash;
+            if ($targetHash !== null && ($task->account_identity ?? '') !== '') {
+                $actionForLog = $task->action;
+                if ($task->action === 'combo') {
+                    $steps = $task->payload['steps'] ?? [];
+                    $videoTargetHash = $task->payload['video_target_hash'] ?? $targetHash;
+                    $stepActions = YouTubeExecutionPlanResolver::stepsToActionNames($steps);
+
+                    // Record each individual step (subscribe/view/react/comment)
+                    foreach ($stepActions as $individualAction) {
+                        $this->actionLogService->recordPerformed(
+                            ProviderActionLogService::PROVIDER_YOUTUBE,
+                            $task->account_identity,
+                            $videoTargetHash,
+                            $individualAction
+                        );
+                    }
+
+                    // Record the composite combo for exact-combo dedup
+                    $actionForLog = !empty($stepActions)
+                        ? YouTubeExecutionPlanResolver::compositeActionForLog($stepActions)
+                        : 'combo';
+                    $this->actionLogService->recordPerformed(
+                        ProviderActionLogService::PROVIDER_YOUTUBE,
+                        $task->account_identity,
+                        $videoTargetHash,
+                        $actionForLog
+                    );
+                } else {
+                    $this->actionLogService->recordPerformed(
+                        ProviderActionLogService::PROVIDER_YOUTUBE,
+                        $task->account_identity,
+                        $targetHash,
+                        $actionForLog
+                    );
+                }
+            }
 
             $perCall = (int) ($task->payload['per_call'] ?? 1);
             $watchTimeMeta = $task->payload['watch_time'] ?? null;
