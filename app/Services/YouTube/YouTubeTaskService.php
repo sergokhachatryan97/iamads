@@ -3,164 +3,187 @@
 namespace App\Services\YouTube;
 
 use App\Models\Order;
-use App\Models\YouTubeAccountTargetState;
 use App\Models\YouTubeTask;
 use App\Services\ProviderActionLogService;
 use App\Support\Performer\OrderDripfeedClaimHelper;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
- * YouTube performer report: mark task done/failed; update order and global target state for subscribe.
+ * YouTube performer report: mark task done/failed and update order counters.
  */
 class YouTubeTaskService
 {
-    private const STATEFUL_ACTIONS = ['subscribe'];
-
     public function __construct(
         private ProviderActionLogService $actionLogService
     ) {}
 
     public function reportTaskResult(string $taskId, array $result): array
     {
-        $task = YouTubeTask::query()->find($taskId);
-
-        if (!$task) {
+        // Cheap pre-check outside the transaction so duplicate reports don't take locks.
+        $existing = YouTubeTask::query()->find($taskId);
+        if (!$existing) {
             return ['ok' => false, 'error' => 'Task not found'];
         }
-
-        if ($task->isFinalized()) {
-            Log::info('YouTube task already finalized', ['task_id' => $taskId, 'status' => $task->status]);
+        if ($existing->isFinalized()) {
+            Log::info('YouTube task already finalized', ['task_id' => $taskId, 'status' => $existing->status]);
             return ['ok' => true];
         }
 
-        $state = (string) ($result['state'] ?? 'done');
         $ok = (bool) ($result['ok'] ?? false);
         $error = $result['error'] ?? null;
 
-        $task->update([
-            'result' => $result,
-            'status' => $state === 'pending' ? YouTubeTask::STATUS_PENDING : ($ok ? YouTubeTask::STATUS_DONE : YouTubeTask::STATUS_FAILED),
-        ]);
+        return DB::transaction(function () use ($taskId, $result, $ok, $error): array {
+            // Re-fetch the task under lock so two concurrent reports for the same task serialize.
+            $task = YouTubeTask::query()
+                ->where('id', $taskId)
+                ->lockForUpdate()
+                ->first();
 
-        if ($state === 'pending') {
+            if (!$task) {
+                return ['ok' => false, 'error' => 'Task not found'];
+            }
+            if ($task->isFinalized()) {
+                return ['ok' => true];
+            }
+
+            // Lock the order BEFORE reading delivered/remains so two concurrent reports
+            // for different tasks of the same order can't both increment past the cap.
+            $order = $task->order_id
+                ? Order::query()->where('id', $task->order_id)->lockForUpdate()->first()
+                : null;
+
+            // Mark the task with its incoming result while locked.
+            $task->update([
+                'result' => $result,
+                'status' => $ok ? YouTubeTask::STATUS_DONE : YouTubeTask::STATUS_FAILED,
+            ]);
+
+            if (!$order) {
+                return ['ok' => true];
+            }
+            if ($order->status === Order::STATUS_COMPLETED) {
+                return ['ok' => true];
+            }
+
+            if ($ok) {
+                $this->applySuccess($task, $order);
+            } else {
+                $this->applyFailure($task, $order, $error);
+            }
+
             return ['ok' => true];
-        }
+        });
+    }
 
-        $order = $task->order;
-        if ($order->status === Order::STATUS_COMPLETED) {
-            return ['ok' => true];
-        }
-        if (!$order) {
-            $this->updateGlobalStateForTask($task, $ok, $error);
-            return ['ok' => true];
-        }
+    /**
+     * Successful report: record uniqueness in provider_action_logs and increment order counters.
+     * Caller must hold a lock on $order.
+     */
+    private function applySuccess(YouTubeTask $task, Order $order): void
+    {
+        // Record uniqueness so future claims for this account+target+action are blocked
+        // by hasStepConflict() in YouTubeTaskClaimService.
+        $targetHash = $task->target_hash ?? $task->link_hash;
+        if ($targetHash !== null && ($task->account_identity ?? '') !== '') {
+            if ($task->action === 'combo') {
+                $steps = $task->payload['steps'] ?? [];
+                $videoTargetHash = $task->payload['video_target_hash'] ?? $targetHash;
+                $stepActions = YouTubeExecutionPlanResolver::stepsToActionNames($steps);
 
-        if ($ok && $state === 'done') {
-            // Record uniqueness: account + action + link is unique once delivered.
-            // Future claims will be blocked by hasStepConflict() in YouTubeTaskClaimService.
-            $targetHash = $task->target_hash ?? $task->link_hash;
-            if ($targetHash !== null && ($task->account_identity ?? '') !== '') {
-                $actionForLog = $task->action;
-                if ($task->action === 'combo') {
-                    $steps = $task->payload['steps'] ?? [];
-                    $videoTargetHash = $task->payload['video_target_hash'] ?? $targetHash;
-                    $stepActions = YouTubeExecutionPlanResolver::stepsToActionNames($steps);
-
-                    // Record each individual step (subscribe/view/react/comment)
-                    foreach ($stepActions as $individualAction) {
-                        $this->actionLogService->recordPerformed(
-                            ProviderActionLogService::PROVIDER_YOUTUBE,
-                            $task->account_identity,
-                            $videoTargetHash,
-                            $individualAction
-                        );
-                    }
-
-                    // Record the composite combo for exact-combo dedup
-                    $actionForLog = !empty($stepActions)
-                        ? YouTubeExecutionPlanResolver::compositeActionForLog($stepActions)
-                        : 'combo';
+                foreach ($stepActions as $individualAction) {
                     $this->actionLogService->recordPerformed(
                         ProviderActionLogService::PROVIDER_YOUTUBE,
                         $task->account_identity,
                         $videoTargetHash,
-                        $actionForLog
-                    );
-                } else {
-                    $this->actionLogService->recordPerformed(
-                        ProviderActionLogService::PROVIDER_YOUTUBE,
-                        $task->account_identity,
-                        $targetHash,
-                        $actionForLog
+                        $individualAction
                     );
                 }
-            }
 
-            $perCall = (int) ($task->payload['per_call'] ?? 1);
-            $watchTimeMeta = $task->payload['watch_time'] ?? null;
-
-            if ($watchTimeMeta !== null && $perCall === 0) {
-                // Watch-time order: delivered = doneCount / tasksPerUnit
-                $tasksPerUnit = max(1, (int) ($watchTimeMeta['tasks_per_unit'] ?? 1));
-
-                $doneCount = YouTubeTask::query()
-                    ->where('order_id', $order->id)
-                    ->where('status', YouTubeTask::STATUS_DONE)
-                    ->count();
-
-                $target = $order->target_quantity;
-                $newDelivered = min((int) floor($doneCount / $tasksPerUnit), $target);
-
-                $orderUpdates = [
-                    'delivered' => $newDelivered,
-                    'remains' => max(0, $target - $newDelivered),
-                    'provider_last_error' => null,
-                    'provider_last_error_at' => null,
-                ];
-                if ($newDelivered >= $target) {
-                    $orderUpdates['status'] = Order::STATUS_COMPLETED;
-                    $orderUpdates['completed_at'] = $order->completed_at ?? now();
-                }
-
-                $order->update($orderUpdates);
+                $compositeAction = !empty($stepActions)
+                    ? YouTubeExecutionPlanResolver::compositeActionForLog($stepActions)
+                    : 'combo';
+                $this->actionLogService->recordPerformed(
+                    ProviderActionLogService::PROVIDER_YOUTUBE,
+                    $task->account_identity,
+                    $videoTargetHash,
+                    $compositeAction
+                );
             } else {
-                // Standard order: increment delivered by per_call
-                $perCall = max(1, $perCall);
-                $currentRemains = (int) $order->remains;
-                $deduct = min($perCall, $currentRemains);
-                $newDelivered = (int) $order->delivered + $deduct;
-                $target = $order->target_quantity;
-
-                $orderUpdates = [
-                    'remains' => $newDelivered >= $target ? 0 : max(0, $target - $newDelivered),
-                    'delivered' => $newDelivered,
-                    'provider_last_error' => null,
-                    'provider_last_error_at' => null,
-                ];
-                if ($newDelivered >= $target) {
-                    $orderUpdates['status'] = Order::STATUS_COMPLETED;
-                    $orderUpdates['completed_at'] = $order->completed_at ?? now();
-                }
-
-                $this->applyDripfeedCompletionOnReport($order, $perCall, $orderUpdates);
-                $order->update($orderUpdates);
+                $this->actionLogService->recordPerformed(
+                    ProviderActionLogService::PROVIDER_YOUTUBE,
+                    $task->account_identity,
+                    $targetHash,
+                    $task->action
+                );
             }
-
-            $task->update(['status' => YouTubeTask::STATUS_DONE]);
-            // TODO: global state update disabled
-            // $this->updateGlobalStateForTask($task, true, null);
-        } else {
-            OrderDripfeedClaimHelper::rollbackClaimedUnit($order);
-            $order->update([
-                'provider_last_error' => $error ?? 'Task failed',
-                'provider_last_error_at' => now(),
-            ]);
-            $task->update(['status' => YouTubeTask::STATUS_FAILED]);
-            // TODO: global state update disabled
-            // $this->updateGlobalStateForTask($task, false, $error);
         }
 
-        return ['ok' => true];
+        $perCall = (int) ($task->payload['per_call'] ?? 1);
+        $watchTimeMeta = $task->payload['watch_time'] ?? null;
+
+        if ($watchTimeMeta !== null && $perCall === 0) {
+            // Watch-time order: delivered = doneCount / tasksPerUnit (recomputed under lock).
+            $tasksPerUnit = max(1, (int) ($watchTimeMeta['tasks_per_unit'] ?? 1));
+
+            $doneCount = YouTubeTask::query()
+                ->where('order_id', $order->id)
+                ->where('status', YouTubeTask::STATUS_DONE)
+                ->count();
+
+            $target = $order->target_quantity;
+            $newDelivered = min((int) floor($doneCount / $tasksPerUnit), $target);
+
+            $orderUpdates = [
+                'delivered' => $newDelivered,
+                'remains' => max(0, $target - $newDelivered),
+                'provider_last_error' => null,
+                'provider_last_error_at' => null,
+            ];
+            if ($newDelivered >= $target) {
+                $orderUpdates['status'] = Order::STATUS_COMPLETED;
+                $orderUpdates['completed_at'] = $order->completed_at ?? now();
+            }
+
+            $order->update($orderUpdates);
+
+            return;
+        }
+
+        // Standard order: increment delivered by per_call.
+        $perCall = max(1, $perCall);
+        $target = (int) $order->target_quantity;
+        $currentDelivered = (int) $order->delivered;
+        $headroom = max(0, $target - $currentDelivered);
+        $deduct = min($perCall, $headroom);
+        $newDelivered = $currentDelivered + $deduct;
+
+        $orderUpdates = [
+            'remains' => max(0, $target - $newDelivered),
+            'delivered' => $newDelivered,
+            'provider_last_error' => null,
+            'provider_last_error_at' => null,
+        ];
+        if ($newDelivered >= $target) {
+            $orderUpdates['status'] = Order::STATUS_COMPLETED;
+            $orderUpdates['completed_at'] = $order->completed_at ?? now();
+        }
+
+        $this->applyDripfeedCompletionOnReport($order, $perCall, $orderUpdates);
+        $order->update($orderUpdates);
+    }
+
+    /**
+     * Failed report: roll back the dripfeed slot the claim took, surface the error.
+     * Caller must hold a lock on $order.
+     */
+    private function applyFailure(YouTubeTask $task, Order $order, ?string $error): void
+    {
+        OrderDripfeedClaimHelper::rollbackClaimedUnit($order);
+        $order->update([
+            'provider_last_error' => $error ?? 'Task failed',
+            'provider_last_error_at' => now(),
+        ]);
     }
 
     /**
@@ -193,98 +216,50 @@ class YouTubeTaskService
         }
     }
 
-    private function updateGlobalStateForTask(YouTubeTask $task, bool $ok, ?string $error): void
-    {
-        $steps = $task->payload['steps'] ?? [];
-        $hasSubscribe = $task->action === 'combo'
-            ? YouTubeExecutionPlanResolver::stepsContainSubscribe($steps)
-            : in_array(strtolower($task->action ?? ''), self::STATEFUL_ACTIONS, true);
-        if (!$hasSubscribe) {
-            return;
-        }
-        $targetHash = $task->target_hash ?? $task->payload['target_hash'] ?? null;
-        if ($targetHash === null || ($task->account_identity ?? '') === '') {
-            return;
-        }
-
-        $statefulAction = $task->action === 'combo' ? 'subscribe' : $task->action;
-        $global = YouTubeAccountTargetState::query()
-            ->where('account_identity', $task->account_identity)
-            ->where('action', $statefulAction)
-            ->where('target_hash', $targetHash)
-            ->first();
-
-        if ($global === null) {
-            return;
-        }
-
-        $ignored = (bool) ($task->result['ignored'] ?? false);
-        if ($ok) {
-            $global->update([
-                'state' => YouTubeAccountTargetState::STATE_SUBSCRIBED,
-                'last_task_id' => $task->id,
-                'last_error' => null,
-            ]);
-        } elseif ($ignored) {
-            $global->update([
-                'state' => YouTubeAccountTargetState::STATE_IGNORED,
-                'last_task_id' => $task->id,
-                'last_error' => 'Ignored',
-            ]);
-        } else {
-            $global->update([
-                'state' => YouTubeAccountTargetState::STATE_FAILED,
-                'last_task_id' => $task->id,
-                'last_error' => $error ?? 'Task failed',
-            ]);
-        }
-    }
-
     /**
-     * Mark task as ignored (performer skipped). Sets global state to IGNORED for subscribe.
+     * Mark task as ignored (performer skipped).
      */
     public function markIgnored(string $taskId): array
     {
-        $task = YouTubeTask::query()->find($taskId);
-        if (!$task) {
+        $existing = YouTubeTask::query()->find($taskId);
+        if (!$existing) {
             return ['ok' => false, 'error' => 'Task not found'];
         }
-        if ($task->isFinalized()) {
+        if ($existing->isFinalized()) {
             return ['ok' => true];
         }
 
-        $order = $task->order;
-        if ($order) {
-            OrderDripfeedClaimHelper::rollbackClaimedUnit($order);
-            $order->update([
-                'provider_last_error' => 'Ignored',
-                'provider_last_error_at' => now(),
+        return DB::transaction(function () use ($taskId): array {
+            $task = YouTubeTask::query()
+                ->where('id', $taskId)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$task) {
+                return ['ok' => false, 'error' => 'Task not found'];
+            }
+            if ($task->isFinalized()) {
+                return ['ok' => true];
+            }
+
+            $order = $task->order_id
+                ? Order::query()->where('id', $task->order_id)->lockForUpdate()->first()
+                : null;
+
+            if ($order && $order->status !== Order::STATUS_COMPLETED) {
+                OrderDripfeedClaimHelper::rollbackClaimedUnit($order);
+                $order->update([
+                    'provider_last_error' => 'Ignored',
+                    'provider_last_error_at' => now(),
+                ]);
+            }
+
+            $task->update([
+                'status' => YouTubeTask::STATUS_FAILED,
+                'result' => array_merge($task->result ?? [], ['state' => 'failed', 'ok' => false, 'ignored' => true]),
             ]);
-        }
 
-        $task->update([
-            'status' => YouTubeTask::STATUS_FAILED,
-            'result' => array_merge($task->result ?? [], ['state' => 'failed', 'ok' => false, 'ignored' => true]),
-        ]);
-
-        // TODO: global state update disabled — uniqueness checks are off in claim
-        // $targetHash = $task->target_hash ?? $task->payload['target_hash'] ?? null;
-        // $steps = $task->payload['steps'] ?? [];
-        // $hasSubscribe = $task->action === 'combo'
-        //     ? YouTubeExecutionPlanResolver::stepsContainSubscribe($steps)
-        //     : in_array(strtolower($task->action ?? ''), self::STATEFUL_ACTIONS, true);
-        // if ($targetHash !== null && $hasSubscribe) {
-        //     YouTubeAccountTargetState::query()
-        //         ->where('account_identity', $task->account_identity)
-        //         ->where('action', 'subscribe')
-        //         ->where('target_hash', $targetHash)
-        //         ->update([
-        //             'state' => YouTubeAccountTargetState::STATE_IGNORED,
-        //             'last_task_id' => $task->id,
-        //             'last_error' => 'Ignored',
-        //         ]);
-        // }
-
-        return ['ok' => true];
+            return ['ok' => true];
+        });
     }
 }

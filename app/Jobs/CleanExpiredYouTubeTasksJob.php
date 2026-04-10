@@ -35,20 +35,48 @@ class CleanExpiredYouTubeTasksJob implements ShouldQueue
         // legacy rows claimed under the old 1-hour lease TTL — they fail at 30 min from claim.
         $cutoff = now()->subMinutes(self::TIMEOUT_MINUTES);
 
-        $expiredTasks = YouTubeTask::query()
+        // Pull only IDs — the row state we read here can race with concurrent reports,
+        // so we re-fetch and re-check inside each per-task transaction below.
+        $expiredIds = YouTubeTask::query()
             ->where('status', YouTubeTask::STATUS_LEASED)
             ->where('created_at', '<', $cutoff)
-            ->get();
+            ->pluck('id');
 
         $failedCount = 0;
+        $skippedCount = 0;
 
-        foreach ($expiredTasks as $task) {
-            DB::transaction(function () use ($task, &$failedCount) {
+        foreach ($expiredIds as $taskId) {
+            DB::transaction(function () use ($taskId, $cutoff, &$failedCount, &$skippedCount) {
+                // Re-fetch the task under lock. If a performer reported it between the
+                // SELECT above and now, status will no longer be LEASED — we must NOT
+                // overwrite a DONE/FAILED row or roll back its dripfeed counter.
+                $task = YouTubeTask::query()
+                    ->where('id', $taskId)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($task === null) {
+                    $skippedCount++;
+                    return;
+                }
+
+                if ($task->status !== YouTubeTask::STATUS_LEASED) {
+                    // Already finalized by a concurrent report — leave it alone.
+                    $skippedCount++;
+                    return;
+                }
+
+                if ($task->created_at === null || $task->created_at->gte($cutoff)) {
+                    // No longer expired (e.g. clock skew or row updated). Skip.
+                    $skippedCount++;
+                    return;
+                }
+
                 $order = $task->order_id
-                    ? Order::query()->lockForUpdate()->find($task->order_id)
+                    ? Order::query()->where('id', $task->order_id)->lockForUpdate()->first()
                     : null;
 
-                if ($order !== null) {
+                if ($order !== null && $order->status !== Order::STATUS_COMPLETED) {
                     OrderDripfeedClaimHelper::rollbackClaimedUnit($order);
                     $order->update([
                         'provider_last_error' => self::ERROR_MESSAGE,
@@ -67,6 +95,7 @@ class CleanExpiredYouTubeTasksJob implements ShouldQueue
 
         Log::info('CleanExpiredYouTubeTasksJob', [
             'failed_tasks' => $failedCount,
+            'skipped' => $skippedCount,
         ]);
     }
 }

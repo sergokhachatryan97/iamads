@@ -35,7 +35,6 @@ class YouTubeTask extends Model
     ];
 
     public const STATUS_LEASED = 'leased';
-    public const STATUS_PENDING = 'pending';
     public const STATUS_DONE = 'done';
     public const STATUS_FAILED = 'failed';
 

@@ -79,11 +79,29 @@ class YouTubeTaskClaimService
             return null;
         }
 
-        // Fair random distribution — every due order has equal chance.
-        // Speed limit (next_run_at) controls per-order pacing.
-        // No remains sorting — that starves new orders.
+        // Fair distribution: pick orders with the fewest currently-leased tasks first,
+        // so every order makes parallel progress instead of one order eating all slots.
+        // Random tie-break keeps things even when many orders have the same in-flight count.
         $due = array_values($due);
-        shuffle($due);
+        $dueIds = array_map(fn ($r) => $r->id, $due);
+
+        $leasedByOrder = DB::table('youtube_tasks')
+            ->select('order_id', DB::raw('COUNT(*) as cnt'))
+            ->whereIn('order_id', $dueIds)
+            ->where('status', YouTubeTask::STATUS_LEASED)
+            ->groupBy('order_id')
+            ->pluck('cnt', 'order_id')
+            ->all();
+
+        // Attach a small random jitter so equal-count orders don't always sort the same way.
+        foreach ($due as $row) {
+            $row->_leased = (int) ($leasedByOrder[$row->id] ?? 0);
+            $row->_jitter = random_int(0, PHP_INT_MAX);
+        }
+
+        usort($due, function (object $a, object $b) {
+            return [$a->_leased, $a->_jitter] <=> [$b->_leased, $b->_jitter];
+        });
 
         // Load full models in batches of 50, try to claim
         foreach (array_chunk($due, 50) as $batch) {
@@ -337,13 +355,13 @@ class YouTubeTaskClaimService
                 'payload' => $payload,
             ]);
 
-            // Post-claim: update dripfeed counters
-            OrderDripfeedClaimHelper::afterTaskClaimed($order);
+            // Post-claim: merge dripfeed counters, speed-limit next_run_at, and status
+            // into ONE UPDATE so we touch the locked order row a single time.
+            $orderUpdates = ['status' => Order::STATUS_IN_PROGRESS];
+            $orderUpdates += OrderDripfeedClaimHelper::computeAfterTaskClaimedUpdates($order);
+            $orderUpdates['provider_payload'] = $this->buildProviderPayloadWithNextRunAt($order);
 
-            // Post-claim: set speed-limit next_run_at
-            $this->setNextRunAt($order);
-
-            $order->update(['status' => Order::STATUS_IN_PROGRESS]);
+            $order->update($orderUpdates);
 
             // Build response
             $service = $order->service;
@@ -421,13 +439,11 @@ class YouTubeTaskClaimService
             return false;
         }
 
-        $activeStatuses = [YouTubeTask::STATUS_LEASED, YouTubeTask::STATUS_PENDING];
-
         // 1. Active tasks: single tasks with overlapping action, or combo tasks with overlapping steps
         $activeTasks = YouTubeTask::query()
             ->where('account_identity', $accountIdentity)
             ->where('link_hash', $linkHash)
-            ->whereIn('status', $activeStatuses)
+            ->where('status', YouTubeTask::STATUS_LEASED)
             ->get(['id', 'action', 'payload']);
 
         foreach ($activeTasks as $task) {
@@ -444,32 +460,19 @@ class YouTubeTaskClaimService
             }
         }
 
-        // 2. Performed actions: any requested step already done for this account + same video target
-        foreach ($actionNames as $actionName) {
-            if ($this->actionLogService->hasPerformed(
-                ProviderActionLogService::PROVIDER_YOUTUBE,
-                $accountIdentity,
-                $videoTargetHash,
-                $actionName
-            )) {
-                return true;
-            }
-        }
-
-        // 3. Composite combo: exact same combo already done for this account+target
+        // 2. Performed actions: any requested step OR the exact composite combo
+        //    already recorded for this account+target. One query covers both.
+        $logActions = $actionNames;
         if (count($actionNames) > 1) {
-            $compositeAction = YouTubeExecutionPlanResolver::compositeActionForLog($actionNames);
-            if ($this->actionLogService->hasPerformed(
-                ProviderActionLogService::PROVIDER_YOUTUBE,
-                $accountIdentity,
-                $videoTargetHash,
-                $compositeAction
-            )) {
-                return true;
-            }
+            $logActions[] = YouTubeExecutionPlanResolver::compositeActionForLog($actionNames);
         }
 
-        return false;
+        return $this->actionLogService->hasPerformedAny(
+            ProviderActionLogService::PROVIDER_YOUTUBE,
+            $accountIdentity,
+            $videoTargetHash,
+            $logActions
+        );
     }
 
     // =========================================================================
@@ -497,10 +500,13 @@ class YouTubeTaskClaimService
     }
 
     /**
-     * After task claimed: set next_run_at using pre-calculated interval.
-     * Speed multiplier is already applied during inspection — no recalculation here.
+     * Build the provider_payload value with execution_meta.next_run_at advanced by the
+     * pre-calculated interval. Returns the merged payload — caller persists it as part
+     * of a single combined UPDATE.
+     *
+     * @return array<string, mixed>
      */
-    private function setNextRunAt(Order $order): void
+    private function buildProviderPayloadWithNextRunAt(Order $order): array
     {
         $providerPayload = $order->provider_payload ?? [];
         $executionMeta = is_array($providerPayload['execution_meta'] ?? null) ? $providerPayload['execution_meta'] : [];
@@ -509,7 +515,8 @@ class YouTubeTaskClaimService
         $executionMeta['next_run_at'] = now()->addSeconds(max(1, $intervalSeconds))->toDateTimeString();
 
         $providerPayload['execution_meta'] = $executionMeta;
-        $order->update(['provider_payload' => $providerPayload]);
+
+        return $providerPayload;
     }
 
     // =========================================================================

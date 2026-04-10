@@ -55,12 +55,16 @@ class OrderDripfeedClaimHelper
     }
 
     /**
-     * After a task is claimed under dripfeed: increment run counter and optionally schedule next run.
+     * Compute the field updates that should be applied after a task is claimed under dripfeed.
+     * Returns an empty array if dripfeed is disabled. Lets callers merge with other updates
+     * into a single UPDATE statement.
+     *
+     * @return array<string, mixed>
      */
-    public static function afterTaskClaimed(Order $order): void
+    public static function computeAfterTaskClaimedUpdates(Order $order): array
     {
         if (!(bool) ($order->dripfeed_enabled ?? false)) {
-            return;
+            return [];
         }
 
         $perRunQty = (int) ($order->dripfeed_quantity ?? 0);
@@ -84,7 +88,18 @@ class OrderDripfeedClaimHelper
             }
         }
 
-        $order->update($updates);
+        return $updates;
+    }
+
+    /**
+     * After a task is claimed under dripfeed: increment run counter and optionally schedule next run.
+     */
+    public static function afterTaskClaimed(Order $order): void
+    {
+        $updates = self::computeAfterTaskClaimedUpdates($order);
+        if (!empty($updates)) {
+            $order->update($updates);
+        }
     }
 
     /**

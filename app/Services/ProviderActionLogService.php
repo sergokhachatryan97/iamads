@@ -29,6 +29,26 @@ class ProviderActionLogService
     }
 
     /**
+     * Check if this account has performed ANY of the given actions on this target.
+     * Single query — replaces N hasPerformed() calls in hot paths like claim conflict checks.
+     *
+     * @param  array<string>  $actions
+     */
+    public function hasPerformedAny(string $provider, string $accountIdentifier, string $targetHash, array $actions): bool
+    {
+        if (empty($actions)) {
+            return false;
+        }
+
+        return DB::table('provider_action_logs')
+            ->where('provider', $provider)
+            ->where('account_identifier', $accountIdentifier)
+            ->where('target_hash', $targetHash)
+            ->whereIn('action', $actions)
+            ->exists();
+    }
+
+    /**
      * Record that this account performed this action on this target.
      * Uses DB unique constraint; duplicate insert will throw.
      *
