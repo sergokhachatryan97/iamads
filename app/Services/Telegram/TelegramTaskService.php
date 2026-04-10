@@ -701,6 +701,7 @@ class TelegramTaskService
 
         // Account-driven order claim flow: task has payload.account_phone, update membership (order_id = orders.id)
         if ($subject instanceof Order && ($task->payload['account_phone'] ?? null) !== null && ($task->payload['account_phone'] ?? '') !== '') {
+            Log::info('res', ['task' => $task, 'ok' => $ok, 'error' => $error, 'retry_after' => $retryAfter, 'subject' => $subject, 'state' => $state]);
             return $this->handleOrderClaimTaskReport($task, $subject, $state, $ok, $error, $retryAfter);
         }
 
