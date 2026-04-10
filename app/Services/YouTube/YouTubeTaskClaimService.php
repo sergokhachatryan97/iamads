@@ -511,7 +511,8 @@ class YouTubeTaskClaimService
         $providerPayload = $order->provider_payload ?? [];
         $executionMeta = is_array($providerPayload['execution_meta'] ?? null) ? $providerPayload['execution_meta'] : [];
 
-        $intervalSeconds = (int) ($executionMeta['interval_seconds'] ?? 30);
+//        $intervalSeconds = (int) ($executionMeta['interval_seconds'] ?? 1);
+        $intervalSeconds = 5;
         $executionMeta['next_run_at'] = now()->addSeconds(max(1, $intervalSeconds))->toDateTimeString();
 
         $providerPayload['execution_meta'] = $executionMeta;
