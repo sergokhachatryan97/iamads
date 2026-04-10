@@ -34,6 +34,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/favicon-32.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/apple-touch-icon.png') }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>
         :root { --radius: 12px; --sidebar-w: 260px; }
@@ -91,8 +93,8 @@
         }
         .smm-dash-brand-mark {
             width: 40px; height: 40px; border-radius: 10px;
-            background: linear-gradient(135deg, var(--purple), var(--teal));
-            display: flex; align-items: center; justify-content: center; font-weight: 800; color: #fff; font-size: 18px;
+            display: block; flex-shrink: 0;
+            box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);
         }
         .smm-dash-brand-text { font-weight: 800; font-size: 15px; background: linear-gradient(135deg, var(--purple), var(--teal)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         .smm-dash-brand-sub { font-size: 10px; color: var(--text3); margin-top: 2px; }
@@ -451,7 +453,7 @@
         @unless($hideSidebar)
         <aside class="smm-dash-sidebar" :class="{ 'open': sidebarOpen }">
             <a href="{{ route('dashboard') }}" class="smm-dash-brand" @click="sidebarOpen = false">
-                <span class="smm-dash-brand-mark">S</span>
+                <img src="{{ asset('images/logo-icon.svg') }}" alt="" class="smm-dash-brand-mark">
                 <div>
                     <div class="smm-dash-brand-text">{{ config('app.name', 'SMM Tool') }}</div>
                     <div class="smm-dash-brand-sub">{{ __('Social Media Growth') }}</div>

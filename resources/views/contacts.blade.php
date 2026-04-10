@@ -8,6 +8,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/favicon-32.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/apple-touch-icon.png') }}">
     <style>
         :root { --radius: 12px; }
         [data-theme="dark"] {
@@ -32,7 +34,9 @@
 
         .navbar { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: var(--navbar-bg); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border2); padding: 0 24px; }
         .navbar-inner { max-width: 1280px; margin: 0 auto; height: 60px; display: flex; align-items: center; gap: 28px; }
-        .logo { display: flex; flex-direction: column; line-height: 1.1; flex-shrink: 0; }
+        .logo { display: flex; align-items: center; gap: 10px; line-height: 1.1; flex-shrink: 0; }
+        .logo-mark { width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0; box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35); }
+        .logo-text { display: flex; flex-direction: column; }
         .logo-name { font-size: 18px; font-weight: 800; background: linear-gradient(135deg, var(--purple), var(--teal)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
         .logo-slogan { font-size: 9px; color: var(--text2); letter-spacing: 0.5px; }
         .nav-links { display: flex; align-items: center; gap: 2px; flex: 1; list-style: none; }
@@ -79,8 +83,11 @@
 <nav class="navbar">
     <div class="navbar-inner">
         <a href="{{ route('home') }}" class="logo" style="text-decoration:none;">
-            <span class="logo-name">{{ config('contact.company_name') }}</span>
-            <span class="logo-slogan">{{ __('Social Media Growth') }}</span>
+            <img src="{{ asset('images/logo-icon.svg') }}" alt="" class="logo-mark">
+            <span class="logo-text">
+                <span class="logo-name">{{ config('contact.company_name') }}</span>
+                <span class="logo-slogan">{{ __('Social Media Growth') }}</span>
+            </span>
         </a>
         <ul class="nav-links">
             <li><a href="{{ route('home') }}">{{ __('home.nav_services') }}</a></li>

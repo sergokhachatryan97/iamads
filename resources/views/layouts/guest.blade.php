@@ -11,6 +11,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/favicon-32.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/apple-touch-icon.png') }}">
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
@@ -56,7 +58,9 @@
             display: flex; align-items: center; gap: 16px;
         }
         .landing-navbar-spacer { flex: 1; min-width: 8px; }
-        .landing-logo { display: flex; flex-direction: column; line-height: 1.1; text-decoration: none; }
+        .landing-logo { display: flex; align-items: center; gap: 10px; line-height: 1.1; text-decoration: none; }
+        .landing-logo-mark { width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0; box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35); }
+        .landing-logo-text { display: flex; flex-direction: column; }
         .landing-logo-name {
             font-size: 17px; font-weight: 800;
             background: linear-gradient(135deg, var(--purple), var(--teal));
@@ -248,8 +252,11 @@
     <nav class="landing-navbar">
         <div class="landing-navbar-inner">
             <a href="{{ route('home') }}" class="landing-logo">
-                <span class="landing-logo-name">{{ config('app.name', 'SMM Tool') }}</span>
-                <span class="landing-logo-slogan">{{ __('Social Media Growth') }}</span>
+                <img src="{{ asset('images/logo-icon.svg') }}" alt="" class="landing-logo-mark">
+                <span class="landing-logo-text">
+                    <span class="landing-logo-name">{{ config('app.name', 'SMM Tool') }}</span>
+                    <span class="landing-logo-slogan">{{ __('Social Media Growth') }}</span>
+                </span>
             </a>
             <div class="landing-navbar-spacer" aria-hidden="true"></div>
             <a href="{{ route('home') }}" class="landing-nav-home">{{ __('Back to home') }}</a>
