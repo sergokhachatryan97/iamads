@@ -71,7 +71,7 @@ return Application::configure(basePath: dirname(__DIR__))
             ->withoutOverlapping(10);
 
         $schedule->job(new \App\Jobs\CleanExpiredYouTubeTasksJob)
-            ->everyFifteenMinutes()
+            ->everyFiveMinutes()
             ->withoutOverlapping(2);
 
         $schedule->job(new \App\Jobs\CleanExpiredTelegramTasksJob)
