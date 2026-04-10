@@ -71,7 +71,7 @@ return Application::configure(basePath: dirname(__DIR__))
             ->withoutOverlapping(10);
 
         $schedule->job(new \App\Jobs\CleanExpiredYouTubeTasksJob)
-            ->hourly()
+            ->everyFifteenMinutes()
             ->withoutOverlapping(2);
 
         $schedule->job(new \App\Jobs\CleanExpiredTelegramTasksJob)
@@ -89,6 +89,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('telegram:clean-expired-subscriptions')
             ->daily()
             ->withoutOverlapping(10);
+
+        $schedule->command('max:monitor-channels')
+            ->everyTwoMinutes()
+            ->withoutOverlapping(3)
+            ->runInBackground();
 
         $schedule->job(new \App\Jobs\SyncCompletedProviderOrdersJob)
             ->everyFiveMinutes()
