@@ -86,26 +86,53 @@ class TelegramExpiredSubscriptionCleaner
         $cleaned = 0;
 
         foreach ($memberships as $membership) {
-            $membership->update([
-                'state' => TelegramOrderMembership::STATE_UNSUBSCRIBED,
-                'unsubscribed_at' => $now,
-            ]);
-            $cleaned++;
+            // Wrap each per-membership mutation in its own small transaction with
+            // deadlock retries. Canonical lock order (shared with
+            // TelegramTaskClaimService / TelegramTaskService report path):
+            // orders -> telegram_order_memberships -> telegram_account_link_states.
+            $didUpdate = DB::transaction(function () use ($membership, $now): bool {
+                Order::query()
+                    ->whereKey($membership->order_id)
+                    ->lockForUpdate()
+                    ->first();
 
-            // Mark the subscribe task as unsubscribed for statistics
-            if ($membership->subscribed_task_id) {
-                TelegramTask::query()
-                    ->where('id', $membership->subscribed_task_id)
-                    ->where('status', TelegramTask::STATUS_DONE)
-                    ->update(['status' => TelegramTask::STATUS_UNSUBSCRIBED]);
+                $fresh = TelegramOrderMembership::query()
+                    ->whereKey($membership->id)
+                    ->where('state', TelegramOrderMembership::STATE_SUBSCRIBED)
+                    ->whereNull('unsubscribed_at')
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $fresh) {
+                    return false;
+                }
+
+                $fresh->update([
+                    'state' => TelegramOrderMembership::STATE_UNSUBSCRIBED,
+                    'unsubscribed_at' => $now,
+                ]);
+
+                // Mark the subscribe task as unsubscribed for statistics
+                if ($fresh->subscribed_task_id) {
+                    TelegramTask::query()
+                        ->where('id', $fresh->subscribed_task_id)
+                        ->where('status', TelegramTask::STATUS_DONE)
+                        ->update(['status' => TelegramTask::STATUS_UNSUBSCRIBED]);
+                }
+
+                // Release all blocking link_states for this phone+link (duration expired)
+                TelegramAccountLinkState::query()
+                    ->where('account_phone', $fresh->account_phone)
+                    ->where('link_hash', $fresh->link_hash)
+                    ->whereIn('state', TelegramAccountLinkState::BLOCKING_STATES)
+                    ->update(['state' => TelegramAccountLinkState::STATE_EXPIRED]);
+
+                return true;
+            }, 5);
+
+            if ($didUpdate) {
+                $cleaned++;
             }
-
-            // Release all blocking link_states for this phone+link (duration expired)
-            TelegramAccountLinkState::query()
-                ->where('account_phone', $membership->account_phone)
-                ->where('link_hash', $membership->link_hash)
-                ->whereIn('state', TelegramAccountLinkState::BLOCKING_STATES)
-                ->update(['state' => TelegramAccountLinkState::STATE_EXPIRED]);
         }
 
         if ($cleaned > 0) {

@@ -17,6 +17,19 @@ use Illuminate\Support\Facades\Redis;
 
 class TelegramTaskClaimService
 {
+    /**
+     * Number of retry attempts for DB::transaction on deadlock (MySQL errno 1213).
+     *
+     * Concurrent claim/report/cleaner paths touch the same rows in
+     * orders / telegram_order_memberships / telegram_account_link_states;
+     * MySQL occasionally picks one as a victim. Retrying a handful of times is
+     * the standard remediation.
+     *
+     * Canonical lock order for all code paths touching these tables:
+     *   orders -> telegram_order_memberships -> telegram_account_link_states -> telegram_tasks
+     */
+    private const TX_DEADLOCK_ATTEMPTS = 5;
+
     private const LEASE_TTL_SECONDS = 90;
 
     private const PHONE_ACTIVE_SUBSCRIBED_CAP = 500;
@@ -348,28 +361,49 @@ class TelegramTaskClaimService
             return null;
         }
 
-        return DB::transaction(function () use ($phone, $scope, $categoryId, $serviceId): ?array {
+        // Phase 1 (no locks): find a candidate membership so we can then grab
+        // locks in the canonical order inside the transaction.
+        $candidate = TelegramOrderMembership::query()
+            ->select(['id', 'order_id'])
+            ->where('account_phone', $phone)
+            ->where('state', TelegramOrderMembership::STATE_SUBSCRIBED)
+            ->whereNull('unsubscribed_at')
+            ->whereHas('order', function ($q) use ($scope, $categoryId, $serviceId) {
+                $q->where('execution_phase', Order::EXECUTION_PHASE_UNSUBSCRIBING)
+                    ->where('category_id', $categoryId)
+                    ->whereHas('service', fn ($sq) => TelegramPremiumTemplateScope::applyServiceTemplateScope($sq, $scope));
+                if ($serviceId !== null) {
+                    $q->where('service_id', $serviceId);
+                }
+            })
+            ->first();
+
+        if (! $candidate) {
+            return null;
+        }
+
+        return DB::transaction(function () use ($phone, $scope, $candidate): ?array {
+            // Canonical lock order: orders -> telegram_order_memberships -> telegram_tasks.
+            // Even though we don't UPDATE the order here, we take its lock first so
+            // every code path on these tables acquires locks in the same sequence,
+            // preventing deadlock cycles with the subscribe/report paths.
+            $order = Order::query()
+                ->whereKey($candidate->order_id)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $order || $order->execution_phase !== Order::EXECUTION_PHASE_UNSUBSCRIBING) {
+                return null;
+            }
+
             $membership = TelegramOrderMembership::query()
-                ->where('account_phone', $phone)
+                ->whereKey($candidate->id)
                 ->where('state', TelegramOrderMembership::STATE_SUBSCRIBED)
                 ->whereNull('unsubscribed_at')
-                ->whereHas('order', function ($q) use ($scope, $categoryId, $serviceId) {
-                    $q->where('execution_phase', Order::EXECUTION_PHASE_UNSUBSCRIBING)
-                        ->where('category_id', $categoryId)
-                        ->whereHas('service', fn ($sq) => TelegramPremiumTemplateScope::applyServiceTemplateScope($sq, $scope));
-                    if ($serviceId !== null) {
-                        $q->where('service_id', $serviceId);
-                    }
-                })
                 ->lockForUpdate()
                 ->first();
 
             if (! $membership) {
-                return null;
-            }
-
-            $order = $membership->order;
-            if (! $order) {
                 return null;
             }
 
@@ -427,7 +461,7 @@ class TelegramTaskClaimService
             ];
 
             return $dto;
-        });
+        }, self::TX_DEADLOCK_ATTEMPTS);
     }
 
     // =========================================================================
@@ -574,6 +608,7 @@ class TelegramTaskClaimService
         $preloadedService = $preloaded->relationLoaded('service') ? $preloaded->service : null;
 
         return DB::transaction(function () use ($preloaded, $phone, $scope, $preloadedService): ?array {
+            // Lock order: orders -> telegram_order_memberships -> telegram_account_link_states -> telegram_tasks
             $order = Order::query()
                 ->where('id', $preloaded->id)
                 ->where('remains', '>', 0)
@@ -810,7 +845,7 @@ class TelegramTaskClaimService
             ];
 
             return $dto;
-        });
+        }, self::TX_DEADLOCK_ATTEMPTS);
     }
 
     // =========================================================================
