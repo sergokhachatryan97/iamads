@@ -28,6 +28,20 @@ class TelegramStepCompletionService
     ) {}
 
     /**
+     * Order statuses where Telegram step results may mutate the order row.
+     */
+    public static function orderStatusAllowsStepApply(string $status): bool
+    {
+        return in_array($status, [
+            Order::STATUS_AWAITING,
+            Order::STATUS_PENDING,
+            Order::STATUS_PENDING_DEPENDENCY,
+            Order::STATUS_IN_PROGRESS,
+            Order::STATUS_PROCESSING,
+        ], true);
+    }
+
+    /**
      * Handle step completion.
      *
      * @param Order $order
@@ -36,7 +50,7 @@ class TelegramStepCompletionService
      * @param string $linkHash
      * @param array $result Normalized provider result: {state, ok, error, retry_after, task_id, raw}
      * @param array $parsed Parsed telegram link data
-     * @return void
+     * @return bool True if order row was updated; false if skipped (e.g. order already partial/canceled)
      */
     public function handle(
         Order $order,
@@ -45,7 +59,22 @@ class TelegramStepCompletionService
         string $linkHash,
         array $result,
         array $parsed,
-    ): void {
+    ): bool {
+        $order = Order::query()->find($order->id);
+        if (! $order) {
+            return false;
+        }
+
+        // Late provider/worker reports must not overwrite staff/client finalization (e.g. partial cancel).
+        if (! self::orderStatusAllowsStepApply($order->status)) {
+            Log::info('Telegram step completion skipped: order not in active execution status', [
+                'order_id' => $order->id,
+                'status' => $order->status,
+            ]);
+
+            return false;
+        }
+
         $state = $result['state'] ?? 'done';
         $ok = (bool) ($result['ok'] ?? false);
         $error = $result['error'] ?? null;
@@ -166,6 +195,8 @@ class TelegramStepCompletionService
         if ($ok && (int) $order->remains <= 0) {
             $order->update(['status' => Order::STATUS_COMPLETED, 'remains' => 0]);
         }
+
+        return true;
     }
 
     /**

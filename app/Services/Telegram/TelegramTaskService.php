@@ -763,7 +763,7 @@ class TelegramTaskService
             $telegramData = $providerPayload['telegram'] ?? [];
             $parsed = is_array($telegramData['parsed'] ?? null) ? $telegramData['parsed'] : [];
 
-            $this->completionService->handle(
+            $stepApplied = $this->completionService->handle(
                 $order,
                 $account->id,
                 $action,
@@ -775,12 +775,12 @@ class TelegramTaskService
             $task->update(['status' => TelegramTask::STATUS_DONE]);
 
             // Schedule auto-unsubscribe if this was a successful subscribe action
-            if ($action === 'subscribe') {
+            if ($stepApplied && $action === 'subscribe') {
                 $this->scheduleUnsubscribeTask($order, $account, $task);
             }
 
             // Finalize unsubscribe task if this was a successful unsubscribe action
-            if ($action === 'unsubscribe') {
+            if ($stepApplied && $action === 'unsubscribe') {
                 $this->finalizeUnsubscribeTask($order, $account, $task);
             }
         } else {
@@ -790,12 +790,14 @@ class TelegramTaskService
 
             $this->claimService->rollbackReserve($account->id, $action);
 
-            // Update order status
-            $order->update([
-                'status' => Order::STATUS_PENDING,
-                'provider_last_error' => $error ?? 'Provider task failed',
-                'provider_last_error_at' => now(),
-            ]);
+            $freshOrder = Order::query()->find($order->id);
+            if ($freshOrder && TelegramStepCompletionService::orderStatusAllowsStepApply($freshOrder->status)) {
+                $freshOrder->update([
+                    'status' => Order::STATUS_PENDING,
+                    'provider_last_error' => $error ?? 'Provider task failed',
+                    'provider_last_error_at' => now(),
+                ]);
+            }
 
             $task->update(['status' => TelegramTask::STATUS_FAILED]);
 
@@ -1707,6 +1709,8 @@ class TelegramTaskService
             ->first();
 
         if ($ok && $state === 'done') {
+            $order = Order::query()->find($order->id) ?? $order;
+
             if ($action === 'unsubscribe') {
                 if ($globalState) {
                     $globalState->update([
@@ -1730,46 +1734,55 @@ class TelegramTaskService
                     ]);
                 }
             } else {
-                // All successful actions: update global state and membership, increment delivered
-                if ($globalState) {
-                    $globalState->update([
-                        'state' => TelegramAccountLinkState::STATE_SUBSCRIBED,
-                        'last_error' => null,
+                // Subscribe (and similar): do not change delivered/remains after staff/client partial cancel.
+                if (! TelegramStepCompletionService::orderStatusAllowsStepApply($order->status)) {
+                    Log::info('Order claim subscribe report skipped: order not in active execution status', [
+                        'order_id' => $order->id,
+                        'status' => $order->status,
+                        'task_id' => $task->id,
                     ]);
-                }
-                if ($membership) {
-                    $membership->update([
-                        'state' => TelegramOrderMembership::STATE_SUBSCRIBED,
-                        'subscribed_at' => now(),
-                        'last_error' => null,
-                    ]);
-                    $perCall = max(1, (int) ($task->payload['per_call'] ?? 1));
-                    $currentRemains = (int) $order->remains;
-                    $deduct = min($perCall, $currentRemains);
-                    $newDelivered = (int) $order->delivered + $deduct;
-                    $target = $order->target_quantity;
+                } else {
+                    if ($globalState) {
+                        $globalState->update([
+                            'state' => TelegramAccountLinkState::STATE_SUBSCRIBED,
+                            'last_error' => null,
+                        ]);
+                    }
+                    if ($membership) {
+                        $membership->update([
+                            'state' => TelegramOrderMembership::STATE_SUBSCRIBED,
+                            'subscribed_at' => now(),
+                            'last_error' => null,
+                        ]);
+                        $perCall = max(1, (int) ($task->payload['per_call'] ?? 1));
+                        $currentRemains = (int) $order->remains;
+                        $deduct = min($perCall, $currentRemains);
+                        $newDelivered = (int) $order->delivered + $deduct;
+                        $target = $order->target_quantity;
 
-                    if ($newDelivered >= $target) {
-                        $order->update([
-                            'remains' => 0,
-                            'delivered' => $newDelivered,
-                            'status' => Order::STATUS_COMPLETED,
-                            'completed_at' => $order->completed_at ?? now(),
-                            'provider_last_error' => null,
-                            'provider_last_error_at' => null,
-                        ]);
-                    } else {
-                        $order->update([
-                            'remains' => max(0, $target - $newDelivered),
-                            'delivered' => $newDelivered,
-                            'provider_last_error' => null,
-                            'provider_last_error_at' => null,
-                        ]);
+                        if ($newDelivered >= $target) {
+                            $order->update([
+                                'remains' => 0,
+                                'delivered' => $newDelivered,
+                                'status' => Order::STATUS_COMPLETED,
+                                'completed_at' => $order->completed_at ?? now(),
+                                'provider_last_error' => null,
+                                'provider_last_error_at' => null,
+                            ]);
+                        } else {
+                            $order->update([
+                                'remains' => max(0, $target - $newDelivered),
+                                'delivered' => $newDelivered,
+                                'provider_last_error' => null,
+                                'provider_last_error_at' => null,
+                            ]);
+                        }
                     }
                 }
             }
         } else {
-            if ($order->dripfeed_enabled) {
+            $order = Order::query()->find($order->id) ?? $order;
+            if ($order->dripfeed_enabled && TelegramStepCompletionService::orderStatusAllowsStepApply($order->status)) {
                 $order->update([
                     'dripfeed_delivered_in_run' => max(0, $order->dripfeed_delivered_in_run - 1),
                 ]);
@@ -1785,10 +1798,12 @@ class TelegramTaskService
                     'state' => TelegramOrderMembership::STATE_FAILED,
                     'last_error' => $error ?? 'Task failed',
                 ]);
-                $order->update([
-                    'provider_last_error' => $error ?? 'Provider task failed',
-                    'provider_last_error_at' => now(),
-                ]);
+                if (TelegramStepCompletionService::orderStatusAllowsStepApply($order->status)) {
+                    $order->update([
+                        'provider_last_error' => $error ?? 'Provider task failed',
+                        'provider_last_error_at' => now(),
+                    ]);
+                }
             }
         }
 

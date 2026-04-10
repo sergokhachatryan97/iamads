@@ -193,6 +193,14 @@ class UpdateProviderOrderStatus implements ShouldQueue
         $updateData['provider_status_sync_lock_at'] = null;
         $updateData['provider_status_sync_lock_owner'] = null;
 
+        $order->refresh();
+        if (in_array($order->status, [Order::STATUS_PARTIAL, Order::STATUS_CANCELED], true)) {
+            unset($updateData['status'], $updateData['delivered'], $updateData['remains']);
+            Log::info('Provider poll: preserving local partial/cancel; skipping status and counters', [
+                'order_id' => $this->orderId,
+            ]);
+        }
+
         $order->update($updateData);
 
         Log::info('Order status updated from provider (polling)', [
