@@ -11,6 +11,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/favicon-32.png') }}">
     <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/apple-touch-icon.png') }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <x-heleket-site-verification />
 
     <meta property="og:title" content="SMMTool - Best SMM Panel" />
     <meta property="og:description" content="Grow your social media fast" />

@@ -94,6 +94,8 @@ return [
         'payment_key' => env('HELEKET_PAYMENT_KEY'),
         'webhook_ip' => env('HELEKET_WEBHOOK_IP', '31.133.220.8'),
         'enforce_webhook_ip' => env('HELEKET_ENFORCE_WEBHOOK_IP', true),
+        // Site ownership meta tag: <meta name="heleket" content="..."> (Heleket dashboard verification)
+        'site_verification' => env('HELEKET_SITE_VERIFICATION', 'ec929dea'),
     ],
 
     'provider' => [
