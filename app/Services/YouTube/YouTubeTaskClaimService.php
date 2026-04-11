@@ -23,6 +23,13 @@ class YouTubeTaskClaimService
     /** Per-account cooldown between watch-time task claims (one task = one chunk). */
     private const WATCH_CHUNK_SECONDS = 15;
 
+    /**
+     * After this many seconds without another watch task, the per-account
+     * "recently watched" bias decays and watch orders become eligible again.
+     * Larger value = more non-watch tasks between two watch tasks per account.
+     */
+    private const WATCH_BIAS_WINDOW_SECONDS = 60;
+
     /** Number of orders to bulk-load per claim attempt batch. */
     private const ORDER_BATCH_SIZE = 50;
 
@@ -46,7 +53,9 @@ class YouTubeTaskClaimService
             return null;
         }
 
-        // Watch-time cooldown: block if account has an active watch task created < 15s ago
+        // Watch-time cooldown: block ALL claims if this account has an active watch
+        // task created < WATCH_CHUNK_SECONDS ago. Business rule: a new task can
+        // only be claimed after the current watch task is completed.
         $recentWatchTask = YouTubeTask::query()
             ->where('account_identity', $accountIdentity)
             ->where('action', 'watch')
@@ -63,6 +72,21 @@ class YouTubeTaskClaimService
                 'retry_after' => $retryAfter,
             ];
         }
+
+        // Per-account recently-watched bias: even after the cooldown lifts, if this
+        // account had a watch task in the last WATCH_BIAS_WINDOW_SECONDS, prefer
+        // non-watch orders for this claim. The fairness sort applies a soft progress
+        // penalty to watch orders so the account naturally interleaves watch with
+        // other action types instead of getting watch tasks back-to-back.
+        //
+        // The bias is soft: if no non-watch order is available, watch can still win
+        // (the penalty just pushes it lower, doesn't exclude it). Cheap query that
+        // uses the (account_identity, action, status, created_at) index.
+        $accountRecentlyWatched = YouTubeTask::query()
+            ->where('account_identity', $accountIdentity)
+            ->where('action', 'watch')
+            ->where('created_at', '>=', now()->subSeconds(self::WATCH_BIAS_WINDOW_SECONDS))
+            ->exists();
 
         $categoryId = $this->getYoutubeCategoryId();
         if ($categoryId === null) {
@@ -137,8 +161,9 @@ class YouTubeTaskClaimService
             $leased = (int) ($leasedByOrder[$row->id] ?? 0);
             $target = max(1, (int) ($row->target_quantity ?? 0));
             $delivered = (int) ($row->delivered ?? 0);
+            $isWatch = ($row->action ?? null) === 'watch';
 
-            if (($row->action ?? null) === 'watch') {
+            if ($isWatch) {
                 $watchTimeSeconds = (int) ($row->watch_time_seconds ?? 0);
                 $tasksPerUnit = $watchTimeSeconds >= self::WATCH_CHUNK_SECONDS
                     ? (int) ceil($watchTimeSeconds / self::WATCH_CHUNK_SECONDS)
@@ -150,9 +175,21 @@ class YouTubeTaskClaimService
                 $progress = ($delivered + $leased) / $target;
             }
 
+            $progress = min(1.0, max(0.0, $progress));
+
+            // Per-account recently-watched bias: push watch orders to the back of
+            // the queue for this claim so the account gets a non-watch task instead.
+            // +0.5 is a "soft" demote — a watch order at true progress 0.30 sorts as
+            // if it were at 0.80, beating any non-watch order over 0.80 but losing
+            // to any non-watch order under 0.80. If no non-watch order is available,
+            // the bias has no effect (watch is still the best of what's left).
+            if ($accountRecentlyWatched && $isWatch) {
+                $progress = min(1.0, $progress + 0.5);
+            }
+
             // Quantize to basis points so float noise doesn't defeat the leased
             // tie-breaker for orders that should be considered "equal progress".
-            $row->_progress = (int) round(min(1.0, max(0.0, $progress)) * 10000);
+            $row->_progress = (int) round($progress * 10000);
             $row->_leased = $leased;
             $row->_jitter = random_int(0, PHP_INT_MAX);
         }
