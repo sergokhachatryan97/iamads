@@ -8,15 +8,23 @@ use App\Services\ProviderActionLogService;
 use App\Support\Performer\OrderDripfeedClaimHelper;
 use App\Support\YouTube\YouTubeTargetNormalizer;
 use Carbon\Carbon;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class YouTubeTaskClaimService
 {
+    /** How long a leased task is reserved for the performer before the cleanup job fails it. */
     private const LEASE_TTL_SECONDS = 1800;
 
+    /** TTL for the cached eligible-orders pool (shared across all performers). */
     private const ELIGIBLE_CACHE_TTL = 10;
+
+    /** Per-account cooldown between watch-time task claims (one task = one chunk). */
+    private const WATCH_CHUNK_SECONDS = 15;
+
+    /** Number of orders to bulk-load per claim attempt batch. */
+    private const ORDER_BATCH_SIZE = 50;
 
     private static ?int $youtubeCategoryId = null;
 
@@ -27,8 +35,6 @@ class YouTubeTaskClaimService
     // =========================================================================
     //  Public API
     // =========================================================================
-
-    private const WATCH_CHUNK_SECONDS = 15;
 
     /**
      * @return array|null Task payload, error array ['error' => ..., 'retry_after' => ...], or null
@@ -79,9 +85,42 @@ class YouTubeTaskClaimService
             return null;
         }
 
-        // Fair distribution: pick orders with the fewest currently-leased tasks first,
-        // so every order makes parallel progress instead of one order eating all slots.
-        // Random tie-break keeps things even when many orders have the same in-flight count.
+        // Fairness sort.
+        //
+        // Old behaviour: sort by leased-task count alone. That balances "in-flight slots"
+        // but doesn't say anything about how close each order is to its target. A brand-new
+        // order with 0 leased tasks and a near-finished order with 0 leased tasks looked
+        // identical, so the near-finished one could keep getting picked instead of the
+        // system advancing the new one.
+        //
+        // New behaviour: sort primarily by *effective progress*:
+        //
+        //     effective_progress = (delivered + leased) / target_quantity
+        //
+        // The order with the lowest effective progress is tried first. This makes all
+        // orders advance together regardless of size or age — small orders finish faster
+        // because they hit 100% sooner, while large orders get steady throughput instead
+        // of being starved.
+        //
+        // Tie-break order:
+        //   1. lowest effective progress (primary fairness signal)
+        //   2. lowest leased count       (within an equal-progress group, prefer orders
+        //                                 currently doing less in-flight work)
+        //   3. random jitter             (so multiple equal-progress / equal-leased
+        //                                 orders rotate fairly across requests)
+        //
+        // Watch-time caveat: a watch order's `delivered` field counts viewers, but its
+        // `leased` count is in 15-second sub-tasks (one viewer = ceil(watch_time/15)
+        // sub-tasks). Plugging both into the standard formula produces inflated values
+        // (often > 1.0) and would unfairly deprioritize watch orders. For watch orders
+        // we use `delivered / target_quantity` only — the user-facing completion ratio.
+        // The leased + watch-time caps inside tryClaimForOrder still prevent any
+        // over-delivery, so this loosens nothing.
+        //
+        // Important: this entire block is a *priority hint*. All correctness checks
+        // (cap, dripfeed, speed-limit, hasStepConflict, watch-time cap) re-run inside
+        // tryClaimForOrder under lockForUpdate. Wrong sort values can only affect
+        // ordering, never correctness.
         $due = array_values($due);
         $dueIds = array_map(fn ($r) => $r->id, $due);
 
@@ -93,18 +132,29 @@ class YouTubeTaskClaimService
             ->pluck('cnt', 'order_id')
             ->all();
 
-        // Attach a small random jitter so equal-count orders don't always sort the same way.
         foreach ($due as $row) {
-            $row->_leased = (int) ($leasedByOrder[$row->id] ?? 0);
+            $leased = (int) ($leasedByOrder[$row->id] ?? 0);
+            $target = max(1, (int) ($row->target_quantity ?? 0));
+            $delivered = (int) ($row->delivered ?? 0);
+
+            $progress = ($row->action ?? null) === 'watch'
+                ? $delivered / $target
+                : ($delivered + $leased) / $target;
+
+            // Quantize to basis points so float noise doesn't defeat the leased
+            // tie-breaker for orders that should be considered "equal progress".
+            $row->_progress = (int) round(min(1.0, max(0.0, $progress)) * 10000);
+            $row->_leased = $leased;
             $row->_jitter = random_int(0, PHP_INT_MAX);
         }
 
         usort($due, function (object $a, object $b) {
-            return [$a->_leased, $a->_jitter] <=> [$b->_leased, $b->_jitter];
+            return [$a->_progress, $a->_leased, $a->_jitter]
+                <=> [$b->_progress, $b->_leased, $b->_jitter];
         });
 
-        // Load full models in batches of 50, try to claim
-        foreach (array_chunk($due, 50) as $batch) {
+        // Load full models in batches, try to claim in fairness order.
+        foreach (array_chunk($due, self::ORDER_BATCH_SIZE) as $batch) {
             $ids = array_map(fn ($r) => $r->id, $batch);
 
             $orders = Order::query()
@@ -134,40 +184,118 @@ class YouTubeTaskClaimService
     //  Eligible orders cache
     // =========================================================================
 
+    /** Cache key for the shared eligible-orders pool. */
+    private const ELIGIBLE_CACHE_KEY = 'yt:claim:eligible';
+
+    /** Lock TTL — auto-released after this many seconds even if the holder dies. */
+    private const ELIGIBLE_LOCK_TTL = 10;
+
+    /** Max seconds a waiter will block for the cache-refresh lock before giving up. */
+    private const ELIGIBLE_LOCK_WAIT = 3;
+
     /**
-     * Cached eligible orders with only the fields needed for pre-filtering + sorting.
-     * Extracts next_run_at from JSON during cache build — no full payload in cache.
-     * ~20KB for 1000 rows. 10s TTL in Redis.
+     * Cached eligible orders with only the fields needed for pre-filtering + fairness sorting.
+     * Extracts next_run_at and action from JSON during cache build — no full payload in cache.
+     * ~25KB for 1000 rows. 10s TTL in Redis.
      *
-     * @return object[] {id, remains, dripfeed_enabled, dripfeed_next_run_at, next_run_at}
+     * delivered + target_quantity are included so the fairness sort can compute
+     * effective progress without a second query per order.
+     *
+     * action is extracted so the fairness sort can detect watch-time orders, which
+     * need a different progress formula (their `delivered` is in viewers, not in
+     * tasks, so the standard formula would inflate their progress and unfairly
+     * deprioritize them).
+     *
+     * Stampede protection: when the cache expires under high concurrency, all polling
+     * performers would otherwise miss simultaneously and run the same SELECT in parallel,
+     * exhausting the DB connection pool. We serialize the rebuild with Cache::lock so
+     * only one process queries — everyone else waits briefly and reads the freshly
+     * populated value. The lock has a generous TTL and a short waiter timeout: if the
+     * lock somehow can't be acquired in time, we fall through to a direct query rather
+     * than failing the request.
+     *
+     * @return object[] {id, remains, delivered, target_quantity, dripfeed_enabled,
+     *                   dripfeed_next_run_at, next_run_at, action}
      */
     private function getEligibleOrders(int $categoryId): array
     {
-        return Cache::remember('yt:claim:eligible', self::ELIGIBLE_CACHE_TTL, function () use ($categoryId) {
-            return DB::table('orders')
-                ->select('id', 'remains', 'dripfeed_enabled', 'dripfeed_next_run_at', 'provider_payload')
-                ->whereIn('status', [Order::STATUS_AWAITING, Order::STATUS_IN_PROGRESS, Order::STATUS_PENDING])
-                ->where('remains', '>', 0)
-                ->where('category_id', $categoryId)
-                ->get()
-                ->map(function ($row) {
-                    // Extract only next_run_at from JSON — don't cache the full payload
-                    $nextRunAt = null;
-                    if (is_string($row->provider_payload)) {
-                        $payload = json_decode($row->provider_payload, true);
-                        $nextRunAt = $payload['execution_meta']['next_run_at'] ?? null;
+        // Fast path — cache hit. The vast majority of claim requests return here
+        // without ever taking the lock or hitting the database.
+        $cached = Cache::get(self::ELIGIBLE_CACHE_KEY);
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        // Cache miss — try to be the single process that refreshes it.
+        try {
+            return Cache::lock(self::ELIGIBLE_CACHE_KEY . ':refresh', self::ELIGIBLE_LOCK_TTL)
+                ->block(self::ELIGIBLE_LOCK_WAIT, function () use ($categoryId) {
+                    // Re-check inside the lock: another process may have just
+                    // refreshed the cache while we were waiting.
+                    $cached = Cache::get(self::ELIGIBLE_CACHE_KEY);
+                    if ($cached !== null) {
+                        return $cached;
                     }
 
-                    return (object) [
-                        'id' => $row->id,
-                        'remains' => (int) $row->remains,
-                        'dripfeed_enabled' => $row->dripfeed_enabled,
-                        'dripfeed_next_run_at' => $row->dripfeed_next_run_at,
-                        'next_run_at' => $nextRunAt,
-                    ];
-                })
-                ->all();
-        });
+                    $fresh = $this->loadEligibleOrders($categoryId);
+                    Cache::put(self::ELIGIBLE_CACHE_KEY, $fresh, self::ELIGIBLE_CACHE_TTL);
+
+                    return $fresh;
+                });
+        } catch (LockTimeoutException) {
+            // Couldn't get the lock within the wait window. Fall through to a
+            // direct (uncached) query — better to serve a slow request than to
+            // fail it. In practice this branch should rarely fire.
+            return $this->loadEligibleOrders($categoryId);
+        }
+    }
+
+    /**
+     * Load the eligible-orders pool directly from the database (no cache).
+     * Extracted so both the cache-refresh path and the lock-timeout fallback
+     * can share the same query + mapping logic.
+     *
+     * @return object[]
+     */
+    private function loadEligibleOrders(int $categoryId): array
+    {
+        return DB::table('orders')
+            ->select(
+                'id',
+                'remains',
+                'delivered',
+                'target_quantity',
+                'dripfeed_enabled',
+                'dripfeed_next_run_at',
+                'provider_payload'
+            )
+            ->whereIn('status', [Order::STATUS_AWAITING, Order::STATUS_IN_PROGRESS, Order::STATUS_PENDING])
+            ->where('remains', '>', 0)
+            ->where('category_id', $categoryId)
+            ->get()
+            ->map(function ($row) {
+                // Extract next_run_at + action from JSON once during cache build —
+                // avoids re-decoding the full payload on every claim request.
+                $nextRunAt = null;
+                $action = null;
+                if (is_string($row->provider_payload)) {
+                    $payload = json_decode($row->provider_payload, true);
+                    $nextRunAt = $payload['execution_meta']['next_run_at'] ?? null;
+                    $action = $payload['execution_meta']['action'] ?? null;
+                }
+
+                return (object) [
+                    'id' => $row->id,
+                    'remains' => (int) $row->remains,
+                    'delivered' => (int) $row->delivered,
+                    'target_quantity' => (int) $row->target_quantity,
+                    'dripfeed_enabled' => $row->dripfeed_enabled,
+                    'dripfeed_next_run_at' => $row->dripfeed_next_run_at,
+                    'next_run_at' => $nextRunAt,
+                    'action' => $action,
+                ];
+            })
+            ->all();
     }
 
     /**
@@ -219,6 +347,7 @@ class YouTubeTaskClaimService
         $preloadedService = $order->relationLoaded('service') ? $order->service : null;
 
         return DB::transaction(function () use ($order, $accountIdentity, $preloadedService): ?array {
+            // 1. Re-fetch the order under lock so two concurrent claims serialize.
             $order = Order::query()
                 ->where('id', $order->id)
                 ->where('remains', '>', 0)
@@ -235,16 +364,15 @@ class YouTubeTaskClaimService
                 $order->loadMissing(['service', 'service.category']);
             }
 
-            // Dripfeed gate (authoritative, under lock)
+            // 2. Authoritative dripfeed and speed-limit gates (under lock).
             if (! OrderDripfeedClaimHelper::canClaimTaskNow($order)) {
                 return null;
             }
-
-            // Speed limit gate (authoritative, under lock)
             if (! $this->canClaimBySpeedLimit($order)) {
                 return null;
             }
 
+            // 3. Resolve execution plan + validate link.
             $plan = YouTubeExecutionPlanResolver::resolve($order);
             $action = $plan['action'];
             $steps = $plan['steps'];
@@ -258,89 +386,59 @@ class YouTubeTaskClaimService
 
             $linkHash = YouTubeTargetNormalizer::linkHash($link);
 
-            // Watch-time orders: each task = 15s, delivered increments per watch_time/15 tasks
+            // 4. Watch-time vs standard cap. Watch-time has its own cap (LEASED + DONE
+            //    sub-task count vs total_tasks_needed) and overrides per_call to 0.
             $isWatchTime = $action === 'watch';
             $watchTimeMeta = null;
+            $inFlight = 0;
+
             if ($isWatchTime) {
-                $provPayload = $order->provider_payload ?? [];
-                $execMeta = is_array($provPayload['execution_meta'] ?? null) ? $provPayload['execution_meta'] : [];
-                $watchTimeSeconds = (int) ($execMeta['watch_time_seconds'] ?? 0);
-                if ($watchTimeSeconds < 15) {
-                    $watchTimeSeconds = 30;
-                }
-
-                $tasksPerUnit = (int) ceil($watchTimeSeconds / 15);
-                $totalTasksNeeded = $tasksPerUnit * $order->target_quantity;
-
-                $watchTimeMeta = [
-                    'watch_time_seconds' => $watchTimeSeconds,
-                    'tasks_per_unit' => $tasksPerUnit,
-                    'total_tasks' => $totalTasksNeeded,
-                    'chunk_seconds' => 15,
-                ];
-
-                // For watch-time: cap by total tasks, not by delivered+remains
-                $existingTasks = YouTubeTask::query()
-                    ->where('order_id', $order->id)
-                    ->whereIn('status', [YouTubeTask::STATUS_LEASED, YouTubeTask::STATUS_DONE])
-                    ->count();
-
-                if ($existingTasks >= $totalTasksNeeded) {
+                $watchTimeMeta = $this->buildWatchTimeMeta($order);
+                if ($this->exceedsWatchTimeCap($order, (int) $watchTimeMeta['total_tasks'])) {
                     return null;
                 }
-
-                // Override per_call to 0 — delivery is calculated from done task count
+                // Watch-time: delivery is recomputed from DONE count, not incremented per task.
                 $perCall = 0;
-            }
-
-                // Standard in-flight check
+            } else {
+                // Standard cap requires the live LEASED count for this order.
+                // Skipped for watch-time because (a) the watch-time cap above already
+                // covered it, and (b) `inFlight` is otherwise only used by resolveComment()
+                // which never triggers for the `watch` action.
                 $inFlight = YouTubeTask::query()
                     ->where('order_id', $order->id)
                     ->where('status', YouTubeTask::STATUS_LEASED)
                     ->count();
 
-            if (! $isWatchTime) {
-                $target = $order->target_quantity;
-                if ((int) $order->delivered + $inFlight >= $target) {
+                if ((int) $order->delivered + $inFlight >= (int) $order->target_quantity) {
                     return null;
                 }
             }
 
+            // 5. Resolve target hash for action-log uniqueness.
             $providerPayload = $order->provider_payload ?? [];
-            $youtube = $providerPayload['youtube'] ?? [];
-            $parsed = $youtube['parsed'] ?? [];
+            $parsed = $providerPayload['youtube']['parsed'] ?? [];
             $targetHashForLog = $parsed['target_hash'] ?? $linkHash;
 
-            // Uniqueness: account + action + link must be unique across the system.
-            // Blocks if any requested step is already in-flight or already performed for this account+target.
+            // 6. Uniqueness gate: (account + action + link) must be unique across the system.
             $actionNames = YouTubeExecutionPlanResolver::stepsToActionNames($steps);
             if ($this->hasStepConflict($accountIdentity, $linkHash, $targetHashForLog, $actionNames)) {
                 return null;
             }
 
-            // Build task
-            $leasedUntil = now()->addSeconds(self::LEASE_TTL_SECONDS);
-            $payload = [
-                'order_id' => $order->id,
-                'per_call' => $perCall,
-                'action' => $action,
-            ];
-
-            if ($isWatchTime && $watchTimeMeta !== null) {
-                $payload['watch_time'] = $watchTimeMeta;
-            }
-
-            if ($mode === YouTubeExecutionPlanResolver::MODE_COMBO) {
-                $payload['mode'] = 'combo';
-                $payload['steps'] = $steps;
-                $payload['video_target_hash'] = $targetHashForLog;
-            }
-
+            // 7. Build task payload.
             $commentForPayload = $this->resolveComment($order, $steps, $action, $inFlight);
-            if ($commentForPayload !== null) {
-                $payload['comment_text'] = $commentForPayload;
-            }
+            $payload = $this->buildTaskPayload(
+                $order,
+                $action,
+                $perCall,
+                $mode,
+                $steps,
+                $watchTimeMeta,
+                $targetHashForLog,
+                $commentForPayload
+            );
 
+            // 8. INSERT the task row (this is the actual "task generation" moment).
             $task = YouTubeTask::create([
                 'order_id' => $order->id,
                 'account_identity' => $accountIdentity,
@@ -351,68 +449,192 @@ class YouTubeTaskClaimService
                 'normalized_target' => null,
                 'target_hash' => $targetHashForLog,
                 'status' => YouTubeTask::STATUS_LEASED,
-                'leased_until' => $leasedUntil,
+                'leased_until' => now()->addSeconds(self::LEASE_TTL_SECONDS),
                 'payload' => $payload,
             ]);
 
-            // Post-claim: merge dripfeed counters, speed-limit next_run_at, and status
-            // into ONE UPDATE so we touch the locked order row a single time.
+            // 9. Single merged UPDATE on the order: status + dripfeed counters
+            //    + speed-limit next_run_at — so we touch the locked row exactly once.
             $orderUpdates = ['status' => Order::STATUS_IN_PROGRESS];
             $orderUpdates += OrderDripfeedClaimHelper::computeAfterTaskClaimedUpdates($order);
             $orderUpdates['provider_payload'] = $this->buildProviderPayloadWithNextRunAt($order);
-
             $order->update($orderUpdates);
 
-            // Build response
-            $service = $order->service;
-            $category = $service?->category;
-
-            $serviceDescription = $service?->description_for_performer ?? '';
-            if ($commentForPayload !== null && $commentForPayload !== '') {
-                $serviceDescription .= ($serviceDescription !== '' ? "\n" : '') . $commentForPayload;
-            }
-
-            $result = [
-                'task_id' => $task->id,
-                'link' => $link,
-                'link_hash' => $linkHash,
-                'action' => $action,
-                'order_id' => (int) $order->id,
-                'target' => null,
-                'order' => [
-                    'id' => (string) $order->id,
-                    'quantity' => $order->quantity,
-                    'delivered' => (int) $order->delivered,
-                    'remains' => (int) $order->remains,
-                    'target_quantity' => $order->target_quantity,
-                    'dripfeed_enabled' => (bool) ($order->dripfeed_enabled ?? false),
-                ],
-                'service' => [
-                    'id' => $service?->id,
-                    'name' => $service?->name ?? '',
-                    'description' => $serviceDescription,
-                    'service_description' => $serviceDescription,
-                ],
-                'category' => $category ? [
-                    'id' => $category->id,
-                    'name' => $category->name ?? '',
-                ] : null,
-            ];
-
-            if ($isWatchTime && $watchTimeMeta !== null) {
-                $result['watch_time_seconds'] = $watchTimeMeta['chunk_seconds'];
-            }
-
-            if ($mode === YouTubeExecutionPlanResolver::MODE_COMBO) {
-                $result['mode'] = 'combo';
-                $result['steps'] = $steps;
-            }
-            if ($commentForPayload !== null && $commentForPayload !== '') {
-                $result['comment_text'] = $commentForPayload;
-            }
-
-            return $result;
+            // 10. Build the response payload for the performer.
+            return $this->buildClaimResponse(
+                $task,
+                $order,
+                $action,
+                $link,
+                $linkHash,
+                $mode,
+                $steps,
+                $watchTimeMeta,
+                $commentForPayload
+            );
         });
+    }
+
+    /**
+     * Build the watch_time meta block for a watch-time task.
+     * Caller must already know the order is watch-time. Reads `watch_time_seconds`
+     * from execution_meta with a 30-second floor (legacy default).
+     *
+     * @return array{watch_time_seconds:int, tasks_per_unit:int, total_tasks:int, chunk_seconds:int}
+     */
+    private function buildWatchTimeMeta(Order $order): array
+    {
+        $execMeta = $this->getExecutionMeta($order);
+        $watchTimeSeconds = (int) ($execMeta['watch_time_seconds'] ?? 0);
+        if ($watchTimeSeconds < self::WATCH_CHUNK_SECONDS) {
+            $watchTimeSeconds = 30;
+        }
+
+        $tasksPerUnit = (int) ceil($watchTimeSeconds / self::WATCH_CHUNK_SECONDS);
+
+        return [
+            'watch_time_seconds' => $watchTimeSeconds,
+            'tasks_per_unit' => $tasksPerUnit,
+            'total_tasks' => $tasksPerUnit * (int) $order->target_quantity,
+            'chunk_seconds' => self::WATCH_CHUNK_SECONDS,
+        ];
+    }
+
+    /**
+     * Watch-time cap: LEASED + DONE sub-task count must stay below total_tasks_needed.
+     * FAILED tasks are excluded so an expired lease frees its slot.
+     */
+    private function exceedsWatchTimeCap(Order $order, int $totalTasksNeeded): bool
+    {
+        $existingTasks = YouTubeTask::query()
+            ->where('order_id', $order->id)
+            ->whereIn('status', [YouTubeTask::STATUS_LEASED, YouTubeTask::STATUS_DONE])
+            ->count();
+
+        return $existingTasks >= $totalTasksNeeded;
+    }
+
+    /**
+     * Assemble the JSON payload stored on the youtube_tasks row.
+     *
+     * @param  array<string>  $steps
+     * @param  array<string,mixed>|null  $watchTimeMeta
+     * @return array<string,mixed>
+     */
+    private function buildTaskPayload(
+        Order $order,
+        string $action,
+        int $perCall,
+        string $mode,
+        array $steps,
+        ?array $watchTimeMeta,
+        string $targetHashForLog,
+        ?string $commentForPayload
+    ): array {
+        $payload = [
+            'order_id' => $order->id,
+            'per_call' => $perCall,
+            'action' => $action,
+        ];
+
+        if ($watchTimeMeta !== null) {
+            $payload['watch_time'] = $watchTimeMeta;
+        }
+
+        if ($mode === YouTubeExecutionPlanResolver::MODE_COMBO) {
+            $payload['mode'] = 'combo';
+            $payload['steps'] = $steps;
+            $payload['video_target_hash'] = $targetHashForLog;
+        }
+
+        if ($commentForPayload !== null) {
+            $payload['comment_text'] = $commentForPayload;
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Build the response array returned to the performer client.
+     *
+     * @param  array<string>  $steps
+     * @param  array<string,mixed>|null  $watchTimeMeta
+     * @return array<string,mixed>
+     */
+    private function buildClaimResponse(
+        YouTubeTask $task,
+        Order $order,
+        string $action,
+        string $link,
+        string $linkHash,
+        string $mode,
+        array $steps,
+        ?array $watchTimeMeta,
+        ?string $commentForPayload
+    ): array {
+        $service = $order->service;
+        $category = $service?->category;
+
+        $serviceDescription = $service?->description_for_performer ?? '';
+        if ($commentForPayload !== null && $commentForPayload !== '') {
+            $serviceDescription .= ($serviceDescription !== '' ? "\n" : '') . $commentForPayload;
+        }
+
+        $result = [
+            'task_id' => $task->id,
+            'link' => $link,
+            'link_hash' => $linkHash,
+            'action' => $action,
+            'order_id' => (int) $order->id,
+            'target' => null,
+            'order' => [
+                'id' => (string) $order->id,
+                'quantity' => $order->quantity,
+                'delivered' => (int) $order->delivered,
+                'remains' => (int) $order->remains,
+                'target_quantity' => $order->target_quantity,
+                'dripfeed_enabled' => (bool) ($order->dripfeed_enabled ?? false),
+            ],
+            'service' => [
+                'id' => $service?->id,
+                'name' => $service?->name ?? '',
+                'description' => $serviceDescription,
+                'service_description' => $serviceDescription,
+            ],
+            'category' => $category ? [
+                'id' => $category->id,
+                'name' => $category->name ?? '',
+            ] : null,
+        ];
+
+        if ($watchTimeMeta !== null) {
+            $result['watch_time_seconds'] = $watchTimeMeta['chunk_seconds'];
+        }
+
+        if ($mode === YouTubeExecutionPlanResolver::MODE_COMBO) {
+            $result['mode'] = 'combo';
+            $result['steps'] = $steps;
+        }
+
+        if ($commentForPayload !== null && $commentForPayload !== '') {
+            $result['comment_text'] = $commentForPayload;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Safely extract `provider_payload.execution_meta` as an array. Returns [] if
+     * the payload is missing or malformed.
+     *
+     * @return array<string,mixed>
+     */
+    private function getExecutionMeta(Order $order): array
+    {
+        $providerPayload = $order->provider_payload ?? [];
+        $executionMeta = $providerPayload['execution_meta'] ?? null;
+
+        return is_array($executionMeta) ? $executionMeta : [];
     }
 
     // =========================================================================
@@ -484,9 +706,7 @@ class YouTubeTaskClaimService
      */
     private function canClaimBySpeedLimit(Order $order): bool
     {
-        $providerPayload = $order->provider_payload ?? [];
-        $executionMeta = is_array($providerPayload['execution_meta'] ?? null) ? $providerPayload['execution_meta'] : [];
-        $nextRunAt = $executionMeta['next_run_at'] ?? null;
+        $nextRunAt = $this->getExecutionMeta($order)['next_run_at'] ?? null;
 
         if ($nextRunAt === null) {
             return true;

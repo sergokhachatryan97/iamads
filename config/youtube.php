@@ -48,7 +48,7 @@ return [
 
     'default_per_call' => 1,
 
-    'default_interval_seconds' => 30,
+    'default_interval_seconds' => 5,
 
     /*
     |--------------------------------------------------------------------------
@@ -59,31 +59,31 @@ return [
     'action_defaults' => [
         'subscribe' => [
             'per_call' => 1,
-            'interval_seconds' => 45,
+            'interval_seconds' => 5,
         ],
         'view' => [
             'per_call' => 1,
-            'interval_seconds' => 25,
+            'interval_seconds' => 5,
         ],
         'react' => [
             'per_call' => 1,
-            'interval_seconds' => 30,
+            'interval_seconds' => 5,
         ],
         'comment' => [
             'per_call' => 1,
-            'interval_seconds' => 35,
+            'interval_seconds' => 5,
         ],
         'share' => [
             'per_call' => 1,
-            'interval_seconds' => 40,
+            'interval_seconds' => 5,
         ],
         'comment-react' => [
             'per_call' => 1,
-            'interval_seconds' => 35,
+            'interval_seconds' => 5,
         ],
         'watch' => [
             'per_call' => 1,
-            'interval_seconds' => 45,
+            'interval_seconds' => 5,
         ],
     ],
 
@@ -92,7 +92,7 @@ return [
     | Watch time (video) – default duration in seconds when not set on service
     |--------------------------------------------------------------------------
     */
-    'default_watch_time_seconds' => (int) env('YOUTUBE_DEFAULT_WATCH_TIME_SECONDS', 30),
+    'default_watch_time_seconds' => (int) env('YOUTUBE_DEFAULT_WATCH_TIME_SECONDS', 15),
 
     /*
     |--------------------------------------------------------------------------
