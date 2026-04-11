@@ -34,33 +34,209 @@ class ServerHealthCheckService
 
     protected function checkCpu(): array
     {
-        if (! function_exists('sys_getloadavg')) {
-            return ['status' => 'unknown', 'message' => 'sys_getloadavg() unavailable'];
-        }
-
-        $load = sys_getloadavg();
-        if ($load === false) {
-            return ['status' => 'unknown', 'message' => 'failed to read load average'];
-        }
-
         $cores = $this->cpuCores();
-        $perCore = $cores > 0 ? $load[0] / $cores : $load[0];
-        $threshold = (float) config('health.thresholds.cpu_load_per_core');
 
-        if ($perCore > $threshold) {
+        $load = function_exists('sys_getloadavg') ? sys_getloadavg() : false;
+        $usage = $this->sampleCpuUsage();
+        $runqueue = $this->readRunqueue();
+
+        // If we couldn't get any real signal, report unknown.
+        if ($load === false && $usage === null) {
+            return ['status' => 'unknown', 'message' => 'no CPU stats available on this platform'];
+        }
+
+        $loadPerCoreThreshold = (float) config('health.thresholds.cpu_load_per_core');
+        $usagePercentThreshold = (float) config('health.thresholds.cpu_usage_percent');
+        $runqueueMultiplier = (float) config('health.thresholds.cpu_runqueue_multiplier');
+
+        // Determine reasons the CPU is unhealthy.
+        $reasons = [];
+        $isBad = false;
+
+        $perCore = ($load !== false && $cores > 0) ? $load[0] / $cores : null;
+        if ($perCore !== null && $perCore > $loadPerCoreThreshold) {
+            $isBad = true;
+            $reasons[] = sprintf('load/core=%.2f > %.2f', $perCore, $loadPerCoreThreshold);
+        }
+
+        if ($usage !== null) {
+            $busy = $usage['user'] + $usage['system'];
+            if ($usagePercentThreshold > 0 && $busy > $usagePercentThreshold) {
+                $isBad = true;
+                $reasons[] = sprintf('busy=%.1f%% > %.1f%%', $busy, $usagePercentThreshold);
+            }
+        }
+
+        if ($runqueue !== null && $cores > 0) {
+            $ratio = $runqueue / $cores;
+            if ($runqueueMultiplier > 0 && $ratio > $runqueueMultiplier) {
+                $isBad = true;
+                $reasons[] = sprintf('runqueue=%d (%.1fx cores)', $runqueue, $ratio);
+            }
+        }
+
+        // Build a detailed human-readable message either way.
+        $detail = $this->formatCpuDetail($cores, $load, $usage, $runqueue);
+
+        if ($isBad) {
+            $why = $this->classifyCpu($usage);
             return [
                 'status' => 'bad',
-                'message' => sprintf(
-                    "\xF0\x9F\x94\xA5 CPU high: load %.2f / %.2f / %.2f on %d cores (%.2f per core, threshold %.2f)",
-                    $load[0], $load[1], $load[2], $cores, $perCore, $threshold
-                ),
+                'message' => "\xF0\x9F\x94\xA5 CPU high ({$why}): {$detail} | trip: ".implode(', ', $reasons),
             ];
         }
 
+        return ['status' => 'ok', 'message' => "CPU ok: {$detail}"];
+    }
+
+    /**
+     * Sample /proc/stat twice with a short delay and compute %user, %system, %idle, %iowait.
+     *
+     * @return array{user: float, system: float, idle: float, iowait: float, steal: float}|null
+     */
+    protected function sampleCpuUsage(): ?array
+    {
+        $first = $this->readCpuStat();
+        if ($first === null) {
+            return null;
+        }
+
+        // 300ms sample window — short enough to not slow the health check,
+        // long enough to produce stable numbers.
+        usleep(300_000);
+
+        $second = $this->readCpuStat();
+        if ($second === null) {
+            return null;
+        }
+
+        $delta = [];
+        foreach ($first as $k => $v) {
+            $delta[$k] = max(0, ($second[$k] ?? 0) - $v);
+        }
+
+        $total = array_sum($delta);
+        if ($total <= 0) {
+            return null;
+        }
+
         return [
-            'status' => 'ok',
-            'message' => sprintf('CPU ok: %.2f per core (%d cores)', $perCore, $cores),
+            'user' => (($delta['user'] + $delta['nice']) / $total) * 100,
+            'system' => (($delta['system'] + $delta['irq'] + $delta['softirq']) / $total) * 100,
+            'idle' => ($delta['idle'] / $total) * 100,
+            'iowait' => ($delta['iowait'] / $total) * 100,
+            'steal' => ($delta['steal'] / $total) * 100,
         ];
+    }
+
+    /**
+     * Read aggregate CPU counters from /proc/stat.
+     *
+     * @return array{user:int,nice:int,system:int,idle:int,iowait:int,irq:int,softirq:int,steal:int}|null
+     */
+    protected function readCpuStat(): ?array
+    {
+        $stat = @file_get_contents('/proc/stat');
+        if ($stat === false) {
+            return null;
+        }
+
+        if (! preg_match('/^cpu\s+([\d\s]+)/m', $stat, $m)) {
+            return null;
+        }
+
+        $parts = preg_split('/\s+/', trim($m[1]));
+        if (count($parts) < 8) {
+            return null;
+        }
+
+        return [
+            'user' => (int) $parts[0],
+            'nice' => (int) $parts[1],
+            'system' => (int) $parts[2],
+            'idle' => (int) $parts[3],
+            'iowait' => (int) $parts[4],
+            'irq' => (int) $parts[5],
+            'softirq' => (int) $parts[6],
+            'steal' => (int) $parts[7],
+        ];
+    }
+
+    /**
+     * Read the current runnable-process count from /proc/loadavg (4th field: "running/total").
+     */
+    protected function readRunqueue(): ?int
+    {
+        $loadavg = @file_get_contents('/proc/loadavg');
+        if ($loadavg === false) {
+            return null;
+        }
+
+        // Format: "1.23 2.34 3.45 4/567 12345"
+        if (! preg_match('#(\d+)/\d+#', $loadavg, $m)) {
+            return null;
+        }
+
+        return (int) $m[1];
+    }
+
+    /**
+     * Build a compact multi-line detail string for the alert/log.
+     */
+    protected function formatCpuDetail(int $cores, array|false $load, ?array $usage, ?int $runqueue): string
+    {
+        $parts = [];
+        $parts[] = sprintf('%d cores', $cores);
+
+        if ($load !== false) {
+            $perCore = $cores > 0 ? $load[0] / $cores : $load[0];
+            $parts[] = sprintf('load %.2f/%.2f/%.2f (%.2f/core)', $load[0], $load[1], $load[2], $perCore);
+        }
+
+        if ($usage !== null) {
+            $parts[] = sprintf(
+                'us=%.0f%% sy=%.0f%% id=%.0f%% wa=%.0f%%',
+                $usage['user'], $usage['system'], $usage['idle'], $usage['iowait']
+            );
+            if ($usage['steal'] > 1.0) {
+                $parts[] = sprintf('st=%.0f%%', $usage['steal']);
+            }
+        }
+
+        if ($runqueue !== null) {
+            $ratio = $cores > 0 ? $runqueue / $cores : 0;
+            $parts[] = sprintf('runq=%d (%.1fx)', $runqueue, $ratio);
+        }
+
+        return implode(' | ', $parts);
+    }
+
+    /**
+     * Best-effort classification of *why* CPU looks bad, to put in the alert prefix.
+     */
+    protected function classifyCpu(?array $usage): string
+    {
+        if ($usage === null) {
+            return 'load avg only';
+        }
+
+        if ($usage['iowait'] >= 20) {
+            return 'I/O wait';
+        }
+        if ($usage['steal'] >= 10) {
+            return 'steal (noisy neighbor)';
+        }
+        if ($usage['system'] >= 25) {
+            return 'kernel/syscalls — likely process oversubscription';
+        }
+        if ($usage['user'] >= 70) {
+            return 'user CPU';
+        }
+        if (($usage['user'] + $usage['system']) >= 80) {
+            return 'CPU saturated';
+        }
+
+        return 'load avg elevated';
     }
 
     protected function cpuCores(): int

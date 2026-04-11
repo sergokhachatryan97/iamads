@@ -23,7 +23,18 @@ return [
     */
     'thresholds' => [
         // 1-minute load average divided by number of cores. 0.9 = 90% busy.
+        // Load average counts I/O-waiting processes too, so this can look
+        // high even when CPU isn't saturated. Used as one signal of three.
         'cpu_load_per_core' => env('HEALTH_CPU_LOAD_PER_CORE', 0.9),
+
+        // Real CPU busy percent (user + system) sampled via /proc/stat.
+        // Set to 0 to disable this signal.
+        'cpu_usage_percent' => env('HEALTH_CPU_USAGE_PERCENT', 85),
+
+        // Runqueue oversubscription factor. E.g. 2.0 on a 16-core box alerts
+        // when there are >32 runnable processes — classic thundering-herd sign.
+        // Set to 0 to disable this signal.
+        'cpu_runqueue_multiplier' => env('HEALTH_CPU_RUNQUEUE_MULTIPLIER', 2.0),
 
         // Used memory percentage (based on /proc/meminfo MemAvailable).
         'memory_percent' => env('HEALTH_MEMORY_PERCENT', 85),
