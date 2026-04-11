@@ -7,6 +7,7 @@ use App\Models\TelegramAccountLinkState;
 use App\Models\TelegramFolderMembership;
 use App\Models\TelegramOrderMembership;
 use App\Models\TelegramTask;
+use App\Support\Performer\ClaimConcurrencyLimiter;
 use App\Support\TelegramPremiumTemplateScope;
 use App\Support\TelegramSystemManagedTemplate;
 use Carbon\Carbon;
@@ -31,6 +32,7 @@ class TelegramTaskClaimService
     private const TX_DEADLOCK_ATTEMPTS = 5;
 
     private const LEASE_TTL_SECONDS = 90;
+
 
     private const PHONE_ACTIVE_SUBSCRIBED_CAP = 500;
 
@@ -99,11 +101,19 @@ class TelegramTaskClaimService
     public function claimForPhone(string $phone, int $limit = 1, string $scope = TelegramPremiumTemplateScope::SCOPE_DEFAULT, ?int $serviceId = null): array
     {
         $phone = TelegramAccountLinkState::normalizePhone($phone);
+        $tasks = [];
 
-        // Per-phone serialization lock: prevents the same phone from holding
-        // multiple concurrent DB transactions (each = one connection). This
-        // is the most direct mitigation for max_user_connections caused by
-        // a single performer hammering the endpoint.
+        // === GATE 1: Global concurrency semaphore ===
+        // Reject if too many claims are in flight across all claim services
+        // (Telegram + YouTube + App). Prevents max_user_connections.
+        $slotId = ClaimConcurrencyLimiter::acquire();
+        if ($slotId === null) {
+            return $tasks;
+        }
+
+        // === GATE 2: Per-phone serialization ===
+        // Prevents the same performer from holding multiple concurrent
+        // transactions even within the global cap.
         $lockKey = "tg:claim:phone_lock:{$phone}";
         $lockAcquired = false;
         try {
@@ -113,11 +123,12 @@ class TelegramTaskClaimService
         }
 
         if (! $lockAcquired) {
-            return [];
+            ClaimConcurrencyLimiter::release($slotId);
+
+            return $tasks;
         }
 
         try {
-            $tasks = [];
             for ($i = 0; $i < $limit; $i++) {
                 $taskDto = $this->claimSingle($phone, $scope, $serviceId);
                 if ($taskDto === null) {
@@ -125,14 +136,15 @@ class TelegramTaskClaimService
                 }
                 $tasks[] = $taskDto;
             }
-
-            return $tasks;
         } finally {
             try {
                 Redis::del($lockKey);
             } catch (\Throwable) {
             }
+            ClaimConcurrencyLimiter::release($slotId);
         }
+
+        return $tasks;
     }
 
     private function claimSingle(string $phone, string $scope, ?int $serviceId): ?array

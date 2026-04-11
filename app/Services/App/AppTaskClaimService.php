@@ -6,6 +6,7 @@ use App\Models\AppTask;
 use App\Models\Order;
 use App\Services\ProviderActionLogService;
 use App\Support\App\AppTargetNormalizer;
+use App\Support\Performer\ClaimConcurrencyLimiter;
 use App\Support\Performer\OrderDripfeedClaimHelper;
 use Carbon\Carbon;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -41,6 +42,23 @@ class AppTaskClaimService
             return null;
         }
 
+        // === Global concurrency semaphore ===
+        // Reject if too many claims are already in flight across all claim
+        // services (Telegram + YouTube + App). Prevents max_user_connections.
+        $slot = ClaimConcurrencyLimiter::acquire();
+        if ($slot === null) {
+            return null;
+        }
+
+        try {
+            return $this->claimInner($accountIdentity);
+        } finally {
+            ClaimConcurrencyLimiter::release($slot);
+        }
+    }
+
+    private function claimInner(string $accountIdentity): ?array
+    {
         $categoryId = $this->getAppCategoryId();
         if ($categoryId === null) {
             return null;

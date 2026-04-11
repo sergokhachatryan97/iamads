@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Api\Provider;
 
 use App\Http\Controllers\Controller;
 use App\Services\YouTube\YouTubeTaskClaimService;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * YouTube performer claim: performer requests a task, backend returns one task with link and order info.
@@ -82,6 +84,24 @@ class YouTubeTaskClaimController extends Controller
                 $response['watch_time_seconds'] = $payload['watch_time_seconds'];
             }
             return response()->json($response);
+        } catch (QueryException $e) {
+            $msg = $e->getMessage();
+            if (str_contains($msg, 'max_user_connections')
+                || str_contains($msg, 'too many connections')
+                || str_contains($msg, 'Too many connections')
+                || str_contains($msg, 'gone away')) {
+                Log::warning('YouTubeTaskClaim: DB pool exhausted', ['error' => $msg]);
+
+                return response()->json([
+                    'ok' => true,
+                    'count' => 0,
+                    'tasks' => [],
+                    'task_id' => null,
+                    'link' => null,
+                    'order' => null,
+                ]);
+            }
+            throw $e;
         } finally {
             // Release the MySQL connection back to the pool immediately so it
             // doesn't sit idle (Sleep state) on the PHP-FPM worker. Critical

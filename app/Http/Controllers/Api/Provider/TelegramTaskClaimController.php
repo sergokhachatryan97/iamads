@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Api\Provider;
 use App\Http\Controllers\Controller;
 use App\Services\Telegram\TelegramTaskClaimService;
 use App\Support\TelegramPremiumTemplateScope;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redis;
 
 /**
@@ -66,6 +68,19 @@ class TelegramTaskClaimController extends Controller
                 'url' => $task['link'],
                 'action' => $action,
             ]);
+        } catch (QueryException $e) {
+            // max_user_connections / connection refused — return empty so the
+            // performer just retries instead of crashing the request.
+            $msg = $e->getMessage();
+            if (str_contains($msg, 'max_user_connections')
+                || str_contains($msg, 'too many connections')
+                || str_contains($msg, 'Too many connections')
+                || str_contains($msg, 'gone away')) {
+                Log::warning('TelegramTaskClaim: DB pool exhausted', ['error' => $msg]);
+
+                return response()->json(['ok' => true, 'count' => 0, 'tasks' => []]);
+            }
+            throw $e;
         } finally {
             // Release the MySQL connection back to the pool immediately so it
             // doesn't sit idle (Sleep state) waiting for the next request on

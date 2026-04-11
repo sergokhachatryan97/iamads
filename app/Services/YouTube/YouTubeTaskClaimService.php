@@ -5,6 +5,7 @@ namespace App\Services\YouTube;
 use App\Models\Order;
 use App\Models\YouTubeTask;
 use App\Services\ProviderActionLogService;
+use App\Support\Performer\ClaimConcurrencyLimiter;
 use App\Support\Performer\OrderDripfeedClaimHelper;
 use App\Support\YouTube\YouTubeTargetNormalizer;
 use Carbon\Carbon;
@@ -53,6 +54,26 @@ class YouTubeTaskClaimService
             return null;
         }
 
+        // === Global concurrency semaphore ===
+        // Reject if too many claims are already in flight across all claim
+        // services (Telegram + YouTube + App). Prevents max_user_connections.
+        $slot = ClaimConcurrencyLimiter::acquire();
+        if ($slot === null) {
+            return null;
+        }
+
+        try {
+            return $this->claimInner($accountIdentity);
+        } finally {
+            ClaimConcurrencyLimiter::release($slot);
+        }
+    }
+
+    /**
+     * @return array|null Task payload, error array ['error' => ..., 'retry_after' => ...], or null
+     */
+    private function claimInner(string $accountIdentity): ?array
+    {
         // Watch-time cooldown: block ALL claims if this account has an active watch
         // task created < WATCH_CHUNK_SECONDS ago. Business rule: a new task can
         // only be claimed after the current watch task is completed.

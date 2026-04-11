@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Api\Provider;
 
 use App\Http\Controllers\Controller;
 use App\Services\App\AppTaskClaimService;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * App performer claim: performer requests a task, backend returns one task with link and order info.
@@ -70,6 +72,24 @@ class AppTaskClaimController extends Controller
                 $response['star_rating'] = $payload['star_rating'];
             }
             return response()->json($response);
+        } catch (QueryException $e) {
+            $msg = $e->getMessage();
+            if (str_contains($msg, 'max_user_connections')
+                || str_contains($msg, 'too many connections')
+                || str_contains($msg, 'Too many connections')
+                || str_contains($msg, 'gone away')) {
+                Log::warning('AppTaskClaim: DB pool exhausted', ['error' => $msg]);
+
+                return response()->json([
+                    'ok' => true,
+                    'count' => 0,
+                    'tasks' => [],
+                    'task_id' => null,
+                    'link' => null,
+                    'order' => null,
+                ]);
+            }
+            throw $e;
         } finally {
             DB::disconnect();
         }
