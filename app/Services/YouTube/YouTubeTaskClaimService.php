@@ -87,35 +87,36 @@ class YouTubeTaskClaimService
 
         // Fairness sort.
         //
-        // Old behaviour: sort by leased-task count alone. That balances "in-flight slots"
-        // but doesn't say anything about how close each order is to its target. A brand-new
-        // order with 0 leased tasks and a near-finished order with 0 leased tasks looked
-        // identical, so the near-finished one could keep getting picked instead of the
-        // system advancing the new one.
+        // Goal: pick the order with the lowest *effective progress* — i.e. the one
+        // furthest from completion, counting both already-delivered units and the
+        // units that are currently in-flight (leased). This makes every order
+        // advance together regardless of size or age and prevents one order from
+        // hogging the queue.
         //
-        // New behaviour: sort primarily by *effective progress*:
+        // For non-watch orders this is straightforward:
         //
-        //     effective_progress = (delivered + leased) / target_quantity
+        //     progress = (delivered + leased) / target_quantity
         //
-        // The order with the lowest effective progress is tried first. This makes all
-        // orders advance together regardless of size or age — small orders finish faster
-        // because they hit 100% sooner, while large orders get steady throughput instead
-        // of being starved.
+        // Watch orders need a unit conversion. Their `delivered` field counts
+        // viewers, but `leased` counts 15-second sub-tasks (one viewer requires
+        // tasks_per_unit = ceil(watch_time/15) sub-tasks). To compare apples to
+        // apples we restate everything in sub-task units:
+        //
+        //     watch_progress = (delivered * tasks_per_unit + leased)
+        //                       / (target_quantity * tasks_per_unit)
+        //
+        // Both formulas live in [0, 1] and are directly comparable across order
+        // types. A previous version of this sort dropped `leased` entirely for
+        // watch orders, which made watch orders look "less progressed" than every
+        // non-watch order with in-flight tasks and caused them to be picked on
+        // every request — that's the bug this version fixes.
         //
         // Tie-break order:
         //   1. lowest effective progress (primary fairness signal)
-        //   2. lowest leased count       (within an equal-progress group, prefer orders
-        //                                 currently doing less in-flight work)
+        //   2. lowest leased count       (within an equal-progress group, prefer
+        //                                 orders currently doing less in-flight work)
         //   3. random jitter             (so multiple equal-progress / equal-leased
         //                                 orders rotate fairly across requests)
-        //
-        // Watch-time caveat: a watch order's `delivered` field counts viewers, but its
-        // `leased` count is in 15-second sub-tasks (one viewer = ceil(watch_time/15)
-        // sub-tasks). Plugging both into the standard formula produces inflated values
-        // (often > 1.0) and would unfairly deprioritize watch orders. For watch orders
-        // we use `delivered / target_quantity` only — the user-facing completion ratio.
-        // The leased + watch-time caps inside tryClaimForOrder still prevent any
-        // over-delivery, so this loosens nothing.
         //
         // Important: this entire block is a *priority hint*. All correctness checks
         // (cap, dripfeed, speed-limit, hasStepConflict, watch-time cap) re-run inside
@@ -137,9 +138,17 @@ class YouTubeTaskClaimService
             $target = max(1, (int) ($row->target_quantity ?? 0));
             $delivered = (int) ($row->delivered ?? 0);
 
-            $progress = ($row->action ?? null) === 'watch'
-                ? $delivered / $target
-                : ($delivered + $leased) / $target;
+            if (($row->action ?? null) === 'watch') {
+                $watchTimeSeconds = (int) ($row->watch_time_seconds ?? 0);
+                $tasksPerUnit = $watchTimeSeconds >= self::WATCH_CHUNK_SECONDS
+                    ? (int) ceil($watchTimeSeconds / self::WATCH_CHUNK_SECONDS)
+                    : 1;
+                $totalSubtasks = max(1, $tasksPerUnit * $target);
+                $deliveredSubtasks = $delivered * $tasksPerUnit;
+                $progress = ($deliveredSubtasks + $leased) / $totalSubtasks;
+            } else {
+                $progress = ($delivered + $leased) / $target;
+            }
 
             // Quantize to basis points so float noise doesn't defeat the leased
             // tie-breaker for orders that should be considered "equal progress".
@@ -283,14 +292,19 @@ class YouTubeTaskClaimService
             ->where('orders.category_id', $categoryId)
             ->get()
             ->map(function ($row) {
-                // Extract next_run_at + action from JSON once during cache build —
-                // avoids re-decoding the full payload on every claim request.
+                // Extract next_run_at, action, and watch_time_seconds from JSON once
+                // during cache build — avoids re-decoding the full payload on every
+                // claim request. watch_time_seconds is needed by the fairness sort to
+                // convert watch-order progress into the same sub-task unit as the
+                // standard formula, so watch orders don't dominate the queue.
                 $nextRunAt = null;
                 $action = null;
+                $watchTimeSeconds = 0;
                 if (is_string($row->provider_payload)) {
                     $payload = json_decode($row->provider_payload, true);
                     $nextRunAt = $payload['execution_meta']['next_run_at'] ?? null;
                     $action = $payload['execution_meta']['action'] ?? null;
+                    $watchTimeSeconds = (int) ($payload['execution_meta']['watch_time_seconds'] ?? 0);
                 }
 
                 // Compute target_quantity the same way Order::getTargetQuantityAttribute does:
@@ -311,6 +325,7 @@ class YouTubeTaskClaimService
                     'dripfeed_next_run_at' => $row->dripfeed_next_run_at,
                     'next_run_at' => $nextRunAt,
                     'action' => $action,
+                    'watch_time_seconds' => $watchTimeSeconds,
                 ];
             })
             ->all();
