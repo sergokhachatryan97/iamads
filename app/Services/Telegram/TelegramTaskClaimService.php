@@ -100,16 +100,39 @@ class TelegramTaskClaimService
     {
         $phone = TelegramAccountLinkState::normalizePhone($phone);
 
-        $tasks = [];
-        for ($i = 0; $i < $limit; $i++) {
-            $taskDto = $this->claimSingle($phone, $scope, $serviceId);
-            if ($taskDto === null) {
-                break;
-            }
-            $tasks[] = $taskDto;
+        // Per-phone serialization lock: prevents the same phone from holding
+        // multiple concurrent DB transactions (each = one connection). This
+        // is the most direct mitigation for max_user_connections caused by
+        // a single performer hammering the endpoint.
+        $lockKey = "tg:claim:phone_lock:{$phone}";
+        $lockAcquired = false;
+        try {
+            $lockAcquired = (bool) Redis::set($lockKey, 1, 'EX', 10, 'NX');
+        } catch (\Throwable) {
+            $lockAcquired = true; // fail open if Redis is down
         }
 
-        return $tasks;
+        if (! $lockAcquired) {
+            return [];
+        }
+
+        try {
+            $tasks = [];
+            for ($i = 0; $i < $limit; $i++) {
+                $taskDto = $this->claimSingle($phone, $scope, $serviceId);
+                if ($taskDto === null) {
+                    break;
+                }
+                $tasks[] = $taskDto;
+            }
+
+            return $tasks;
+        } finally {
+            try {
+                Redis::del($lockKey);
+            } catch (\Throwable) {
+            }
+        }
     }
 
     private function claimSingle(string $phone, string $scope, ?int $serviceId): ?array
@@ -470,6 +493,17 @@ class TelegramTaskClaimService
 
     private function claimSubscribe(string $phone, string $scope, ?int $serviceId = null): ?array
     {
+        // === EARLY GATES (no DB connection) ===
+        // Check phone-level Redis gates BEFORE any DB work to avoid opening
+        // transactions for phones that will be rejected anyway. This is the
+        // single biggest mitigation for max_user_connections under high load.
+        if ($this->isPhoneCooldownActive($phone, 'subscribe')) {
+            return null;
+        }
+        if ($this->isPhoneDailyCapExhausted($phone, $scope, 'subscribe')) {
+            return null;
+        }
+
         $eligible = $this->getEligibleSubscribeOrders($scope, $serviceId);
 
         if (empty($eligible)) {
@@ -515,6 +549,38 @@ class TelegramTaskClaimService
         }
 
         return null;
+    }
+
+    /**
+     * Non-mutating cooldown check (peek). Returns true if cooldown is currently active.
+     * Used as an early gate before opening DB transactions.
+     */
+    private function isPhoneCooldownActive(string $phone, string $action): bool
+    {
+        try {
+            return (bool) Redis::exists("tg:phone:cooldown:{$action}:{$phone}");
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * Non-mutating daily cap check (peek). Returns true if cap is exhausted.
+     * Used as an early gate before opening DB transactions.
+     */
+    private function isPhoneDailyCapExhausted(string $phone, string $scope, string $action): bool
+    {
+        $date = Carbon::today()->format('Y-m-d');
+        $key = "tg:phone:cap:{$scope}:{$action}:{$phone}:{$date}";
+        $cap = $this->getActionDailyCap($scope, $action);
+
+        try {
+            $current = (int) Redis::get($key);
+
+            return $current >= $cap;
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     private function getEligibleSubscribeOrders(string $scope, ?int $serviceId = null): array
@@ -981,15 +1047,34 @@ LUA;
 
     private function getPhoneActiveSubscribedCount(string $phone): int
     {
-        if (! isset($this->activeSubscribedCache[$phone])) {
-            $this->activeSubscribedCache[$phone] = TelegramAccountLinkState::query()
-                ->where('account_phone', $phone)
-                ->where('action', 'subscribe')
-                ->where('state', TelegramAccountLinkState::STATE_SUBSCRIBED)
-                ->count();
+        if (isset($this->activeSubscribedCache[$phone])) {
+            return $this->activeSubscribedCache[$phone];
         }
 
-        return $this->activeSubscribedCache[$phone];
+        // 30s Redis cache — accuracy is fine because the authoritative
+        // in-flight check still runs inside the transaction with a row lock.
+        $cacheKey = "tg:phone:active_subscribed:{$phone}";
+
+        try {
+            $cached = Redis::get($cacheKey);
+            if ($cached !== null && $cached !== false) {
+                return $this->activeSubscribedCache[$phone] = (int) $cached;
+            }
+        } catch (\Throwable) {
+        }
+
+        $count = TelegramAccountLinkState::query()
+            ->where('account_phone', $phone)
+            ->where('action', 'subscribe')
+            ->where('state', TelegramAccountLinkState::STATE_SUBSCRIBED)
+            ->count();
+
+        try {
+            Redis::setex($cacheKey, 30, $count);
+        } catch (\Throwable) {
+        }
+
+        return $this->activeSubscribedCache[$phone] = $count;
     }
 
     private function phoneActiveSubscribedCap(string $scope): int
