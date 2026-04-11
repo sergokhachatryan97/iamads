@@ -255,23 +255,32 @@ class YouTubeTaskClaimService
      * Extracted so both the cache-refresh path and the lock-timeout fallback
      * can share the same query + mapping logic.
      *
+     * Note on `target_quantity`: there is NO `target_quantity` column on the orders
+     * table — it's an Eloquent accessor on App\Models\Order that computes
+     * `quantity * (1 + service.overflow_percent / 100)`. We replicate that formula
+     * here in the raw query builder by LEFT JOINing services and computing the
+     * target in PHP, so the cached objects expose the same `target_quantity` shape
+     * the rest of the service expects.
+     *
      * @return object[]
      */
     private function loadEligibleOrders(int $categoryId): array
     {
         return DB::table('orders')
+            ->leftJoin('services', 'services.id', '=', 'orders.service_id')
             ->select(
-                'id',
-                'remains',
-                'delivered',
-                'target_quantity',
-                'dripfeed_enabled',
-                'dripfeed_next_run_at',
-                'provider_payload'
+                'orders.id',
+                'orders.remains',
+                'orders.delivered',
+                'orders.quantity',
+                'orders.dripfeed_enabled',
+                'orders.dripfeed_next_run_at',
+                'orders.provider_payload',
+                'services.overflow_percent'
             )
-            ->whereIn('status', [Order::STATUS_AWAITING, Order::STATUS_IN_PROGRESS, Order::STATUS_PENDING])
-            ->where('remains', '>', 0)
-            ->where('category_id', $categoryId)
+            ->whereIn('orders.status', [Order::STATUS_AWAITING, Order::STATUS_IN_PROGRESS, Order::STATUS_PENDING])
+            ->where('orders.remains', '>', 0)
+            ->where('orders.category_id', $categoryId)
             ->get()
             ->map(function ($row) {
                 // Extract next_run_at + action from JSON once during cache build —
@@ -284,11 +293,20 @@ class YouTubeTaskClaimService
                     $action = $payload['execution_meta']['action'] ?? null;
                 }
 
+                // Compute target_quantity the same way Order::getTargetQuantityAttribute does:
+                // ceil(quantity * (1 + overflow_percent/100)). Falls back to plain quantity
+                // when overflow is zero or unknown (e.g. service row is missing).
+                $quantity = (int) $row->quantity;
+                $overflowPercent = (float) ($row->overflow_percent ?? 0);
+                $targetQuantity = $overflowPercent > 0
+                    ? (int) ceil($quantity * (1 + $overflowPercent / 100))
+                    : $quantity;
+
                 return (object) [
                     'id' => $row->id,
                     'remains' => (int) $row->remains,
                     'delivered' => (int) $row->delivered,
-                    'target_quantity' => (int) $row->target_quantity,
+                    'target_quantity' => $targetQuantity,
                     'dripfeed_enabled' => $row->dripfeed_enabled,
                     'dripfeed_next_run_at' => $row->dripfeed_next_run_at,
                     'next_run_at' => $nextRunAt,
