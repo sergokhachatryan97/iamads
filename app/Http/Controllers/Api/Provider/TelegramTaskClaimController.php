@@ -7,6 +7,7 @@ use App\Services\Telegram\TelegramTaskClaimService;
 use App\Support\TelegramPremiumTemplateScope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
 
 /**
@@ -50,21 +51,26 @@ class TelegramTaskClaimController extends Controller
         Redis::pfadd($hllKey, [$phone]);
         Redis::expire($hllKey, 7200);
 
-        $tasks = $this->claimService->claimForPhone($phone, 1, $scope, $serviceId);
+        try {
+            $tasks = $this->claimService->claimForPhone($phone, 1, $scope, $serviceId);
 
-        if (empty($tasks)) {
-            return response()->json(['ok' => true, 'count' => 0, 'tasks' => []]);
+            if (empty($tasks)) {
+                return response()->json(['ok' => true, 'count' => 0, 'tasks' => []]);
+            }
+
+            $task = $tasks[0];
+            $action = $task['action'] ?? 'subscribe';
+
+            return response()->json([
+                'id' => $task['task_id'],
+                'url' => $task['link'],
+                'action' => $action,
+            ]);
+        } finally {
+            // Release the MySQL connection back to the pool immediately so it
+            // doesn't sit idle (Sleep state) waiting for the next request on
+            // the same PHP-FPM worker. Critical mitigation for max_user_connections.
+            DB::disconnect();
         }
-
-        $task = $tasks[0];
-        $action = $task['action'] ?? 'subscribe';
-
-        $response = [
-            'id' => $task['task_id'],
-            'url' => $task['link'],
-            'action' => $action,
-        ];
-
-        return response()->json($response);
     }
 }

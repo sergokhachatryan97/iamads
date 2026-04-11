@@ -152,6 +152,6 @@ class CleanExpiredTelegramTasksJob implements ShouldQueue
             ->where('updated_at', '<', $cutoff)
             ->limit(5000)
             ->update(['state' => TelegramAccountLinkState::STATE_FAILED, 'last_error' => 'Stuck in_progress timeout']);
-        
+
     }
 }
