@@ -16,7 +16,11 @@ use Illuminate\Support\Facades\Redis;
 
 class TelegramStatsController extends Controller
 {
-    private const CACHE_TTL = 60; // seconds
+    /** Chart + order aggregates (heavier SQL). */
+    private const CACHE_TTL_SLOW = 300;
+
+    /** Task counts, Redis active accounts, delay estimates. */
+    private const CACHE_TTL_LIVE = 45;
 
     private function yearMonthExpr(string $column): string
     {
@@ -40,6 +44,7 @@ class TelegramStatsController extends Controller
 
         $telegramServiceIds = Cache::remember('tg_stats:service_ids', 300, function () {
             $catIds = Category::where('link_driver', 'telegram')->pluck('id');
+
             return Service::whereIn('category_id', $catIds)->pluck('id')->all();
         });
 
@@ -55,27 +60,28 @@ class TelegramStatsController extends Controller
             ? [(int) $serviceId]
             : $telegramServiceIds;
 
-        // Cache key based on request parameters
-        $cacheKey = 'tg_stats:data:' . md5(json_encode([
-            'period' => $period,
+        $todayEnd = now()->endOfDay();
+        [$chartLabels, $rangeStart, $rangeEnd, $groupExpr, $resolvedPeriod] =
+            $this->resolveChartRange($hasDateFilter, $dateFromParsed, $dateToParsed, $period, $todayEnd);
+
+        $keyPayload = [
+            'period' => $resolvedPeriod,
             'date_from' => $dateFrom,
             'date_to' => $dateTo,
             'service_id' => $serviceId,
-        ]));
+            'svc' => $filteredServiceIds,
+        ];
+        $slowKey = 'tg_stats:slow:'.md5(json_encode($keyPayload));
+        $liveKey = 'tg_stats:live:'.md5(json_encode($keyPayload));
 
-        $data = Cache::remember($cacheKey, self::CACHE_TTL, function () use (
-            $period, $hasDateFilter, $dateFromParsed, $dateToParsed,
-            $filteredServiceIds, $telegramServiceIds
+        $slowBlock = Cache::remember($slowKey, self::CACHE_TTL_SLOW, function () use (
+            $hasDateFilter,
+            $filteredServiceIds, $rangeStart, $rangeEnd, $groupExpr, $resolvedPeriod
         ) {
             $today = now()->startOfDay();
             $todayStr = $today->format('Y-m-d');
             $yesterdayStr = now()->subDay()->format('Y-m-d');
-            $todayEnd = now()->endOfDay();
 
-            [$chartLabels, $rangeStart, $rangeEnd, $groupExpr, $period] =
-                $this->resolveChartRange($hasDateFilter, $dateFromParsed, $dateToParsed, $period, $todayEnd);
-
-            // Chart data
             $chartRows = DB::table('telegram_order_memberships as m')
                 ->join('orders as o', 'o.id', '=', 'm.order_id')
                 ->join('services as s', 's.id', '=', 'o.service_id')
@@ -90,24 +96,40 @@ class TelegramStatsController extends Controller
                 ->keyBy('period');
 
             [$incomeToday, $incomeYesterday, $completionsToday, $completionsYesterday] =
-                $this->resolveTopMetrics($hasDateFilter, $period, $chartRows, $todayStr, $yesterdayStr);
+                $this->resolveTopMetrics($hasDateFilter, $resolvedPeriod, $chartRows, $todayStr, $yesterdayStr);
 
-            // Per-service order stats
             $serviceStats = DB::table('orders')
                 ->whereIn('service_id', $filteredServiceIds)
-                ->selectRaw("
+                ->selectRaw('
                     service_id,
                     COUNT(*) as total_orders,
                     COALESCE(SUM(CASE WHEN status = ? AND COALESCE(quantity, 0) > COALESCE(delivered, 0) THEN COALESCE(quantity, 0) - COALESCE(delivered, 0) ELSE 0 END), 0) as total_volume,
                     COALESCE(SUM(CASE WHEN status = ? THEN 1 ELSE 0 END), 0) as in_progress_orders,
                     COALESCE(SUM(CASE WHEN status = ? THEN 1 ELSE 0 END), 0) as completed_orders,
                     COALESCE(SUM(CASE WHEN status = ? THEN CAST(charge AS DECIMAL(20,4)) ELSE 0 END), 0) as completed_balance
-                ", [Order::STATUS_IN_PROGRESS, Order::STATUS_IN_PROGRESS, Order::STATUS_COMPLETED, Order::STATUS_COMPLETED])
+                ', [Order::STATUS_IN_PROGRESS, Order::STATUS_IN_PROGRESS, Order::STATUS_COMPLETED, Order::STATUS_COMPLETED])
                 ->groupBy('service_id')
                 ->get()
                 ->keyBy('service_id');
 
-            // Per-service completions: done tasks today from in_progress + completed orders
+            return [
+                'chartRows' => $chartRows,
+                'incomeToday' => $incomeToday,
+                'incomeYesterday' => $incomeYesterday,
+                'completionsToday' => $completionsToday,
+                'completionsYesterday' => $completionsYesterday,
+                'serviceStats' => $serviceStats,
+            ];
+        });
+
+        $chartRows = $slowBlock['chartRows'];
+        unset($slowBlock['chartRows']);
+
+        $liveBlock = Cache::remember($liveKey, self::CACHE_TTL_LIVE, function () use (
+            $hasDateFilter, $dateFromParsed, $dateToParsed, $filteredServiceIds
+        ) {
+            $today = now()->startOfDay();
+
             $completionsQuery = DB::table('telegram_tasks as t')
                 ->join('orders as o', 'o.id', '=', 't.order_id')
                 ->whereIn('o.service_id', $filteredServiceIds)
@@ -131,18 +153,17 @@ class TelegramStatsController extends Controller
                 ->get()
                 ->keyBy('service_id');
 
-            // Active accounts: distinct phones that attempted to claim in the last hour (from Redis HLL)
             $currentHour = now()->format('Y-m-d-H');
             $prevHour = now()->subHour()->format('Y-m-d-H');
             $activeAccounts = collect();
             try {
-                $results = Redis::pipeline(function ($pipe) use ($telegramServiceIds, $currentHour, $prevHour) {
-                    foreach ($telegramServiceIds as $sid) {
+                $results = Redis::pipeline(function ($pipe) use ($filteredServiceIds, $currentHour, $prevHour) {
+                    foreach ($filteredServiceIds as $sid) {
                         $pipe->pfcount("tg:claim_attempts:{$sid}:{$currentHour}");
                         $pipe->pfcount("tg:claim_attempts:{$sid}:{$prevHour}");
                     }
                 });
-                foreach ($telegramServiceIds as $i => $sid) {
+                foreach ($filteredServiceIds as $i => $sid) {
                     $count = max((int) ($results[$i * 2] ?? 0), (int) ($results[$i * 2 + 1] ?? 0));
                     if ($count > 0) {
                         $activeAccounts[$sid] = $count;
@@ -151,7 +172,6 @@ class TelegramStatsController extends Controller
             } catch (\Throwable) {
             }
 
-            // Avg delay: time between tasks per service (last hour)
             $tasksLastHour = DB::table('telegram_tasks')
                 ->join('orders', 'orders.id', '=', 'telegram_tasks.order_id')
                 ->whereIn('orders.service_id', $filteredServiceIds)
@@ -168,20 +188,18 @@ class TelegramStatsController extends Controller
             }
 
             return [
-                'chartLabels' => $chartLabels,
-                'chartIncomeData' => $chartLabels->map(fn ($d) => (float) ($chartRows[$d]->income ?? 0))->values(),
-                'chartCompletionsData' => $chartLabels->map(fn ($d) => (int) ($chartRows[$d]->completions ?? 0))->values(),
-                'incomeToday' => $incomeToday,
-                'incomeYesterday' => $incomeYesterday,
-                'completionsToday' => $completionsToday,
-                'completionsYesterday' => $completionsYesterday,
-                'serviceStats' => $serviceStats,
                 'delayPerService' => $delayPerService,
                 'completionsTodayPerService' => $perServiceRows->map(fn ($r) => (int) $r->completions_today),
                 'accountsPerService' => $activeAccounts,
-                'period' => $period,
             ];
         });
+
+        $data = array_merge($slowBlock, $liveBlock, [
+            'chartLabels' => $chartLabels,
+            'chartIncomeData' => $chartLabels->map(fn ($d) => (float) ($chartRows[$d]->income ?? 0))->values(),
+            'chartCompletionsData' => $chartLabels->map(fn ($d) => (int) ($chartRows[$d]->completions ?? 0))->values(),
+            'period' => $resolvedPeriod,
+        ]);
 
         $completionsColumnLabel = $hasDateFilter ? __('Completions') : __('Completions today');
 
@@ -253,6 +271,7 @@ class TelegramStatsController extends Controller
         if ($period === 'monthly') {
             $current = now()->format('Y-m');
             $prev = now()->subMonth()->format('Y-m');
+
             return [
                 (float) ($chartRows[$current]->income ?? 0),
                 (float) ($chartRows[$prev]->income ?? 0),
