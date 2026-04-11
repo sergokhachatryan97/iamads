@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\YouTube\YouTubeTaskService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * YouTube performer report: check (mark done) and ignore (mark failed).
@@ -26,20 +27,24 @@ class YouTubeTaskReportController extends Controller
             'task_id' => ['required', 'string'],
         ]);
 
-        $result = $this->taskService->reportTaskResult($validated['task_id'], [
-            'state' => 'done',
-            'ok' => true,
-            'error' => null,
-        ]);
+        try {
+            $result = $this->taskService->reportTaskResult($validated['task_id'], [
+                'state' => 'done',
+                'ok' => true,
+                'error' => null,
+            ]);
 
-        if (!($result['ok'] ?? false)) {
-            return response()->json([
-                'ok' => false,
-                'error' => $result['error'] ?? 'Failed to check task',
-            ], 400);
+            if (!($result['ok'] ?? false)) {
+                return response()->json([
+                    'ok' => false,
+                    'error' => $result['error'] ?? 'Failed to check task',
+                ], 400);
+            }
+
+            return response()->json(['ok' => true]);
+        } finally {
+            DB::disconnect();
         }
-
-        return response()->json(['ok' => true]);
     }
 
     /**
@@ -51,20 +56,24 @@ class YouTubeTaskReportController extends Controller
             'task_id' => ['required', 'string'],
         ]);
 
-        $result = $this->taskService->reportTaskResult($validated['task_id'], [
-            'state' => 'failed',
-            'ok' => false,
-            'error' => null,
-            'ignored' => true,
-        ]);
-
-        if (!($result['ok'] ?? false)) {
-            return response()->json([
+        try {
+            $result = $this->taskService->reportTaskResult($validated['task_id'], [
+                'state' => 'failed',
                 'ok' => false,
-                'error' => $result['error'] ?? 'Failed to ignore task',
-            ], 400);
-        }
+                'error' => null,
+                'ignored' => true,
+            ]);
 
-        return response()->json(['ok' => true]);
+            if (!($result['ok'] ?? false)) {
+                return response()->json([
+                    'ok' => false,
+                    'error' => $result['error'] ?? 'Failed to ignore task',
+                ], 400);
+            }
+
+            return response()->json(['ok' => true]);
+        } finally {
+            DB::disconnect();
+        }
     }
 }
