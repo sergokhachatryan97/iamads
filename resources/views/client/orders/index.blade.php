@@ -1637,7 +1637,7 @@
             function startPolling() {
                 stopPolling();
                 pollOrderStatuses();
-                pollInterval = setInterval(pollOrderStatuses, 3000);
+                pollInterval = setInterval(pollOrderStatuses, 10000);
             }
 
             function stopPolling() {
