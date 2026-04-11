@@ -366,8 +366,11 @@
                                     @foreach($targetServices as $service)
                                 <tr x-show="!isCategoryCollapsed({{ $category->id }}) && !isTargetGroupCollapsed('{{ $targetGroupId }}')"
                                     x-transition
-                                    class="hover:bg-gray-50 {{ !($service->is_active ?? true) ? 'opacity-60 bg-gray-50' : '' }}">
-                                        <td class="px-4 py-2 whitespace-nowrap">
+                                    class="hover:bg-gray-50 {{ $service->trashed() ? '' : 'cursor-pointer' }} {{ !($service->is_active ?? true) ? 'opacity-60 bg-gray-50' : '' }}"
+                                    @if(! $service->trashed())
+                                    @click="window.location.href='{{ route('staff.services.edit', $service) }}'"
+                                    @endif>
+                                        <td class="px-4 py-2 whitespace-nowrap" @click.stop>
                                             <input type="checkbox"
                                                    data-category-id="{{ $category->id }}"
                                                    data-target-type="{{ $targetType }}"
@@ -444,7 +447,7 @@
                                                 </span>
                                             @endif
                                         </td>
-                                        <td class="px-4 py-2 whitespace-nowrap text-sm" style="position: relative; overflow: visible;">
+                                        <td class="px-4 py-2 whitespace-nowrap text-sm" style="position: relative; overflow: visible;" @click.stop>
                                             @if(!($service->is_active ?? true))
                                                 <!-- Enable Service Button (shown when disabled) -->
                                                 <form method="POST" action="{{ route('staff.services.toggle-status', $service) }}" class="inline">
