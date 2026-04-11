@@ -48,6 +48,13 @@ return Application::configure(basePath: dirname(__DIR__))
         //            ->withoutOverlapping()
         //            ->runInBackground();
 
+        // Server health check: CPU, memory, disk, queue/Horizon.
+        // Alerts via Telegram with per-metric cooldown (see config/health.php).
+        $schedule->command('server:health-check')
+            ->everyMinute()
+            ->withoutOverlapping(2)
+            ->runInBackground();
+
         $schedule->command('socpanel:poll')
             ->everyThreeMinutes()
             ->withoutOverlapping(4);
