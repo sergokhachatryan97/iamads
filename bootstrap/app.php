@@ -97,11 +97,6 @@ return Application::configure(basePath: dirname(__DIR__))
             ->daily()
             ->withoutOverlapping(10);
 
-        $schedule->command('max:monitor-channels')
-            ->everyTwoMinutes()
-            ->withoutOverlapping(3)
-            ->runInBackground();
-
         $schedule->job(new \App\Jobs\SyncCompletedProviderOrdersJob)
             ->everyFiveMinutes()
             ->withoutOverlapping(30)
