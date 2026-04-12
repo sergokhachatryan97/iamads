@@ -95,7 +95,16 @@ class CleanExpiredTelegramTasksJob implements ShouldQueue
             $batchLinkStates = 0;
             $batchMemberships = 0;
 
+            // Retry up to 5 times on deadlock (MySQL 1213). Concurrent claim/report
+            // workers in TelegramTaskClaimService lock the same rows in a different
+            // order (orders → memberships → link_states → tasks), which occasionally
+            // causes a serialisation failure. Retrying is the standard fix.
             DB::transaction(function () use ($taskIds, $linkStateGroups, $membershipPairs, &$batchFailed, &$batchLinkStates, &$batchMemberships) {
+                // Reset counters on retry so we don't double-count.
+                $batchFailed = 0;
+                $batchLinkStates = 0;
+                $batchMemberships = 0;
+
                 // Bulk fail tasks
                 $batchFailed = DB::table('telegram_tasks')
                     ->whereIn('id', $taskIds)
@@ -128,7 +137,7 @@ class CleanExpiredTelegramTasksJob implements ShouldQueue
                         ->whereIn('subscribed_task_id', $taskIdList)
                         ->update(['state' => TelegramOrderMembership::STATE_FAILED, 'last_error' => 'Lease expired']);
                 }
-            });
+            }, 5);
 
             $totalFailed += $batchFailed;
             $totalLinkStates += $batchLinkStates;
@@ -140,18 +149,21 @@ class CleanExpiredTelegramTasksJob implements ShouldQueue
             }
         }
 
-        // Sweep stuck memberships/link states (single bulk update each — no transaction needed)
-        $stuckMemberships = TelegramOrderMembership::query()
-            ->where('state', TelegramOrderMembership::STATE_IN_PROGRESS)
-            ->where('updated_at', '<', $cutoff)
-            ->limit(5000)
-            ->update(['state' => TelegramOrderMembership::STATE_FAILED, 'last_error' => 'Stuck in_progress timeout']);
+        // Sweep stuck memberships/link states — retry on deadlock since claim
+        // workers may be locking the same rows concurrently.
+        DB::transaction(function () use ($cutoff) {
+            TelegramOrderMembership::query()
+                ->where('state', TelegramOrderMembership::STATE_IN_PROGRESS)
+                ->where('updated_at', '<', $cutoff)
+                ->limit(5000)
+                ->update(['state' => TelegramOrderMembership::STATE_FAILED, 'last_error' => 'Stuck in_progress timeout']);
 
-        $stuckLinkStates = TelegramAccountLinkState::query()
-            ->where('state', TelegramAccountLinkState::STATE_IN_PROGRESS)
-            ->where('updated_at', '<', $cutoff)
-            ->limit(5000)
-            ->update(['state' => TelegramAccountLinkState::STATE_FAILED, 'last_error' => 'Stuck in_progress timeout']);
+            TelegramAccountLinkState::query()
+                ->where('state', TelegramAccountLinkState::STATE_IN_PROGRESS)
+                ->where('updated_at', '<', $cutoff)
+                ->limit(5000)
+                ->update(['state' => TelegramAccountLinkState::STATE_FAILED, 'last_error' => 'Stuck in_progress timeout']);
+        }, 5);
 
     }
 }

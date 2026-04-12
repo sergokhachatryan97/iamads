@@ -279,7 +279,7 @@ class OrderService implements OrderServiceInterface
             }
 
             return Collection::make($orders)->load(['service', 'category']);
-        });
+        }, 5);
     }
 
     /**
@@ -424,7 +424,7 @@ class OrderService implements OrderServiceInterface
             $this->orderInspectionDispatcher->dispatch($order);
 
             return new ApiOrderResult($order->load(['service', 'category']), false);
-        });
+        }, 5);
     }
 
     /**
@@ -532,7 +532,7 @@ class OrderService implements OrderServiceInterface
             $this->orderInspectionDispatcher->dispatch($order);
 
             return Collection::make([$order])->load(['service', 'category']);
-        });
+        }, 5);
     }
 
     /**
@@ -765,7 +765,7 @@ class OrderService implements OrderServiceInterface
             }
 
             return new Collection($orders);
-        });
+        }, 5);
     }
 
     /**
@@ -810,7 +810,7 @@ class OrderService implements OrderServiceInterface
             $order->update([
                 'provider_payload' => $payload,
             ]);
-        });
+        }, 5);
     }
 
     // ----------------- EXISTING REFUND/CANCEL METHODS (unchanged) -----------------
@@ -878,7 +878,7 @@ class OrderService implements OrderServiceInterface
             ]);
 
             return $order->fresh();
-        });
+        }, 5);
     }
 
     public function cancelFull(Order $order, Client $client): Order
@@ -929,7 +929,7 @@ class OrderService implements OrderServiceInterface
             }
 
             return $order->fresh();
-        });
+        }, 5);
     }
 
     public function cancelPartial(Order $order, Client $client): Order
@@ -978,7 +978,7 @@ class OrderService implements OrderServiceInterface
             }
 
             return $order->fresh();
-        });
+        }, 5);
     }
 
     private function decrementTelegramAccountCounts(Order $order, ?int $maxStepsToDecrement = null): void

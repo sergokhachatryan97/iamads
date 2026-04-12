@@ -138,7 +138,7 @@ class SubscriptionPurchaseService
                 // optional metadata fields եթե ունես
                 // 'meta' => ['plan_id' => $plan->id, 'links_count' => $linkCount, 'expires_at' => $expiresAt->toDateTimeString()],
             ]);
-        });
+        }, 5);
     }
 
     /**
@@ -269,7 +269,7 @@ class SubscriptionPurchaseService
                     'type' => ClientTransaction::TYPE_SUBSCRIPTION_CHARGE,
                     'description' => "Auto-renewal subscription plan_id={$plan->id}",
                 ]);
-            });
+            }, 5);
 
             return true;
         } catch (\Throwable $e) {
