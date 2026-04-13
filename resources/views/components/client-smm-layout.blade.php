@@ -500,12 +500,12 @@
                 <a href="{{ route('client.services.index') }}" class="{{ request()->routeIs('client.services.*') ? 'active' : '' }}" @click="sidebarOpen = false">
                     <i class="fa-solid fa-layer-group"></i> {{ __('Services') }}
                 </a>
-                <a href="{{ route('client.subscriptions.index') }}" class="{{ request()->routeIs('client.subscriptions.index') || request()->routeIs('client.subscriptions.create') ? 'active' : '' }}" @click="sidebarOpen = false">
-                    <i class="fa-solid fa-tags"></i> {{ __('Subscription Plans') }}
-                </a>
-                <a href="{{ route('client.subscriptions.my-subscriptions') }}" class="{{ request()->routeIs('client.subscriptions.my-subscriptions') ? 'active' : '' }}" @click="sidebarOpen = false">
-                    <i class="fa-solid fa-receipt"></i> {{ __('My Subscriptions') }}
-                </a>
+{{--                <a href="{{ route('client.subscriptions.index') }}" class="{{ request()->routeIs('client.subscriptions.index') || request()->routeIs('client.subscriptions.create') ? 'active' : '' }}" @click="sidebarOpen = false">--}}
+{{--                    <i class="fa-solid fa-tags"></i> {{ __('Subscription Plans') }}--}}
+{{--                </a>--}}
+{{--                <a href="{{ route('client.subscriptions.my-subscriptions') }}" class="{{ request()->routeIs('client.subscriptions.my-subscriptions') ? 'active' : '' }}" @click="sidebarOpen = false">--}}
+{{--                    <i class="fa-solid fa-receipt"></i> {{ __('My Subscriptions') }}--}}
+{{--                </a>--}}
                 <a href="{{ route('client.balance.add') }}" class="{{ request()->routeIs('client.balance.*') ? 'active' : '' }}" @click="sidebarOpen = false">
                     <i class="fa-solid fa-wallet"></i> {{ __('Add Funds') }}
                 </a>

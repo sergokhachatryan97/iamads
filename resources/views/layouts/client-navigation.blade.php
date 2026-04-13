@@ -113,12 +113,12 @@
             <x-responsive-nav-link :href="route('client.api.index')" :active="request()->routeIs('client.api.*')">
                 {{ __('API') }}
             </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('client.subscriptions.index')" :active="request()->routeIs('client.subscriptions.index')">
-                {{ __('Subscription Plans') }}
-            </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('client.subscriptions.my-subscriptions')" :active="request()->routeIs('client.subscriptions.my-subscriptions')">
-                {{ __('My Subscriptions') }}
-            </x-responsive-nav-link>
+{{--            <x-responsive-nav-link :href="route('client.subscriptions.index')" :active="request()->routeIs('client.subscriptions.index')">--}}
+{{--                {{ __('Subscription Plans') }}--}}
+{{--            </x-responsive-nav-link>--}}
+{{--            <x-responsive-nav-link :href="route('client.subscriptions.my-subscriptions')" :active="request()->routeIs('client.subscriptions.my-subscriptions')">--}}
+{{--                {{ __('My Subscriptions') }}--}}
+{{--            </x-responsive-nav-link>--}}
         </div>
 
         <!-- Balance Display in Mobile Menu -->
