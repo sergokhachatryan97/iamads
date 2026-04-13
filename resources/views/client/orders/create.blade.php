@@ -219,24 +219,24 @@
 
                     <div x-data="orderForm()" x-init="init()">
                         <!-- Tabs -->
-                        <div class="mb-6 border-b border-gray-200 new-order-tabs">
-                            <nav class="-mb-px flex space-x-8" aria-label="Tabs">
-                                <button
-                                    type="button"
-                                    @click="orderType = 'single'"
-                                    :class="orderType === 'single' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                                    class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                                    {{ __('Single Service Order') }}
-                                </button>
-                                <button
-                                    type="button"
-                                    @click="orderType = 'multi'"
-                                    :class="orderType === 'multi' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                                    class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                                    {{ __('Multi-Service Order') }}
-                                </button>
-                            </nav>
-                        </div>
+{{--                        <div class="mb-6 border-b border-gray-200 new-order-tabs">--}}
+{{--                            <nav class="-mb-px flex space-x-8" aria-label="Tabs">--}}
+{{--                                <button--}}
+{{--                                    type="button"--}}
+{{--                                    @click="orderType = 'single'"--}}
+{{--                                    :class="orderType === 'single' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"--}}
+{{--                                    class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">--}}
+{{--                                    {{ __('Single Service Order') }}--}}
+{{--                                </button>--}}
+{{--                                <button--}}
+{{--                                    type="button"--}}
+{{--                                    @click="orderType = 'multi'"--}}
+{{--                                    :class="orderType === 'multi' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"--}}
+{{--                                    class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">--}}
+{{--                                    {{ __('Multi-Service Order') }}--}}
+{{--                                </button>--}}
+{{--                            </nav>--}}
+{{--                        </div>--}}
                         <!-- Single Service Order Form -->
                         <form method="POST" action="{{ route('client.orders.store') }}"
                               x-show="orderType === 'single'"
