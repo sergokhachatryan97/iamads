@@ -128,7 +128,7 @@ class MaxTaskService
         $orderUpdates['provider_payload'] = $providerPayload;
     }
 
-    public function markIgnored(string $taskId): array
+    public function markIgnored(string $taskId, ?string $error = null): array
     {
         $task = MaxTask::query()->find($taskId);
         if (! $task) {
@@ -139,18 +139,20 @@ class MaxTaskService
             return ['ok' => true];
         }
 
+        $errorMessage = $error ?? 'Ignored';
+
         $order = $task->order;
         if ($order) {
             OrderDripfeedClaimHelper::rollbackClaimedUnit($order);
             $order->update([
-                'provider_last_error' => 'Ignored',
+                'provider_last_error' => $errorMessage,
                 'provider_last_error_at' => now(),
             ]);
         }
 
         $task->update([
             'status' => MaxTask::STATUS_FAILED,
-            'result' => array_merge($task->result ?? [], ['state' => 'failed', 'ok' => false, 'ignored' => true]),
+            'result' => array_merge($task->result ?? [], ['state' => 'failed', 'ok' => false, 'ignored' => true, 'error' => $errorMessage]),
         ]);
 
         return ['ok' => true];

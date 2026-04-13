@@ -37,9 +37,10 @@ class MaxTaskReportController extends Controller
         $validated = $request->validate([
             'order_id' => ['required', 'string'],
             'account_identity' => ['required', 'string'],
+            'error' => ['string', 'nullable'],
         ]);
 
-        $result = $this->taskService->markIgnored($validated['order_id']);
+        $result = $this->taskService->markIgnored($validated['order_id'], $validated['error'] ?? null);
 
         if (! ($result['ok'] ?? false)) {
             return response()->json(['ok' => false, 'error' => $result['error'] ?? 'Failed'], 400);

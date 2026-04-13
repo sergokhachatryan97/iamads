@@ -103,6 +103,7 @@ GET /api/provider/max/ignore
 | `api_token`        | string | yes      | Provider authentication token        |
 | `order_id`         | string | yes      | Task ID returned from `getOrder`     |
 | `account_identity` | string | yes      | Account identity that skipped task   |
+| `error`            | string | no       | Error message                      |
 
 
 **Success Response:**
