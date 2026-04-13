@@ -526,7 +526,7 @@
                 <div class="smm-dash-sidebar-foot">
                     <a href="https://t.me/{{ $contactTelegram }}" target="_blank" rel="noopener noreferrer" class="smm-dash-sidebar-telegram" title="{{ __('home.footer_telegram') }}">
                         <i class="fa-brands fa-telegram" aria-hidden="true"></i>
-                        <span>{{ __('home.footer_telegram') }}</span>
+                        <span>{{ __('Support') }}</span>
                     </a>
                 </div>
             @endif
