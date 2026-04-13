@@ -123,6 +123,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'staff.role' => \App\Http\Middleware\EnsureStaffHasRole::class,
             'client.status' => \App\Http\Middleware\EnsureClientNotSuspended::class,
             'auth.provider' => \App\Http\Middleware\AuthenticateProvider::class,
+            'throttle.provider_poll' => \App\Http\Middleware\ThrottleProviderPolling::class,
             'auth.external_client' => \App\Http\Middleware\AuthenticateExternalClient::class,
             'auth.api_client' => \App\Http\Middleware\AuthenticateApiClient::class,
             'auth.provider_api_key' => \App\Http\Middleware\AuthenticateProviderApiKey::class,

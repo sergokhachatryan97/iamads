@@ -38,6 +38,11 @@ class TelegramTaskClaimController extends Controller
         return $this->claimByScope($request, TelegramPremiumTemplateScope::SCOPE_PREMIUM);
     }
 
+    private static function emptyResponse(): JsonResponse
+    {
+        return response()->json(['ok' => true, 'count' => 0, 'tasks' => []]);
+    }
+
     private function claimByScope(Request $request, string $scope): JsonResponse
     {
         $validated = $request->validate([
@@ -48,6 +53,20 @@ class TelegramTaskClaimController extends Controller
         $phone = $validated['account_identity'];
         $serviceId = (int) $validated['service_id'];
 
+        // ── No-work short-circuit ──────────────────────────────────────
+        // When a previous poll for this (service, scope) found zero eligible
+        // orders, we cache that fact for a few seconds. Subsequent polls skip
+        // the full claim pipeline (no DB transaction, no Redis locks).
+        // A successful claim clears the flag so new work is picked up instantly.
+        $noWorkKey = "tg:no_work:{$scope}:{$serviceId}";
+        try {
+            if (Redis::exists($noWorkKey)) {
+                return self::emptyResponse();
+            }
+        } catch (\Throwable) {
+            // Redis down — proceed normally.
+        }
+
         // Track claim attempt for stats (HyperLogLog, 1h TTL)
         $hllKey = "tg:claim_attempts:{$serviceId}:" . now()->format('Y-m-d-H');
         Redis::pfadd($hllKey, [$phone]);
@@ -57,7 +76,21 @@ class TelegramTaskClaimController extends Controller
             $tasks = $this->claimService->claimForPhone($phone, 1, $scope, $serviceId);
 
             if (empty($tasks)) {
-                return response()->json(['ok' => true, 'count' => 0, 'tasks' => []]);
+                // Cache "no work" for this service+scope for a short window.
+                // Short TTL (3s) ensures new orders are picked up quickly.
+                try {
+                    Redis::setex($noWorkKey, 3, 1);
+                } catch (\Throwable) {
+                }
+
+                return self::emptyResponse();
+            }
+
+            // Work was found — clear the no-work flag for this service
+            // so other accounts pick up remaining tasks without delay.
+            try {
+                Redis::del($noWorkKey);
+            } catch (\Throwable) {
             }
 
             $task = $tasks[0];

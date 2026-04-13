@@ -103,6 +103,7 @@ return [
         'api_key' => env('PROVIDER_API_KEY'),
         'webhook_secret' => env('PROVIDER_WEBHOOK_SECRET'),
         'token' => env('PROVIDER_TOKEN'), // Shared secret for provider pull API authentication
+        'poll_interval_seconds' => (int) env('PROVIDER_POLL_INTERVAL_SECONDS', 2), // Min seconds between polls per account
         'status_rate_limit_per_second' => env('PROVIDER_STATUS_RATE_LIMIT_PER_SECOND', 5),
         'webhook_stale_minutes' => env('PROVIDER_WEBHOOK_STALE_MINUTES', 15),
         'poll_min_minutes' => env('PROVIDER_POLL_MIN_MINUTES', 5),

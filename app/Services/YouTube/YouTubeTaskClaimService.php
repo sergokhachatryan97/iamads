@@ -563,7 +563,7 @@ class YouTubeTaskClaimService
                 $watchTimeMeta,
                 $commentForPayload
             );
-        });
+        }, 5);
     }
 
     /**

@@ -62,6 +62,7 @@ Route::prefix('external')->middleware('auth.api_client')->group(function () {
 
 Route::middleware(['auth.provider'])->prefix('provider/telegram')->group(function () {
     Route::get('/getOrder', [TelegramTaskClaimController::class, 'claim'])
+        ->middleware('throttle.provider_poll')
         ->name('provider.telegram.tasks.getOrder');
 
     Route::get('/check', [TelegramTaskReportController::class, 'check'])
@@ -71,6 +72,7 @@ Route::middleware(['auth.provider'])->prefix('provider/telegram')->group(functio
         ->name('provider.telegram.tasks.ignore');
 
     Route::get('/premium/getOrder', [TelegramTaskClaimController::class, 'claimPremium'])
+        ->middleware('throttle.provider_poll')
         ->name('provider.telegram.premium.tasks.getOrder');
 
     Route::get('/premium/check', [TelegramTaskReportController::class, 'checkPremium'])
