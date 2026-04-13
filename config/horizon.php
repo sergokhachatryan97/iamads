@@ -47,11 +47,13 @@ return [
             'queue' => ['tg-inspect'],
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',
-            'maxProcesses' => 3,
+            'minProcesses' => 1,
+            'maxProcesses' => 4,
             'balanceMaxShift' => 1,
-            'balanceCooldown' => 3,
+            'balanceCooldown' => 15,
+            'sleep' => 5,
             'tries' => 2,
-            'timeout' => 900, // 🔥 long jobs
+            'timeout' => 900, // long jobs
             'memory' => 512,
         ],
         'tg-panel-inspect' => [
@@ -59,37 +61,52 @@ return [
             'queue' => ['tg-panel-inspect'],
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',
-            'maxProcesses' => 3,
+            'minProcesses' => 1,
+            'maxProcesses' => 2,
             'balanceMaxShift' => 1,
-            'balanceCooldown' => 3,
+            'balanceCooldown' => 15,
+            'sleep' => 5,
             'tries' => 2,
-            'timeout' => 900, // 🔥 long jobs
+            'timeout' => 900, // long jobs
             'memory' => 512,
         ],
 
-        'yt-inspect' => [
+        // Merged yt-inspect + app-inspect: identical profiles, low-volume event-driven queues.
+        // simple balance = fixed worker count, no auto-scale Redis overhead.
+        'link-inspect' => [
             'connection' => 'redis',
-            'queue' => ['yt-inspect'],
-            'balance' => 'auto',
-            'autoScalingStrategy' => 'time',
+            'queue' => ['yt-inspect', 'app-inspect'],
+            'balance' => 'simple',
+            'minProcesses' => 1,
             'maxProcesses' => 2,
-            'balanceMaxShift' => 1,
-            'balanceCooldown' => 3,
+            'balanceCooldown' => 30,
+            'sleep' => 10,
             'tries' => 3,
             'timeout' => 60,
             'memory' => 128,
         ],
 
-        'app-inspect' => [
+        'tg-double-check' => [
             'connection' => 'redis',
-            'queue' => ['app-inspect'],
-            'balance' => 'auto',
-            'autoScalingStrategy' => 'time',
-            'maxProcesses' => 2,
-            'balanceMaxShift' => 1,
-            'balanceCooldown' => 3,
-            'tries' => 3,
-            'timeout' => 60,
+            'queue' => ['tg-double-check'],
+            'balance' => 'simple',
+            'minProcesses' => 1,
+            'maxProcesses' => 1,
+            'sleep' => 10,
+            'tries' => 2,
+            'timeout' => 900,
+            'memory' => 512,
+        ],
+
+        'max-inspect' => [
+            'connection' => 'redis',
+            'queue' => ['max-inspect'],
+            'balance' => 'simple',
+            'minProcesses' => 1,
+            'maxProcesses' => 1,
+            'sleep' => 10,
+            'tries' => 1,
+            'timeout' => 120,
             'memory' => 128,
         ],
 
@@ -101,12 +118,14 @@ return [
 
         'main' => [
             'connection' => 'redis',
-            'queue' => ['socpanel-poll', 'memberpro-poll', 'providers', 'default'],
+            'queue' => ['socpanel-poll', 'providers', 'default'],
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',
+            'minProcesses' => 1,
             'maxProcesses' => 2,
             'balanceMaxShift' => 1,
-            'balanceCooldown' => 3,
+            'balanceCooldown' => 15,
+            'sleep' => 5,
             'tries' => 3,
             'timeout' => 300,
             'memory' => 256,
@@ -121,9 +140,11 @@ return [
                 'queue' => ['tg-inspect'],
                 'balance' => 'auto',
                 'autoScalingStrategy' => 'time',
-                'maxProcesses' => 4,
+                'minProcesses' => 1,
+                'maxProcesses' => 4,         // was 4; 3 covers burst, saves 1 idle poller
                 'balanceMaxShift' => 1,
-                'balanceCooldown' => 3,
+                'balanceCooldown' => 15,     // was 3; 5× fewer balance Redis checks
+                'sleep' => 5,               // was implicit 3; ~40% fewer idle polls
                 'tries' => 2,
                 'timeout' => 900,
                 'memory' => 512,
@@ -134,34 +155,27 @@ return [
                 'queue' => ['tg-panel-inspect'],
                 'balance' => 'auto',
                 'autoScalingStrategy' => 'time',
+                'minProcesses' => 1,
                 'maxProcesses' => 2,
                 'balanceMaxShift' => 1,
-                'balanceCooldown' => 3,
+                'balanceCooldown' => 15,     // was 3
+                'sleep' => 5,               // was implicit 3
                 'tries' => 2,
                 'timeout' => 900,
                 'memory' => 512,
             ],
 
-            'yt-inspect' => [
+            // Merged yt-inspect + app-inspect: both had maxProcesses=1, timeout=60, memory=128.
+            // One supervisor eliminates a full supervisor process + all auto-scale overhead.
+            // Workers serve both queues in priority order (yt first, then app).
+            'link-inspect' => [
                 'connection' => 'redis',
-                'queue' => ['yt-inspect'],
-                'balance' => 'auto',
-                'autoScalingStrategy' => 'time',
-                'maxProcesses' => 1,
-                'balanceMaxShift' => 1,
-                'balanceCooldown' => 3,
-                'tries' => 3,
-                'timeout' => 60,
-                'memory' => 128,
-            ],
-            'app-inspect' => [
-                'connection' => 'redis',
-                'queue' => ['app-inspect'],
-                'balance' => 'auto',
-                'autoScalingStrategy' => 'time',
-                'maxProcesses' => 1,
-                'balanceMaxShift' => 1,
-                'balanceCooldown' => 3,
+                'queue' => ['yt-inspect', 'app-inspect'],
+                'balance' => 'simple',       // fixed workers, no Redis balance polling
+                'minProcesses' => 1,
+                'maxProcesses' => 2,
+                'balanceCooldown' => 30,
+                'sleep' => 10,               // event-driven, low-volume; up to 10s wait is fine
                 'tries' => 3,
                 'timeout' => 60,
                 'memory' => 128,
@@ -170,11 +184,10 @@ return [
             'tg-double-check' => [
                 'connection' => 'redis',
                 'queue' => ['tg-double-check'],
-                'balance' => 'auto',
-                'autoScalingStrategy' => 'time',
+                'balance' => 'simple',       // was auto; fixed 1 worker, zero rebalancing cost
+                'minProcesses' => 1,
                 'maxProcesses' => 1,
-                'balanceMaxShift' => 1,
-                'balanceCooldown' => 3,
+                'sleep' => 10,               // dispatched every 10min; longer sleep is fine
                 'tries' => 2,
                 'timeout' => 900,
                 'memory' => 512,
@@ -183,11 +196,10 @@ return [
             'max-inspect' => [
                 'connection' => 'redis',
                 'queue' => ['max-inspect'],
-                'balance' => 'auto',
-                'autoScalingStrategy' => 'time',
-                'maxProcesses' => 2,
-                'balanceMaxShift' => 1,
-                'balanceCooldown' => 3,
+                'balance' => 'simple',       // was auto
+                'minProcesses' => 1,
+                'maxProcesses' => 1,         // was 2; 2nd worker was idle-polling only
+                'sleep' => 10,
                 'tries' => 1,
                 'timeout' => 120,
                 'memory' => 128,
@@ -198,9 +210,11 @@ return [
                 'queue' => ['socpanel-poll', 'memberpro-poll', 'providers', 'default'],
                 'balance' => 'auto',
                 'autoScalingStrategy' => 'time',
+                'minProcesses' => 1,
                 'maxProcesses' => 2,
                 'balanceMaxShift' => 1,
-                'balanceCooldown' => 3,
+                'balanceCooldown' => 15,     // was 3
+                'sleep' => 5,               // was implicit 3
                 'tries' => 3,
                 'timeout' => 300,
                 'memory' => 256,
