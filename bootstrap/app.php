@@ -59,9 +59,9 @@ return Application::configure(basePath: dirname(__DIR__))
             ->everyThreeMinutes()
             ->withoutOverlapping(4);
 
-        $schedule->command('memberpro:poll')
-            ->everyThreeMinutes()
-            ->withoutOverlapping(4);
+//        $schedule->command('memberpro:poll')
+//            ->everyThreeMinutes()
+//            ->withoutOverlapping(4);
 
         $schedule->job(new SyncValidatingProviderOrdersJob('validating'))
             ->everyTenMinutes()
