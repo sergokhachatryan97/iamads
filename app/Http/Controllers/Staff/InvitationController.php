@@ -133,8 +133,8 @@ class InvitationController extends Controller
                 ->withErrors(['invitation' => 'Invitation token not found.']);
         }
 
-        // Send invitation email
-        Mail::to($invitation->email)->send(new InvitationMail($invitation, $token));
+        // Queue invitation email (async via Horizon)
+        Mail::to($invitation->email)->queue(new InvitationMail($invitation, $token));
 
         // Clear token from session
         $request->session()->forget('invitation_token_' . $invitation->id);

@@ -50,12 +50,13 @@ class AcceptInvitationController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
-        // Create user with form data (email_verified_at will be null - user must verify)
+        // Auto-verify: the invite token proves email ownership — only someone
+        // with access to this email address could have received the invite link.
         $user = User::create([
             'name' => $validated['name'],
             'email' => $invitation->email,
             'password' => Hash::make($validated['password']),
-            'email_verified_at' => null, // User must verify email
+            'email_verified_at' => now(),
         ]);
 
         // Assign role from invitation
@@ -66,13 +67,10 @@ class AcceptInvitationController extends Controller
             'accepted_at' => now(),
         ]);
 
-        event(new Registered($user));
-
         // Log in the user using staff guard
         Auth::guard('staff')->login($user);
 
-        // Redirect to staff email verification notice (user must verify before accessing anything)
-        return redirect()->route('staff.verification.notice');
+        return redirect()->route('staff.dashboard');
     }
 
     /**
