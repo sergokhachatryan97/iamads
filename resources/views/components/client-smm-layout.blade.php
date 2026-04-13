@@ -24,7 +24,7 @@
 @endphp
 
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" data-theme="dark">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{ app()->getLocale() === 'ar' ? 'rtl' : 'ltr' }}" data-theme="dark">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -108,6 +108,33 @@
         .smm-dash-nav a:hover { background: rgba(108,92,231,0.1); color: var(--text); }
         .smm-dash-nav a.active { background: rgba(108,92,231,0.18); color: var(--purple-light); }
         .smm-dash-nav a i { width: 20px; text-align: center; opacity: 0.9; }
+        .smm-dash-sidebar-foot {
+            margin-top: auto;
+            padding: 12px 10px 16px;
+            border-top: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .smm-dash-sidebar-telegram {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            color: #2aabee;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+            transition: background 0.15s, color 0.15s;
+        }
+        .smm-dash-sidebar-telegram:hover {
+            background: rgba(42, 171, 238, 0.12);
+            color: #5dcef5;
+        }
+        .smm-dash-sidebar-telegram i {
+            font-size: 18px;
+            width: 20px;
+            text-align: center;
+        }
         .smm-client-top-bar-util {
             display: flex;
             align-items: center;
@@ -495,6 +522,14 @@
                     <i class="fa-solid fa-house"></i> {{ __('Homepage') }}
                 </a>
             </nav>
+            @if($contactTelegram)
+                <div class="smm-dash-sidebar-foot">
+                    <a href="https://t.me/{{ $contactTelegram }}" target="_blank" rel="noopener noreferrer" class="smm-dash-sidebar-telegram" title="{{ __('home.footer_telegram') }}">
+                        <i class="fa-brands fa-telegram" aria-hidden="true"></i>
+                        <span>{{ __('home.footer_telegram') }}</span>
+                    </a>
+                </div>
+            @endif
         </aside>
         @endunless
         <div class="smm-dash-main" style="flex:1;min-width:0">

@@ -58,6 +58,13 @@
             "@php artisan config:clear --ansi",
             "@php artisan test"
         ],
+        "lang:client-ui": [
+            "@php lang/build_client_ui.php"
+        ],
+        "lang:client-ui:refresh": [
+            "@php lang/regenerate_client_ui_keys.php",
+            "@php lang/build_client_ui.php"
+        ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" data-theme="dark">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{ app()->getLocale() === 'ar' ? 'rtl' : 'ltr' }}" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ config('app.name', 'SMM Tool') }} — Social Media Growth Services</title>
+    <title>{{ __('home.page_title', ['name' => config('app.name', 'SMM Tool')]) }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -13,8 +13,8 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <x-heleket-site-verification />
 
-    <meta property="og:title" content="SMMTool - Best SMM Panel" />
-    <meta property="og:description" content="Grow your social media fast" />
+    <meta property="og:title" content="{{ __('home.meta_og_title', ['name' => config('app.name', 'SMM Tool')]) }}" />
+    <meta property="og:description" content="{{ __('home.meta_og_description') }}" />
     <meta property="og:image" content="{{ asset('images/preview.png') }}" />
     <meta property="og:url" content="{{ url()->current() }}" />
     <style>
@@ -287,7 +287,7 @@
         <img src="{{ asset('images/logo-icon.svg') }}" alt="" class="logo-mark">
         <span class="logo-text">
           <span class="logo-name">{{ config('app.name', 'SMM Tool') }}</span>
-          <span class="logo-slogan">Social Media Growth</span>
+          <span class="logo-slogan">{{ __('home.landing_brand_subtitle') }}</span>
         </span>
       </a>
       <ul class="nav-links">
@@ -299,14 +299,14 @@
         @endif
       </ul>
       <div class="nav-right">
-        <span class="direct-badge"><i class="fa-solid fa-check-circle"></i> {{ __('Direct Provider · No Resellers') }}</span>
-        <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle theme"><i class="fa-solid fa-moon" id="themeIcon"></i></button>
+        <span class="direct-badge"><i class="fa-solid fa-check-circle"></i> {{ __('home.direct_provider_badge') }}</span>
+        <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="{{ __('Toggle theme') }}"><i class="fa-solid fa-moon" id="themeIcon"></i></button>
         <x-language-dropdown variant="landing" />
         @auth('client')
           <a href="{{ route('client.orders.index') }}" class="btn-signup">{{ __('Dashboard') }}</a>
         @else
-          <a href="{{ route('login') }}" class="btn-signin">{{ __('Sign In') }}</a>
-          <a href="{{ route('register') }}" class="btn-signup">{{ __('Sign Up') }}</a>
+          <a href="{{ route('login') }}" class="btn-signin">{{ __('home.sign_in') }}</a>
+          <a href="{{ route('register') }}" class="btn-signup">{{ __('home.sign_up') }}</a>
         @endauth
       </div>
     </div>
@@ -315,26 +315,26 @@
 <!-- HERO + ORDER -->
 <section class="hero-order-section">
     <div class="hero-compact">
-        <h1 id="heroTitle">{{ __('SMM Services Direct Provider') }}</h1>
-        <h2>#1 for Completions &middot; Fast and Trusted</h2>
-        <p>{{ __('Order followers, likes, views, and engagement services in a few clicks.') }}</p>
+        <h1 id="heroTitle">{{ __('home.smm_services_headline') }}</h1>
+        <h2>{{ __('home.hero_headline_sub') }}</h2>
+        <p>{{ __('home.hero_intro') }}</p>
     </div>
 
     <div class="fast-order-wrap">
         <!-- Steps indicator -->
         <div class="steps-indicator">
-            <div class="step-item active" data-step="1"><div class="step-num">1</div><div class="step-label">{{ __('Platform') }}</div></div>
+            <div class="step-item active" data-step="1"><div class="step-num">1</div><div class="step-label">{{ __('home.platform_step') }}</div></div>
             <div class="step-arrow"><i class="fa-solid fa-chevron-right"></i></div>
-            <div class="step-item" data-step="2"><div class="step-num">2</div><div class="step-label">{{ __('Service') }}</div></div>
+            <div class="step-item" data-step="2"><div class="step-num">2</div><div class="step-label">{{ __('home.service_step') }}</div></div>
             <div class="step-arrow"><i class="fa-solid fa-chevron-right"></i></div>
-            <div class="step-item" data-step="3"><div class="step-num">3</div><div class="step-label">{{ __('Order') }}</div></div>
+            <div class="step-item" data-step="3"><div class="step-num">3</div><div class="step-label">{{ __('home.order_step') }}</div></div>
         </div>
 
         <!-- Step 1: Platform (= Category) -->
         <div class="order-step active" id="step-1">
             <div class="order-step-header" onclick="goToStep(1)">
                 <div class="order-step-num">1</div>
-                <div class="order-step-title">{{ __('Choose Platform') }}</div>
+                <div class="order-step-title">{{ __('home.choose_platform') }}</div>
                 <div class="order-step-summary" id="step1-summary" style="display:none"><i class="fa-solid fa-check-circle"></i> <span id="step1-text"></span></div>
             </div>
             <div class="order-step-body">
@@ -348,7 +348,7 @@
         <div class="order-step" id="step-2">
             <div class="order-step-header" onclick="goToStep(2)">
                 <div class="order-step-num">2</div>
-                <div class="order-step-title">{{ __('Select Service') }}</div>
+                <div class="order-step-title">{{ __('home.select_service_step') }}</div>
                 <div class="order-step-summary" id="step2-summary" style="display:none"><i class="fa-solid fa-check-circle"></i> <span id="step2-text"></span></div>
             </div>
             <div class="order-step-body">
@@ -362,7 +362,7 @@
         <div class="order-step" id="step-3">
             <div class="order-step-header" onclick="goToStep(3)">
                 <div class="order-step-num">3</div>
-                <div class="order-step-title">{{ __('Complete Order') }}</div>
+                <div class="order-step-title">{{ __('home.complete_order_step') }}</div>
             </div>
             <div class="order-step-body">
                 <div class="order-step-inner">
@@ -370,8 +370,8 @@
                         <input type="hidden" id="formServiceId">
                         <input type="hidden" id="formCategoryId">
                         <div class="form-group">
-                            <label class="form-label">{{ __('Your Link') }}</label>
-                            <input class="form-input" type="text" id="orderLink" placeholder="{{ __('Paste your link here...') }}">
+                            <label class="form-label">{{ __('home.your_link') }}</label>
+                            <input class="form-input" type="text" id="orderLink" placeholder="{{ __('home.paste_link_placeholder') }}">
                             <div class="form-error" id="linkError"></div>
                         </div>
                         <div class="form-group">
@@ -384,13 +384,13 @@
                         </div>
                         <div class="price-calculator">
                             <div>
-                                <div class="price-label">{{ __('Total Price') }}</div>
+                                <div class="price-label">{{ __('home.total_price_label') }}</div>
                                 <div style="font-size:11px;color:var(--text3);margin-top:1px" id="priceBreakdown">&mdash;</div>
                             </div>
                             <div class="price-total" id="priceTotal">$0.00</div>
                         </div>
                         <button type="button" class="btn-complete" id="btnComplete" disabled onclick="submitFastOrder()">
-                            <i class="fa-solid fa-lock"></i> {{ __('Complete Order') }}
+                            <i class="fa-solid fa-lock"></i> {{ __('home.complete_order_button') }}
                         </button>
                         <div class="form-error" id="orderError" style="text-align:center;margin-top:8px"></div>
                     </div>
@@ -405,7 +405,7 @@
     <div class="stats-bar-inner">
         <div class="stat-pill"><div class="stat-value">2B+</div><div class="stat-label">{{ __('Completions') }}</div></div>
         <div class="stat-pill"><div class="stat-value">2M+</div><div class="stat-label">{{ __('Orders Completed') }}</div></div>
-        <div class="stat-pill"><div class="stat-value">5 Years</div><div class="stat-label">{{ __('In the Market') }}</div></div>
+        <div class="stat-pill"><div class="stat-value">{{ __('home.stat_years_value') }}</div><div class="stat-label">{{ __('In the Market') }}</div></div>
         <div class="stat-pill"><div class="stat-value">24/7</div><div class="stat-label">{{ __('Support') }}</div></div>
         <div class="stat-pill"><div class="stat-value">200K+</div><div class="stat-label">{{ __('Happy Clients') }}</div></div>
     </div>
@@ -415,17 +415,17 @@
 <section class="section" id="why-us">
     <div class="section-inner">
         <div class="section-header">
-            <div class="section-tag">{{ __('Why Choose Us') }}</div>
-            <h2 class="section-title">{{ __('The #1 SMM Panel') }}</h2>
-            <p class="section-subtitle">{{ __('Trusted by hundreds of thousands of marketers worldwide.') }}</p>
+            <div class="section-tag">{{ __('home.why_us_tag') }}</div>
+            <h2 class="section-title">{{ __('home.why_us_title') }}</h2>
+            <p class="section-subtitle">{{ __('home.why_us_subtitle') }}</p>
         </div>
         <div class="features-grid">
-            <div class="feature-card"><div class="feature-icon"><i class="fa-solid fa-bolt"></i></div><h4>{{ __('Instant Delivery') }}</h4><p>{{ __('Orders start within seconds. Direct supplier pipeline.') }}</p></div>
-            <div class="feature-card"><div class="feature-icon"><i class="fa-solid fa-shield-halved"></i></div><h4>{{ __('100% Safe') }}</h4><p>{{ __('Platform-compliant methods only. Your accounts stay protected.') }}</p></div>
-            <div class="feature-card"><div class="feature-icon" style="background:rgba(0,210,211,0.1)"><i class="fa-solid fa-dollar-sign" style="color:var(--teal)"></i></div><h4>{{ __('Lowest Prices') }}</h4><p>{{ __('Direct sourcing cuts middlemen. Best rates guaranteed.') }}</p></div>
-            <div class="feature-card"><div class="feature-icon"><i class="fa-solid fa-headset"></i></div><h4>{{ __('24/7 Support') }}</h4><p>{{ __('Real humans, real answers. We respond in minutes.') }}</p></div>
-            <div class="feature-card"><div class="feature-icon" style="background:rgba(0,210,211,0.1)"><i class="fa-solid fa-globe" style="color:var(--teal)"></i></div><h4>{{ __('All Platforms') }}</h4><p>{{ __('Multiple social media platforms, hundreds of services.') }}</p></div>
-            <div class="feature-card"><div class="feature-icon"><i class="fa-solid fa-code"></i></div><h4>{{ __('Reseller API') }}</h4><p>{{ __('Full REST API for agencies. Build your own panel.') }}</p></div>
+            <div class="feature-card"><div class="feature-icon"><i class="fa-solid fa-bolt"></i></div><h4>{{ __('home.why_us_feat_instant_title') }}</h4><p>{{ __('home.why_us_feat_instant_desc') }}</p></div>
+            <div class="feature-card"><div class="feature-icon"><i class="fa-solid fa-shield-halved"></i></div><h4>{{ __('home.why_us_feat_safe_title') }}</h4><p>{{ __('home.why_us_feat_safe_desc') }}</p></div>
+            <div class="feature-card"><div class="feature-icon" style="background:rgba(0,210,211,0.1)"><i class="fa-solid fa-dollar-sign" style="color:var(--teal)"></i></div><h4>{{ __('home.why_us_feat_prices_title') }}</h4><p>{{ __('home.why_us_feat_prices_desc') }}</p></div>
+            <div class="feature-card"><div class="feature-icon"><i class="fa-solid fa-headset"></i></div><h4>{{ __('home.why_us_feat_support_title') }}</h4><p>{{ __('home.why_us_feat_support_desc') }}</p></div>
+            <div class="feature-card"><div class="feature-icon" style="background:rgba(0,210,211,0.1)"><i class="fa-solid fa-globe" style="color:var(--teal)"></i></div><h4>{{ __('home.why_us_feat_platforms_title') }}</h4><p>{{ __('home.why_us_feat_platforms_desc') }}</p></div>
+            <div class="feature-card"><div class="feature-icon"><i class="fa-solid fa-code"></i></div><h4>{{ __('home.why_us_feat_api_title') }}</h4><p>{{ __('home.why_us_feat_api_desc') }}</p></div>
         </div>
     </div>
 </section>
@@ -438,11 +438,11 @@
             <h2 class="section-title">{{ __('3 Simple Steps') }}</h2>
         </div>
         <div class="steps-visual">
-            <div class="how-step"><div class="how-step-icon"><i class="fa-solid fa-mobile-screen"></i></div><h4>{{ __('Choose Platform') }}</h4><p>{{ __('Pick your social media platform') }}</p></div>
+            <div class="how-step"><div class="how-step-icon"><i class="fa-solid fa-mobile-screen"></i></div><h4>{{ __('home.choose_platform') }}</h4><p>{{ __('home.pick_platform_desc') }}</p></div>
             <div class="how-arrow"><i class="fa-solid fa-arrow-right"></i></div>
-            <div class="how-step"><div class="how-step-icon"><i class="fa-solid fa-list"></i></div><h4>{{ __('Pick Service') }}</h4><p>{{ __('Select the service you need') }}</p></div>
+            <div class="how-step"><div class="how-step-icon"><i class="fa-solid fa-list"></i></div><h4>{{ __('home.pick_service') }}</h4><p>{{ __('home.select_service_desc') }}</p></div>
             <div class="how-arrow"><i class="fa-solid fa-arrow-right"></i></div>
-            <div class="how-step"><div class="how-step-icon"><i class="fa-solid fa-rocket"></i></div><h4>{{ __('Get Results') }}</h4><p>{{ __('Enter link, set quantity, order') }}</p></div>
+            <div class="how-step"><div class="how-step-icon"><i class="fa-solid fa-rocket"></i></div><h4>{{ __('home.get_results') }}</h4><p>{{ __('home.get_results_desc') }}</p></div>
         </div>
     </div>
 </section>
@@ -451,40 +451,20 @@
 <section class="section" id="testimonials">
     <div class="section-inner">
       <div class="section-header">
-        <div class="section-tag">Reviews</div>
-        <h2 class="section-title">What Our Clients Say</h2>
+        <div class="section-tag">{{ __('home.testimonials_tag') }}</div>
+        <h2 class="section-title">{{ __('home.testimonials_title') }}</h2>
       </div>
       <div class="testimonials-grid">
+        @foreach(range(1, 6) as $ti)
         <div class="testimonial-card">
-          <div class="testimonial-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
-          <p class="testimonial-text">Excellent service! My YouTube channel grew from 500 to 10K subscribers in two weeks. The quality is surprisingly good and most followers look real. Definitely coming back for more.</p>
-          <div class="testimonial-author"><div class="testimonial-avatar">JM</div><div><div class="testimonial-name">Jake M.</div><div class="testimonial-role">YouTuber, 45K subs</div></div></div>
+          <div class="testimonial-stars">{!! $ti === 4 ? '&#9733;&#9733;&#9733;&#9733;&#9734;' : '&#9733;&#9733;&#9733;&#9733;&#9733;' !!}</div>
+          <p class="testimonial-text">{{ __('home.testimonial_'.$ti.'_text') }}</p>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar">{{ __('home.testimonial_'.$ti.'_avatar') }}</div>
+            <div><div class="testimonial-name">{{ __('home.testimonial_'.$ti.'_name') }}</div><div class="testimonial-role">{{ __('home.testimonial_'.$ti.'_role') }}</div></div>
+          </div>
         </div>
-        <div class="testimonial-card">
-          <div class="testimonial-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
-          <p class="testimonial-text">We manage 30+ client accounts and this tool saved us hours every week. The API integration took about 20 minutes. Prices are way better than what we were paying before.</p>
-          <div class="testimonial-author"><div class="testimonial-avatar">SR</div><div><div class="testimonial-name">Sarah R.</div><div class="testimonial-role">Agency Owner</div></div></div>
-        </div>
-        <div class="testimonial-card">
-          <div class="testimonial-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
-          <p class="testimonial-text">Needed Telegram members for a crypto project. Got 15K members delivered in 3 days. Support responded within 5 minutes when I had a question. Very impressed with the speed.</p>
-          <div class="testimonial-author"><div class="testimonial-avatar">AK</div><div><div class="testimonial-name">Andrei K.</div><div class="testimonial-role">Crypto Project Manager</div></div></div>
-        </div>
-        <div class="testimonial-card">
-          <div class="testimonial-stars">&#9733;&#9733;&#9733;&#9733;&#9734;</div>
-          <p class="testimonial-text">Good service overall. Instagram likes came through fast. Had a small drop after a week but the auto-refill kicked in. Fair pricing and the dashboard is clean. Would recommend for small businesses.</p>
-          <div class="testimonial-author"><div class="testimonial-avatar">LP</div><div><div class="testimonial-name">Lisa P.</div><div class="testimonial-role">Small Business Owner</div></div></div>
-        </div>
-        <div class="testimonial-card">
-          <div class="testimonial-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
-          <p class="testimonial-text">Been using SMM panels for years and this one has the best price-to-quality ratio. TikTok views are super cheap and they deliver fast. My go-to panel now.</p>
-          <div class="testimonial-author"><div class="testimonial-avatar">DT</div><div><div class="testimonial-name">David T.</div><div class="testimonial-role">TikTok Creator</div></div></div>
-        </div>
-        <div class="testimonial-card">
-          <div class="testimonial-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
-          <p class="testimonial-text">What I love is the crypto payment option. No need to share card details. Ordered Spotify plays and they looked legit in my analytics. Great for independent artists.</p>
-          <div class="testimonial-author"><div class="testimonial-avatar">MH</div><div><div class="testimonial-name">Maya H.</div><div class="testimonial-role">Independent Musician</div></div></div>
-        </div>
+        @endforeach
       </div>
     </div>
 </section>
@@ -498,41 +478,41 @@
             <img src="{{ asset('images/logo-icon.svg') }}" alt="" class="logo-mark" style="width:38px;height:38px;border-radius:10px">
             <span class="logo-text"><span class="logo-name" style="font-size:20px">{{ config('app.name', 'SMM Tool') }}</span></span>
           </a>
-          <p>The fastest, most reliable SMM panel. Direct provider, no resellers. Professional social media growth tools.</p>
+          <p>{{ __('home.footer_brand_blurb') }}</p>
           <div class="footer-social">
             @if($contactTelegram)
-              <a href="https://t.me/{{ $contactTelegram }}" target="_blank" title="Telegram"><i class="fa-brands fa-telegram"></i></a>
+              <a href="https://t.me/{{ $contactTelegram }}" target="_blank" rel="noopener noreferrer" title="{{ __('home.footer_telegram') }}"><i class="fa-brands fa-telegram"></i></a>
             @endif
-            <a href="#" title="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
+            <a href="#" title="{{ __('home.footer_whatsapp') }}"><i class="fa-brands fa-whatsapp"></i></a>
             <a href="#" title="Facebook"><i class="fa-brands fa-facebook"></i></a>
           </div>
         </div>
         <div class="footer-col">
-          <h5>Company</h5>
+          <h5>{{ __('home.footer_col_company') }}</h5>
           <ul>
-            <li><a href="#"><i class="fa-solid fa-list"></i> Services</a></li>
-            <li><a href="#why-us"><i class="fa-solid fa-building"></i> About Us</a></li>
-            <li><a href="#"><i class="fa-solid fa-pen"></i> Blog</a></li>
-            <li><a href="#"><i class="fa-solid fa-code"></i> API</a></li>
+            <li><a href="#" onclick="openServicesModal(); return false;"><i class="fa-solid fa-list"></i> {{ __('home.footer_services') }}</a></li>
+            <li><a href="#why-us"><i class="fa-solid fa-building"></i> {{ __('home.footer_about') }}</a></li>
+            <li><a href="#"><i class="fa-solid fa-pen"></i> {{ __('home.footer_blog') }}</a></li>
+            <li><a href="#"><i class="fa-solid fa-code"></i> {{ __('home.footer_api') }}</a></li>
           </ul>
         </div>
         <div class="footer-col">
-          <h5>Support</h5>
+          <h5>{{ __('home.footer_col_support') }}</h5>
           <ul>
             @if($contactTelegram)
-              <li><a href="https://t.me/{{ $contactTelegram }}" target="_blank"><i class="fa-brands fa-telegram"></i> Telegram</a></li>
+              <li><a href="https://t.me/{{ $contactTelegram }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-telegram"></i> {{ __('home.footer_telegram') }}</a></li>
             @endif
-            <li><a href="#"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a></li>
-            <li><a href="#"><i class="fa-solid fa-file-contract"></i> Terms of Service</a></li>
-            <li><a href="#"><i class="fa-solid fa-shield-halved"></i> Privacy Policy</a></li>
+            <li><a href="#"><i class="fa-brands fa-whatsapp"></i> {{ __('home.footer_whatsapp') }}</a></li>
+            <li><a href="#"><i class="fa-solid fa-file-contract"></i> {{ __('home.footer_terms') }}</a></li>
+            <li><a href="#"><i class="fa-solid fa-shield-halved"></i> {{ __('home.footer_privacy_footer') }}</a></li>
           </ul>
         </div>
       </div>
       <div class="footer-bottom">
-        <div class="footer-copy">&copy; {{ date('Y') }} {{ config('app.name', 'SMM Tool') }}. All rights reserved. Powered by {{ config('app.name', 'SMMTOOL') }}</div>
+        <div class="footer-copy">{{ __('home.footer_copyright_line', ['year' => date('Y'), 'name' => config('app.name', 'SMM Tool'), 'powered' => config('app.name', 'SMM Tool')]) }}</div>
         <div class="footer-legal">
-          <a href="#">Privacy Policy</a>
-          <a href="#">Cookies</a>
+          <a href="#">{{ __('home.footer_privacy_footer') }}</a>
+          <a href="#">{{ __('home.footer_cookies_link') }}</a>
         </div>
       </div>
     </div>
@@ -558,7 +538,7 @@
 <!-- FLOATING BUTTONS -->
 <div class="floating-btns">
     @if($contactTelegram)
-        <a href="https://t.me/{{ $contactTelegram }}" target="_blank" class="float-btn float-btn-support" title="Support"><i class="fa-brands fa-telegram"></i></a>
+        <a href="https://t.me/{{ $contactTelegram }}" target="_blank" rel="noopener noreferrer" class="float-btn float-btn-support" title="{{ __('home.float_support_title') }}"><i class="fa-brands fa-telegram"></i></a>
     @endif
 </div>
 
@@ -570,9 +550,35 @@
     </div>
 @endif
 
+@php
+$homeI18n = [
+    'noServices' => __('home.js_no_services'),
+    'qtyBetween' => __('home.js_qty_between'),
+    'qtyHint' => __('home.qty_hint_template'),
+    'pasteLinkPlaceholder' => __('home.paste_link_placeholder'),
+    'priceBreakdown' => __('home.price_breakdown_template'),
+    'noServicesModal' => __('home.js_no_services_modal'),
+    'order' => __('home.js_order'),
+    'processing' => __('home.js_processing'),
+    'completeOrder' => __('home.complete_order_button'),
+    'orderFailed' => __('home.js_order_failed'),
+    'noUuid' => __('home.js_no_uuid'),
+    'checkoutFailed' => __('home.js_checkout_failed'),
+    'simulateFailed' => __('home.js_simulate_failed'),
+    'noLoginUrl' => __('home.js_no_login_url'),
+    'paymentFailed' => __('home.js_payment_failed'),
+];
+@endphp
 <script>
+const HOME_I18N = @json($homeI18n);
 const CATEGORIES = @json($categoriesForJs);
 let state = { categoryId: null, serviceId: null, currentStep: 1 };
+
+function escapeHtml(text) {
+    const d = document.createElement('div');
+    d.textContent = text;
+    return d.innerHTML;
+}
 
 // Platform icon map by linkType
 const PLATFORM_ICONS = {
@@ -630,7 +636,7 @@ function renderServices(categoryId) {
     const cat = CATEGORIES.find(c => c.id === categoryId);
     const list = document.getElementById('serviceList');
     if (!cat || !cat.services.length) {
-        list.innerHTML = '<div style="padding:16px;color:var(--text3);text-align:center">No services available</div>';
+        list.innerHTML = '<div style="padding:16px;color:var(--text3);text-align:center">' + escapeHtml(HOME_I18N.noServices) + '</div>';
         return;
     }
     list.innerHTML = cat.services.map(s =>
@@ -664,8 +670,8 @@ function selectService(categoryId, serviceId) {
         document.getElementById('orderQty').step = svc.step || 1;
         document.getElementById('orderQty').value = svc.min;
         document.getElementById('orderQty').placeholder = svc.min;
-        document.getElementById('qtyHint').textContent = `Min: ${svc.min.toLocaleString()} · Max: ${svc.max.toLocaleString()}`;
-        document.getElementById('orderLink').placeholder = svc.placeholder || 'Paste your link here...';
+        document.getElementById('qtyHint').textContent = HOME_I18N.qtyHint.replace(':min', svc.min.toLocaleString()).replace(':max', svc.max.toLocaleString());
+        document.getElementById('orderLink').placeholder = svc.placeholder || HOME_I18N.pasteLinkPlaceholder;
         updatePrice();
     }
     goToStep(3);
@@ -696,7 +702,9 @@ function updatePrice() {
     const qty = parseInt(document.getElementById('orderQty').value) || 0;
     const total = svc ? (qty / 1000 * svc.pricePer1000) : 0;
     document.getElementById('priceTotal').textContent = '$' + total.toFixed(2);
-    document.getElementById('priceBreakdown').textContent = svc ? `$${svc.pricePer1000.toFixed(2)} per 1K × ${qty.toLocaleString()}` : '—';
+    document.getElementById('priceBreakdown').textContent = svc
+        ? HOME_I18N.priceBreakdown.replace(':price', '$' + svc.pricePer1000.toFixed(2)).replace(':qty', qty.toLocaleString())
+        : '—';
     validate();
 }
 
@@ -712,7 +720,7 @@ function validate() {
 
     if (!link) valid = false;
     if (svc && (qty < svc.min || qty > svc.max)) {
-        document.getElementById('qtyError').textContent = `Quantity must be between ${svc.min.toLocaleString()} and ${svc.max.toLocaleString()}`;
+        document.getElementById('qtyError').textContent = HOME_I18N.qtyBetween.replace(':min', svc.min.toLocaleString()).replace(':max', svc.max.toLocaleString());
         valid = false;
     }
     if (!state.serviceId) valid = false;
@@ -755,11 +763,11 @@ function buildServicesTable(filter) {
                 <td class="svc-rate">$${svc.pricePer1000.toFixed(2)}</td>
                 <td>${svc.min.toLocaleString()}</td>
                 <td>${svc.max.toLocaleString()}</td>
-                <td><button class="svc-order-btn" onclick="orderFromModal(${cat.id},${svc.id})">Order</button></td>
+                <td><button class="svc-order-btn" onclick="orderFromModal(${cat.id},${svc.id})">${escapeHtml(HOME_I18N.order)}</button></td>
             </tr>`;
         });
     });
-    tbody.innerHTML = html || '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">No services found</td></tr>';
+    tbody.innerHTML = html || '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">' + escapeHtml(HOME_I18N.noServicesModal) + '</td></tr>';
 }
 
 function openServicesModal() {
@@ -797,7 +805,7 @@ async function submitFastOrder() {
     const qty = parseInt(document.getElementById('orderQty').value) || 0;
 
     btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...';
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ' + escapeHtml(HOME_I18N.processing);
 
     try {
         // 1) Create fast order draft
@@ -814,12 +822,12 @@ async function submitFastOrder() {
         const data = await res.json();
 
         if (!res.ok) {
-            const errors = data.errors ? Object.values(data.errors).flat().join('; ') : (data.message || 'Order failed');
+            const errors = data.errors ? Object.values(data.errors).flat().join('; ') : (data.message || HOME_I18N.orderFailed);
             throw new Error(errors);
         }
 
         const uuid = data.fast_order?.uuid;
-        if (!uuid) throw new Error('No order UUID returned');
+        if (!uuid) throw new Error(HOME_I18N.noUuid);
 
         // 2) Set payment method
         const pmRes = await fetch(`/api/fast-orders/${uuid}/payment-method`, {
@@ -829,7 +837,7 @@ async function submitFastOrder() {
         });
         const pmData = await pmRes.json().catch(() => ({}));
         if (!pmRes.ok) {
-            const msg = pmData.message || (pmData.errors ? Object.values(pmData.errors).flat().join('; ') : null) || 'Could not start checkout';
+            const msg = pmData.message || (pmData.errors ? Object.values(pmData.errors).flat().join('; ') : null) || HOME_I18N.checkoutFailed;
             throw new Error(msg);
         }
 
@@ -843,14 +851,14 @@ async function submitFastOrder() {
         const simData = await simRes.json().catch(() => ({}));
 
         if (!simRes.ok) {
-            throw new Error(simData.message || 'Simulate payment failed');
+            throw new Error(simData.message || HOME_I18N.simulateFailed);
         }
 
         const loginUrl = simData.auto_login_url;
         if (loginUrl) {
             window.location.href = loginUrl;
         } else {
-            throw new Error('No login URL returned');
+            throw new Error(HOME_I18N.noLoginUrl);
         }
         @else
         // PRODUCTION: initiate real Heleket payment
@@ -866,14 +874,14 @@ async function submitFastOrder() {
             return;
         }
 
-        const payErr = payData.message || (payData.errors ? Object.values(payData.errors).flat().join('; ') : null) || 'Payment could not be started';
+        const payErr = payData.message || (payData.errors ? Object.values(payData.errors).flat().join('; ') : null) || HOME_I18N.paymentFailed;
         throw new Error(payErr);
         @endif
 
     } catch (err) {
         errorEl.textContent = err.message;
         btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-lock"></i> {{ __("Complete Order") }}';
+        btn.innerHTML = '<i class="fa-solid fa-lock"></i> ' + escapeHtml(HOME_I18N.completeOrder);
     }
 }
 
