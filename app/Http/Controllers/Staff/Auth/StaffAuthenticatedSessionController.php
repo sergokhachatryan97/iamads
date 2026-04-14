@@ -7,6 +7,7 @@ use App\Http\Requests\Staff\Auth\StaffLoginRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class StaffAuthenticatedSessionController extends Controller
@@ -30,7 +31,14 @@ class StaffAuthenticatedSessionController extends Controller
      */
     public function store(StaffLoginRequest $request): RedirectResponse
     {
-        $request->authenticate();
+        try {
+            $request->authenticate();
+        } catch (ValidationException $e) {
+            // PRG: never leave a POST in browser history (refresh / “resubmit” → stale CSRF → 419).
+            return redirect()->route('staff.login')
+                ->withErrors($e->errors())
+                ->withInput($request->only('email'));
+        }
 
         $request->session()->regenerate();
 

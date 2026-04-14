@@ -1,7 +1,5 @@
 # Provider API Documentation
 
-**Socpanel / Perfect Panel Compatible**
-
 This API provides a single-endpoint integration style for reseller panels, automation tools, and third-party platforms. All requests use the same URL with different `action` values.
 
 ---
@@ -9,7 +7,7 @@ This API provides a single-endpoint integration style for reseller panels, autom
 ## Endpoint
 
 ```
-POST https://your-domain.com/api/v2
+POST https://smmtool.org/api/v2
 Content-Type: application/json
 ```
 
@@ -49,7 +47,8 @@ Returns all active services available for ordering. Services are listed with IDs
   {
     "service": 1,
     "name": "YouTube Views",
-    "type": "default",
+    "category": "YouTube",
+    "type": "Default",
     "rate": "1.20",
     "min": "100",
     "max": "10000"
@@ -57,7 +56,8 @@ Returns all active services available for ordering. Services are listed with IDs
   {
     "service": 2,
     "name": "Telegram Members",
-    "type": "default",
+    "category": "Telegram",
+    "type": "Default",
     "rate": "2.50",
     "min": "50",
     "max": "5000"
@@ -65,14 +65,15 @@ Returns all active services available for ordering. Services are listed with IDs
 ]
 ```
 
-| Field   | Type   | Description                          |
-|---------|--------|--------------------------------------|
-| service | int    | Service ID (use this in the add action) |
-| name    | string | Service name                         |
-| type    | string | Always `"default"`                   |
-| rate    | string | Price per 1000 units in USD          |
-| min     | string | Minimum quantity                     |
-| max     | string | Maximum quantity (`"0"` = no limit)  |
+| Field    | Type   | Description                          |
+|----------|--------|--------------------------------------|
+| service  | int    | Service ID (use this in the add action) |
+| name     | string | Service name                         |
+| category | string | Category name                        |
+| type     | string | Always `"Default"`                   |
+| rate     | string | Price per 1000 units in USD          |
+| min      | string | Minimum quantity                     |
+| max      | string | Maximum quantity (`"0"` = no limit)  |
 
 ---
 
@@ -148,16 +149,18 @@ Returns the current status and details of an order.
 | status      | string | Current order status (see below) |
 | remains     | string | Remaining quantity to deliver (`"0"` when done) |
 
-**Possible status values:**
+**Possible `status` values**
 
-| Status      | Description |
-|-------------|-------------|
-| Processing  | Link is being validated |
-| Pending     | Order is queued, awaiting start |
-| In progress | Order is being delivered |
-| Completed   | Order finished successfully |
-| Canceled    | Order was canceled |
-| Failed      | Order failed (e.g. invalid link, restriction) |
+| `status` | Meaning |
+|----------|---------|
+| `Pending` | Order is queued and waiting to start. |
+| `Processing` | Order is being validated (link checks). |
+| `In progress` | Order is actively being delivered. |
+| `Completed` | Order is fully delivered (`remains` is `”0”`). |
+| `Canceled` | Order was canceled before full delivery. |
+| `Failed` | Order failed (invalid link or other error). |
+
+**Note:** Capitalization matters — `In progress` has a space, `Canceled` has one “l”.
 
 ---
 
@@ -216,35 +219,35 @@ All errors return JSON with an `error` field:
 
 **List services:**
 ```bash
-curl -X POST https://your-domain.com/api/v2 \
+curl -X POST https://smmtool.org/api/v2 \
   -H "Content-Type: application/json" \
   -d '{"key":"your_api_key","action":"services"}'
 ```
 
 **Create order:**
 ```bash
-curl -X POST https://your-domain.com/api/v2 \
+curl -X POST https://smmtool.org/api/v2 \
   -H "Content-Type: application/json" \
   -d '{"key":"your_api_key","action":"add","service":12,"link":"https://youtube.com/watch?v=xxx","quantity":500,"order":"MY-ORDER-001"}'
 ```
 
 **Check status (by internal ID):**
 ```bash
-curl -X POST https://your-domain.com/api/v2 \
+curl -X POST https://smmtool.org/api/v2 \
   -H "Content-Type: application/json" \
   -d '{"key":"your_api_key","action":"status","order":123456}'
 ```
 
 **Check status (by external ID):**
 ```bash
-curl -X POST https://your-domain.com/api/v2 \
+curl -X POST https://smmtool.org/api/v2 \
   -H "Content-Type: application/json" \
   -d '{"key":"your_api_key","action":"status","order":"MY-ORDER-001"}'
 ```
 
 **Check balance:**
 ```bash
-curl -X POST https://your-domain.com/api/v2 \
+curl -X POST https://smmtool.org/api/v2 \
   -H "Content-Type: application/json" \
   -d '{"key":"your_api_key","action":"balance"}'
 ```

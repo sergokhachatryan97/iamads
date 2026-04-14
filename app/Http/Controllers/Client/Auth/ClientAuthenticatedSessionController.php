@@ -8,6 +8,7 @@ use App\Services\ClientLoginLogServiceInterface;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class ClientAuthenticatedSessionController extends Controller
@@ -29,7 +30,13 @@ class ClientAuthenticatedSessionController extends Controller
      */
     public function store(ClientLoginRequest $request): RedirectResponse
     {
-        $request->authenticate();
+        try {
+            $request->authenticate();
+        } catch (ValidationException $e) {
+            return redirect()->route('login')
+                ->withErrors($e->errors())
+                ->withInput($request->only('email'));
+        }
 
         // Get authenticated client
         $client = Auth::guard('client')->user();
@@ -42,7 +49,8 @@ class ClientAuthenticatedSessionController extends Controller
                 $request->session()->regenerateToken();
 
                 return redirect()->route('login')
-                    ->withErrors(['email' => 'Your account is suspended. You cannot access the panel.']);
+                    ->withErrors(['email' => 'Your account is suspended. You cannot access the panel.'])
+                    ->withInput($request->only('email'));
             }
 
             // Update last_auth timestamp
