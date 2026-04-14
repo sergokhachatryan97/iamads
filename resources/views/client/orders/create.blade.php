@@ -282,8 +282,12 @@
                                     :required="categoryId"
                                     class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed">
                                     <option value="" x-text="loading ? '{{ __('Loading...') }}' : '{{ __('common.select_service_placeholder') }}'"></option>
-                                    <template x-for="service in (Array.isArray(services) ? services : [])" :key="'service-' + service.id">
-                                        <option :value="service.id" :selected="serviceId == service.id" x-text="service.name"></option>
+                                    <template x-for="group in serviceGroups" :key="'group-' + group.label">
+                                        <optgroup :label="group.label">
+                                            <template x-for="service in group.services" :key="'service-' + service.id">
+                                                <option :value="service.id" :selected="serviceId == service.id" x-text="service.name"></option>
+                                            </template>
+                                        </optgroup>
                                     </template>
                                 </select>
                                 @error('service_id')
@@ -1139,6 +1143,22 @@
                     };
                     return m[type] || m.generic;
                 },
+                get serviceGroups() {
+                    const list = Array.isArray(this.services) ? this.services : [];
+                    const grouped = {};
+                    const order = [];
+                    list.forEach(service => {
+                        const group = service.dropdown_group || 'Other';
+                        const label = service.dropdown_label || group;
+                        if (!grouped[group]) {
+                            grouped[group] = { label: label, services: [] };
+                            order.push(group);
+                        }
+                        grouped[group].services.push(service);
+                    });
+                    return order.map(g => grouped[g]);
+                },
+
                 // Single service order data
                 categoryId: '{{ old('category_id', $preselectedCategoryId ?? '') }}',
                 targetType: '{{ old('target_type', $preselectedTargetType ?? '') }}',

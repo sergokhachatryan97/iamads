@@ -589,6 +589,10 @@ class OrderController extends Controller
                     'system_managed' => $linkDriver === 'telegram'
                         ? (bool) ($service->template()['system_managed'] ?? false)
                         : false,
+
+                    // Dropdown grouping
+                    'dropdown_group' => $service->template()['dropdown_group'] ?? null,
+                    'dropdown_label' => $service->template()['dropdown_label'] ?? null,
                 ];
             })
             ->values();
