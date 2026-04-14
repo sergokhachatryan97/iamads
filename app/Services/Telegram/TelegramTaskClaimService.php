@@ -40,7 +40,7 @@ class TelegramTaskClaimService
 
     private const BATCH_SIZE = 50;
 
-    private const ELIGIBLE_CACHE_TTL = 10;
+    private const ELIGIBLE_CACHE_TTL = 30;
 
     /** Per-request cache for getPhoneActiveSubscribedCount — avoids repeated COUNT in loop. */
     private array $activeSubscribedCache = [];
@@ -687,10 +687,12 @@ class TelegramTaskClaimService
 
         return DB::transaction(function () use ($preloaded, $phone, $scope, $preloadedService): ?array {
             // Lock order: orders -> telegram_order_memberships -> telegram_account_link_states -> telegram_tasks
+            // SKIP LOCKED: competing transactions skip already-locked rows instead of
+            // waiting, eliminating lock-wait queues and deadlock cycles at high concurrency.
             $order = Order::query()
                 ->where('id', $preloaded->id)
                 ->where('remains', '>', 0)
-                ->lockForUpdate()
+                ->lockForUpdate('skip locked')
                 ->first();
 
             if (! $order) {
@@ -1102,4 +1104,213 @@ LUA;
 
         return str_contains($msg, 'Duplicate entry') || str_contains($msg, 'unique') || ($e->getCode() ?? 0) === 23000;
     }
-}
+
+    // =========================================================================
+    //  Push-model claim (used when PreassignTelegramTasksJob has pre-filled queue)
+    // =========================================================================
+
+    /**
+     * Claim a pre-assigned PENDING task from the Redis service queue.
+     *
+     * Flow:
+     *   1. Track phone activity for the background job (ZADD scored set).
+     *   2. Redis early gates: cooldown + daily cap (no DB, no locks).
+     *   3. LPOP task_id from tg:service_queue:{scope}:{serviceId}.
+     *   4. Atomic lightweight claim: UPDATE WHERE status=pending (single row by PK).
+     *   5. Membership dedup check (single indexed read, no lock).
+     *   6. Write TelegramOrderMembership + TelegramAccountLinkState (no FOR UPDATE).
+     *   7. Increment Redis cap + cooldown.
+     *
+     * Returns null when queue is empty → caller falls back to pull model.
+     */
+    public function claimFromQueue(string $phone, string $scope, int $serviceId): ?array
+    {
+        $phone = TelegramAccountLinkState::normalizePhone($phone);
+
+        // Track this phone as recently active so PreassignTelegramTasksJob knows
+        // which phones are polling (scored set keyed by unix timestamp).
+        try {
+            $activeKey = "tg:active_phones:{$scope}:{$serviceId}";
+            Redis::zadd($activeKey, now()->timestamp, $phone);
+            Redis::expire($activeKey, 300);
+        } catch (\Throwable) {}
+
+        $queueKey = "tg:service_queue:{$scope}:{$serviceId}";
+
+        // Retry up to 3 pops per request to skip stale/already-claimed task IDs.
+        // LPOP happens first so we can parse the real action from the queue value
+        // (format: "{taskId}:{action}") and gate with the correct action instead of
+        // a hard-coded 'subscribe'. If this phone is gated, we return null and accept
+        // the slot is unavailable for up to 30 s — PreassignTelegramTasksJob
+        // re-pushes all PENDING tasks on its next run, so no permanent loss.
+        for ($pop = 0; $pop < 3; $pop++) {
+            try {
+                $raw = Redis::lpop($queueKey);
+            } catch (\Throwable) {
+                return null;
+            }
+
+            if ($raw === null || $raw === false) {
+                return null; // queue empty
+            }
+
+            // Parse "{taskId}:{action}" — default to 'subscribe' for legacy plain-ID values.
+            // taskId is a ULID string (26 chars, alphanumeric) so must NOT be cast to int.
+            [$taskId, $action] = array_pad(explode(':', (string) $raw, 2), 2, 'subscribe');
+            if ($taskId === '') {
+                continue; // malformed entry, skip
+            }
+
+            // Redis gates checked with the real action — no DB opened if phone is blocked.
+            if ($this->isPhoneCooldownActive($phone, $action)) {
+                return null;
+            }
+            if ($this->isPhoneDailyCapExhausted($phone, $scope, $action)) {
+                return null;
+            }
+
+            $result = $this->claimPendingTask($taskId, $action, $phone, $scope, $serviceId);
+            if ($result !== null) {
+                return $result;
+            }
+            // Stale / race-lost — try next ID from queue
+        }
+
+        return null;
+    }
+
+    /**
+     * Attempt to claim a single PENDING task for the given phone.
+     *
+     * @param  string $action  Action parsed from the queue value — avoids loading the task
+     *                         just to read the action field.
+     * Returns the task DTO on success, null on any rejection.
+     */
+    private function claimPendingTask(string $taskId, string $action, string $phone, string $scope, int $serviceId): ?array
+    {
+        $task = TelegramTask::find($taskId);
+        if (! $task || $task->status !== TelegramTask::STATUS_PENDING) {
+            return null; // already claimed by another phone or cleaned up
+        }
+
+        $order = Order::query()
+            ->where('id', $task->order_id)
+            ->where('remains', '>', 0)
+            ->whereIn('status', [Order::STATUS_AWAITING, Order::STATUS_IN_PROGRESS, Order::STATUS_PROCESSING])
+            ->first();
+
+        if (! $order) {
+            // Order cancelled, completed, or drained — discard task silently
+            TelegramTask::where('id', $taskId)
+                ->where('status', TelegramTask::STATUS_PENDING)
+                ->update(['status' => TelegramTask::STATUS_FAILED,
+                          'result' => json_encode(['error' => 'Order no longer active']),
+                          'updated_at' => now()]);
+            return null;
+        }
+
+        $link     = (string) $order->link;
+        $linkHash = TelegramAccountLinkState::linkHash($link);
+
+        // Active subscribed cap — if full, return null and let the task sit PENDING.
+        // PreassignTelegramTasksJob will re-push it on the next run (≤30 s).
+        // We do NOT RPUSH back here to avoid circular churn when the same phone is
+        // the only one polling for this service.
+        $normalizedAction = $this->normalizeAction($action);
+        if (in_array($normalizedAction, ['subscribe', 'unsubscribe'], true)) {
+            if ($this->getPhoneActiveSubscribedCount($phone) >= $this->phoneActiveSubscribedCap($scope)) {
+                return null;
+            }
+        }
+
+        // Membership dedup — single indexed read, no lock.
+        // No RPUSH: task stays PENDING; preassign re-queues on next run.
+        $alreadyMember = TelegramOrderMembership::query()
+            ->where('order_id', $order->id)
+            ->where('account_phone', $phone)
+            ->where('link_hash', $linkHash)
+            ->whereIn('state', [TelegramOrderMembership::STATE_SUBSCRIBED, TelegramOrderMembership::STATE_IN_PROGRESS])
+            ->exists();
+
+        if ($alreadyMember) {
+            return null;
+        }
+
+        // Merge phone into the pre-built payload
+        $storedPayload = is_array($task->payload)
+            ? $task->payload
+            : (json_decode($task->payload ?? '{}', true) ?: []);
+        $payload = array_merge($storedPayload, ['account_phone' => $phone]);
+
+        // Atomic claim: UPDATE WHERE status=pending is the race gate.
+        // Only one phone wins; others get 0 rows affected and skip.
+        // No transaction needed — single row by PK.
+        $claimed = TelegramTask::where('id', $taskId)
+            ->where('status', TelegramTask::STATUS_PENDING)
+            ->update([
+                'status'       => TelegramTask::STATUS_LEASED,
+                'leased_until' => now()->addSeconds(self::LEASE_TTL_SECONDS),
+                'payload'      => json_encode($payload),
+                'updated_at'   => now(),
+            ]);
+
+        if ($claimed === 0) {
+            return null; // another phone won the race
+        }
+
+        // Cap + cooldown (after successful claim so we don't block others on rollback)
+        $capAction = $this->normalizeAction($action);
+        if ($this->tryIncrementPhoneDailyCap($phone, $scope, $capAction) === 0) {
+            // Cap just exhausted — release the task back to PENDING
+            TelegramTask::where('id', $taskId)
+                ->update(['status' => TelegramTask::STATUS_PENDING, 'leased_until' => null, 'updated_at' => now()]);
+            return null;
+        }
+
+        $cooldownSeconds = $this->getActionCooldownSeconds($scope, $capAction);
+        if (! $this->acquirePhoneCooldown($phone, $capAction, $cooldownSeconds)) {
+            $this->rollbackPhoneDailyCap($phone, $scope, $capAction);
+            TelegramTask::where('id', $taskId)
+                ->update(['status' => TelegramTask::STATUS_PENDING, 'leased_until' => null, 'updated_at' => now()]);
+            return null;
+        }
+
+        // Membership + link state — lightweight inserts, unique constraints handle races
+        try {
+            TelegramOrderMembership::create([
+                'order_id'      => $order->id,
+                'account_phone' => $phone,
+                'link_hash'     => $linkHash,
+                'link'          => $link,
+                'state'         => TelegramOrderMembership::STATE_IN_PROGRESS,
+            ]);
+        } catch (\Throwable $e) {
+            if ($this->isDuplicateKeyException($e)) {
+                $this->rollbackCapAndCooldown($phone, $scope, $capAction, $cooldownSeconds);
+                TelegramTask::where('id', $taskId)
+                    ->update(['status' => TelegramTask::STATUS_PENDING, 'leased_until' => null, 'updated_at' => now()]);
+                return null;
+            }
+            throw $e;
+        }
+
+        TelegramAccountLinkState::updateOrCreate(
+            ['account_phone' => $phone, 'link_hash' => $linkHash, 'action' => $action],
+            ['state' => TelegramAccountLinkState::STATE_IN_PROGRESS, 'last_error' => null]
+        );
+
+        if ($order->status === Order::STATUS_AWAITING) {
+            $order->update([
+                'status'          => Order::STATUS_IN_PROGRESS,
+                'execution_phase' => Order::EXECUTION_PHASE_RUNNING,
+            ]);
+        }
+
+        return [
+            'task_id'  => $taskId,
+            'order_id' => (int) $order->id,
+            'action'   => $action,
+            'link'     => $link,
+            'link_hash'=> $linkHash,
+        ];
+    }}

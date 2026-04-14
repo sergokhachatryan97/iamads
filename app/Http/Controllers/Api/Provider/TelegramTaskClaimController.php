@@ -73,13 +73,29 @@ class TelegramTaskClaimController extends Controller
         Redis::expire($hllKey, 7200);
 
         try {
-            $tasks = $this->claimService->claimForPhone($phone, 1, $scope, $serviceId);
+            // ── Push-model path (fast): LPOP from pre-assigned Redis queue ──────
+            // PreassignTelegramTasksJob fills tg:service_queue:{scope}:{serviceId}
+            // every 30s. When the queue has tasks this path does:
+            //   LPOP (Redis) + UPDATE WHERE status=pending (single row, no locks).
+            // No transaction, no FOR UPDATE, no deadlocks.
+            $task = $this->claimService->claimFromQueue($phone, $scope, $serviceId);
 
-            if (empty($tasks)) {
+            // ── Pull-model fallback: full claim pipeline ─────────────────────────
+            // Reached when the pre-assigned queue is empty (background job hasn't
+            // run yet, or all tasks were just consumed). Keeps the system working
+            // during the transition period and for low-volume services.
+            if ($task === null) {
+                $pulled = $this->claimService->claimForPhone($phone, 1, $scope, $serviceId);
+                $task   = $pulled[0] ?? null;
+            }
+
+            if ($task === null) {
                 // Cache "no work" for this service+scope for a short window.
-                // Short TTL (3s) ensures new orders are picked up quickly.
+                // TTL of 15s: reduces Redis/DB load 5× on idle services.
+                // New orders are still picked up quickly because a successful
+                // claim always clears this key immediately (see Redis::del above).
                 try {
-                    Redis::setex($noWorkKey, 3, 1);
+                    Redis::setex($noWorkKey, 15, 1);
                 } catch (\Throwable) {
                 }
 
@@ -93,7 +109,6 @@ class TelegramTaskClaimController extends Controller
             } catch (\Throwable) {
             }
 
-            $task = $tasks[0];
             $action = $task['action'] ?? 'subscribe';
 
             return response()->json([

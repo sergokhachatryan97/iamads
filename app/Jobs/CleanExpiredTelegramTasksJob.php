@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\Order;
 use App\Models\TelegramAccountLinkState;
 use App\Models\TelegramOrderMembership;
 use App\Models\TelegramTask;
@@ -147,6 +148,34 @@ class CleanExpiredTelegramTasksJob implements ShouldQueue
             if ($batch->count() < self::BATCH_SIZE) {
                 break;
             }
+        }
+
+        // Discard PENDING tasks whose order is no longer active (cancelled, completed,
+        // or fully drained). These are never claimed so they accumulate silently.
+        // Two-step: SELECT ids first (supports LIMIT), then UPDATE by PK — MySQL
+        // does not allow LIMIT in multi-table UPDATE statements.
+        $staleTaskIds = DB::table('telegram_tasks')
+            ->join('orders', 'orders.id', '=', 'telegram_tasks.order_id')
+            ->where('telegram_tasks.status', TelegramTask::STATUS_PENDING)
+            ->where(function ($q) {
+                $q->whereNotIn('orders.status', [
+                    Order::STATUS_AWAITING,
+                    Order::STATUS_IN_PROGRESS,
+                    Order::STATUS_PROCESSING,
+                ])->orWhere('orders.remains', '<=', 0);
+            })
+            ->limit(2000)
+            ->pluck('telegram_tasks.id');
+
+        if ($staleTaskIds->isNotEmpty()) {
+            DB::table('telegram_tasks')
+                ->whereIn('id', $staleTaskIds)
+                ->where('status', TelegramTask::STATUS_PENDING)
+                ->update([
+                    'status'     => TelegramTask::STATUS_FAILED,
+                    'result'     => json_encode(['error' => 'Order cancelled or completed']),
+                    'updated_at' => now(),
+                ]);
         }
 
         // Sweep stuck memberships/link states — retry on deadlock since claim

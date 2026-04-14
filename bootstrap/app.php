@@ -55,6 +55,19 @@ return Application::configure(basePath: dirname(__DIR__))
             ->withoutOverlapping(2)
             ->runInBackground();
 
+        // Push-model pre-assignment: fills Redis service queues so /getOrder
+        // requires only an LPOP + single-row UPDATE instead of a full DB transaction.
+        // onOneServer() + withoutOverlapping() prevent concurrent instances.
+        $schedule->job(new \App\Jobs\PreassignTelegramTasksJob(\App\Support\TelegramPremiumTemplateScope::SCOPE_DEFAULT))
+            ->everyThirtySeconds()
+            ->withoutOverlapping(1)
+            ->onOneServer();
+
+        $schedule->job(new \App\Jobs\PreassignTelegramTasksJob(\App\Support\TelegramPremiumTemplateScope::SCOPE_PREMIUM))
+            ->everyThirtySeconds()
+            ->withoutOverlapping(1)
+            ->onOneServer();
+
         $schedule->command('socpanel:poll')
             ->everyThreeMinutes()
             ->withoutOverlapping(4);
