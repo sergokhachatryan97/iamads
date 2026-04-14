@@ -90,7 +90,7 @@ class TelegramTaskClaimController extends Controller
                 // New orders are still picked up quickly because a successful
                 // claim always clears this key immediately (see Redis::del above).
                 try {
-                    Redis::setex($noWorkKey, 15, 1);
+                    Redis::setex($noWorkKey, 30, 1);
                 } catch (\Throwable) {
                 }
 
