@@ -87,10 +87,8 @@ class TelegramTaskClaimController extends Controller
             }
 
             if ($task === null) {
-                // Dynamic no-work TTL based on service traffic.
-                // High-traffic services refresh faster so they don't miss new tasks.
                 try {
-                    $ttl = $this->noWorkTtl($serviceId);
+                    $ttl = $this->noWorkTtl($scope, $serviceId);
                     Redis::setex($noWorkKey, $ttl, 1);
                 } catch (\Throwable) {
                 }
@@ -134,26 +132,44 @@ class TelegramTaskClaimController extends Controller
     }
 
     /**
-     * Derive no-work TTL from service traffic (unique accounts this hour).
-     * Hot services get a short TTL so new tasks are picked up quickly.
-     * Idle services get a longer TTL to suppress unnecessary polling.
+     * Derive no-work TTL based on whether work actually exists.
+     *
+     * - No work available (queue empty) → long TTL (60-120s) to suppress polling.
+     *   PreassignTelegramTasksJob clears the no-work key when new tasks are pushed.
+     * - Work exists but this account couldn't claim → short TTL based on traffic.
      */
-    private function noWorkTtl(int $serviceId): int
+    private function noWorkTtl(string $scope, int $serviceId): int
     {
+        // Check if the Redis queue has tasks — if empty, there's genuinely no work.
+        $queueKey = "tg:service_queue:{$scope}:{$serviceId}";
+        try {
+            $queueLen = (int) Redis::llen($queueKey);
+        } catch (\Throwable) {
+            $queueLen = -1; // unknown
+        }
+
+        // No tasks in queue → aggressive suppression.
+        // PreassignTelegramTasksJob runs every 30s and clears no-work when it pushes.
+        if ($queueLen === 0) {
+            return 60;
+        }
+
+        // Queue has tasks but account couldn't claim (cooldown/dedup/cap) →
+        // short TTL so other accounts can still pick up work quickly.
         try {
             $hourKey = 'tg:claim_attempts:' . $serviceId . ':' . now()->format('Y-m-d-H');
             $accounts = (int) Redis::pfcount($hourKey);
         } catch (\Throwable) {
-            return 15; // fallback
+            return 15;
         }
 
         if ($accounts >= 50000) {
-            return 5;   // high traffic
+            return 5;
         }
         if ($accounts >= 5000) {
-            return 10;  // medium traffic
+            return 10;
         }
 
-        return 30;      // low traffic
+        return 30;
     }
 }

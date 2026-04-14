@@ -50,7 +50,8 @@ class MaxTaskClaimController extends Controller
             $result = $this->claimService->claim($account, $serviceId);
 
             if ($result === null) {
-                // Set no-work cache with dynamic TTL based on traffic
+                // No work found — cache with dynamic TTL.
+                // No queue for Max (pull-only), so check eligible orders cache.
                 try {
                     $ttl = $this->noWorkTtl($serviceId);
                     Redis::setex($noWorkKey, $ttl, 1);
@@ -93,8 +94,23 @@ class MaxTaskClaimController extends Controller
         return response()->json(['ok' => true, 'count' => 0, 'tasks' => []]);
     }
 
+    /**
+     * No work TTL: long when no eligible orders exist, short when work
+     * exists but this account couldn't claim (cooldown/dedup).
+     * Max uses pull-model only — check the eligible orders app cache.
+     */
     private function noWorkTtl(int $serviceId): int
     {
+        // Check if eligible orders exist in cache.
+        // If cache is empty or has no orders, there's genuinely no work.
+        $cacheKey = "max:claim:eligible:s{$serviceId}";
+        $eligible = \Illuminate\Support\Facades\Cache::get($cacheKey);
+
+        if ($eligible === null || (is_countable($eligible) && count($eligible) === 0)) {
+            return 60; // no work — aggressive suppression
+        }
+
+        // Work exists but account couldn't claim → traffic-based TTL
         try {
             $hourKey = 'max:claim_attempts:' . $serviceId . ':' . now()->format('Y-m-d-H');
             $accounts = (int) Redis::pfcount($hourKey);
