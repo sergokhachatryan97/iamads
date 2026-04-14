@@ -53,22 +53,16 @@ class TelegramTaskClaimController extends Controller
         $phone = $validated['account_identity'];
         $serviceId = (int) $validated['service_id'];
 
-        // Track unique accounts attempting to claim (HyperLogLog, 2h TTL)
-        try {
-            $hourKey = 'tg:claim_attempts:' . $serviceId . ':' . now()->format('Y-m-d-H');
-            Redis::pfadd($hourKey, [$phone]);
-            Redis::expire($hourKey, 7200);
-        } catch (\Throwable) {
-        }
-
-        // ── No-work short-circuit ──────────────────────────────────────
-        // When a previous poll for this (service, scope) found zero eligible
-        // orders, we cache that fact for a few seconds. Subsequent polls skip
-        // the full claim pipeline (no DB transaction, no Redis locks).
-        // A successful claim clears the flag so new work is picked up instantly.
+        // Single Redis round-trip: track claim attempt + check no-work flag
         $noWorkKey = "tg:no_work:{$scope}:{$serviceId}";
+        $hourKey = 'tg:claim_attempts:' . $serviceId . ':' . now()->format('Y-m-d-H');
         try {
-            if (Redis::exists($noWorkKey)) {
+            [$_, $_, $noWork] = Redis::pipeline(function ($pipe) use ($hourKey, $noWorkKey, $phone) {
+                $pipe->pfadd($hourKey, [$phone]);
+                $pipe->expire($hourKey, 7200);
+                $pipe->exists($noWorkKey);
+            });
+            if ($noWork) {
                 return self::emptyResponse();
             }
         } catch (\Throwable) {
