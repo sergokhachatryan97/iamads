@@ -41,13 +41,29 @@ class MaxTaskClaimService
         }
 
         $categoryId = $this->getMaxCategoryId();
-
         if ($categoryId === null) {
             return null;
         }
 
+        // Track unique accounts for stats (HyperLogLog)
+        if ($serviceId !== null) {
+            try {
+                $hourKey = 'max:claim_attempts:' . $serviceId . ':' . now()->format('Y-m-d-H');
+                Redis::pfadd($hourKey, [$accountIdentity]);
+                Redis::expire($hourKey, 7200);
+            } catch (\Throwable) {
+            }
+        }
 
-        // Priority 2: subscribe
+        // Early Redis gate: check cooldown for 'subscribe' (most common action)
+        // before any DB work. Non-subscribe actions are checked later.
+        if ($this->isCooldownActive($accountIdentity, 'subscribe')) {
+            return null;
+        }
+        if ($this->isDailyCapExhausted($accountIdentity, 'subscribe')) {
+            return null;
+        }
+
         return $this->claimSubscribe($accountIdentity, $categoryId, $serviceId);
     }
 
@@ -241,7 +257,38 @@ class MaxTaskClaimService
     {
         $preloadedService = $order->relationLoaded('service') ? $order->service : null;
 
-        return DB::transaction(function () use ($order, $accountIdentity, $preloadedService): ?array {
+        // Pre-compute link + action OUTSIDE the transaction
+        $link = trim((string) ($order->link ?? ''));
+        if ($link === '') {
+            return null;
+        }
+
+        $linkHash = md5(strtolower($link));
+        $action = $preloadedService?->action() ?? 'subscribe';
+
+        // Dedup check OUTSIDE transaction — no lock held during this query
+        $isBlocked = DB::table('max_tasks')
+            ->where('account_identity', $accountIdentity)
+            ->where('link_hash', $linkHash)
+            ->where('action', $action)
+            ->whereIn('status', [MaxTask::STATUS_LEASED, MaxTask::STATUS_DONE])
+            ->exists();
+
+        if ($isBlocked) {
+            return null;
+        }
+
+        // Rate limit check (non-subscribe actions) OUTSIDE transaction
+        if ($action !== 'subscribe') {
+            if ($this->isCooldownActive($accountIdentity, $action)) {
+                return null;
+            }
+            if ($this->isDailyCapExhausted($accountIdentity, $action)) {
+                return null;
+            }
+        }
+
+        return DB::transaction(function () use ($order, $accountIdentity, $preloadedService, $link, $linkHash, $action): ?array {
             $order = Order::query()
                 ->where('id', $order->id)
                 ->where('remains', '>', 0)
@@ -263,26 +310,6 @@ class MaxTaskClaimService
             }
 
             if (! $this->canClaimBySpeedLimit($order)) {
-                return null;
-            }
-
-            $link = trim((string) ($order->link ?? ''));
-            if ($link === '') {
-                return null;
-            }
-
-            $linkHash = md5(strtolower($link));
-            $action = $order->service?->action() ?? 'subscribe';
-
-            // Global dedup: block if (account, link, action) has an active task
-            $isBlocked = DB::table('max_tasks')
-                ->where('account_identity', $accountIdentity)
-                ->where('link_hash', $linkHash)
-                ->where('action', $action)
-                ->whereIn('status', [MaxTask::STATUS_LEASED, MaxTask::STATUS_DONE])
-                ->exists();
-
-            if ($isBlocked) {
                 return null;
             }
 
@@ -410,7 +437,34 @@ class MaxTaskClaimService
     }
 
     // =========================================================================
-    //  Action rate limiting
+    //  Early Redis gates (non-mutating checks)
+    // =========================================================================
+
+    private function isCooldownActive(string $accountIdentity, string $action): bool
+    {
+        try {
+            return (bool) Redis::exists("max:account:cooldown:{$action}:{$accountIdentity}");
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    private function isDailyCapExhausted(string $accountIdentity, string $action): bool
+    {
+        $rule = $this->getActionRule($action);
+        $cap = (int) $rule['daily_cap'];
+        $date = Carbon::today()->format('Y-m-d');
+        $key = "max:account:cap:{$action}:{$accountIdentity}:{$date}";
+
+        try {
+            return (int) Redis::get($key) >= $cap;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    // =========================================================================
+    //  Action rate limiting (mutating — used only on successful claim)
     // =========================================================================
 
     private function getActionRule(string $action): array
