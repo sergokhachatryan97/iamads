@@ -1174,10 +1174,11 @@ LUA;
                 Redis::expire($concKey, 5); // safety TTL in case of crash
 
                 if ($current > 80) {
-                    // Slot unavailable — DECR immediately so the counter stays accurate,
-                    // then return the task to the queue for the next poller.
+                    // Slot unavailable — DECR immediately so the counter stays accurate.
+                    // Do NOT RPUSH the task back: that creates a hot loop where the same
+                    // tasks are LPOPped and RPUSHed thousands of times per second.
+                    // The task stays PENDING in DB; preassign re-queues it within 30s.
                     Redis::decr($concKey);
-                    try { Redis::rpush($queueKey, $raw); } catch (\Throwable) {}
                     return null;
                 }
             } catch (\Throwable) {
