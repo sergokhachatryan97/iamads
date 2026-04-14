@@ -11,6 +11,16 @@ class TelegramClaimStats extends Command
     protected $signature = 'telegram:claim-stats';
     protected $description = 'Live claim statistics: requests/sec, accounts, cooldowns, per order/link';
 
+    /** Strip the Laravel Redis prefix from a key returned by Redis::keys() */
+    private function stripPrefix(string $key): string
+    {
+        $prefix = config('database.redis.options.prefix', '');
+        if ($prefix && str_starts_with($key, $prefix)) {
+            return substr($key, strlen($prefix));
+        }
+        return $key;
+    }
+
     public function handle(): int
     {
         $this->info('Collecting claim stats...');
@@ -28,8 +38,9 @@ class TelegramClaimStats extends Command
         $allKeys = array_unique(array_merge($claimKeys, $prevKeys));
         $serviceIds = [];
         foreach ($allKeys as $key) {
+            $clean = $this->stripPrefix($key);
             // key format: tg:claim_attempts:{serviceId}:{hour}
-            $parts = explode(':', $key);
+            $parts = explode(':', $clean);
             if (count($parts) >= 4) {
                 $serviceIds[] = $parts[2];
             }
@@ -50,10 +61,9 @@ class TelegramClaimStats extends Command
         $queueKeys = Redis::keys('tg:service_queue:*');
         $queueRows = [];
         foreach ($queueKeys as $key) {
-            $len = (int) Redis::llen($key);
-            if ($len > 0) {
-                $queueRows[] = [$key, $len];
-            }
+            $clean = $this->stripPrefix($key);
+            $len = (int) Redis::llen($clean);
+            $queueRows[] = [$clean, $len];
         }
         if (empty($queueRows)) {
             $this->warn('  All queues empty — accounts are using DB fallback path');
@@ -69,8 +79,9 @@ class TelegramClaimStats extends Command
             $this->line('  None — all services have work available');
         } else {
             foreach ($noWorkKeys as $key) {
-                $ttl = Redis::ttl($key);
-                $this->line("  {$key}  (TTL: {$ttl}s)");
+                $clean = $this->stripPrefix($key);
+                $ttl = Redis::ttl($clean);
+                $this->line("  {$clean}  (TTL: {$ttl}s)");
             }
         }
 
@@ -124,8 +135,9 @@ class TelegramClaimStats extends Command
             $sample = array_slice($cooldownKeys, 0, 10);
             $cooldownRows = [];
             foreach ($sample as $key) {
-                $ttl = Redis::ttl($key);
-                $phone = str_replace('tg:phone:cooldown:subscribe:', '', $key);
+                $clean = $this->stripPrefix($key);
+                $ttl = Redis::ttl($clean);
+                $phone = str_replace('tg:phone:cooldown:subscribe:', '', $clean);
                 $cooldownRows[] = [substr($phone, 0, 6) . '****', "{$ttl}s"];
             }
             $this->table(['Account (masked)', 'Remaining'], $cooldownRows);
@@ -140,21 +152,27 @@ class TelegramClaimStats extends Command
         $this->line("  Accounts with subscribe cap today: {$capCount}");
 
         if ($capCount > 0) {
-            // Sort by usage desc, show top 10
             $caps = [];
             foreach ($capKeys as $key) {
-                $val = (int) Redis::get($key);
-                $caps[$key] = $val;
+                $clean = $this->stripPrefix($key);
+                $val = (int) Redis::get($clean);
+                $caps[$clean] = $val;
             }
             arsort($caps);
             $capRows = [];
             foreach (array_slice($caps, 0, 10, true) as $key => $val) {
-                preg_match('/subscribe:(.+):' . preg_quote($date) . '$/', $key, $m);
+                preg_match('/subscribe:(.+):' . preg_quote($date, '/') . '$/', $key, $m);
                 $phone = $m[1] ?? '?';
                 $capRows[] = [substr($phone, 0, 6) . '****', $val, 15];
             }
             $this->table(['Account (masked)', 'Used', 'Daily Cap'], $capRows);
         }
+
+        // ── 8. Concurrency gate ──
+        $this->newLine();
+        $this->info('═══ Claim Concurrency Gate ═══');
+        $concurrency = (int) Redis::get('tg:claim_concurrency');
+        $this->line("  Current concurrent DB claims: {$concurrency} / 80");
 
         return 0;
     }

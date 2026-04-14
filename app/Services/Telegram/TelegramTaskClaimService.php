@@ -1127,14 +1127,19 @@ LUA;
     {
         $phone = TelegramAccountLinkState::normalizePhone($phone);
 
+        // Early gates BEFORE touching the queue — reject blocked phones without
+        // consuming a queue slot. Uses 'subscribe' as the default action because
+        // ~99% of tasks are subscribes; for the rare non-subscribe task the
+        // per-action check inside the loop is the final gate.
+        if ($this->isPhoneCooldownActive($phone, 'subscribe')) {
+            return null;
+        }
+        if ($this->isPhoneDailyCapExhausted($phone, $scope, 'subscribe')) {
+            return null;
+        }
+
         $queueKey = "tg:service_queue:{$scope}:{$serviceId}";
 
-        // Retry up to 3 pops per request to skip stale/already-claimed task IDs.
-        // LPOP happens first so we can parse the real action from the queue value
-        // (format: "{taskId}:{action}") and gate with the correct action instead of
-        // a hard-coded 'subscribe'. If this phone is gated, we return null and accept
-        // the slot is unavailable for up to 30 s — PreassignTelegramTasksJob
-        // re-pushes all PENDING tasks on its next run, so no permanent loss.
         for ($pop = 0; $pop < 3; $pop++) {
             try {
                 $raw = Redis::lpop($queueKey);
@@ -1147,18 +1152,19 @@ LUA;
             }
 
             // Parse "{taskId}:{action}" — default to 'subscribe' for legacy plain-ID values.
-            // taskId is a ULID string (26 chars, alphanumeric) so must NOT be cast to int.
             [$taskId, $action] = array_pad(explode(':', (string) $raw, 2), 2, 'subscribe');
             if ($taskId === '') {
                 continue; // malformed entry, skip
             }
 
-            // Redis gates checked with the real action — no DB opened if phone is blocked.
-            if ($this->isPhoneCooldownActive($phone, $action)) {
-                return null;
-            }
-            if ($this->isPhoneDailyCapExhausted($phone, $scope, $action)) {
-                return null;
+            // If the real action differs from 'subscribe', check its specific gates.
+            if ($action !== 'subscribe') {
+                if ($this->isPhoneCooldownActive($phone, $action)) {
+                    return null;
+                }
+                if ($this->isPhoneDailyCapExhausted($phone, $scope, $action)) {
+                    return null;
+                }
             }
 
             // Concurrency gate: cap simultaneous DB connections from the push path.
