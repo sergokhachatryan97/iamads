@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Redis;
 
 /**
  * YouTube performer claim: performer requests a task, backend returns one task with link and order info.
@@ -30,18 +31,46 @@ class YouTubeTaskClaimController extends Controller
             'account_identity' => ['required', 'string', 'max:255'],
         ]);
 
+        $account = $validated['account_identity'];
+
+        // Single Redis round-trip: poll throttle + no-work check + HyperLogLog
+        $noWorkKey = 'yt:no_work';
+        $throttleKey = 'yt:poll_throttle:' . md5($account);
+        $hourKey = 'yt:claim_attempts:' . now()->format('Y-m-d-H');
         try {
-            $payload = $this->claimService->claim($validated['account_identity']);
+            [$throttleAcquired, $_, $noWork, $_, $_] = Redis::pipeline(function ($pipe) use ($throttleKey, $noWorkKey, $hourKey, $account) {
+                $pipe->set($throttleKey, 1, 'EX', 2, 'NX');
+                $pipe->expire($throttleKey, 2);
+                $pipe->exists($noWorkKey);
+                $pipe->pfadd($hourKey, [$account]);
+                $pipe->expire($hourKey, 7200);
+            });
+            if (! $throttleAcquired) {
+                return self::emptyResponse();
+            }
+            if ($noWork) {
+                return self::emptyResponse();
+            }
+        } catch (\Throwable) {
+        }
+
+        try {
+            $payload = $this->claimService->claim($account);
 
             if ($payload === null) {
-                return response()->json([
-                    'ok' => true,
-                    'count' => 0,
-                    'tasks' => [],
-                    'task_id' => null,
-                    'link' => null,
-                    'order' => null,
-                ]);
+                try {
+                    $ttl = $this->noWorkTtl();
+                    Redis::setex($noWorkKey, $ttl, 1);
+                } catch (\Throwable) {
+                }
+
+                return self::emptyResponse();
+            }
+
+            // Work found — clear no-work flag
+            try {
+                Redis::del($noWorkKey);
+            } catch (\Throwable) {
             }
 
             // Watch-time cooldown error
@@ -70,7 +99,7 @@ class YouTubeTaskClaimController extends Controller
                     'remains' => $payload['order']['remains'] ?? null,
                     'target_quantity' => $payload['order']['target_quantity'] ?? null,
                     'dripfeed_enabled' => $payload['order']['dripfeed_enabled'] ?? false,
-                    'service_description' => $payload['service']['description'] ??  '',
+                    'service_description' => $payload['service']['description'] ?? '',
                     'service_name' => $payload['service']['name'] ?? null,
                     'service_id' => $payload['service']['id'] ?? null,
                     'category' => $payload['category'] ?? null,
@@ -92,21 +121,52 @@ class YouTubeTaskClaimController extends Controller
                 || str_contains($msg, 'gone away')) {
                 Log::warning('YouTubeTaskClaim: DB pool exhausted', ['error' => $msg]);
 
-                return response()->json([
-                    'ok' => true,
-                    'count' => 0,
-                    'tasks' => [],
-                    'task_id' => null,
-                    'link' => null,
-                    'order' => null,
-                ]);
+                return self::emptyResponse();
             }
             throw $e;
         } finally {
-            // Release the MySQL connection back to the pool immediately so it
-            // doesn't sit idle (Sleep state) on the PHP-FPM worker. Critical
-            // mitigation for max_user_connections.
             DB::disconnect();
         }
+    }
+
+    private static function emptyResponse(): JsonResponse
+    {
+        return response()->json([
+            'ok' => true,
+            'count' => 0,
+            'tasks' => [],
+            'task_id' => null,
+            'link' => null,
+            'order' => null,
+        ]);
+    }
+
+    /**
+     * No-work TTL: long when no eligible orders, short when work exists.
+     * YouTube has no service_id filter — single global eligible cache.
+     */
+    private function noWorkTtl(): int
+    {
+        $eligible = \Illuminate\Support\Facades\Cache::get('yt:claim:eligible');
+
+        if ($eligible === null || (is_countable($eligible) && count($eligible) === 0)) {
+            return 60;
+        }
+
+        try {
+            $hourKey = 'yt:claim_attempts:' . now()->format('Y-m-d-H');
+            $accounts = (int) Redis::pfcount($hourKey);
+        } catch (\Throwable) {
+            return 10;
+        }
+
+        if ($accounts >= 50000) {
+            return 5;
+        }
+        if ($accounts >= 5000) {
+            return 10;
+        }
+
+        return 30;
     }
 }

@@ -12,6 +12,7 @@ use Carbon\Carbon;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Redis;
 
 class YouTubeTaskClaimService
 {
@@ -74,9 +75,22 @@ class YouTubeTaskClaimService
      */
     private function claimInner(string $accountIdentity): ?array
     {
-        // Watch-time cooldown: block ALL claims if this account has an active watch
-        // task created < WATCH_CHUNK_SECONDS ago. Business rule: a new task can
-        // only be claimed after the current watch task is completed.
+        // Watch-time cooldown: Redis gate BEFORE any DB work.
+        // The key is set when a watch task is claimed (see tryClaimForOrder).
+        try {
+            $watchCooldownKey = "yt:watch_cooldown:{$accountIdentity}";
+            $ttl = Redis::ttl($watchCooldownKey);
+            if ($ttl > 0) {
+                return [
+                    'error' => 'Watch time not yet completed. Please wait before requesting a new task.',
+                    'retry_after' => $ttl,
+                ];
+            }
+        } catch (\Throwable) {
+            // Redis down — fall through to DB check below.
+        }
+
+        // DB fallback for watch cooldown (in case Redis missed the SET)
         $recentWatchTask = YouTubeTask::query()
             ->where('account_identity', $accountIdentity)
             ->where('action', 'watch')
@@ -87,6 +101,12 @@ class YouTubeTaskClaimService
         if ($recentWatchTask) {
             $elapsed = now()->diffInSeconds($recentWatchTask->created_at);
             $retryAfter = max(1, self::WATCH_CHUNK_SECONDS - $elapsed);
+
+            // Set Redis key so next poll skips DB
+            try {
+                Redis::setex($watchCooldownKey, $retryAfter, 1);
+            } catch (\Throwable) {
+            }
 
             return [
                 'error' => 'Watch time not yet completed. Please wait before requesting a new task.',
@@ -436,8 +456,38 @@ class YouTubeTaskClaimService
     private function tryClaimForOrder(Order $order, string $accountIdentity): ?array
     {
         $preloadedService = $order->relationLoaded('service') ? $order->service : null;
+        $service = $preloadedService ?? $order->service;
 
-        return DB::transaction(function () use ($order, $accountIdentity, $preloadedService): ?array {
+        // === Pre-transaction checks (no lock held) ===
+
+        $link = trim((string) ($order->link ?? ''));
+        if ($link === '') {
+            return null;
+        }
+
+        $linkHash = YouTubeTargetNormalizer::linkHash($link);
+
+        // Resolve execution plan outside transaction
+        $plan = YouTubeExecutionPlanResolver::resolve($order);
+        $action = $plan['action'];
+        $steps = $plan['steps'];
+        $mode = $plan['mode'];
+        $perCall = $plan['per_call'];
+
+        // Resolve target hash for action-log uniqueness
+        $providerPayload = $order->provider_payload ?? [];
+        $parsed = $providerPayload['youtube']['parsed'] ?? [];
+        $targetHashForLog = $parsed['target_hash'] ?? $linkHash;
+
+        // Uniqueness gate OUTSIDE transaction — no lock held during these queries
+        $actionNames = YouTubeExecutionPlanResolver::stepsToActionNames($steps);
+        if ($this->hasStepConflict($accountIdentity, $linkHash, $targetHashForLog, $actionNames)) {
+            return null;
+        }
+
+        // === Transaction (lock held — keep as short as possible) ===
+
+        $result = DB::transaction(function () use ($order, $accountIdentity, $preloadedService, $link, $linkHash, $action, $steps, $mode, $perCall, $targetHashForLog): ?array {
             // 1. Re-fetch the order under lock so two concurrent claims serialize.
             $order = Order::query()
                 ->where('id', $order->id)
@@ -463,22 +513,7 @@ class YouTubeTaskClaimService
                 return null;
             }
 
-            // 3. Resolve execution plan + validate link.
-            $plan = YouTubeExecutionPlanResolver::resolve($order);
-            $action = $plan['action'];
-            $steps = $plan['steps'];
-            $mode = $plan['mode'];
-            $perCall = $plan['per_call'];
-
-            $link = trim((string) ($order->link ?? ''));
-            if ($link === '') {
-                return null;
-            }
-
-            $linkHash = YouTubeTargetNormalizer::linkHash($link);
-
-            // 4. Watch-time vs standard cap. Watch-time has its own cap (LEASED + DONE
-            //    sub-task count vs total_tasks_needed) and overrides per_call to 0.
+            // 3. Watch-time vs standard cap.
             $isWatchTime = $action === 'watch';
             $watchTimeMeta = null;
             $inFlight = 0;
@@ -488,13 +523,8 @@ class YouTubeTaskClaimService
                 if ($this->exceedsWatchTimeCap($order, (int) $watchTimeMeta['total_tasks'])) {
                     return null;
                 }
-                // Watch-time: delivery is recomputed from DONE count, not incremented per task.
                 $perCall = 0;
             } else {
-                // Standard cap requires the live LEASED count for this order.
-                // Skipped for watch-time because (a) the watch-time cap above already
-                // covered it, and (b) `inFlight` is otherwise only used by resolveComment()
-                // which never triggers for the `watch` action.
                 $inFlight = YouTubeTask::query()
                     ->where('order_id', $order->id)
                     ->where('status', YouTubeTask::STATUS_LEASED)
@@ -505,18 +535,7 @@ class YouTubeTaskClaimService
                 }
             }
 
-            // 5. Resolve target hash for action-log uniqueness.
-            $providerPayload = $order->provider_payload ?? [];
-            $parsed = $providerPayload['youtube']['parsed'] ?? [];
-            $targetHashForLog = $parsed['target_hash'] ?? $linkHash;
-
-            // 6. Uniqueness gate: (account + action + link) must be unique across the system.
-            $actionNames = YouTubeExecutionPlanResolver::stepsToActionNames($steps);
-            if ($this->hasStepConflict($accountIdentity, $linkHash, $targetHashForLog, $actionNames)) {
-                return null;
-            }
-
-            // 7. Build task payload.
+            // 4. Build task payload.
             $commentForPayload = $this->resolveComment($order, $steps, $action, $inFlight);
             $payload = $this->buildTaskPayload(
                 $order,
@@ -529,7 +548,7 @@ class YouTubeTaskClaimService
                 $commentForPayload
             );
 
-            // 8. INSERT the task row (this is the actual "task generation" moment).
+            // 5. INSERT the task row.
             $task = YouTubeTask::create([
                 'order_id' => $order->id,
                 'account_identity' => $accountIdentity,
@@ -544,14 +563,13 @@ class YouTubeTaskClaimService
                 'payload' => $payload,
             ]);
 
-            // 9. Single merged UPDATE on the order: status + dripfeed counters
-            //    + speed-limit next_run_at — so we touch the locked row exactly once.
+            // 6. Single merged UPDATE on the order.
             $orderUpdates = ['status' => Order::STATUS_IN_PROGRESS];
             $orderUpdates += OrderDripfeedClaimHelper::computeAfterTaskClaimedUpdates($order);
             $orderUpdates['provider_payload'] = $this->buildProviderPayloadWithNextRunAt($order);
             $order->update($orderUpdates);
 
-            // 10. Build the response payload for the performer.
+            // 7. Build the response payload for the performer.
             return $this->buildClaimResponse(
                 $task,
                 $order,
@@ -564,6 +582,16 @@ class YouTubeTaskClaimService
                 $commentForPayload
             );
         }, 5);
+
+        // Set Redis watch cooldown after successful watch-time claim
+        if ($result !== null && $action === 'watch') {
+            try {
+                Redis::setex("yt:watch_cooldown:{$accountIdentity}", self::WATCH_CHUNK_SECONDS, 1);
+            } catch (\Throwable) {
+            }
+        }
+
+        return $result;
     }
 
     /**
