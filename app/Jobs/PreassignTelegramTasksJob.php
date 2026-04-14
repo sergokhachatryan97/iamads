@@ -154,6 +154,15 @@ class PreassignTelegramTasksJob implements ShouldQueue
         $totalQueued = 0;
 
         foreach ($orderIdsByService as $serviceId => $affectedOrderIds) {
+            $queueKey = "tg:service_queue:{$this->scope}:{$serviceId}";
+
+            // Skip re-push if queue already has enough tasks — prevents unbounded
+            // growth on idle services (millions of duplicate entries).
+            $currentLen = 0;
+            try {
+                $currentLen = (int) Redis::llen($queueKey);
+            } catch (\Throwable) {}
+
             // Insert new tasks first (if any for this service)
             if (! empty($newTasksByService[$serviceId])) {
                 foreach (array_chunk($newTasksByService[$serviceId], 500) as $chunk) {
@@ -161,28 +170,29 @@ class PreassignTelegramTasksJob implements ShouldQueue
                 }
             }
 
-            // Fetch ALL PENDING tasks for these orders (id + action).
-            // Includes both newly inserted and pre-existing tasks, so a Redis
-            // flush or TTL expiry is recovered automatically on the next run.
-            // Already-queued task IDs are safe to re-push: the atomic
-            // UPDATE WHERE status=pending gate in claimPendingTask() makes
-            // duplicate pops a harmless no-op.
+            // If queue already has enough entries, just refresh TTL and skip re-push.
+            // The existing entries are still valid (claimPendingTask checks DB status).
+            if ($currentLen >= self::MAX_PENDING_PER_ORDER) {
+                try {
+                    Redis::expire($queueKey, self::QUEUE_TTL_SECONDS);
+                } catch (\Throwable) {}
+                continue;
+            }
+
+            // Fetch PENDING tasks for these orders — cap how many we push to avoid bloat.
+            $pushLimit = self::MAX_PENDING_PER_ORDER - $currentLen;
             $taskRows = DB::table('telegram_tasks')
                 ->select('id', 'action')
                 ->where('status', TelegramTask::STATUS_PENDING)
                 ->whereIn('order_id', $affectedOrderIds)
+                ->limit($pushLimit)
                 ->get();
 
             if ($taskRows->isEmpty()) {
                 continue;
             }
 
-            $queueKey = "tg:service_queue:{$this->scope}:{$serviceId}";
-
             // Pipeline all RPUSHes + EXPIRE in a single round-trip.
-            // Value format: "{taskId}:{action}" — action is read back at
-            // claim time so the early Redis gate can use the real action
-            // without a DB read.
             Redis::pipeline(function ($pipe) use ($queueKey, $taskRows) {
                 foreach ($taskRows as $row) {
                     $pipe->rpush($queueKey, "{$row->id}:{$row->action}");
