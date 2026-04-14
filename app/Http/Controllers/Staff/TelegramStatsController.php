@@ -60,9 +60,6 @@ class TelegramStatsController extends Controller
             ? [(int) $serviceId]
             : $telegramServiceIds;
 
-        // Build a rate lookup from cached services (avoids joining services table in queries)
-        $rateMap = $telegramServices->pluck('rate_per_1000', 'id');
-
         $todayEnd = now()->endOfDay();
         [$chartLabels, $rangeStart, $rangeEnd, $groupExpr, $resolvedPeriod] =
             $this->resolveChartRange($hasDateFilter, $dateFromParsed, $dateToParsed, $period, $todayEnd);
@@ -79,66 +76,44 @@ class TelegramStatsController extends Controller
 
         $slowBlock = Cache::remember($slowKey, self::CACHE_TTL_SLOW, function () use (
             $hasDateFilter,
-            $filteredServiceIds, $rangeStart, $rangeEnd, $groupExpr, $resolvedPeriod, $rateMap
+            $filteredServiceIds, $rangeStart, $rangeEnd, $groupExpr, $resolvedPeriod
         ) {
-            $todayStr = now()->startOfDay()->format('Y-m-d');
+            $today = now()->startOfDay();
+            $todayStr = $today->format('Y-m-d');
             $yesterdayStr = now()->subDay()->format('Y-m-d');
 
-            // Chart: 2-table join instead of 3 — compute income in PHP from cached rates
             $chartRows = DB::table('telegram_order_memberships as m')
                 ->join('orders as o', 'o.id', '=', 'm.order_id')
+                ->join('services as s', 's.id', '=', 'o.service_id')
                 ->whereIn('o.service_id', $filteredServiceIds)
                 ->where('m.state', TelegramOrderMembership::STATE_SUBSCRIBED)
                 ->whereNotNull('m.subscribed_at')
                 ->where('m.subscribed_at', '>=', $rangeStart)
                 ->where('m.subscribed_at', '<=', $rangeEnd)
-                ->selectRaw("{$groupExpr} as period, o.service_id, COUNT(*) as completions")
-                ->groupByRaw("{$groupExpr}, o.service_id")
-                ->get();
-
-            // Aggregate per-period: sum completions and compute income from rate map
-            $chartAggregated = $chartRows->groupBy('period')->map(function ($rows) use ($rateMap) {
-                $completions = $rows->sum('completions');
-                $income = $rows->sum(fn ($r) => $r->completions * (float) ($rateMap[$r->service_id] ?? 0) / 1000);
-
-                return (object) ['completions' => $completions, 'income' => $income];
-            });
+                ->selectRaw("{$groupExpr} as period, COUNT(*) as completions, COALESCE(SUM(s.rate_per_1000 / 1000), 0) as income")
+                ->groupByRaw($groupExpr)
+                ->get()
+                ->keyBy('period');
 
             [$incomeToday, $incomeYesterday, $completionsToday, $completionsYesterday] =
-                $this->resolveTopMetrics($hasDateFilter, $resolvedPeriod, $chartAggregated, $todayStr, $yesterdayStr);
+                $this->resolveTopMetrics($hasDateFilter, $resolvedPeriod, $chartRows, $todayStr, $yesterdayStr);
 
-            // Split into two targeted queries instead of one heavy scan with 4 CASE expressions
-            $inProgressStats = DB::table('orders')
+            $serviceStats = DB::table('orders')
                 ->whereIn('service_id', $filteredServiceIds)
-                ->where('status', Order::STATUS_IN_PROGRESS)
-                ->selectRaw('service_id, COUNT(*) as in_progress_orders, COALESCE(SUM(GREATEST(COALESCE(quantity,0) - COALESCE(delivered,0), 0)), 0) as total_volume')
+                ->selectRaw('
+                    service_id,
+                    COUNT(*) as total_orders,
+                    COALESCE(SUM(CASE WHEN status = ? AND COALESCE(quantity, 0) > COALESCE(delivered, 0) THEN COALESCE(quantity, 0) - COALESCE(delivered, 0) ELSE 0 END), 0) as total_volume,
+                    COALESCE(SUM(CASE WHEN status = ? THEN 1 ELSE 0 END), 0) as in_progress_orders,
+                    COALESCE(SUM(CASE WHEN status = ? THEN 1 ELSE 0 END), 0) as completed_orders,
+                    COALESCE(SUM(CASE WHEN status = ? THEN CAST(charge AS DECIMAL(20,4)) ELSE 0 END), 0) as completed_balance
+                ', [Order::STATUS_IN_PROGRESS, Order::STATUS_IN_PROGRESS, Order::STATUS_COMPLETED, Order::STATUS_COMPLETED])
                 ->groupBy('service_id')
                 ->get()
                 ->keyBy('service_id');
-
-            $completedStats = DB::table('orders')
-                ->whereIn('service_id', $filteredServiceIds)
-                ->where('status', Order::STATUS_COMPLETED)
-                ->selectRaw('service_id, COUNT(*) as completed_orders, COALESCE(SUM(CAST(charge AS DECIMAL(20,4))), 0) as completed_balance')
-                ->groupBy('service_id')
-                ->get()
-                ->keyBy('service_id');
-
-            // Merge into a unified collection
-            $serviceStats = collect($filteredServiceIds)->mapWithKeys(function ($sid) use ($inProgressStats, $completedStats) {
-                $ip = $inProgressStats[$sid] ?? null;
-                $co = $completedStats[$sid] ?? null;
-
-                return [$sid => (object) [
-                    'in_progress_orders' => (int) ($ip->in_progress_orders ?? 0),
-                    'total_volume' => (int) ($ip->total_volume ?? 0),
-                    'completed_orders' => (int) ($co->completed_orders ?? 0),
-                    'completed_balance' => (float) ($co->completed_balance ?? 0),
-                ]];
-            });
 
             return [
-                'chartRows' => $chartAggregated,
+                'chartRows' => $chartRows,
                 'incomeToday' => $incomeToday,
                 'incomeYesterday' => $incomeYesterday,
                 'completionsToday' => $completionsToday,
@@ -155,14 +130,10 @@ class TelegramStatsController extends Controller
         ) {
             $today = now()->startOfDay();
 
-            // Use subquery for order_ids to avoid joining orders in the main scan
-            $orderIds = DB::table('orders')
-                ->whereIn('service_id', $filteredServiceIds)
-                ->whereIn('status', [Order::STATUS_IN_PROGRESS, Order::STATUS_COMPLETED])
-                ->select('id', 'service_id');
-
             $completionsQuery = DB::table('telegram_tasks as t')
-                ->joinSub($orderIds, 'o', 'o.id', '=', 't.order_id')
+                ->join('orders as o', 'o.id', '=', 't.order_id')
+                ->whereIn('o.service_id', $filteredServiceIds)
+                ->whereIn('o.status', [Order::STATUS_IN_PROGRESS, Order::STATUS_COMPLETED])
                 ->whereIn('t.status', ['done', 'unsubscribed']);
 
             if ($hasDateFilter) {
@@ -201,16 +172,12 @@ class TelegramStatsController extends Controller
             } catch (\Throwable) {
             }
 
-            // Use order_id subquery to filter by service without joining full orders table
-            $taskOrderIds = DB::table('orders')
-                ->whereIn('service_id', $filteredServiceIds)
-                ->select('id', 'service_id');
-
-            $tasksLastHour = DB::table('telegram_tasks as t')
-                ->joinSub($taskOrderIds, 'o', 'o.id', '=', 't.order_id')
-                ->where('t.created_at', '>=', now()->subHour())
-                ->selectRaw('o.service_id, COUNT(*) as task_count')
-                ->groupBy('o.service_id')
+            $tasksLastHour = DB::table('telegram_tasks')
+                ->join('orders', 'orders.id', '=', 'telegram_tasks.order_id')
+                ->whereIn('orders.service_id', $filteredServiceIds)
+                ->where('telegram_tasks.created_at', '>=', now()->subHour())
+                ->selectRaw('orders.service_id, COUNT(*) as task_count')
+                ->groupBy('orders.service_id')
                 ->pluck('task_count', 'service_id');
 
             $delayPerService = collect();
