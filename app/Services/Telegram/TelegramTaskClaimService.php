@@ -1161,7 +1161,35 @@ LUA;
                 return null;
             }
 
-            $result = $this->claimPendingTask($taskId, $action, $phone, $scope, $serviceId);
+            // Concurrency gate: cap simultaneous DB connections from the push path.
+            // At 1200 req/s, all requests LPOP tasks after a preassign batch and race
+            // to open DB connections simultaneously — exhausting max_user_connections.
+            // INCR is atomic; if slot unavailable, return null (no DB opened).
+            // Concurrency gate: cap simultaneous DB connections from the push path.
+            // At 1200 req/s, all requests LPOP tasks after a preassign batch and race
+            // to open DB connections simultaneously — exhausting max_user_connections.
+            $concKey = 'tg:claim_concurrency';
+            try {
+                $current = Redis::incr($concKey);
+                Redis::expire($concKey, 5); // safety TTL in case of crash
+
+                if ($current > 80) {
+                    // Slot unavailable — DECR immediately so the counter stays accurate,
+                    // then return the task to the queue for the next poller.
+                    Redis::decr($concKey);
+                    try { Redis::rpush($queueKey, $raw); } catch (\Throwable) {}
+                    return null;
+                }
+            } catch (\Throwable) {
+                // Redis down — proceed without the gate
+            }
+
+            try {
+                $result = $this->claimPendingTask($taskId, $action, $phone, $scope);
+            } finally {
+                try { Redis::decr($concKey); } catch (\Throwable) {}
+            }
+
             if ($result !== null) {
                 return $result;
             }
@@ -1178,7 +1206,7 @@ LUA;
      *                         just to read the action field.
      * Returns the task DTO on success, null on any rejection.
      */
-    private function claimPendingTask(string $taskId, string $action, string $phone, string $scope, int $serviceId): ?array
+    private function claimPendingTask(string $taskId, string $action, string $phone, string $scope): ?array
     {
         $task = TelegramTask::find($taskId);
         if (! $task || $task->status !== TelegramTask::STATUS_PENDING) {
