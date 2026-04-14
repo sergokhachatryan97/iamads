@@ -87,12 +87,11 @@ class TelegramTaskClaimController extends Controller
             }
 
             if ($task === null) {
-                // Cache "no work" for this service+scope for a short window.
-                // TTL of 15s: reduces Redis/DB load 5× on idle services.
-                // New orders are still picked up quickly because a successful
-                // claim always clears this key immediately (see Redis::del above).
+                // Dynamic no-work TTL based on service traffic.
+                // High-traffic services refresh faster so they don't miss new tasks.
                 try {
-                    Redis::setex($noWorkKey, 30, 1);
+                    $ttl = $this->noWorkTtl($serviceId);
+                    Redis::setex($noWorkKey, $ttl, 1);
                 } catch (\Throwable) {
                 }
 
@@ -132,5 +131,29 @@ class TelegramTaskClaimController extends Controller
             // the same PHP-FPM worker. Critical mitigation for max_user_connections.
             DB::disconnect();
         }
+    }
+
+    /**
+     * Derive no-work TTL from service traffic (unique accounts this hour).
+     * Hot services get a short TTL so new tasks are picked up quickly.
+     * Idle services get a longer TTL to suppress unnecessary polling.
+     */
+    private function noWorkTtl(int $serviceId): int
+    {
+        try {
+            $hourKey = 'tg:claim_attempts:' . $serviceId . ':' . now()->format('Y-m-d-H');
+            $accounts = (int) Redis::pfcount($hourKey);
+        } catch (\Throwable) {
+            return 15; // fallback
+        }
+
+        if ($accounts >= 50000) {
+            return 5;   // high traffic
+        }
+        if ($accounts >= 5000) {
+            return 10;  // medium traffic
+        }
+
+        return 30;      // low traffic
     }
 }
