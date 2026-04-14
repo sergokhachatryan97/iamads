@@ -30,7 +30,6 @@ final class HeleketGateway implements PaymentGatewayInterface
             'order_id' => $intent->orderId,
             'url_success' => $intent->urlSuccess,
             'url_return' => $intent->urlReturn,
-            'webhook_url' => $intent->webhookUrl,
             'url_callback' => $intent->webhookUrl,
         ];
 
@@ -117,10 +116,9 @@ final class HeleketGateway implements PaymentGatewayInterface
     /**
      * Map Heleket statuses to normalized:
      * paid, paid_over => PAID
-     * check => PENDING
-     * wrong_amount => PENDING
+     * process, confirm_check, check, wrong_amount, wrong_amount_waiting => PENDING
      * cancel => EXPIRED
-     * else => FAILED
+     * fail, system_fail, locked, etc. => FAILED
      */
     private function normalizeStatus(array $body): PaymentStatus
     {
@@ -129,8 +127,7 @@ final class HeleketGateway implements PaymentGatewayInterface
 
         return match ($status) {
             'paid', 'paid_over' => PaymentStatus::PAID,
-            'check' => PaymentStatus::PENDING,
-            'wrong_amount' => PaymentStatus::PENDING,
+            'process', 'confirm_check', 'check', 'wrong_amount', 'wrong_amount_waiting' => PaymentStatus::PENDING,
             'cancel' => PaymentStatus::EXPIRED,
             default => PaymentStatus::FAILED,
         };

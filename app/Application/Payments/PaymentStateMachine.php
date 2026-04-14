@@ -14,7 +14,7 @@ final class PaymentStateMachine
     /** @var array<string, array<string>> */
     private static array $allowedTransitions = [
         'new' => ['pending', 'failed', 'expired'],
-        'pending' => ['paid', 'failed', 'expired'],
+        'pending' => ['pending', 'paid', 'failed', 'expired'],
         'paid' => ['refunded'],
         'failed' => [],
         'expired' => [],
