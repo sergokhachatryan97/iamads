@@ -53,6 +53,14 @@ class TelegramTaskClaimController extends Controller
         $phone = $validated['account_identity'];
         $serviceId = (int) $validated['service_id'];
 
+        // Track unique accounts attempting to claim (HyperLogLog, 2h TTL)
+        try {
+            $hourKey = 'tg:claim_attempts:' . $serviceId . ':' . now()->format('Y-m-d-H');
+            Redis::pfadd($hourKey, [$phone]);
+            Redis::expire($hourKey, 7200);
+        } catch (\Throwable) {
+        }
+
         // ── No-work short-circuit ──────────────────────────────────────
         // When a previous poll for this (service, scope) found zero eligible
         // orders, we cache that fact for a few seconds. Subsequent polls skip
