@@ -34,7 +34,7 @@ return [
         // Runqueue oversubscription factor. E.g. 2.0 on a 16-core box alerts
         // when there are >32 runnable processes — classic thundering-herd sign.
         // Set to 0 to disable this signal.
-        'cpu_runqueue_multiplier' => env('HEALTH_CPU_RUNQUEUE_MULTIPLIER', 2.0),
+        'cpu_runqueue_multiplier' => env('HEALTH_CPU_RUNQUEUE_MULTIPLIER', 3.5),
 
         // Used memory percentage (based on /proc/meminfo MemAvailable).
         'memory_percent' => env('HEALTH_MEMORY_PERCENT', 85),
