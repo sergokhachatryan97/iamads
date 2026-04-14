@@ -1127,14 +1127,6 @@ LUA;
     {
         $phone = TelegramAccountLinkState::normalizePhone($phone);
 
-        // Track this phone as recently active so PreassignTelegramTasksJob knows
-        // which phones are polling (scored set keyed by unix timestamp).
-        try {
-            $activeKey = "tg:active_phones:{$scope}:{$serviceId}";
-            Redis::zadd($activeKey, now()->timestamp, $phone);
-            Redis::expire($activeKey, 300);
-        } catch (\Throwable) {}
-
         $queueKey = "tg:service_queue:{$scope}:{$serviceId}";
 
         // Retry up to 3 pops per request to skip stale/already-claimed task IDs.

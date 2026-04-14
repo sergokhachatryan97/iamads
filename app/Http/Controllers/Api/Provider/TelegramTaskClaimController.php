@@ -67,11 +67,6 @@ class TelegramTaskClaimController extends Controller
             // Redis down — proceed normally.
         }
 
-        // Track claim attempt for stats (HyperLogLog, 1h TTL)
-        $hllKey = "tg:claim_attempts:{$serviceId}:" . now()->format('Y-m-d-H');
-        Redis::pfadd($hllKey, [$phone]);
-        Redis::expire($hllKey, 7200);
-
         try {
             // ── Push-model path (fast): LPOP from pre-assigned Redis queue ──────
             // PreassignTelegramTasksJob fills tg:service_queue:{scope}:{serviceId}
