@@ -43,7 +43,8 @@ class PreassignTelegramTasksJob implements ShouldQueue
     // Max pre-queued PENDING+LEASED tasks per order at any moment.
     // Too low → queue drains between runs → accounts fall back to pull model.
     // Too high → expired tasks pile up → cleanup lag.
-    private const MAX_PENDING_PER_ORDER = 30;
+    // At ~1200 req/s with ~1% claim rate → ~12 claims/sec → need 300+ to cover 30s window.
+    private const MAX_PENDING_PER_ORDER = 300;
 
     // Redis list TTL, refreshed on every push batch.
     private const QUEUE_TTL_SECONDS = 180;
