@@ -593,6 +593,7 @@ class OrderController extends Controller
                     // Dropdown grouping
                     'dropdown_group' => $service->template()['dropdown_group'] ?? null,
                     'dropdown_label' => $service->template()['dropdown_label'] ?? null,
+                    'dropdown_priority' => $service->template()['dropdown_priority'] ?? 99,
                 ];
             })
             ->values();

@@ -1150,12 +1150,14 @@
                     list.forEach(service => {
                         const group = service.dropdown_group || 'Other';
                         const label = service.dropdown_label || group;
+                        const priority = service.dropdown_priority ?? 99;
                         if (!grouped[group]) {
-                            grouped[group] = { label: label, services: [] };
+                            grouped[group] = { label: label, services: [], priority: priority };
                             order.push(group);
                         }
                         grouped[group].services.push(service);
                     });
+                    order.sort((a, b) => (grouped[a].priority) - (grouped[b].priority));
                     return order.map(g => grouped[g]);
                 },
 
