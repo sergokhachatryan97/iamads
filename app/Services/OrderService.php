@@ -91,6 +91,7 @@ class OrderService implements OrderServiceInterface
             $effectiveMinQty = $serviceLimit?->min_quantity ?? $service->min_quantity;
             $effectiveMaxQty = $serviceLimit?->max_quantity ?? ($service->max_quantity ?? null);
             $effectiveIncrement = $serviceLimit?->increment ?? ($service->increment ?? 0);
+            $clientOverflowPercent = $serviceLimit?->overflow_percent !== null ? (float) $serviceLimit->overflow_percent : null;
 
             // 6) Duplicate links check in ONE query (if enabled)
             if ($service->deny_link_duplicates) {
@@ -227,7 +228,7 @@ class OrderService implements OrderServiceInterface
                     'dripfeed_next_run_at' => $dripfeedEnabled ? $now : null,
                     'start_count' => null,
                     'delivered' => 0,
-                    'remains' => Order::computeTargetQuantity($row['quantity'], $service),
+                    'remains' => Order::computeTargetQuantity($row['quantity'], $service, $clientOverflowPercent),
                     'status' => Order::STATUS_VALIDATING,
                     'mode' => 'manual',
                 ];
@@ -340,6 +341,7 @@ class OrderService implements OrderServiceInterface
             $effectiveMinQty = $serviceLimit?->min_quantity ?? $service->min_quantity;
             $effectiveMaxQty = $serviceLimit?->max_quantity ?? ($service->max_quantity ?? null);
             $effectiveIncrement = $serviceLimit?->increment ?? ($service->increment ?? 0);
+            $apiClientOverflowPercent = $serviceLimit?->overflow_percent !== null ? (float) $serviceLimit->overflow_percent : null;
 
             $this->validateServiceQuantityRules(
                 $quantity,
@@ -405,7 +407,7 @@ class OrderService implements OrderServiceInterface
                 'speed_tier' => $service->speed_limit_enabled ? $speedTier : null,
                 'speed_multiplier' => $service->getSpeedMultiplier($speedTier),
                 'delivered' => 0,
-                'remains' => Order::computeTargetQuantity($quantity, $service),
+                'remains' => Order::computeTargetQuantity($quantity, $service, $apiClientOverflowPercent),
                 'status' => Order::STATUS_VALIDATING,
                 'mode' => Service::MODE_MANUAL,
                 'provider_payload' => $providerPayload,
@@ -470,6 +472,12 @@ class OrderService implements OrderServiceInterface
             $speedTier = $service->speed_limit_enabled ? ($data['speed_tier'] ?? 'normal') : 'normal';
             $speedMultiplier = $service->getSpeedMultiplier($speedTier);
 
+            $ccServiceLimit = ClientServiceLimit::query()
+                ->where('client_id', $client->id)
+                ->where('service_id', $service->id)
+                ->first();
+            $ccClientOverflowPercent = $ccServiceLimit?->overflow_percent !== null ? (float) $ccServiceLimit->overflow_percent : null;
+
             $chargePerComment = round($effectiveRate / 1000, 2);
             $costPerComment = $service->service_cost_per_1000 !== null
                 ? round((float) $service->service_cost_per_1000 / 1000, 2)
@@ -514,7 +522,7 @@ class OrderService implements OrderServiceInterface
                 'dripfeed_interval_unit' => $dripfeedIntervalUnit,
                 'start_count' => null,
                 'delivered' => 0,
-                'remains' => Order::computeTargetQuantity($commentCount, $service),
+                'remains' => Order::computeTargetQuantity($commentCount, $service, $ccClientOverflowPercent),
                 'status' => Order::STATUS_VALIDATING,
                 'mode' => 'manual',
             ]);
@@ -631,10 +639,12 @@ class OrderService implements OrderServiceInterface
                     $cost = $service->service_cost_per_1000 !== null
                         ? round(($commentCount / 1000) * (float) $service->service_cost_per_1000, 2)
                         : null;
+                    $msCommentLimit = $limits->get($serviceId);
+                    $msCommentOverflow = $msCommentLimit?->overflow_percent !== null ? (float) $msCommentLimit->overflow_percent : null;
                     $orderData[] = [
                         'service_id' => $serviceId,
                         'quantity' => $commentCount,
-                        'target_quantity' => Order::computeTargetQuantity($commentCount, $service),
+                        'target_quantity' => Order::computeTargetQuantity($commentCount, $service, $msCommentOverflow),
                         'charge' => $charge,
                         'cost' => $cost,
                         'comment_text' => implode("\n", $commentsLines),
@@ -666,10 +676,11 @@ class OrderService implements OrderServiceInterface
                     $rowStarRating = isset($serviceInput['star_rating']) && $serviceInput['star_rating'] >= 1 && $serviceInput['star_rating'] <= 5
                         ? (int) $serviceInput['star_rating']
                         : (isset($data['star_rating']) && $data['star_rating'] >= 1 && $data['star_rating'] <= 5 ? (int) $data['star_rating'] : null);
+                    $msServiceOverflow = $serviceLimit?->overflow_percent !== null ? (float) $serviceLimit->overflow_percent : null;
                     $orderData[] = [
                         'service_id' => $serviceId,
                         'quantity' => $qty,
-                        'target_quantity' => Order::computeTargetQuantity($qty, $service),
+                        'target_quantity' => Order::computeTargetQuantity($qty, $service, $msServiceOverflow),
                         'charge' => $charge,
                         'cost' => $cost,
                         'comment_text' => null,

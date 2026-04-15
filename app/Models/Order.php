@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\ClientServiceLimit;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -131,12 +132,28 @@ class Order extends Model
     ];
 
     /**
-     * Target quantity including overflow (subscribe actions). If service has overflow_percent > 0,
-     * target = ceil(quantity * (1 + overflow_percent/100)), else quantity.
+     * Target quantity including overflow (subscribe actions).
+     * Client-level overflow_percent takes priority over service-level when set.
      */
     public function getTargetQuantityAttribute(): int
     {
         $base = (int) ($this->quantity ?? 0);
+
+        // Check for client-level overflow override first
+        $clientOverflow = null;
+        if ($this->client_id && $this->service_id) {
+            $clientLimit = ClientServiceLimit::query()
+                ->where('client_id', $this->client_id)
+                ->where('service_id', $this->service_id)
+                ->first();
+            if ($clientLimit && $clientLimit->overflow_percent !== null) {
+                $clientOverflow = (float) $clientLimit->overflow_percent;
+            }
+        }
+
+        if ($clientOverflow !== null) {
+            return $clientOverflow <= 0 ? $base : (int) ceil($base * (1 + $clientOverflow / 100));
+        }
 
         $overflowPercent = 0;
         if ($this->relationLoaded('service') && $this->service && isset($this->service->overflow_percent)) {
@@ -157,13 +174,12 @@ class Order extends Model
 
     /**
      * Compute target quantity from base quantity and service (for order creation).
+     * Client overflow_percent takes priority over service overflow_percent when set.
      */
-    public static function computeTargetQuantity(int $quantity, ?Service $service): int
+    public static function computeTargetQuantity(int $quantity, ?Service $service, ?float $clientOverflowPercent = null): int
     {
-        if (! $service || ! isset($service->overflow_percent)) {
-            return $quantity;
-        }
-        $overflowPercent = (float) $service->overflow_percent;
+        $overflowPercent = $clientOverflowPercent ?? (($service && isset($service->overflow_percent)) ? (float) $service->overflow_percent : 0);
+
         if ($overflowPercent <= 0) {
             return $quantity;
         }

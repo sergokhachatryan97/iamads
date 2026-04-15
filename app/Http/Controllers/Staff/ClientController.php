@@ -553,6 +553,10 @@ class ClientController extends Controller
                     ? (int)$limitData['increment']
                     : null;
 
+                $overflowPercent = (isset($limitData['overflow_percent']) && $limitData['overflow_percent'] !== '')
+                    ? (float)$limitData['overflow_percent']
+                    : null;
+
                 // Validate max >= min when both present
                 if ($minQty !== null && $maxQty !== null && $maxQty < $minQty) {
                     return redirect()
@@ -563,7 +567,7 @@ class ClientController extends Controller
                         ->withInput();
                 }
 
-                $hasAnyValue = ($minQty !== null || $maxQty !== null || $increment !== null);
+                $hasAnyValue = ($minQty !== null || $maxQty !== null || $increment !== null || $overflowPercent !== null);
 
                 if (!$hasAnyValue) {
                     $toDeleteServiceIds[] = $serviceIdStr;
@@ -571,11 +575,12 @@ class ClientController extends Controller
                 }
 
                 $toUpsert[] = [
-                    'client_id'     => $client->id,
-                    'service_id'    => $serviceIdStr,
-                    'min_quantity'  => $minQty,
-                    'max_quantity'  => $maxQty,
-                    'increment'     => $increment,
+                    'client_id'        => $client->id,
+                    'service_id'       => $serviceIdStr,
+                    'min_quantity'     => $minQty,
+                    'max_quantity'     => $maxQty,
+                    'increment'        => $increment,
+                    'overflow_percent' => $overflowPercent,
                 ];
             }
         }
@@ -610,7 +615,7 @@ class ClientController extends Controller
                     ClientServiceLimit::query()->upsert(
                         $toUpsert,
                         ['client_id', 'service_id'],
-                        ['min_quantity', 'max_quantity', 'increment']
+                        ['min_quantity', 'max_quantity', 'increment', 'overflow_percent']
                     );
                 }
             });

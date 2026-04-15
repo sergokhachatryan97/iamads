@@ -47,7 +47,7 @@ class TelegramTaskClaimService
 
     private const ACTION_RULES = [
         TelegramPremiumTemplateScope::SCOPE_DEFAULT => [
-            'subscribe' => ['daily_cap' => 15, 'cooldown_seconds' => 1300],
+            'subscribe' => ['daily_cap' => 15, 'cooldown_seconds' => 1],
             'unsubscribe' => ['daily_cap' => 15, 'cooldown_seconds' => 1300],
             'bot_start' => ['daily_cap' => 10, 'cooldown_seconds' => 600],
             'view' => ['daily_cap' => 50, 'cooldown_seconds' => 10],

@@ -932,9 +932,10 @@
                                                 </div>
                                                 <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[100px]">{{ __('Category') }}</div>
                                                 <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[150px]">{{ __('Service') }}</div>
-                                                <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[120px]">{{ __('Min Override') }}</div>
-                                                <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[120px]">{{ __('Max Override') }}</div>
-                                                <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[120px]">{{ __('Increment Override') }}</div>
+                                                <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[100px]">{{ __('Min Override') }}</div>
+                                                <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[100px]">{{ __('Max Override') }}</div>
+                                                <div class="col-span-1 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[90px]">{{ __('Increment') }}</div>
+                                                <div class="col-span-1 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[90px]">{{ __('Overflow %') }}</div>
                                                 <div class="col-span-1 text-xs font-semibold text-gray-700 uppercase tracking-wider text-center whitespace-nowrap min-w-[60px]">{{ __('Action') }}</div>
                                             </div>
                                         </div>
@@ -971,7 +972,7 @@
                                                             <div class="col-span-2 min-w-[150px]">
                                                                 <span class="text-xs sm:text-sm font-medium text-gray-900 service-name break-words">{{ $service->name }}</span>
                                                             </div>
-                                                            <div class="col-span-2 min-w-[120px]">
+                                                            <div class="col-span-2 min-w-[100px]">
                                                                 <input
                                                                     type="number"
                                                                     name="service_limits[{{ $service->id }}][min_quantity]"
@@ -982,7 +983,7 @@
                                                                     placeholder="{{ __('Default') }}"
                                                                 >
                                                             </div>
-                                                            <div class="col-span-2 min-w-[120px]">
+                                                            <div class="col-span-2 min-w-[100px]">
                                                                 <input
                                                                     type="number"
                                                                     name="service_limits[{{ $service->id }}][max_quantity]"
@@ -993,13 +994,24 @@
                                                                     placeholder="{{ __('Default') }}"
                                                                 >
                                                             </div>
-                                                            <div class="col-span-2 min-w-[120px]">
+                                                            <div class="col-span-1 min-w-[90px]">
                                                                 <input
                                                                     type="number"
                                                                     name="service_limits[{{ $service->id }}][increment]"
                                                                     value="{{ old("service_limits.{$service->id}.increment", $hasLimit->increment ?? '') }}"
                                                                     min="0"
                                                                     step="1"
+                                                                    class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                                                    placeholder="{{ __('Default') }}"
+                                                                >
+                                                            </div>
+                                                            <div class="col-span-1 min-w-[90px]">
+                                                                <input
+                                                                    type="number"
+                                                                    name="service_limits[{{ $service->id }}][overflow_percent]"
+                                                                    value="{{ old("service_limits.{$service->id}.overflow_percent", $hasLimit->overflow_percent ?? '') }}"
+                                                                    min="0"
+                                                                    step="0.01"
                                                                     class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                                                                     placeholder="{{ __('Default') }}"
                                                                 >
@@ -1049,7 +1061,7 @@
                                         <div class="col-span-2 min-w-[150px]">
                                             <span class="text-xs sm:text-sm font-medium text-gray-900 service-name break-words"></span>
                                         </div>
-                                        <div class="col-span-2 min-w-[120px]">
+                                        <div class="col-span-2 min-w-[100px]">
                                             <input
                                                 type="number"
                                                 name="service_limits[SERVICE_ID][min_quantity]"
@@ -1060,7 +1072,7 @@
                                                 placeholder="{{ __('Default') }}"
                                             >
                                         </div>
-                                        <div class="col-span-2 min-w-[120px]">
+                                        <div class="col-span-2 min-w-[100px]">
                                             <input
                                                 type="number"
                                                 name="service_limits[SERVICE_ID][max_quantity]"
@@ -1071,13 +1083,24 @@
                                                 placeholder="{{ __('Default') }}"
                                             >
                                         </div>
-                                        <div class="col-span-2 min-w-[120px]">
+                                        <div class="col-span-1 min-w-[90px]">
                                             <input
                                                 type="number"
                                                 name="service_limits[SERVICE_ID][increment]"
                                                 value=""
                                                 min="0"
                                                 step="1"
+                                                class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                                placeholder="{{ __('Default') }}"
+                                            >
+                                        </div>
+                                        <div class="col-span-1 min-w-[90px]">
+                                            <input
+                                                type="number"
+                                                name="service_limits[SERVICE_ID][overflow_percent]"
+                                                value=""
+                                                min="0"
+                                                step="0.01"
                                                 class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                                                 placeholder="{{ __('Default') }}"
                                             >

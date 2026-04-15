@@ -21,6 +21,7 @@ class ClientServiceLimit extends Model
         'min_quantity',
         'max_quantity',
         'increment',
+        'overflow_percent',
     ];
 
     /**
@@ -34,6 +35,7 @@ class ClientServiceLimit extends Model
             'min_quantity' => 'integer',
             'max_quantity' => 'integer',
             'increment' => 'integer',
+            'overflow_percent' => 'decimal:2',
         ];
     }
 

@@ -285,7 +285,7 @@
                                     <template x-for="group in serviceGroups" :key="'group-' + group.label">
                                         <optgroup :label="group.label">
                                             <template x-for="service in group.services" :key="'service-' + service.id">
-                                                <option :value="service.id" :selected="serviceId == service.id" x-text="service.name"></option>
+                                                <option :value="service.id" :selected="serviceId == service.id" x-text="service.id + ' - ' + service.name"></option>
                                             </template>
                                         </optgroup>
                                     </template>
@@ -931,7 +931,7 @@
                                                         class="block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                                                         <option value="">{{ __('Select a service') }}</option>
                                                         <template x-for="service in getFilteredServicesForRow(index)" :key="'multi-service-' + service.id">
-                                                            <option :value="service.id" x-text="service.name"></option>
+                                                            <option :value="service.id" x-text="service.id + ' - ' + service.name"></option>
                                                         </template>
                                                     </select>
                                                 </div>
