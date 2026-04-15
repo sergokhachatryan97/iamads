@@ -128,8 +128,8 @@ class SyncValidatingProviderOrdersJob implements ShouldQueue
                 }
 
                 if (!in_array($item['status'], ['completed', 'canceled'])) {
-                    SocpanelValidateOrderJob::dispatch($order->remote_service_id, $order->link, $this->status)
-                        ->onQueue('tg-double-check');
+//                    SocpanelValidateOrderJob::dispatch($order->remote_service_id, $order->link, $this->status)
+//                        ->onQueue('tg-double-check');
 
                 }
 
