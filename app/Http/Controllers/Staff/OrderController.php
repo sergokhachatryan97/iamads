@@ -201,6 +201,7 @@ class OrderController extends Controller
 
         try {
             $this->orderService->cancelFull($order, $order->client);
+            \App\Models\StaffActivityLog::log('cancel', "Canceled order #{$order->id} (full refund, client #{$order->client_id})", $order);
 
             return redirect()
                 ->route('staff.orders.index')
@@ -231,6 +232,7 @@ class OrderController extends Controller
 
         try {
             $this->orderService->cancelPartial($order, $order->client);
+            \App\Models\StaffActivityLog::log('cancel', "Partially canceled order #{$order->id} (client #{$order->client_id})", $order);
 
             return redirect()
                 ->route('staff.orders.index')

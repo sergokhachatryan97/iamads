@@ -72,6 +72,7 @@ class ClientController extends Controller
         try {
             $currentUser = Auth::guard('staff')->user();
             $this->clientService->deleteClient($client, $currentUser);
+            \App\Models\StaffActivityLog::log('delete', "Deleted client #{$client->id} ({$client->email})", $client);
 
             return redirect()->route('staff.clients.index')
                 ->with('status', 'client-deleted');
@@ -100,6 +101,7 @@ class ClientController extends Controller
                 'status' => 'suspended',
                 'suspended_at' => now(),
             ]);
+            \App\Models\StaffActivityLog::log('toggle', "Suspended client #{$client->id} ({$client->email})", $client);
 
             return redirect()->back()
                 ->with('success', 'User suspended successfully.');
@@ -128,6 +130,7 @@ class ClientController extends Controller
                 'status' => 'active',
                 'suspended_at' => null,
             ]);
+            \App\Models\StaffActivityLog::log('toggle', "Activated client #{$client->id} ({$client->email})", $client);
         }
 
         return redirect()->back()
@@ -168,6 +171,11 @@ class ClientController extends Controller
                 'description' => $description,
             ]);
         });
+
+        \App\Models\StaffActivityLog::log('balance', "Added \${$amount} balance to client #{$client->id} ({$client->email})", $client, [
+            'amount' => $amount,
+            'description' => $description,
+        ]);
 
         return redirect()->route('staff.clients.edit', $client)
             ->with('success', 'Balance added successfully. New balance: $' . number_format((float) $client->fresh()->balance, 2));
@@ -619,6 +627,8 @@ class ClientController extends Controller
                     );
                 }
             });
+
+            \App\Models\StaffActivityLog::log('update', "Updated client #{$client->id} ({$client->email})", $client, $updateData);
 
             return redirect()
                 ->route('staff.clients.edit', $client)

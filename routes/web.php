@@ -181,6 +181,9 @@ Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSess
         // Provider order statistics (completed orders by user / by service)
         Route::get('provider-order-stats', [ProviderOrderStatsController::class, 'index'])->name('staff.provider-order-stats.index');
         Route::get('provider-order-stats/export', [ProviderOrderStatsController::class, 'exportCsv'])->name('staff.provider-order-stats.export');
+
+        // Manager Activity Log
+        Route::get('activity-logs', [\App\Http\Controllers\Staff\ActivityLogController::class, 'index'])->name('staff.activity-logs.index');
     });
 
     // Clients Management (accessible to all authenticated staff, filtered by role)

@@ -114,7 +114,8 @@ class ServiceController extends Controller
      */
     public function store(StoreServiceRequest $request): RedirectResponse
     {
-        $this->serviceService->createService($request->validated());
+        $service = $this->serviceService->createService($request->validated());
+        \App\Models\StaffActivityLog::log('create', "Created service #{$service->id} ({$service->name})", $service);
 
         return redirect()->route('staff.services.index')
             ->with('status', 'service-created');
@@ -126,6 +127,7 @@ class ServiceController extends Controller
     public function update(UpdateServiceRequest $request, Service $service): RedirectResponse
     {
         $this->serviceService->updateService($service, $request->validated());
+        \App\Models\StaffActivityLog::log('update', "Updated service #{$service->id} ({$service->name})", $service);
 
         return redirect()->route('staff.services.index')
             ->with('status', 'service-updated');
@@ -159,11 +161,12 @@ class ServiceController extends Controller
     public function toggleCategoryStatus(Category $category): RedirectResponse
     {
         $this->categoryService->toggleCategoryStatus($category);
-
-        $statusMessage = $category->fresh()->status ? 'category-enabled' : 'category-disabled';
+        $fresh = $category->fresh();
+        $state = $fresh->status ? 'enabled' : 'disabled';
+        \App\Models\StaffActivityLog::log('toggle', "Category #{$category->id} ({$category->name}) {$state}", $category);
 
         return redirect()->route('staff.services.index')
-            ->with('status', $statusMessage);
+            ->with('status', $fresh->status ? 'category-enabled' : 'category-disabled');
     }
 
     /**
@@ -172,6 +175,7 @@ class ServiceController extends Controller
     public function duplicate(Service $service): RedirectResponse
     {
         $this->serviceService->duplicateService($service);
+        \App\Models\StaffActivityLog::log('create', "Duplicated service #{$service->id} ({$service->name})", $service);
 
         return redirect()->route('staff.services.index')
             ->with('status', 'service-duplicated');
@@ -184,6 +188,7 @@ class ServiceController extends Controller
     {
         try {
             $this->serviceService->deleteService($service);
+            \App\Models\StaffActivityLog::log('delete', "Deleted service #{$service->id} ({$service->name})", $service);
 
             // Check if it's an AJAX request (check multiple conditions)
             $isAjax = $request->wantsJson()
@@ -249,7 +254,10 @@ class ServiceController extends Controller
             $this->serviceService->toggleServiceStatus($service);
         }
 
-        $statusMessage = $service->fresh()->is_active ? 'service-enabled' : 'service-disabled';
+        $fresh = $service->fresh();
+        $state = $fresh->is_active ? 'enabled' : 'disabled';
+        \App\Models\StaffActivityLog::log('toggle', "Service #{$service->id} ({$service->name}) {$state}", $service);
+        $statusMessage = $fresh->is_active ? 'service-enabled' : 'service-disabled';
 
         // If AJAX request, return JSON response
         if ($request->wantsJson() || $request->ajax()) {

@@ -25,6 +25,9 @@
                         <x-nav-link :href="route('staff.provider-order-stats.index')" :active="request()->routeIs('staff.provider-order-stats.*')">
                             {{ __('Provider Order Stats') }}
                         </x-nav-link>
+                        <x-nav-link :href="route('staff.activity-logs.index')" :active="request()->routeIs('staff.activity-logs.*')">
+                            {{ __('Activity Log') }}
+                        </x-nav-link>
                     @endif
                     @if(Auth::guard('staff')->check())
                         <x-nav-link :href="route('staff.orders.index')" :active="request()->routeIs('staff.orders.*')">
@@ -136,6 +139,9 @@
                 </x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('staff.provider-order-stats.index')" :active="request()->routeIs('staff.provider-order-stats.*')">
                     {{ __('Provider Order Stats') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('staff.activity-logs.index')" :active="request()->routeIs('staff.activity-logs.*')">
+                    {{ __('Activity Log') }}
                 </x-responsive-nav-link>
             @endif
 
