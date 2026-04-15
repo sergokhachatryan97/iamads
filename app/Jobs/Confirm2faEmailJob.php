@@ -84,6 +84,11 @@ class Confirm2faEmailJob implements ShouldQueue
                 if ($code !== null) {
                     // Found code, try to confirm
                     $madeline = $factory->makeForRuntime($account);
+                    if ($madeline === null) {
+                        Log::warning('Confirm2faEmailJob: session cap reached', ['account_id' => $account->id]);
+                        $this->release(30);
+                        return;
+                    }
 
                     try {
                         $madeline->account->confirmPasswordEmail(['code' => $code]);

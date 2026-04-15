@@ -440,6 +440,9 @@ class TelegramFolderService
     {
         try {
             $api = $this->mtprotoClientFactory->makeForRuntime($account);
+            if ($api === null) {
+                return ['ok' => false, 'error' => 'SESSION_CAP_REACHED'];
+            }
             $api->start();
 
             return $fn($api);

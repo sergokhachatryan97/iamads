@@ -116,6 +116,13 @@ class TelegramTaskWorker
             ]);
 
             $madeline = $this->madelineFactory->makeForRuntime($mtprotoAccount);
+            if ($madeline === null) {
+                Log::warning('Local worker skip task: session cap reached', [
+                    'task_id' => $task->id,
+                    'account_id' => $accountId,
+                ]);
+                return 'skipped';
+            }
             $payload = $task->payload ?? [];
             $payload['link_hash'] = $task->link_hash;
 

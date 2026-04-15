@@ -71,6 +71,13 @@ return Application::configure(basePath: dirname(__DIR__))
             ->withoutOverlapping(1)
             ->onOneServer();
 
+        // Reap stale/orphaned MadelineProto IPC workers every minute.
+        // Kills workers >15min old and processes not tracked in the registry.
+        $schedule->command('mtproto:reap')
+            ->everyMinute()
+            ->withoutOverlapping()
+            ->onOneServer();
+
         $schedule->command('socpanel:poll')
             ->everyThreeMinutes()
             ->withoutOverlapping(4);

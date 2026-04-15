@@ -109,6 +109,11 @@ class RunAccountSetupTaskJob implements ShouldQueue
 
             // Create Madeline instance
             $madeline = $factory->makeForRuntime($account);
+            if ($madeline === null) {
+                Log::warning('RunAccountSetupTaskJob: session cap reached', ['account_id' => $account->id]);
+                $this->release(30);
+                return;
+            }
 
             // Execute task
             $result = $executor->execute($task->task_type, $madeline, $account, $task->payload_json ?? []);

@@ -1000,8 +1000,17 @@ class TelegramMtprotoPoolService
 
                 $madeline = $this->factory->makeForRuntime($account);
 
+                if ($madeline === null) {
+                    // Session cap reached
+                    continue;
+                }
+
                 $this->revoltErrorHandlerSetBeforeStart();
                 $madeline->start();
+
+                // Capture the actual MadelineProto worker PID after start()
+                $sessionName = $this->factory->sessionName($account);
+                $this->factory->captureWorkerPid($sessionName);
 
                 try {
                     $result = $callback($account, $madeline);
@@ -1023,6 +1032,9 @@ class TelegramMtprotoPoolService
 
                         // ✅ 2) fresh runtime
                         $madeline2 = $this->factory->makeForRuntime($account);
+                        if ($madeline2 === null) {
+                            return $this->fail('SESSION_CAP_REACHED', 'Cannot re-acquire session after peer-db error');
+                        }
                         $this->revoltErrorHandlerSetBeforeStart();
                         $madeline2->start();
 

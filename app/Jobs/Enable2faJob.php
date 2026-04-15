@@ -56,6 +56,11 @@ class Enable2faJob implements ShouldQueue
             }
 
             $madeline = $factory->makeForRuntime($account);
+            if ($madeline === null) {
+                Log::warning('Enable2faJob: session cap reached', ['account_id' => $account->id]);
+                $this->release(30);
+                return;
+            }
 
             // already has 2fa?
             $passwordInfo = $madeline->account->getPassword();
