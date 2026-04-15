@@ -150,7 +150,7 @@ class YouTubeTaskClaimController extends Controller
         $eligible = \Illuminate\Support\Facades\Cache::get('yt:claim:eligible');
 
         if ($eligible === null || (is_countable($eligible) && count($eligible) === 0)) {
-            return 60;
+            return random_int(90, 150);
         }
 
         try {

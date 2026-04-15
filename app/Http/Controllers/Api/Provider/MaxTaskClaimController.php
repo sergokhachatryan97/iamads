@@ -107,7 +107,7 @@ class MaxTaskClaimController extends Controller
         $eligible = \Illuminate\Support\Facades\Cache::get($cacheKey);
 
         if ($eligible === null || (is_countable($eligible) && count($eligible) === 0)) {
-            return 60; // no work — aggressive suppression
+            return random_int(90, 150); // no work — jittered to prevent thundering herd
         }
 
         // Work exists but account couldn't claim → traffic-based TTL

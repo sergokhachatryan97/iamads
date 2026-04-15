@@ -151,7 +151,7 @@ class TelegramTaskClaimController extends Controller
         // No tasks in queue → aggressive suppression.
         // PreassignTelegramTasksJob runs every 30s and clears no-work when it pushes.
         if ($queueLen === 0) {
-            return 60;
+            return random_int(90, 150);
         }
 
         // Queue has tasks but account couldn't claim (cooldown/dedup/cap) →
