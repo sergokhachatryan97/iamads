@@ -629,7 +629,7 @@
                                         @enderror
                                     </div>
 
-                                    <div>
+                                    <div x-show="!categoryIsTelegram && !categoryIsMax" x-cloak>
                                         <label for="description_for_performer" class="block text-sm font-medium text-gray-700 mb-1.5">
                                             {{ __('Description for Performer') }}
                                             <span class="text-xs font-normal text-gray-400">(optional)</span>
@@ -698,6 +698,10 @@
                 get categoryIsMax() {
                     if (!this.categoryId) return false;
                     return (this.categoryLinkDrivers[this.categoryId] || '') === 'max';
+                },
+                get categoryIsTelegram() {
+                    if (!this.categoryId) return false;
+                    return (this.categoryLinkDrivers[this.categoryId] || '') === 'telegram';
                 },
                 denyDuplicates: @js(old('deny_link_duplicates', isset($service) ? (string) (int) ($service->deny_link_duplicates ?? false) : '0')),
                 parsingEnabled: @js(old('start_count_parsing_enabled', isset($service) ? (string) (int) ($service->start_count_parsing_enabled ?? false) : '0')),
