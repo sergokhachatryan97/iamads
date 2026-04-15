@@ -483,9 +483,9 @@
                                                             type="number"
                                                             name="rates[{{ $service->id }}][value]"
                                                             value="{{ old("rates.{$service->id}.value", $rateValue) }}"
-                                                            step="0.01"
+                                                            step="0.0001"
                                                             min="0"
-                                                            placeholder="{{ $rateType === 'fixed' ? '0.00' : '0' }}"
+                                                            placeholder="{{ $rateType === 'fixed' ? '0.0000' : '0' }}"
                                                             class="rate-value-input w-16 sm:w-20 md:w-24 px-1.5 sm:px-2 py-1 sm:py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                                                             oninput="updatePreview(this.closest('.custom-rate-row'))"
                                                         />
@@ -558,9 +558,9 @@
                                                 type="number"
                                                 name="rates[SERVICE_ID][value]"
                                                 value="0"
-                                                step="0.01"
+                                                step="0.0001"
                                                 min="0"
-                                                placeholder="0.00"
+                                                placeholder="0.0000"
                                                 class="rate-value-input w-16 sm:w-20 md:w-24 px-1.5 sm:px-2 py-1 sm:py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                                                 oninput="updatePreview(this.closest('.custom-rate-row'))"
                                             />
@@ -1805,22 +1805,22 @@
                 finalPrice = defaultPrice * (value / 100);
             }
 
-            preview.textContent = '$' + finalPrice.toFixed(2);
+            preview.textContent = '$' + finalPrice.toFixed(4);
 
             // Calculate and display difference: default rate - custom rate
             if (differenceSpan) {
                 const difference = defaultPrice - finalPrice;
                 const absDifference = Math.abs(difference);
                 if (absDifference === 0) {
-                    differenceSpan.textContent = '$0.00';
+                    differenceSpan.textContent = '$0.0000';
                     differenceSpan.className = 'text-sm font-semibold text-gray-500 rate-difference';
                 } else if (difference > 0) {
                     // Default rate is higher (custom rate is lower) - savings shown in green
-                    differenceSpan.textContent = '$' + absDifference.toFixed(2);
+                    differenceSpan.textContent = '$' + absDifference.toFixed(4);
                     differenceSpan.className = 'text-sm font-semibold text-green-600 rate-difference';
                 } else {
                     // Default rate is lower (custom rate is higher) - extra cost shown in red
-                    differenceSpan.textContent = '$' + absDifference.toFixed(2);
+                    differenceSpan.textContent = '$' + absDifference.toFixed(4);
                     differenceSpan.className = 'text-sm font-semibold text-red-600 rate-difference';
                 }
             }

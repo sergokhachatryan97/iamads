@@ -195,13 +195,16 @@
                         </th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
+                <tbody id="services-tbody" class="bg-white divide-y divide-gray-200">
                     @foreach($categories as $category)
                         {{-- Category Header Row --}}
-                        <tr class="bg-gray-50 border-b-2 border-gray-200">
+                        <tr class="bg-gray-50 border-b-2 border-gray-200 category-sortable-row" data-category-id="{{ $category->id }}">
                             <td colspan="10" class="px-6 py-2">
                                 <div class="flex items-center justify-between">
                                     <div class="flex items-center gap-3">
+                                        <span class="category-drag-handle cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600" title="Drag to reorder">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path></svg>
+                                        </span>
                                         @if($category->icon)
                                             <span class="text-xl">
                                                 @if(Str::startsWith($category->icon, '<svg'))
@@ -289,12 +292,27 @@
                             </tr>
                         @else
                             @php
-                                // Group services by target_type
-                                $servicesByTargetType = $category->services->groupBy(function($service) {
-                                    return $service->target_type ?? 'other';
+                                // Group services by dropdown_group from template, fall back to target_type
+                                $servicesByGroup = $category->services->groupBy(function($service) {
+                                    $tpl = $service->template();
+                                    $group = $tpl['dropdown_group'] ?? null;
+                                    return $group ?: ($service->target_type ?? 'other');
                                 });
-                                $targetTypeLabels = [
-                                    'bot' => 'Bot Services 🤖',
+
+                                // Build ordered group keys: prioritize by dropdown_priority, then alphabetical
+                                $groupKeys = $servicesByGroup->keys()->sort(function($a, $b) use ($servicesByGroup) {
+                                    $firstA = $servicesByGroup->get($a)->first();
+                                    $firstB = $servicesByGroup->get($b)->first();
+                                    $tplA = $firstA?->template();
+                                    $tplB = $firstB?->template();
+                                    $prioA = $tplA['dropdown_priority'] ?? 99;
+                                    $prioB = $tplB['dropdown_priority'] ?? 99;
+                                    return $prioA <=> $prioB ?: strcmp($a, $b);
+                                })->values();
+
+                                // Labels: use dropdown_label from template, or fall back to formatted key
+                                $fallbackLabels = [
+                                    'bot' => 'Bot Services',
                                     'channel' => 'Channel/Group Services',
                                     'group' => 'Group Services',
                                     'youtube' => 'YouTube Services',
@@ -303,11 +321,13 @@
                                 ];
                             @endphp
 
-                            @foreach(['bot', 'channel', 'group', 'youtube', 'app', 'other'] as $targetType)
-                                @if($servicesByTargetType->has($targetType) && $servicesByTargetType->get($targetType)->isNotEmpty())
+                            @foreach($groupKeys as $targetType)
+                                @if($servicesByGroup->get($targetType)->isNotEmpty())
                                     @php
-                                        $targetServices = $servicesByTargetType->get($targetType);
+                                        $targetServices = $servicesByGroup->get($targetType);
                                         $targetGroupId = "category_{$category->id}_target_{$targetType}";
+                                        $firstTpl = $targetServices->first()?->template();
+                                        $groupLabel = $firstTpl['dropdown_label'] ?? ($fallbackLabels[$targetType] ?? ucfirst(str_replace('_', ' ', $targetType)));
                                     @endphp
 
                                     {{-- Target Type Group Header --}}
@@ -321,7 +341,7 @@
                                                         <svg class="w-4 h-4 transition-transform" :class="{ 'rotate-180': isTargetGroupCollapsed('{{ $targetGroupId }}') }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                                                         </svg>
-                                                        <span>{{ $targetTypeLabels[$targetType] ?? ucfirst($targetType) }} ({{ $targetServices->count() }})</span>
+                                                        <span>{{ $groupLabel }} ({{ $targetServices->count() }})</span>
                                                     </button>
                                                 </div>
                                                 <div class="flex items-center gap-3">
@@ -366,11 +386,17 @@
                                     @foreach($targetServices as $service)
                                 <tr x-show="!isCategoryCollapsed({{ $category->id }}) && !isTargetGroupCollapsed('{{ $targetGroupId }}')"
                                     x-transition
-                                    class="hover:bg-gray-50 {{ $service->trashed() ? '' : 'cursor-pointer' }} {{ !($service->is_active ?? true) ? 'opacity-60 bg-gray-50' : '' }}"
+                                    class="hover:bg-gray-50 service-sortable-row {{ $service->trashed() ? '' : 'cursor-pointer' }} {{ !($service->is_active ?? true) ? 'opacity-60 bg-gray-50' : '' }}"
+                                    data-service-id="{{ $service->id }}"
+                                    data-category-id="{{ $category->id }}"
                                     @if(! $service->trashed())
                                     @click="window.location.href='{{ route('staff.services.edit', $service) }}'"
                                     @endif>
                                         <td class="px-4 py-2 whitespace-nowrap" @click.stop>
+                                            <div class="flex items-center gap-2">
+                                                <span class="service-drag-handle cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600" title="Drag to reorder">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path></svg>
+                                                </span>
                                             <input type="checkbox"
                                                    data-category-id="{{ $category->id }}"
                                                    data-target-type="{{ $targetType }}"
@@ -379,6 +405,7 @@
                                                    :checked="selectedServices.includes({{ $service->id }})"
                                                    class="service-checkbox rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 {{ !($service->is_active ?? true) ? 'opacity-50' : '' }}"
                                                    @change="toggleServiceSelection({{ $service->id }}, $event.target.checked, {{ $category->id }})">
+                                            </div>
                                         </td>
                                         <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
                                             {{ $service->id }}
@@ -526,4 +553,53 @@
             </table>
         </div>
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const tbody = document.getElementById('services-tbody');
+        if (!tbody) return;
+
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+
+        // Category reorder
+        Sortable.create(tbody, {
+            handle: '.category-drag-handle',
+            draggable: '.category-sortable-row',
+            animation: 150,
+            ghostClass: 'bg-indigo-50',
+            onEnd: function() {
+                const order = Array.from(tbody.querySelectorAll('.category-sortable-row'))
+                    .map(r => parseInt(r.dataset.categoryId));
+                fetch(@js(route('staff.categories.reorder')), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+                    body: JSON.stringify({ order }),
+                });
+            },
+        });
+
+        // Service reorder per category
+        const categoryIds = [...new Set(
+            Array.from(tbody.querySelectorAll('.service-sortable-row')).map(r => r.dataset.categoryId)
+        )];
+        categoryIds.forEach(function(catId) {
+            Sortable.create(tbody, {
+                handle: '.service-drag-handle',
+                draggable: '.service-sortable-row[data-category-id="' + catId + '"]',
+                animation: 150,
+                ghostClass: 'bg-blue-50',
+                onEnd: function() {
+                    const order = Array.from(tbody.querySelectorAll('.service-sortable-row[data-category-id="' + catId + '"]'))
+                        .map(r => parseInt(r.dataset.serviceId));
+                    fetch(@js(route('staff.services.reorder')), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+                        body: JSON.stringify({ order }),
+                    });
+                },
+            });
+        });
+    });
+    </script>
 @endif

@@ -485,7 +485,7 @@ class OrderController extends Controller
             $query->where('target_type', $targetType);
         }
 
-        $services = $query->orderBy('name')
+        $services = $query->orderBy('sort_order', 'asc')->orderBy('name')
             ->get([
                 'id',
                 'name',

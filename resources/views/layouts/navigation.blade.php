@@ -33,9 +33,11 @@
 {{--                        <x-nav-link :href="route('staff.order-stats.index')" :active="request()->routeIs('staff.order-stats.*')">--}}
 {{--                            {{ __('Order Stats') }}--}}
 {{--                        </x-nav-link>--}}
-                        <x-nav-link :href="route('staff.telegram-stats.index')" :active="request()->routeIs('staff.telegram-stats.*')">
-                            {{ __('Telegram Stats') }}
-                        </x-nav-link>
+                        @if(Auth::guard('staff')->user()?->hasRole('super_admin'))
+                            <x-nav-link :href="route('staff.telegram-stats.index')" :active="request()->routeIs('staff.telegram-stats.*')">
+                                {{ __('Telegram Stats') }}
+                            </x-nav-link>
+                        @endif
                     @endif
                     @if(Auth::guard('staff')->check())
                         <x-nav-link :href="route('staff.clients.index')" :active="request()->routeIs('staff.clients.*')">
@@ -144,9 +146,11 @@
                 <x-responsive-nav-link :href="route('staff.order-stats.index')" :active="request()->routeIs('staff.order-stats.*')">
                     {{ __('Order Stats') }}
                 </x-responsive-nav-link>
-                <x-responsive-nav-link :href="route('staff.telegram-stats.index')" :active="request()->routeIs('staff.telegram-stats.*')">
-                    {{ __('Telegram Stats') }}
-                </x-responsive-nav-link>
+                @if(Auth::guard('staff')->user()?->hasRole('super_admin'))
+                    <x-responsive-nav-link :href="route('staff.telegram-stats.index')" :active="request()->routeIs('staff.telegram-stats.*')">
+                        {{ __('Telegram Stats') }}
+                    </x-responsive-nav-link>
+                @endif
                 <x-responsive-nav-link :href="route('staff.clients.index')" :active="request()->routeIs('staff.clients.*')">
                     {{ __('Clients') }}
                 </x-responsive-nav-link>

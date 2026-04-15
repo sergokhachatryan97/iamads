@@ -51,7 +51,7 @@ class CategoryRepository implements CategoryRepositoryInterface
             $query->where('name', 'like', "%{$search}%");
         }
 
-        $categories = $query->orderBy('created_at', 'desc')->get();
+        $categories = $query->orderBy('sort_order', 'asc')->orderBy('created_at', 'desc')->get();
 
         // Filter out categories that have no matching services after filtering
         // This ensures we only show categories that have services matching the search criteria
@@ -136,7 +136,7 @@ class CategoryRepository implements CategoryRepositoryInterface
             }
         }
 
-        // Sorting
+        // Sorting — always sort by sort_order first, then by user-chosen column
         $allowedSorts = ['id', 'name', 'service_type', 'mode', 'min_quantity', 'max_quantity', 'rate_per_1000', 'is_active', 'created_at'];
         $sort = $filters['sort'] ?? 'id';
         if (!in_array($sort, $allowedSorts, true)) {
@@ -144,7 +144,7 @@ class CategoryRepository implements CategoryRepositoryInterface
         }
 
         $dir = ($filters['dir'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
-        $query->orderBy($sort, $dir);
+        $query->orderBy('sort_order', 'asc')->orderBy($sort, $dir);
     }
 
     /**
@@ -166,7 +166,7 @@ class CategoryRepository implements CategoryRepositoryInterface
                   });
         }
         
-        return $query->orderBy('created_at', 'desc')->get();
+        return $query->orderBy('sort_order', 'asc')->orderBy('created_at', 'desc')->get();
     }
 
     /**

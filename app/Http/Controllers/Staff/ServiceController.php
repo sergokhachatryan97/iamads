@@ -60,6 +60,40 @@ class ServiceController extends Controller
         ]);
     }
 
+    /**
+     * Reorder categories via drag-and-drop.
+     */
+    public function reorderCategories(Request $request): JsonResponse
+    {
+        $request->validate([
+            'order' => 'required|array',
+            'order.*' => 'integer|exists:categories,id',
+        ]);
+
+        foreach ($request->input('order') as $index => $categoryId) {
+            Category::where('id', $categoryId)->update(['sort_order' => $index]);
+        }
+
+        return response()->json(['success' => true]);
+    }
+
+    /**
+     * Reorder services within a category via drag-and-drop.
+     */
+    public function reorderServices(Request $request): JsonResponse
+    {
+        $request->validate([
+            'order' => 'required|array',
+            'order.*' => 'integer|exists:services,id',
+        ]);
+
+        foreach ($request->input('order') as $index => $serviceId) {
+            Service::where('id', $serviceId)->update(['sort_order' => $index]);
+        }
+
+        return response()->json(['success' => true]);
+    }
+
     public function create(): View
     {
         return view('staff.services.create', $this->getServiceFormData());

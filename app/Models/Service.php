@@ -73,6 +73,7 @@ class Service extends Model
         'priority',
         'provider',
         'provider_service_id',
+        'sort_order',
     ];
 
     /**

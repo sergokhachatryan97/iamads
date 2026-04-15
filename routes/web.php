@@ -210,8 +210,10 @@ Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSess
     Route::post('orders/bulk-action', [\App\Http\Controllers\Staff\OrderController::class, 'bulkAction'])->name('staff.orders.bulk-action');
     Route::get('orders/statuses', [\App\Http\Controllers\Staff\OrderController::class, 'getStatuses'])->name('staff.orders.statuses');
 
-    // Telegram Statistics
-    Route::get('telegram-stats', [TelegramStatsController::class, 'index'])->name('staff.telegram-stats.index');
+    // Telegram Statistics (super_admin only)
+    Route::middleware('staff.role:super_admin')->group(function () {
+        Route::get('telegram-stats', [TelegramStatsController::class, 'index'])->name('staff.telegram-stats.index');
+    });
 
     // Export Files
     Route::get('exports', [\App\Http\Controllers\Staff\ExportFilesController::class, 'index'])->name('staff.exports.index');
@@ -236,6 +238,8 @@ Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSess
     Route::post('categories', [ServiceController::class, 'storeCategory'])->name('staff.categories.store');
     Route::put('categories/{category}', [ServiceController::class, 'updateCategory'])->name('staff.categories.update');
     Route::post('categories/{category}/toggle-status', [ServiceController::class, 'toggleCategoryStatus'])->name('staff.categories.toggle-status');
+    Route::post('categories/reorder', [ServiceController::class, 'reorderCategories'])->name('staff.categories.reorder');
+    Route::post('services/reorder', [ServiceController::class, 'reorderServices'])->name('staff.services.reorder');
 
     // Subscription Plans Management (staff, super_admin only)
     Route::middleware('staff.role:staff,super_admin')->group(function () {

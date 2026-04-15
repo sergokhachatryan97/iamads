@@ -20,6 +20,7 @@ class Category extends Model
         'link_driver',
         'icon',
         'status',
+        'sort_order',
     ];
 
     /**
