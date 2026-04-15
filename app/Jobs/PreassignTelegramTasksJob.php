@@ -67,6 +67,13 @@ class PreassignTelegramTasksJob implements ShouldQueue
         }
 
         $eligible = $this->getEligibleOrders($categoryId);
+
+        // Proactively set no-work keys for services WITHOUT eligible orders.
+        // This prevents thundering herd: when no-work expires in the controller,
+        // 100K+ accounts can flood in simultaneously. By refreshing the key here
+        // every 30s, it never fully expires for idle services.
+        $this->refreshNoWorkForIdleServices($categoryId, $eligible);
+
         if (empty($eligible)) {
             return;
         }
@@ -213,6 +220,54 @@ class PreassignTelegramTasksJob implements ShouldQueue
             'services'     => count($orderIdsByService),
             'tasks_queued' => $totalQueued,
         ]);
+    }
+
+    /**
+     * Set no-work keys for all telegram services that have NO eligible orders.
+     * Runs every 30s (same as the job), so the key never fully expires for idle
+     * services. When orders arrive, the push loop clears the key (Redis::del).
+     */
+    private function refreshNoWorkForIdleServices(int $categoryId, array $eligible): void
+    {
+        // All active telegram service IDs for this scope
+        $allServiceIds = Cache::remember("tg:preassign:all_svc:{$this->scope}", 300, function () use ($categoryId) {
+            $systemManagedKeys = Cache::remember('tg:system_managed_keys', 3600,
+                fn() => TelegramSystemManagedTemplate::templateKeys()
+            );
+
+            return \App\Models\Service::query()
+                ->where('category_id', $categoryId)
+                ->where('is_active', true)
+                ->tap(fn($q) => TelegramPremiumTemplateScope::applyServiceTemplateScope($q, $this->scope))
+                ->when($systemManagedKeys, fn($q) => $q->whereNotIn('template_key', $systemManagedKeys))
+                ->pluck('id')
+                ->all();
+        });
+
+        if (empty($allServiceIds)) {
+            return;
+        }
+
+        // Service IDs that DO have eligible orders
+        $activeServiceIds = collect($eligible)->pluck('service_id')->unique()->all();
+
+        // Idle = all services minus those with orders
+        $idleServiceIds = array_diff($allServiceIds, $activeServiceIds);
+
+        if (empty($idleServiceIds)) {
+            return;
+        }
+
+        // Pipeline: set no-work for all idle services in one round-trip.
+        // TTL 45s — job runs every 30s, so keys are refreshed before expiry.
+        try {
+            Redis::pipeline(function ($pipe) use ($idleServiceIds) {
+                foreach ($idleServiceIds as $sid) {
+                    $pipe->set("tg:no_work:{$this->scope}:{$sid}", 1, 'EX', 45, 'NX');
+                }
+            });
+        } catch (\Throwable) {
+        }
     }
 
     // =========================================================================
