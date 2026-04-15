@@ -29,6 +29,7 @@ class ClientTransaction extends Model
         'amount',
         'type',
         'description',
+        'is_test_balance',
     ];
 
     /**
@@ -40,6 +41,7 @@ class ClientTransaction extends Model
     {
         return [
             'amount' => 'decimal:4',
+            'is_test_balance' => 'boolean',
         ];
     }
 

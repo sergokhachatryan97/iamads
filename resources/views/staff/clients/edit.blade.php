@@ -27,33 +27,31 @@
 
                         <!-- Balance & Manual Add (standalone form - must be outside main form) -->
                         <div class="mb-6 pb-6 border-b border-gray-200">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
-                                {{ __('Client Balance') }}
-                            </label>
-                            <div class="flex flex-wrap items-end gap-4">
-                                <div class="text-lg font-semibold text-gray-900">
-                                    ${{ number_format((float) $client->balance, 2) }}
+                            <div class="flex items-center justify-between mb-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">{{ __('Client Balance') }}</label>
+                                    <div class="text-2xl font-semibold text-gray-900 mt-1">${{ number_format((float) $client->balance, 2) }}</div>
                                 </div>
-                                <form method="POST" action="{{ route('staff.clients.add-balance', $client) }}" class="flex flex-wrap items-end gap-2">
-                                    @csrf
-                                    <div>
-                                        <label for="add_balance_amount" class="sr-only">{{ __('Amount') }}</label>
-                                        <input type="number" id="add_balance_amount" name="amount" step="0.01" min="0.01" max="999999.99"
-                                            placeholder="{{ __('Amount') }}" required
-                                            class="block w-32 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
-                                    </div>
-                                    <div>
-                                        <label for="add_balance_description" class="sr-only">{{ __('Description (optional)') }}</label>
-                                        <input type="text" id="add_balance_description" name="description" maxlength="255"
-                                            placeholder="{{ __('Description (optional)') }}"
-                                            class="block w-48 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
-                                    </div>
-                                    <button type="submit" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            </div>
+                            <form method="POST" action="{{ route('staff.clients.add-balance', $client) }}">
+                                @csrf
+                                <div class="flex flex-wrap items-center gap-3">
+                                    <input type="number" name="amount" step="0.01" min="0.01" max="999999.99"
+                                        placeholder="{{ __('Amount') }}" required
+                                        class="w-32 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                                    <input type="text" name="description" maxlength="255"
+                                        placeholder="{{ __('Description') }}" required
+                                        class="w-64 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                                    <label class="inline-flex items-center gap-2 cursor-pointer px-3 py-2 rounded-md border border-gray-300 bg-gray-50 hover:bg-yellow-50 transition-colors">
+                                        <input type="checkbox" name="is_test_balance" value="1"
+                                            class="rounded border-gray-300 text-yellow-500 focus:ring-yellow-500" />
+                                        <span class="text-sm font-medium text-gray-700">{{ __('Test') }}</span>
+                                    </label>
+                                    <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
                                         {{ __('Add Balance') }}
                                     </button>
-                                </form>
-                            </div>
-                            <p class="mt-2 text-sm text-gray-500">{{ __('Manually add balance for this client. A transaction record will be created.') }}</p>
+                                </div>
+                            </form>
                         </div>
 
                     <form method="POST" action="{{ route('staff.clients.update', $client) }}">
@@ -170,6 +168,9 @@
                                     </tbody>
                                 </table>
                             </div>
+                            @if ($payments->hasPages())
+                                <div class="mt-3">{{ $payments->links() }}</div>
+                            @endif
 
                             <h3 class="text-sm font-medium text-gray-700 mb-3 mt-6">{{ __('Transaction History') }}</h3>
                             <div class="overflow-x-auto">
@@ -190,7 +191,12 @@
                                                 <td class="px-3 py-2 {{ $tx->amount >= 0 ? 'text-green-700' : 'text-red-700' }}">
                                                     {{ $tx->amount >= 0 ? '+' : '' }}${{ number_format((float) $tx->amount, 4) }}
                                                 </td>
-                                                <td class="px-3 py-2 text-gray-600">{{ $tx->description ?? '—' }}</td>
+                                                <td class="px-3 py-2 text-gray-600">
+                                                    {{ $tx->description ?? '—' }}
+                                                    @if($tx->is_test_balance)
+                                                        <span class="ml-1 inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">{{ __('Test') }}</span>
+                                                    @endif
+                                                </td>
                                             </tr>
                                         @empty
                                             <tr>
@@ -200,6 +206,9 @@
                                     </tbody>
                                 </table>
                             </div>
+                            @if ($clientTransactions->hasPages())
+                                <div class="mt-3">{{ $clientTransactions->links() }}</div>
+                            @endif
                         </div>
 
                         <!-- Custom Rates -->

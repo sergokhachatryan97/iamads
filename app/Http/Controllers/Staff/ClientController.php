@@ -151,13 +151,15 @@ class ClientController extends Controller
 
         $validated = $request->validate([
             'amount' => ['required', 'numeric', 'min:0.01', 'max:999999.99'],
-            'description' => ['nullable', 'string', 'max:255'],
+            'description' => ['required', 'string', 'max:255'],
+            'is_test_balance' => ['nullable', 'boolean'],
         ]);
 
         $amount = (float) $validated['amount'];
-        $description = trim($validated['description'] ?? '') ?: 'Manual balance adjustment by staff';
+        $description = trim($validated['description']);
+        $isTestBalance = (bool) ($validated['is_test_balance'] ?? false);
 
-        DB::transaction(function () use ($client, $amount, $description) {
+        DB::transaction(function () use ($client, $amount, $description, $isTestBalance) {
             $client = Client::query()->where('id', $client->id)->lockForUpdate()->firstOrFail();
             $client->balance = (float) $client->balance + $amount;
             $client->save();
@@ -169,12 +171,15 @@ class ClientController extends Controller
                 'amount' => $amount,
                 'type' => ClientTransaction::TYPE_MANUAL_CREDIT,
                 'description' => $description,
+                'is_test_balance' => $isTestBalance,
             ]);
         });
 
-        \App\Models\StaffActivityLog::log('balance', "Added \${$amount} balance to client #{$client->id} ({$client->email})", $client, [
+        $testLabel = $isTestBalance ? ' [TEST]' : '';
+        \App\Models\StaffActivityLog::log('balance', "Added \${$amount}{$testLabel} balance to client #{$client->id} ({$client->email})", $client, [
             'amount' => $amount,
             'description' => $description,
+            'is_test_balance' => $isTestBalance,
         ]);
 
         return redirect()->route('staff.clients.edit', $client)
@@ -431,13 +436,13 @@ class ClientController extends Controller
 
         $clientTransactions = $client->transactions()
             ->orderByDesc('created_at')
-            ->limit(50)
-            ->get();
+            ->paginate(15, ['*'], 'transactions_page')
+            ->appends(request()->except('transactions_page'));
 
         $payments = $client->payments()
             ->orderByDesc('created_at')
-            ->limit(50)
-            ->get();
+            ->paginate(15, ['*'], 'payments_page')
+            ->appends(request()->except('payments_page'));
 
         return view('staff.clients.edit', [
             'client' => $client,
