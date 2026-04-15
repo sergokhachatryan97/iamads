@@ -21,6 +21,8 @@ class TelegramInspector
     {
         $parsed = TelegramLinkParser::parse($link);
 
+        $telegramLinkInspector = [];
+
         $result = [
             'ok' => false,
             'parsed' => $parsed,
@@ -272,6 +274,24 @@ class TelegramInspector
                 'MT_CALL_FAILED',
                 'MTPROTO_THROTTLE_SLOT_UNAVAILABLE',
             ];
+
+            if ($telegramLinkInspector['status'] == 'ok' || $telegramLinkInspector['exists']) {
+                $result['ok'] = true;
+                $result['chat_type'] = $telegramLinkInspector['entity_kind'] ?? null;
+                $result['audience_type'] = $telegramLinkInspector['entity_kind'] === 'group' ? 'members' : 'subscribers';
+                $result['is_channel'] = $telegramLinkInspector['entity_kind'] === 'channel';
+                $result['is_group'] = $telegramLinkInspector['entity_kind'] === 'group';
+
+                $result['title'] = $telegramLinkInspector['title'] ?? null;
+
+                $result['member_count'] = $telegramLinkInspector['subscribers_count'] ?? $telegramLinkInspector['members_count'] ?? null;
+
+                $result['resolved'] = [
+                    'source' => 'telegramLinkInspector',
+                    'raw' => $telegramLinkInspector,
+                ];
+                return $result;
+            }
 
             if (in_array($mtCode, $mtTemporary, true)) {
                 return $this->fail(
