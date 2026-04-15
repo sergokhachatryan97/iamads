@@ -25,7 +25,7 @@ class ThrottleProviderPolling
      */
     private function intervalSeconds(): int
     {
-        return (int) config('services.provider.poll_interval_seconds', 2);
+        return (int) config('services.provider.poll_interval_seconds', 10);
     }
 
     public function handle(Request $request, Closure $next): Response

@@ -39,8 +39,8 @@ class YouTubeTaskClaimController extends Controller
         $hourKey = 'yt:claim_attempts:' . now()->format('Y-m-d-H');
         try {
             [$throttleAcquired, $_, $noWork, $_, $_] = Redis::pipeline(function ($pipe) use ($throttleKey, $noWorkKey, $hourKey, $account) {
-                $pipe->set($throttleKey, 1, 'EX', 2, 'NX');
-                $pipe->expire($throttleKey, 2);
+                $pipe->set($throttleKey, 1, 'EX', 10, 'NX');
+                $pipe->expire($throttleKey, 10);
                 $pipe->exists($noWorkKey);
                 $pipe->pfadd($hourKey, [$account]);
                 $pipe->expire($hourKey, 7200);

@@ -32,8 +32,8 @@ class MaxTaskClaimController extends Controller
         $throttleKey = 'max:poll_throttle:' . md5($account);
         try {
             [$throttleAcquired, $_, $noWork] = Redis::pipeline(function ($pipe) use ($throttleKey, $noWorkKey) {
-                $pipe->set($throttleKey, 1, 'EX', 2, 'NX');
-                $pipe->expire($throttleKey, 2);
+                $pipe->set($throttleKey, 1, 'EX', 10, 'NX');
+                $pipe->expire($throttleKey, 10);
                 $pipe->exists($noWorkKey);
             });
             if (! $throttleAcquired) {
