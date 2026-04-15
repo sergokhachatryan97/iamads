@@ -99,6 +99,7 @@ Route::middleware('auth:client')->group(function () {
     Route::get('orders/create', [OrderController::class, 'create'])->name('client.orders.create');
     Route::post('orders', [OrderController::class, 'store'])->name('client.orders.store');
     Route::post('orders/multi-store', [OrderController::class, 'multiStore'])->name('client.orders.multi-store');
+    Route::get('orders/success', [OrderController::class, 'success'])->name('client.orders.success');
     Route::get('orders/services/by-category', [OrderController::class, 'servicesByCategory'])->name('client.orders.services.by-category');
     Route::post('orders/{order}/cancel', [OrderController::class, 'cancelFull'])->name('client.orders.cancelFull');
     Route::post('orders/{order}/cancel-partial', [OrderController::class, 'cancelPartial'])->name('client.orders.cancelPartial');

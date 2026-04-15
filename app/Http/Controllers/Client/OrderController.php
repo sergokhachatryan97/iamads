@@ -369,11 +369,9 @@ class OrderController extends Controller
         try {
             $orders = $this->orderService->create($this->client, $request->payload());
 
-            $count = $orders->count();
-
             return redirect()
-                ->route('client.orders.index')
-                ->with('success', $count === 1 ? 'Order created successfully.' : "{$count} orders created successfully.");
+                ->route('client.orders.success')
+                ->with('created_order_ids', $orders->pluck('id')->all());
         } catch (ValidationException $e) {
             return back()->withErrors($e->errors())->withInput();
         } catch (Throwable $e) {
@@ -394,11 +392,9 @@ class OrderController extends Controller
         try {
             $orders = $this->orderService->createMultiServiceOrders($this->client, $request->payload());
 
-            $count = $orders->count();
-
             return redirect()
-                ->route('client.orders.index')
-                ->with('success', $count === 1 ? 'Order created successfully.' : "{$count} orders created successfully.");
+                ->route('client.orders.success')
+                ->with('created_order_ids', $orders->pluck('id')->all());
         } catch (ValidationException $e) {
             if ($e->validator->errors()->has('balance')) {
                 return redirect()->route('client.balance.add', ['return_to' => 'order'])
@@ -413,6 +409,36 @@ class OrderController extends Controller
                 'error' => 'Something went wrong. Please try again.',
             ])->withInput();
         }
+    }
+
+    /**
+     * Show order creation success page.
+     */
+    public function success(Request $request): View|RedirectResponse
+    {
+        $orderIds = session('created_order_ids', []);
+
+        if (empty($orderIds)) {
+            return redirect()->route('client.orders.index');
+        }
+
+        $orders = Order::with('service')
+            ->where('client_id', $this->client->id)
+            ->whereIn('id', $orderIds)
+            ->get();
+
+        if ($orders->isEmpty()) {
+            return redirect()->route('client.orders.index');
+        }
+
+        $totalCharge = $orders->sum('charge');
+        $isSingle = $orders->count() === 1;
+
+        return view('client.orders.success', [
+            'orders' => $orders,
+            'totalCharge' => $totalCharge,
+            'isSingle' => $isSingle,
+        ]);
     }
 
     /**
