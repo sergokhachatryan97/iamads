@@ -484,7 +484,7 @@
                 <img src="{{ asset('images/logo-icon.svg') }}" alt="" class="smm-dash-brand-mark">
                 <div>
                     <div class="smm-dash-brand-text">{{ config('app.name', 'SMM Tool') }}</div>
-                    <div class="smm-dash-brand-sub">{{ __('Social Media Growth') }}</div>
+                    <div class="smm-dash-brand-sub">{{ 'Social Media Growth' }}</div>
                 </div>
             </a>
             <nav class="smm-dash-nav">
