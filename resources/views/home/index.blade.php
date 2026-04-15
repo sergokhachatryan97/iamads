@@ -287,7 +287,7 @@
         <img src="{{ asset('images/logo-icon.svg') }}" alt="" class="logo-mark">
         <span class="logo-text">
           <span class="logo-name">{{ config('app.name', 'SMM Tool') }}</span>
-          <span class="logo-slogan">{{ __('home.landing_brand_subtitle') }}</span>
+          <span class="logo-slogan">Social Media Growth</span>
         </span>
       </a>
       <ul class="nav-links">
