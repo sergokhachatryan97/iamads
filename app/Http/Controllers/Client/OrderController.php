@@ -307,7 +307,7 @@ class OrderController extends Controller
             $message = __('No orders matched your selection criteria.');
         }
 
-        $redirect = redirect()->route('client.orders.index');
+        $redirect = redirect()->back();
 
         if ($succeededCount > 0) {
             $redirect->with('success', $message);
@@ -638,15 +638,15 @@ class OrderController extends Controller
             $this->orderService->cancelFull($order, $client);
 
             return redirect()
-                ->route('client.orders.index')
+                ->back()
                 ->with('success', 'Order canceled successfully. Refund has been processed.');
         } catch (ValidationException $e) {
             return redirect()
-                ->route('client.orders.index')
+                ->back()
                 ->withErrors($e->errors());
         } catch (\Exception $e) {
             return redirect()
-                ->route('client.orders.index')
+                ->back()
                 ->with('error', $e->getMessage());
         }
     }
@@ -662,15 +662,15 @@ class OrderController extends Controller
             $this->orderService->cancelPartial($order, $client);
 
             return redirect()
-                ->route('client.orders.index')
+                ->back()
                 ->with('success', 'Order partially canceled. Refund for undelivered quantity has been processed.');
         } catch (ValidationException $e) {
             return redirect()
-                ->route('client.orders.index')
+                ->back()
                 ->withErrors($e->errors());
         } catch (\Exception $e) {
             return redirect()
-                ->route('client.orders.index')
+                ->back()
                 ->with('error', $e->getMessage());
         }
     }
