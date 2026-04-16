@@ -117,7 +117,14 @@ class InspectTelegramLinkJob implements ShouldQueue
                         'provider_payload' => $inspectionResult,
                     ]);
 
-                    return;
+                    // Throw so Laravel's backoff kicks in and re-runs the job.
+                    // Previously this path just returned, leaving the order stuck
+                    // in VALIDATING with no retry until someone manually
+                    // re-dispatched. `failed()` detects this marker on the
+                    // message so it won't mark the order as INVALID_LINK/refund
+                    // when the 5 attempts are exhausted — it will leave the
+                    // order in VALIDATING for the stuck-order sweeper to retry.
+                    throw new \RuntimeException("TEMPORARY_INSPECTION_FAILURE: {$code} - {$message}");
                 }
             }
 
@@ -410,28 +417,64 @@ class InspectTelegramLinkJob implements ShouldQueue
     {
         $order = Order::query()->find($this->orderId);
 
-        if ($order) {
+        if (! $order) {
+            Log::error('InspectTelegramLinkJob failed (order not found)', [
+                'order_id' => $this->orderId,
+                'exception' => $exception->getMessage(),
+            ]);
+            return;
+        }
+
+        $msg = $exception->getMessage();
+
+        // Temporary/infrastructure failures (MTPROTO deadline, no available
+        // accounts, stream closed, etc.) must NOT mark the order as invalid
+        // or refund — the link itself is fine, our infra hiccuped. Keep the
+        // order in VALIDATING so the stuck-order sweeper re-dispatches it
+        // later when the infra recovers.
+        $isTemporary = str_contains($msg, 'TEMPORARY_INSPECTION_FAILURE')
+            || str_contains($msg, 'Retryable inspection error')
+            || str_contains($msg, 'MTPROTO_DEADLINE_EXCEEDED')
+            || str_contains($msg, 'NO_AVAILABLE_ACCOUNTS')
+            || str_contains($msg, 'STREAM_CLOSED')
+            || str_contains($msg, 'MTPROTO_THROTTLE_SLOT_UNAVAILABLE')
+            || str_contains($msg, 'WORKER_SHUTDOWN');
+
+        if ($isTemporary) {
             $order->update([
-                'status' => Order::STATUS_INVALID_LINK,
-                'provider_last_error' => $exception->getMessage(),
+                'status' => Order::STATUS_VALIDATING,
+                'provider_last_error' => $msg,
                 'provider_last_error_at' => now(),
-                'provider_sending_at' => null,
+                'provider_sending_at' => null, // release claim so sweeper can re-dispatch
             ]);
 
-            // ✅ retries exhausted => refund
-            try {
-                app(OrderService::class)->refundInvalid($order, $exception->getMessage());
-            } catch (\Throwable $e) {
-                Log::warning('Refund failed in InspectTelegramLinkJob::failed', [
-                    'order_id' => $this->orderId,
-                    'error' => $e->getMessage(),
-                ]);
-            }
+            Log::warning('InspectTelegramLinkJob: retries exhausted on temporary error, keeping VALIDATING', [
+                'order_id' => $this->orderId,
+                'exception' => $msg,
+            ]);
+            return;
+        }
+
+        // Genuine terminal failure — mark invalid and refund.
+        $order->update([
+            'status' => Order::STATUS_INVALID_LINK,
+            'provider_last_error' => $msg,
+            'provider_last_error_at' => now(),
+            'provider_sending_at' => null,
+        ]);
+
+        try {
+            app(OrderService::class)->refundInvalid($order, $msg);
+        } catch (\Throwable $e) {
+            Log::warning('Refund failed in InspectTelegramLinkJob::failed', [
+                'order_id' => $this->orderId,
+                'error' => $e->getMessage(),
+            ]);
         }
 
         Log::error('InspectTelegramLinkJob failed', [
             'order_id' => $this->orderId,
-            'exception' => $exception->getMessage(),
+            'exception' => $msg,
         ]);
     }
 

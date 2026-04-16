@@ -232,8 +232,14 @@ class SocpanelPollOrdersJob implements ShouldQueue
         if (!empty($order->provider_sending_at)) return false;
 
         if (!$wasCreated) {
+            // Defence-in-depth: skip if we hit an error recently. The primary
+            // guard is `provider_sending_at` (set by the validate job on claim
+            // and intentionally kept set across temporary failures so the 10-min
+            // claim TTL acts as the cool-down). This extra check protects cases
+            // where provider_sending_at was cleared (e.g. non-retryable failure
+            // path) but the link is still producing errors.
             $last = $order->provider_last_error_at;
-            if ($last && $last->gt(now()->subSeconds(30))) {
+            if ($last && $last->gt(now()->subMinutes(5))) {
                 return false;
             }
         }

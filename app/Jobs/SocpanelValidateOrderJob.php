@@ -303,6 +303,14 @@ class SocpanelValidateOrderJob implements ShouldQueue
                 }
 
                 // 2) temporary infra (retry later) -> DO NOT fail the order
+                //
+                // IMPORTANT: we intentionally do NOT clear provider_sending_at here.
+                // Keeping it at the original claim timestamp means the order stays
+                // "locked" for the remainder of the claimTtlMinutes (10 min) window,
+                // so the poller's next run (every 3 min) will skip it at the
+                // `provider_sending_at is not null` guard and we stop hammering the
+                // MTProto pool with the same failing invite/link. After ~10 min the
+                // claim TTL expires and the next poll re-dispatches a fresh attempt.
                 if (in_array($code, $temporaryCodes, true)) {
                     ProviderOrder::query()
                         ->whereIn('id', $orders->pluck('id'))
@@ -312,7 +320,7 @@ class SocpanelValidateOrderJob implements ShouldQueue
                             'provider_last_error' => $message,
                             'provider_last_error_at' => now(),
                             'provider_payload' => $inspectionResult,
-                            'provider_sending_at' => null,
+                            // provider_sending_at left unchanged — see comment above
                         ]);
                     return;
                 }

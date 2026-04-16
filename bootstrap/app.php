@@ -30,10 +30,15 @@ return Application::configure(basePath: dirname(__DIR__))
         //            ->withoutOverlapping()
         //            ->runInBackground();
 
-        //        $schedule->command('orders:process-validating-with-provider-sending')
-        //            ->everyFiveMinutes()
-        //            ->withoutOverlapping()
-        //            ->runInBackground();
+        // Sweeper for orders stuck in VALIDATING with a recorded error —
+        // re-dispatches them through OrderInspectionDispatcher. Handles the
+        // case where InspectTelegramLinkJob exhausted its in-process retries
+        // on a temporary MTProto failure and left the order in VALIDATING.
+        $schedule->command('orders:process-validating-with-provider-sending')
+            ->everyFiveMinutes()
+            ->withoutOverlapping()
+            ->onOneServer()
+            ->runInBackground();
 
         //        $schedule->command('telegram:process-folder-expirations')
         //            ->everyFiveMinutes()
