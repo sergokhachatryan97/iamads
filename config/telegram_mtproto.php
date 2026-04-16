@@ -68,7 +68,15 @@ return [
     'proxy_throttle_max_wait_inspect_sec' => env('TELEGRAM_MTPROTO_PROXY_THROTTLE_MAX_WAIT_INSPECT_SEC', 8),
     'max_accounts_to_try_per_call' => env('TELEGRAM_MTPROTO_MAX_ACCOUNTS_TO_TRY_PER_CALL', 8),
     'call_deadline_ms' => env('TELEGRAM_MTPROTO_CALL_DEADLINE_MS', 30000),
-    'call_deadline_inspect_ms' => env('TELEGRAM_MTPROTO_CALL_DEADLINE_INSPECT_MS', 0),
+    // Shorter deadline for inspect mode — invite lookups on revoked/rate-limited
+    // hashes can hang on Telegram's side; failing fast lets the pool try
+    // another account/proxy instead of burning the whole default budget.
+    'call_deadline_inspect_ms' => env('TELEGRAM_MTPROTO_CALL_DEADLINE_INSPECT_MS', 15000),
+    // Minimum remaining time required before starting the heavy Madeline
+    // operations (makeForRuntime + start + callback). If less than this is
+    // left, the pool returns MTPROTO_DEADLINE_EXCEEDED immediately instead of
+    // starting an operation it cannot finish.
+    'min_call_budget_ms' => env('TELEGRAM_MTPROTO_MIN_CALL_BUDGET_MS', 6000),
     'proxy_mode' => env('TELEGRAM_MTPROTO_PROXY_MODE', 'rotating'), // rotating | static
 
     // Debug: detailed logs for account selection and pool execution (why no account, why same account)

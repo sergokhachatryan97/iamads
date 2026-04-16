@@ -893,12 +893,22 @@ class TelegramMtprotoPoolService
         $rid = $this->newRid();
 
         $maxTries = (int) config('telegram_mtproto.max_accounts_to_try_per_call', 4);
-        //        $deadlineMs  = (int) (
-        //            ($mode === self::MODE_INSPECT && (int) config('telegram_mtproto.call_deadline_inspect_ms', 0) > 0)
-        //                ? config('telegram_mtproto.call_deadline_inspect_ms')
-        //                : config('telegram_mtproto.call_deadline_ms', 30000)
-        //        );
-        $deadlineMs = 30000;
+
+        // Honour the env-driven deadline. Inspect mode gets its own shorter
+        // deadline when configured, because invite lookups often hang on the
+        // MTProto side (revoked/rate-limited invites) and we'd rather fail
+        // fast and try another account than burn the whole budget on one call.
+        $inspectDeadline = (int) config('telegram_mtproto.call_deadline_inspect_ms', 0);
+        $defaultDeadline = (int) config('telegram_mtproto.call_deadline_ms', 30000);
+        $deadlineMs = ($mode === self::MODE_INSPECT && $inspectDeadline > 0)
+            ? $inspectDeadline
+            : $defaultDeadline;
+
+        // Per-attempt budget: if less than this remains before we're about to
+        // fire the heavy IPC start + RPC call, skip the attempt. Keeps a slow
+        // account from starving all remaining retries.
+        $minCallBudgetMs = (int) config('telegram_mtproto.min_call_budget_ms', 6000);
+
         $startedAtMs = (int) (microtime(true) * 1000);
 
         $excludeIds = [];
@@ -998,6 +1008,26 @@ class TelegramMtprotoPoolService
                 $this->recordProxyCallWindow($account, $mode);
                 $this->jitterSleepMs(50, 150);
 
+                // Pre-flight: bail out if not enough time remains to safely run
+                // makeForRuntime + start + callback. Prevents one slow attempt
+                // from hogging the whole deadline and starving remaining tries.
+                $remainingMs = $deadlineMs - ((int) (microtime(true) * 1000) - $startedAtMs);
+                if ($remainingMs < $minCallBudgetMs) {
+                    $accLock->release();
+                    Log::info('MTProto: skipping attempt, insufficient budget', [
+                        'rid' => $rid,
+                        'mode' => $mode,
+                        'attempt' => $attempt + 1,
+                        'account_id' => $account->id,
+                        'remaining_ms' => $remainingMs,
+                        'min_budget_ms' => $minCallBudgetMs,
+                    ]);
+                    return $this->failWithMeta('MTPROTO_DEADLINE_EXCEEDED', 'MTProto pool deadline exceeded', $rid, $mode, $attempt + 1, $account, [
+                        'reason' => 'deadline_pre_call',
+                        'remaining_ms' => $remainingMs,
+                    ]);
+                }
+
                 $madeline = $this->factory->makeForRuntime($account);
 
                 if ($madeline === null) {
@@ -1011,6 +1041,25 @@ class TelegramMtprotoPoolService
                 // Capture the actual MadelineProto worker PID after start()
                 $sessionName = $this->factory->sessionName($account);
                 $this->factory->captureWorkerPid($sessionName);
+
+                // Post-start check: if start() took so long that almost nothing
+                // remains, skip the callback — it would only hang and produce a
+                // misleading "deadline exceeded during call" error. Better to
+                // return cleanly so the caller sees the pre-call deadline fail.
+                $remainingMs = $deadlineMs - ((int) (microtime(true) * 1000) - $startedAtMs);
+                if ($remainingMs < 2000) {
+                    Log::info('MTProto: skipping callback, start() consumed budget', [
+                        'rid' => $rid,
+                        'mode' => $mode,
+                        'attempt' => $attempt + 1,
+                        'account_id' => $account->id,
+                        'remaining_ms' => $remainingMs,
+                    ]);
+                    return $this->failWithMeta('MTPROTO_DEADLINE_EXCEEDED', 'MTProto pool deadline exceeded', $rid, $mode, $attempt + 1, $account, [
+                        'reason' => 'deadline_after_start',
+                        'remaining_ms' => $remainingMs,
+                    ]);
+                }
 
                 try {
                     $result = $callback($account, $madeline);
