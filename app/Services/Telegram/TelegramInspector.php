@@ -210,7 +210,7 @@ class TelegramInspector
                     return $result;
                 }
 
-                if ($telegramLinkInspector['status'] == 'ok' || $telegramLinkInspector['exists']) {
+                if (isset($telegramLinkInspector['status']) && ($telegramLinkInspector['status'] === 'ok' || $telegramLinkInspector['exists'])) {
                     $result['ok'] = true;
                     $result['chat_type'] = $telegramLinkInspector['entity_kind'] ?? null;
                     $result['audience_type'] = $telegramLinkInspector['entity_kind'] === 'group' ? 'members' : 'subscribers';
@@ -490,7 +490,7 @@ class TelegramInspector
 
             $telegramLinkInspector = $this->telegramLinkInspector->inspect($link);
 
-            if ($telegramLinkInspector['status'] == 'ok' || $telegramLinkInspector['exists']) {
+            if (isset($telegramLinkInspector['status']) && ($telegramLinkInspector['status'] === 'ok' || $telegramLinkInspector['exists'])) {
                 $result['ok'] = true;
                 $result['chat_type'] = $telegramLinkInspector['entity_kind'] === 'private_channel_invite' ? 'channel' : 'group';
                 $result['audience_type'] = $telegramLinkInspector['entity_kind'] === 'private_channel_invite' ? 'subscribers' : 'members';
