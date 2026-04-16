@@ -154,7 +154,7 @@ class MtprotoSessionRegistry
      * Reap all sessions that are older than MAX_AGE_SECONDS or whose
      * processes are no longer running (orphans).
      *
-     * @return array{reaped: int, orphans: int}
+     * @return array{reaped: int, orphans: int, zombies: int, zombie_parents: array<int,int>}
      */
     public function reap(): array
     {
@@ -217,16 +217,94 @@ class MtprotoSessionRegistry
                     $orphans++;
                     continue;
                 }
+
+                // Reap if worker was adopted by init (PPID=1) — its original
+                // queue worker died and left it dangling. isProcessAlive() still
+                // returns true because init keeps it alive, so the dead-PID
+                // branch above never catches it.
+                if ($pid > 0 && $this->getProcessPPid($pid) === 1) {
+                    Log::info('MtprotoSessionRegistry: reaping adopted-by-init orphan', [
+                        'session' => $sessionName,
+                        'pid' => $pid,
+                    ]);
+                    $this->release($sessionName);
+                    $orphans++;
+                    continue;
+                }
             }
 
             // Also find unregistered MadelineProto processes (not in registry)
             $orphans += $this->killUnregisteredWorkers($sessions);
 
+            // Scan for zombie (defunct) processes and group them by parent so
+            // operators can see which queue worker is leaking children. We
+            // cannot waitpid() them from this process (we're not their parent),
+            // but surfacing the count + PPID makes it obvious which worker to
+            // restart.
+            [$zombieCount, $zombieParents] = $this->scanZombies();
+
+            if ($zombieCount > 0) {
+                Log::warning('MtprotoSessionRegistry: zombie processes detected', [
+                    'total' => $zombieCount,
+                    'by_parent' => $zombieParents,
+                ]);
+            }
+
         } catch (\Throwable $e) {
             Log::error('MtprotoSessionRegistry: reap error', ['error' => $e->getMessage()]);
+            $zombieCount = 0;
+            $zombieParents = [];
         }
 
-        return ['reaped' => $reaped, 'orphans' => $orphans];
+        return [
+            'reaped' => $reaped,
+            'orphans' => $orphans,
+            'zombies' => $zombieCount,
+            'zombie_parents' => $zombieParents,
+        ];
+    }
+
+    /**
+     * Scan /proc for zombie (state=Z) processes and group by PPID.
+     *
+     * @return array{0:int, 1:array<int,int>} [total, ppid => count]
+     */
+    private function scanZombies(): array
+    {
+        if (!is_dir('/proc')) {
+            return [0, []];
+        }
+
+        $dirs = @scandir('/proc');
+        if ($dirs === false) {
+            return [0, []];
+        }
+
+        $total = 0;
+        $byParent = [];
+
+        foreach ($dirs as $entry) {
+            if (!is_numeric($entry)) {
+                continue;
+            }
+
+            $status = @file_get_contents("/proc/{$entry}/status");
+            if ($status === false) {
+                continue;
+            }
+
+            if (!preg_match('/^State:\s+Z/m', $status)) {
+                continue;
+            }
+
+            $total++;
+            if (preg_match('/^PPid:\s+(\d+)/m', $status, $m)) {
+                $ppid = (int) $m[1];
+                $byParent[$ppid] = ($byParent[$ppid] ?? 0) + 1;
+            }
+        }
+
+        return [$total, $byParent];
     }
 
     /**
@@ -274,8 +352,16 @@ class MtprotoSessionRegistry
                 continue;
             }
 
-            // Match MadelineProto worker or IPC runner
-            if (str_contains($cmdline, 'MadelineProto worker') || str_contains($cmdline, 'madeline-ipc')) {
+            // Match MadelineProto worker or IPC runner. Also match any process
+            // whose cmdline references a .madeline session file but is not tracked
+            // in the registry — catches workers whose proctitle format changed
+            // across MadelineProto versions.
+            $looksLikeWorker = str_contains($cmdline, 'MadelineProto worker')
+                || str_contains($cmdline, 'madeline-ipc')
+                || (str_contains($cmdline, '.madeline')
+                    && str_contains($cmdline, '/telegram/sessions/'));
+
+            if ($looksLikeWorker) {
                 // Check age — only kill if older than 5 minutes
                 $stat = @file_get_contents("/proc/{$pid}/stat");
                 $startTime = $this->getProcessStartTime($pid);
@@ -387,6 +473,29 @@ class MtprotoSessionRegistry
         }
 
         return is_dir("/proc/{$pid}");
+    }
+
+    /**
+     * Read PPid from /proc/<pid>/status. Returns 0 on failure.
+     * A return value of 1 means the process was adopted by init — i.e. its
+     * original parent (the queue worker) died.
+     */
+    private function getProcessPPid(int $pid): int
+    {
+        if ($pid <= 0) {
+            return 0;
+        }
+
+        $status = @file_get_contents("/proc/{$pid}/status");
+        if ($status === false) {
+            return 0;
+        }
+
+        if (preg_match('/^PPid:\s+(\d+)/m', $status, $m)) {
+            return (int) $m[1];
+        }
+
+        return 0;
     }
 
     /**

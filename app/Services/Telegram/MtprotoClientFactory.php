@@ -95,8 +95,10 @@ class MtprotoClientFactory
         // Track the instance
         $this->instances[$sessionName] = $api;
 
-        // Try to capture the worker PID after construction
-        $this->captureAndRegisterPid($sessionName);
+        // NOTE: The actual MadelineProto IPC worker PID is captured via
+        // captureWorkerPid() after $api->start() returns (see TelegramMtprotoPoolService).
+        // We deliberately do NOT register getmypid() here — that would be the
+        // queue worker's own PID, which the reaper could then SIGKILL by mistake.
 
         Log::info('MtprotoClientFactory: created new instance', [
             'session' => $sessionName,
@@ -152,19 +154,6 @@ class MtprotoClientFactory
             return;
         }
         $this->releaseInstance($account);
-    }
-
-    /**
-     * After $api->start() is called, capture the IPC worker PID and register it.
-     * Call this from the pool service after start().
-     */
-    public function captureAndRegisterPid(string $sessionName): void
-    {
-        try {
-            $workerPid = getmypid();
-            $this->registry->registerPids($sessionName, $workerPid);
-        } catch (\Throwable) {
-        }
     }
 
     /**

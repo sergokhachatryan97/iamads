@@ -26,12 +26,24 @@ class ReapMtprotoWorkers extends Command
         $activeAfter = $registry->activeCount();
 
         $this->line(sprintf(
-            'Reap complete: reaped=%d orphans=%d active=%d→%d',
+            'Reap complete: reaped=%d orphans=%d zombies=%d active=%d→%d',
             $result['reaped'],
             $result['orphans'],
+            $result['zombies'] ?? 0,
             $activeBefore,
             $activeAfter
         ));
+
+        if (!empty($result['zombie_parents'])) {
+            arsort($result['zombie_parents']);
+            foreach ($result['zombie_parents'] as $ppid => $count) {
+                $this->warn(sprintf(
+                    '  zombie parent PID %d has %d defunct children — consider restarting that worker',
+                    $ppid,
+                    $count
+                ));
+            }
+        }
 
         // Also show current active sessions
         if ($this->getOutput()->isVerbose()) {
