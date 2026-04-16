@@ -1140,7 +1140,12 @@ LUA;
 
         $queueKey = "tg:service_queue:{$scope}:{$serviceId}";
 
-        for ($pop = 0; $pop < 3; $pop++) {
+        // Retry limit: with fair round-robin interleaving in PreassignTelegramTasksJob,
+        // the queue contains a mix of tasks from all active orders. A phone that is
+        // already a member of some of those orders needs multiple LPOPs to land on
+        // a task it can claim. 3 retries was tuned for the old winner-takes-all
+        // queue (single order dominated) — 8 covers up to ~N-1 orders of rejections.
+        for ($pop = 0; $pop < 8; $pop++) {
             try {
                 $raw = Redis::lpop($queueKey);
             } catch (\Throwable) {

@@ -53,16 +53,25 @@ class TelegramTaskClaimController extends Controller
         $phone = $validated['account_identity'];
         $serviceId = (int) $validated['service_id'];
 
-        // Single Redis round-trip: track claim attempt + check no-work flag
-        $noWorkKey = "tg:no_work:{$scope}:{$serviceId}";
-        $hourKey = 'tg:claim_attempts:' . $serviceId . ':' . now()->format('Y-m-d-H');
+        // Two-tier no-work cache:
+        //  - service-wide (tg:no_work:{scope}:{serviceId}) — set only when the
+        //    queue is truly empty; blocks every phone for 90-150s until preassign
+        //    refills and clears it.
+        //  - per-phone   (tg:no_work:phone:{phone}:{scope}:{serviceId}) — set
+        //    when the queue has tasks but THIS specific phone failed to claim
+        //    (already-member / cap / cooldown). Prevents hot-looping by this one
+        //    phone without starving every other phone of a full queue.
+        $noWorkKey      = "tg:no_work:{$scope}:{$serviceId}";
+        $phoneNoWorkKey = "tg:no_work:phone:{$phone}:{$scope}:{$serviceId}";
+        $hourKey        = 'tg:claim_attempts:' . $serviceId . ':' . now()->format('Y-m-d-H');
         try {
-            [$_, $_, $noWork] = Redis::pipeline(function ($pipe) use ($hourKey, $noWorkKey, $phone) {
+            [$_, $_, $noWork, $phoneNoWork] = Redis::pipeline(function ($pipe) use ($hourKey, $noWorkKey, $phoneNoWorkKey, $phone) {
                 $pipe->pfadd($hourKey, [$phone]);
                 $pipe->expire($hourKey, 7200);
                 $pipe->exists($noWorkKey);
+                $pipe->exists($phoneNoWorkKey);
             });
-            if ($noWork) {
+            if ($noWork || $phoneNoWork) {
                 return self::emptyResponse();
             }
         } catch (\Throwable) {
@@ -88,8 +97,21 @@ class TelegramTaskClaimController extends Controller
 
             if ($task === null) {
                 try {
-                    $ttl = $this->noWorkTtl($scope, $serviceId);
-                    Redis::setex($noWorkKey, $ttl, 1);
+                    // Decide which no-work key to set based on whether the queue
+                    // is truly empty or this specific phone just couldn't claim.
+                    $queueKey = "tg:service_queue:{$scope}:{$serviceId}";
+                    $queueLen = (int) Redis::llen($queueKey);
+
+                    if ($queueLen === 0) {
+                        // Queue empty → service-wide block until preassign refills.
+                        Redis::setex($noWorkKey, random_int(90, 150), 1);
+                    } else {
+                        // Queue has tasks but this phone couldn't claim — mark
+                        // only this phone so other phones can still draw from
+                        // the full queue. Short TTL so the phone retries soon
+                        // after its cooldown / cap resets.
+                        Redis::setex($phoneNoWorkKey, 10, 1);
+                    }
                 } catch (\Throwable) {
                 }
 
@@ -131,45 +153,4 @@ class TelegramTaskClaimController extends Controller
         }
     }
 
-    /**
-     * Derive no-work TTL based on whether work actually exists.
-     *
-     * - No work available (queue empty) → long TTL (60-120s) to suppress polling.
-     *   PreassignTelegramTasksJob clears the no-work key when new tasks are pushed.
-     * - Work exists but this account couldn't claim → short TTL based on traffic.
-     */
-    private function noWorkTtl(string $scope, int $serviceId): int
-    {
-        // Check if the Redis queue has tasks — if empty, there's genuinely no work.
-        $queueKey = "tg:service_queue:{$scope}:{$serviceId}";
-        try {
-            $queueLen = (int) Redis::llen($queueKey);
-        } catch (\Throwable) {
-            $queueLen = -1; // unknown
-        }
-
-        // No tasks in queue → aggressive suppression.
-        // PreassignTelegramTasksJob runs every 30s and clears no-work when it pushes.
-        if ($queueLen === 0) {
-            return random_int(90, 150);
-        }
-
-        // Queue has tasks but account couldn't claim (cooldown/dedup/cap) →
-        // short TTL so other accounts can still pick up work quickly.
-        try {
-            $hourKey = 'tg:claim_attempts:' . $serviceId . ':' . now()->format('Y-m-d-H');
-            $accounts = (int) Redis::pfcount($hourKey);
-        } catch (\Throwable) {
-            return 15;
-        }
-
-        if ($accounts >= 50000) {
-            return 5;
-        }
-        if ($accounts >= 5000) {
-            return 10;
-        }
-
-        return 30;
-    }
 }
