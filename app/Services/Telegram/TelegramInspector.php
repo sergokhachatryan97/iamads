@@ -283,23 +283,6 @@ class TelegramInspector
                 'MTPROTO_THROTTLE_SLOT_UNAVAILABLE',
             ];
 
-//            if ($telegramLinkInspector['status'] == 'ok' || $telegramLinkInspector['exists']) {
-//                $result['ok'] = true;
-//                $result['chat_type'] = $telegramLinkInspector['entity_kind'] ?? null;
-//                $result['audience_type'] = $telegramLinkInspector['entity_kind'] === 'group' ? 'members' : 'subscribers';
-//                $result['is_channel'] = $telegramLinkInspector['entity_kind'] === 'channel';
-//                $result['is_group'] = $telegramLinkInspector['entity_kind'] === 'group';
-//
-//                $result['title'] = $telegramLinkInspector['title'] ?? null;
-//
-//                $result['member_count'] = $telegramLinkInspector['subscribers_count'] ?? $telegramLinkInspector['members_count'] ?? null;
-//
-//                $result['resolved'] = [
-//                    'source' => 'telegramLinkInspector',
-//                    'raw' => $telegramLinkInspector,
-//                ];
-//                return $result;
-//            }
 
             if (in_array($mtCode, $mtTemporary, true)) {
                 return $this->fail(
@@ -505,15 +488,26 @@ class TelegramInspector
                 return $this->fail($result, 'INVALID_FORMAT', 'Invite hash missing');
             }
 
-            //            $telegramLinkInspector = $this->telegramLinkInspector->inspect($link);
-            //
-            //            if ($telegramLinkInspector['status'] == 'ambiguous'){
-            //                return $this->fail(
-            //                    $result,
-            //                    'RESOLVE_FAILED',
-            //                    'Chat or Group does not exist'
-            //                );
-            //            }
+            $telegramLinkInspector = $this->telegramLinkInspector->inspect($link);
+
+            if ($telegramLinkInspector['status'] == 'ok' || $telegramLinkInspector['exists']) {
+                $result['ok'] = true;
+                $result['chat_type'] = $telegramLinkInspector['entity_kind'] === 'private_channel_invite' ? 'channel' : 'group';
+                $result['audience_type'] = $telegramLinkInspector['entity_kind'] === 'private_channel_invite' ? 'subscribers' : 'members';
+                $result['is_channel'] = $telegramLinkInspector['entity_kind'] === 'private_channel_invite';
+                $result['is_group'] = $telegramLinkInspector['entity_kind'] != 'private_channel_invite';
+
+                $result['title'] = $telegramLinkInspector['title'] ?? null;
+
+                $result['member_count'] = $telegramLinkInspector['subscribers_count'] ?? $telegramLinkInspector['members_count'] ?? null;
+
+                $result['resolved'] = [
+                    'source' => 'telegramLinkInspector',
+                    'raw' => $telegramLinkInspector,
+                ];
+
+                return $result;
+            }
 
             $invite = $this->mtprotoPool->checkInvite($hash, $forB2c);
 
