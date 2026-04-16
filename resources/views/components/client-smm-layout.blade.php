@@ -93,9 +93,9 @@
             display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit;
         }
         .smm-dash-brand-mark {
-            width: 40px; height: 40px; border-radius: 10px;
+            height: 44px; width: auto; max-width: 100%;
             display: block; flex-shrink: 0;
-            box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);
+            filter: drop-shadow(0 4px 14px rgba(124, 58, 237, 0.35));
         }
         .smm-dash-brand-text { font-weight: 800; font-size: 15px; background: linear-gradient(135deg, var(--purple), var(--teal)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         .smm-dash-brand-sub { font-size: 10px; color: var(--text3); margin-top: 2px; }
@@ -481,11 +481,7 @@
         @unless($hideSidebar)
         <aside class="smm-dash-sidebar" :class="{ 'open': sidebarOpen }">
             <a href="{{ route('dashboard') }}" class="smm-dash-brand" @click="sidebarOpen = false">
-                <img src="{{ asset('images/logo-icon.svg') }}" alt="" class="smm-dash-brand-mark">
-                <div>
-                    <div class="smm-dash-brand-text">{{ config('app.name', 'SMM Tool') }}</div>
-                    <div class="smm-dash-brand-sub">{{ 'Social Media Growth' }}</div>
-                </div>
+                <img src="{{ asset('images/logo-smt.png') }}" alt="{{ config('app.name', 'SMM Tool') }}" class="smm-dash-brand-mark">
             </a>
             <nav class="smm-dash-nav">
                 <a href="{{ route('dashboard') }}" class="{{ request()->routeIs('dashboard') ? 'active' : '' }}" @click="sidebarOpen = false">

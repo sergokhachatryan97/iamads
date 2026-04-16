@@ -60,7 +60,7 @@
         }
         .landing-navbar-spacer { flex: 1; min-width: 8px; }
         .landing-logo { display: flex; align-items: center; gap: 10px; line-height: 1.1; text-decoration: none; }
-        .landing-logo-mark { width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0; box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35); }
+        .landing-logo-mark { height: 38px; width: auto; flex-shrink: 0; filter: drop-shadow(0 4px 14px rgba(124, 58, 237, 0.35)); }
         .landing-logo-text { display: flex; flex-direction: column; }
         .landing-logo-name {
             font-size: 17px; font-weight: 800;
@@ -253,11 +253,7 @@
     <nav class="landing-navbar">
         <div class="landing-navbar-inner">
             <a href="{{ route('home') }}" class="landing-logo">
-                <img src="{{ asset('images/logo-icon.svg') }}" alt="" class="landing-logo-mark">
-                <span class="landing-logo-text">
-                    <span class="landing-logo-name">{{ config('app.name', 'SMM Tool') }}</span>
-                    <span class="landing-logo-slogan">{{ __('Social Media Growth') }}</span>
-                </span>
+                <img src="{{ asset('images/logo-smt.png') }}" alt="{{ config('app.name', 'SMM Tool') }}" class="landing-logo-mark">
             </a>
             <div class="landing-navbar-spacer" aria-hidden="true"></div>
             <a href="{{ route('home') }}" class="landing-nav-home">{{ __('Back to home') }}</a>

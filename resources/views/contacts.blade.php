@@ -36,7 +36,7 @@
         .navbar { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: var(--navbar-bg); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border2); padding: 0 24px; }
         .navbar-inner { max-width: 1280px; margin: 0 auto; height: 60px; display: flex; align-items: center; gap: 28px; }
         .logo { display: flex; align-items: center; gap: 10px; line-height: 1.1; flex-shrink: 0; }
-        .logo-mark { width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0; box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35); }
+        .logo-mark { height: 40px; width: auto; flex-shrink: 0; filter: drop-shadow(0 4px 14px rgba(124, 58, 237, 0.35)); }
         .logo-text { display: flex; flex-direction: column; }
         .logo-name { font-size: 18px; font-weight: 800; background: linear-gradient(135deg, var(--purple), var(--teal)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
         .logo-slogan { font-size: 9px; color: var(--text2); letter-spacing: 0.5px; }
@@ -84,11 +84,7 @@
 <nav class="navbar">
     <div class="navbar-inner">
         <a href="{{ route('home') }}" class="logo" style="text-decoration:none;">
-            <img src="{{ asset('images/logo-icon.svg') }}" alt="" class="logo-mark">
-            <span class="logo-text">
-                <span class="logo-name">{{ config('contact.company_name') }}</span>
-                <span class="logo-slogan">{{ __('Social Media Growth') }}</span>
-            </span>
+            <img src="{{ asset('images/logo-smt.png') }}" alt="{{ config('contact.company_name') }}" class="logo-mark">
         </a>
         <ul class="nav-links">
             <li><a href="{{ route('home') }}">{{ __('home.nav_services') }}</a></li>
