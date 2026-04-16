@@ -48,7 +48,7 @@ return [
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',
             'minProcesses' => 1,
-            'maxProcesses' => 2,
+            'maxProcesses' => 3,
             'balanceMaxShift' => 1,
             'balanceCooldown' => 15,
             'sleep' => 5,
@@ -141,7 +141,7 @@ return [
                 'balance' => 'auto',
                 'autoScalingStrategy' => 'time',
                 'minProcesses' => 1,
-                'maxProcesses' => 2,         // was 4; 3 covers burst, saves 1 idle poller
+                'maxProcesses' => 3,         // was 4; 3 covers burst, saves 1 idle poller
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 15,     // was 3; 5× fewer balance Redis checks
                 'sleep' => 5,               // was implicit 3; ~40% fewer idle polls
@@ -207,7 +207,7 @@ return [
 
             'main' => [
                 'connection' => 'redis',
-                'queue' => ['socpanel-poll', 'memberpro-poll', 'providers', 'default'],
+                'queue' => ['socpanel-poll', 'providers', 'default'],
                 'balance' => 'auto',
                 'autoScalingStrategy' => 'time',
                 'minProcesses' => 1,
