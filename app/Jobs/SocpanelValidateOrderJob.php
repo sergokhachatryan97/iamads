@@ -20,9 +20,9 @@ use Throwable;
 class SocpanelValidateOrderJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
-    public $timeout = 180;
-    public int $tries = 5;
-    public array $backoff = [10, 30, 60, 120, 300];
+    public $timeout = 120;
+    public int $tries = 2;
+    public array $backoff = [60, 180];
     private const SERVICE_RULES = [
 
         143 => ['mode' => 'chat_link_only_public_or_private', 'allow' => ['channel'], 'audience' => ['subscribers']],
@@ -211,7 +211,10 @@ class SocpanelValidateOrderJob implements ShouldQueue
         $groupKey = sha1($this->serviceId . '|' . $this->normalizedLink);
 
         // ✅ 1) hard lock՝ 1 worker per group
-        $lock = Cache::lock("socpanel:validate-group:{$groupKey}", 90);
+        //   IMPORTANT: lock TTL MUST be >= $timeout so the lock cannot expire
+        //   while the job is still running (which previously allowed a second
+        //   worker to start a duplicate MTProto inspection of the same link).
+        $lock = Cache::lock("socpanel:validate-group:{$groupKey}", 150);
         if (!$lock->get()) {
             return;
         }

@@ -21,7 +21,7 @@ class SocpanelPollOrdersJob implements ShouldQueue
     private const MAX_PAGES_PER_SERVICE = 20;
     private const MAX_ITEMS_PER_SERVICE = 1500;
 
-    private const MAX_VALIDATE_DISPATCH_PER_RUN = 250;
+    private const MAX_VALIDATE_DISPATCH_PER_RUN = 100;
     private const CURSOR_TTL_SECONDS = 3600;
 
 
@@ -248,14 +248,18 @@ class SocpanelPollOrdersJob implements ShouldQueue
         $link      = (string)$order->link;
         $groupKey  = sha1($serviceId . '|' . $link);
 
-        // Dedupe: do not enqueue another job for same (serviceId, link) within TTL
+        // Dedupe: do not enqueue another job for same (serviceId, link) within TTL.
+        // TTL must be >= the job's worst-case runtime (timeout=120 + buffer) so
+        // we never re-dispatch a (serviceId, link) while its previous job is
+        // still running — that was causing duplicate MTProto inspections and
+        // CPU saturation on the tg-inspect workers.
         $dedupeKey = 'tg:inspect:dispatch:' . $groupKey;
-        $dedupeTtl = 90;
+        $dedupeTtl = 150;
         if (!Cache::add($dedupeKey, 1, $dedupeTtl)) {
             return false;
         }
 
-        $lockTtl = $wasCreated ? 90 : 45; // ✅ a bit longer, less spam
+        $lockTtl = $wasCreated ? 150 : 90;
         $dispatchLock = Cache::lock("socpanel:validate-group-dispatch:{$groupKey}", $lockTtl);
 
         if (!$dispatchLock->get()) return false;
