@@ -181,6 +181,14 @@ class TelegramInspector
 
                     return $result;
                 }
+                return $this->fail(
+                    $result,
+                    'RESOLVE_TEMPORARY_UNAVAILABLE',
+                    'Unable to resolve chat due to temporary infrastructure issue',
+                    [
+                        'mtproto' => $info,
+                    ]
+                );
             } else {
 
                 $telegramLinkInspector = $this->telegramLinkInspector->inspect($link);
