@@ -324,6 +324,9 @@
             font-size: 13px;
             line-height: 1.55;
             color: var(--text2);
+            white-space: pre-line;     /* preserve newlines from the description */
+            word-wrap: break-word;
+            overflow-wrap: anywhere;
         }
         .new-order-rate-line {
             font-size: 13px;
