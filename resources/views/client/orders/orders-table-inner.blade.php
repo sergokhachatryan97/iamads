@@ -104,7 +104,7 @@
                     <td class="px-6 py-4 whitespace-nowrap">
                         <div class="flex flex-col gap-1">
                             <div class="flex items-center gap-2">
-                                <span class="co-text text-sm font-semibold">#{{ $order->id }}</span>
+                                <span class="co-text text-sm font-semibold">ID{{ $order->id }}</span>
                                 <button
                                     type="button"
                                     class="co-copy-btn"
