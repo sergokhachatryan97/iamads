@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\Order;
 use App\Models\ProviderOrder;
 use App\Services\Providers\SocpanelClient;
+use App\Support\SystemGuard;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -19,10 +20,7 @@ class MemberProPollOrdersJob implements ShouldQueue
 
     private const MAX_PAGES_PER_SERVICE = 20;
     private const MAX_ITEMS_PER_SERVICE = 1500;
-
-    private const MAX_VALIDATE_DISPATCH_PER_RUN = 250;
     private const CURSOR_TTL_SECONDS = 3600;
-
 
     public int $tries = 1;
     public int $timeout = 120;
@@ -34,18 +32,34 @@ class MemberProPollOrdersJob implements ShouldQueue
         $status = $this->status;
         $providerName = 'memberpro';
 
+        // CPU / kill-switch guard — skip when overloaded or paused.
+        if (SystemGuard::shouldSkipHeavyWork("memberpro_poll_{$status}")) {
+            return;
+        }
+
+        // Per-provider rate limit.
+        $minInterval = (int) config('system_guard.provider_poll_interval_seconds', 8);
+        if (! SystemGuard::claim("poll:memberpro:{$status}", $minInterval)) {
+            Log::debug('Memberpro poll skipped: per-provider rate limit', [
+                'status' => $status,
+                'min_interval' => $minInterval,
+            ]);
+            return;
+        }
+
         $lockKey = "memberpro:poll:{$status}";
-        $lock = Cache::lock($lockKey, 60); // was 180
+        $lock = Cache::lock($lockKey, 60);
 
         if (!$lock->get()) {
-            Log::debug('Socpanel poll skipped: another poller is running', ['status' => $status]);
+            Log::debug('Memberpro poll skipped: another poller is running', ['status' => $status]);
             return;
         }
 
         try {
             $serviceIds = [28, 27, 26, 25, 24, 23, 22, 21, 16];
 
-            $validateDispatchBudget = self::MAX_VALIDATE_DISPATCH_PER_RUN;
+            // Shared cap via config/system_guard.php (env MAX_VALIDATE_DISPATCH_PER_RUN).
+            $validateDispatchBudget = (int) config('system_guard.max_validate_dispatch_per_run', 50);
 
             foreach ($serviceIds as $serviceId) {
 
@@ -58,9 +72,9 @@ class MemberProPollOrdersJob implements ShouldQueue
                 );
 
                 if ($validateDispatchBudget <= 0) {
-                    Log::info('Socpanel poll: validate dispatch budget exhausted', [
+                    Log::info('Memberpro poll: validate dispatch budget exhausted', [
                         'status' => $status,
-                        'budget' => self::MAX_VALIDATE_DISPATCH_PER_RUN,
+                        'budget' => (int) config('system_guard.max_validate_dispatch_per_run', 50),
                     ]);
                     break;
                 }

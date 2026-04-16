@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\ProviderOrder;
 use App\Models\ProviderService;
 use App\Services\Providers\SocpanelClient;
+use App\Support\SystemGuard;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -20,10 +21,7 @@ class SocpanelPollOrdersJob implements ShouldQueue
 
     private const MAX_PAGES_PER_SERVICE = 20;
     private const MAX_ITEMS_PER_SERVICE = 1500;
-
-    private const MAX_VALIDATE_DISPATCH_PER_RUN = 100;
     private const CURSOR_TTL_SECONDS = 3600;
-
 
     public int $tries = 1;
     public int $timeout = 120;
@@ -33,6 +31,24 @@ class SocpanelPollOrdersJob implements ShouldQueue
     public function handle(SocpanelClient $client): void
     {
         $status = $this->status;
+
+        // CPU/kill-switch guard: if the system is paused or overloaded, skip
+        // this run entirely. The next scheduled tick will try again. Avoids
+        // piling more work onto an already-struggling server.
+        if (SystemGuard::shouldSkipHeavyWork("socpanel_poll_{$status}")) {
+            return;
+        }
+
+        // Per-provider rate limit (PROVIDER_POLL_INTERVAL_SECONDS). If another
+        // worker polled this provider+status within the cooldown, bail out.
+        $minInterval = (int) config('system_guard.provider_poll_interval_seconds', 8);
+        if (! SystemGuard::claim("poll:socpanel:{$status}", $minInterval)) {
+            Log::debug('Socpanel poll skipped: per-provider rate limit', [
+                'status' => $status,
+                'min_interval' => $minInterval,
+            ]);
+            return;
+        }
 
         $lockKey = "socpanel:poll:{$status}";
         $lock = Cache::lock($lockKey, 240); // was 180
@@ -55,7 +71,10 @@ class SocpanelPollOrdersJob implements ShouldQueue
                 return;
             }
 
-            $validateDispatchBudget = self::MAX_VALIDATE_DISPATCH_PER_RUN;
+            // Configured via config/system_guard.php → env MAX_VALIDATE_DISPATCH_PER_RUN.
+            // Hard cap on validate-inspection dispatches per poll run so a single
+            // hot service can't flood the tg-inspect queue (which only has 2 workers).
+            $validateDispatchBudget = (int) config('system_guard.max_validate_dispatch_per_run', 50);
 
             foreach ($services as $localService) {
                 $providerServiceId = (int) $localService->remote_service_id;
@@ -75,7 +94,7 @@ class SocpanelPollOrdersJob implements ShouldQueue
                 if ($validateDispatchBudget <= 0) {
                     Log::info('Socpanel poll: validate dispatch budget exhausted', [
                         'status' => $status,
-                        'budget' => self::MAX_VALIDATE_DISPATCH_PER_RUN,
+                        'budget' => (int) config('system_guard.max_validate_dispatch_per_run', 50),
                     ]);
                     break;
                 }

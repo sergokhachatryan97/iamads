@@ -134,17 +134,36 @@ return [
 
     'environments' => [
 
+        /*
+        |------------------------------------------------------------------
+        | PRODUCTION WORKER BUDGET — total cap ≈ 8 concurrent PHP workers.
+        |------------------------------------------------------------------
+        | Each worker is a long-lived PHP process (~512 MB for MTProto-heavy
+        | queues, ~128–256 MB otherwise) that can saturate a core if a job
+        | is CPU-bound (MTProto crypto, provider HTTP). On a 16-core box
+        | keeping total workers well below core count leaves headroom for
+        | PHP-FPM + MadelineProto IPC children. Raise a single queue only
+        | after confirming load/core stays < 1.5 for 24h.
+        |
+        |   tg-inspect        : 2 (MTProto, heaviest)
+        |   tg-panel-inspect  : 1 (low-volume panel inspections)
+        |   link-inspect      : 1 (yt + app, merged, event-driven)
+        |   tg-double-check   : 1 (slow, every 10min)
+        |   max-inspect       : 1 (low-volume)
+        |   main              : 2 (socpanel-poll, providers, default)
+        |   ─────────────────────
+        |   total             : 8
+        */
         'production' => [
             'tg-inspect' => [
                 'connection' => 'redis',
                 'queue' => ['tg-inspect'],
-                'balance' => 'auto',
-                'autoScalingStrategy' => 'time',
+                'balance' => 'simple',       // fixed; auto-scale added Redis churn + CPU
                 'minProcesses' => 1,
-                'maxProcesses' => 3,         // was 4; 3 covers burst, saves 1 idle poller
+                'maxProcesses' => 2,         // was 3; MTProto is CPU-bound, 2 is enough
                 'balanceMaxShift' => 1,
-                'balanceCooldown' => 15,     // was 3; 5× fewer balance Redis checks
-                'sleep' => 5,               // was implicit 3; ~40% fewer idle polls
+                'balanceCooldown' => 15,
+                'sleep' => 5,
                 'tries' => 2,
                 'timeout' => 900,
                 'memory' => 512,
@@ -153,29 +172,26 @@ return [
             'tg-panel-inspect' => [
                 'connection' => 'redis',
                 'queue' => ['tg-panel-inspect'],
-                'balance' => 'auto',
-                'autoScalingStrategy' => 'time',
+                'balance' => 'simple',       // was auto
                 'minProcesses' => 1,
-                'maxProcesses' => 2,
+                'maxProcesses' => 1,         // was 2; low-volume, 1 worker suffices
                 'balanceMaxShift' => 1,
-                'balanceCooldown' => 15,     // was 3
-                'sleep' => 5,               // was implicit 3
+                'balanceCooldown' => 15,
+                'sleep' => 5,
                 'tries' => 2,
                 'timeout' => 900,
                 'memory' => 512,
             ],
 
-            // Merged yt-inspect + app-inspect: both had maxProcesses=1, timeout=60, memory=128.
-            // One supervisor eliminates a full supervisor process + all auto-scale overhead.
-            // Workers serve both queues in priority order (yt first, then app).
+            // Merged yt-inspect + app-inspect: identical profiles, low-volume.
             'link-inspect' => [
                 'connection' => 'redis',
                 'queue' => ['yt-inspect', 'app-inspect'],
-                'balance' => 'simple',       // fixed workers, no Redis balance polling
+                'balance' => 'simple',
                 'minProcesses' => 1,
-                'maxProcesses' => 2,
+                'maxProcesses' => 1,         // was 2; event-driven queues are slow-moving
                 'balanceCooldown' => 30,
-                'sleep' => 10,               // event-driven, low-volume; up to 10s wait is fine
+                'sleep' => 10,
                 'tries' => 3,
                 'timeout' => 60,
                 'memory' => 128,
@@ -184,10 +200,10 @@ return [
             'tg-double-check' => [
                 'connection' => 'redis',
                 'queue' => ['tg-double-check'],
-                'balance' => 'simple',       // was auto; fixed 1 worker, zero rebalancing cost
+                'balance' => 'simple',
                 'minProcesses' => 1,
                 'maxProcesses' => 1,
-                'sleep' => 10,               // dispatched every 10min; longer sleep is fine
+                'sleep' => 10,
                 'tries' => 2,
                 'timeout' => 900,
                 'memory' => 512,
@@ -196,9 +212,9 @@ return [
             'max-inspect' => [
                 'connection' => 'redis',
                 'queue' => ['max-inspect'],
-                'balance' => 'simple',       // was auto
+                'balance' => 'simple',
                 'minProcesses' => 1,
-                'maxProcesses' => 1,         // was 2; 2nd worker was idle-polling only
+                'maxProcesses' => 1,
                 'sleep' => 10,
                 'tries' => 1,
                 'timeout' => 120,
@@ -208,13 +224,12 @@ return [
             'main' => [
                 'connection' => 'redis',
                 'queue' => ['socpanel-poll', 'providers', 'default'],
-                'balance' => 'auto',
-                'autoScalingStrategy' => 'time',
+                'balance' => 'simple',       // was auto
                 'minProcesses' => 1,
                 'maxProcesses' => 2,
                 'balanceMaxShift' => 1,
-                'balanceCooldown' => 15,     // was 3
-                'sleep' => 5,               // was implicit 3
+                'balanceCooldown' => 15,
+                'sleep' => 5,
                 'tries' => 3,
                 'timeout' => 300,
                 'memory' => 256,

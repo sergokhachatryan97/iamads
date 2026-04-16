@@ -7,6 +7,7 @@ use App\Models\ProviderOrder;
 use App\Models\ProviderService;
 use App\Services\OrderService;
 use App\Services\Telegram\TelegramInspector;
+use App\Support\SystemGuard;
 use App\Support\TelegramExecutionPolicy;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -208,6 +209,22 @@ class SocpanelValidateOrderJob implements ShouldQueue
 
     public function handle(TelegramInspector $inspector): void
     {
+        // CPU / kill-switch guard: MTProto inspections are the single most
+        // expensive operation in the pipeline (crypto + network + PHP). When
+        // load is already high, deferring this job to the next claim-TTL
+        // cycle (~10 min) gives the server room to recover. The order stays
+        // in VALIDATING status so it will be picked up by the next poll.
+        if (SystemGuard::shouldSkipHeavyWork('tg_validate')) {
+            // Release the claim so the poller's next run can retry.
+            ProviderOrder::query()
+                ->where('remote_service_id', $this->serviceId)
+                ->where('link', $this->normalizedLink)
+                ->whereNotNull('provider_sending_at')
+                ->update(['provider_sending_at' => null]);
+
+            return;
+        }
+
         $groupKey = sha1($this->serviceId . '|' . $this->normalizedLink);
 
         // ✅ 1) hard lock՝ 1 worker per group

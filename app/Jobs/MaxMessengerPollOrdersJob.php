@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\ProviderOrder;
 use App\Services\Providers\SocpanelClient;
 use App\Support\Links\Inspectors\MaxLinkInspector;
+use App\Support\SystemGuard;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -39,6 +40,19 @@ class MaxMessengerPollOrdersJob implements ShouldQueue
 
     public function handle(SocpanelClient $client): void
     {
+        // CPU / kill-switch guard — skip when overloaded or paused.
+        if (SystemGuard::shouldSkipHeavyWork("max_poll_{$this->status}")) {
+            return;
+        }
+
+        // Per-provider rate limit. Note Max Messenger and Socpanel share the
+        // same upstream API (adtag) — use a distinct prefix so we don't
+        // conflict with the Socpanel poller's rate-limit slot.
+        $minInterval = (int) config('system_guard.provider_poll_interval_seconds', 8);
+        if (! SystemGuard::claim("poll:max:{$this->status}", $minInterval)) {
+            return;
+        }
+
         $lock = Cache::lock("max:poll:{$this->status}", 240);
         if (! $lock->get()) {
             return;
