@@ -71,10 +71,10 @@ return Application::configure(basePath: dirname(__DIR__))
             ->withoutOverlapping(1)
             ->onOneServer();
 
-        $schedule->job(new \App\Jobs\PreassignTelegramTasksJob(\App\Support\TelegramPremiumTemplateScope::SCOPE_PREMIUM))
-            ->everyThirtySeconds()
-            ->withoutOverlapping(1)
-            ->onOneServer();
+//        $schedule->job(new \App\Jobs\PreassignTelegramTasksJob(\App\Support\TelegramPremiumTemplateScope::SCOPE_PREMIUM))
+//            ->everyThirtySeconds()
+//            ->withoutOverlapping(1)
+//            ->onOneServer();
 
         // Reap stale/orphaned MadelineProto IPC workers every minute.
         // Kills workers >15min old and processes not tracked in the registry.
