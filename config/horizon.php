@@ -48,7 +48,7 @@ return [
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',
             'minProcesses' => 1,
-            'maxProcesses' => 4,
+            'maxProcesses' => 2,
             'balanceMaxShift' => 1,
             'balanceCooldown' => 15,
             'sleep' => 5,
@@ -141,7 +141,7 @@ return [
                 'balance' => 'auto',
                 'autoScalingStrategy' => 'time',
                 'minProcesses' => 1,
-                'maxProcesses' => 4,         // was 4; 3 covers burst, saves 1 idle poller
+                'maxProcesses' => 2,         // was 4; 3 covers burst, saves 1 idle poller
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 15,     // was 3; 5× fewer balance Redis checks
                 'sleep' => 5,               // was implicit 3; ~40% fewer idle polls

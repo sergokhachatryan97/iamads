@@ -1083,7 +1083,6 @@
                                 <div class="new-order-info-row">
                                     <div class="new-order-info-label">{{ __('Service') }}</div>
                                     <div class="new-order-info-value new-order-svc-value">
-                                        <span class="new-order-id-badge">ID&nbsp;<span x-text="selectedService?.id"></span></span>
                                         <span class="new-order-svc-name" x-text="selectedService?.name"></span>
                                     </div>
                                 </div>
