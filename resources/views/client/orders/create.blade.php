@@ -1,15 +1,21 @@
 <x-client-layout :title="__('New Order')">
     <style>
-        .new-order-page { max-width: 540px; margin: 0 auto; padding: 8px 0 48px; }
+        .new-order-page { max-width: 760px; margin: 0 auto; padding: 8px 0 48px; }
+        @media (max-width: 640px) {
+            .new-order-page { padding: 4px 0 32px; }
+        }
         .new-order-card {
             background: var(--card);
             border: 1px solid var(--border);
             border-radius: 20px;
-            padding: 26px 22px 28px;
+            padding: 32px 32px 34px;
             box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
         }
+        @media (max-width: 640px) {
+            .new-order-card { padding: 22px 18px 24px; border-radius: 16px; }
+        }
         [data-theme="light"] .new-order-card { box-shadow: 0 12px 40px rgba(0, 0, 0, 0.06); }
-        .new-order-card-head { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
+        .new-order-card-head { display: flex; align-items: center; gap: 14px; margin-bottom: 26px; }
         .new-order-card-icon {
             width: 44px; height: 44px; border-radius: 50%;
             background: var(--purple);
@@ -164,6 +170,632 @@
             color: #b91c1c;
         }
         .new-order-charge-legacy { display: none !important; }
+
+        /* Highlighted category section */
+        .new-order-category-wrap {
+            position: relative;
+            padding: 18px 18px 18px;
+            border-radius: 16px;
+            background: linear-gradient(145deg, rgba(0, 210, 211, 0.10), rgba(108, 92, 231, 0.10));
+            border: 1px solid rgba(0, 210, 211, 0.32);
+            margin-bottom: 24px;
+        }
+        .new-order-category-wrap .new-order-lab {
+            color: var(--teal);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-size: 11px;
+            font-weight: 800;
+            margin-bottom: 10px;
+        }
+        .new-order-category-wrap .new-order-lab i {
+            color: var(--teal);
+        }
+        [data-theme="light"] .new-order-category-wrap {
+            background: linear-gradient(145deg, rgba(0, 184, 184, 0.08), rgba(108, 92, 231, 0.08));
+            border-color: rgba(0, 184, 184, 0.35);
+        }
+
+        /* Service info block (above link inputs) */
+        .new-order-info-block {
+            margin-bottom: 22px;
+            padding: 16px 18px;
+            border-radius: 14px;
+            background: rgba(0, 0, 0, 0.22);
+            border: 1px solid var(--border);
+        }
+        [data-theme="light"] .new-order-info-block {
+            background: var(--card2);
+        }
+        .new-order-info-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .new-order-info-row + .new-order-info-row { margin-top: 10px; }
+        .new-order-info-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text3);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .new-order-info-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+        }
+        .new-order-price-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: rgba(0, 210, 211, 0.15);
+            border: 1px solid rgba(0, 210, 211, 0.4);
+            color: var(--teal);
+            font-weight: 800;
+            font-size: 14px;
+            letter-spacing: 0.01em;
+        }
+        .new-order-price-pill i { font-size: 12px; }
+        [data-theme="light"] .new-order-price-pill {
+            background: rgba(0, 184, 184, 0.10);
+            border-color: rgba(0, 184, 184, 0.45);
+            color: #008b8b;
+        }
+        .new-order-info-desc {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px dashed var(--border);
+            font-size: 13px;
+            line-height: 1.55;
+            color: var(--text2);
+        }
+        .new-order-rate-line {
+            font-size: 13px;
+            color: var(--text2);
+        }
+        .new-order-rate-line .strike {
+            text-decoration: line-through;
+            color: var(--text3);
+            margin-right: 8px;
+            font-weight: 500;
+        }
+        .new-order-discount-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 8px;
+            border-radius: 6px;
+            background: rgba(108, 92, 231, 0.18);
+            color: var(--purple-light);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        /* Hide legacy big total price block */
+        .new-order-total-box { display: none !important; }
+
+        /* Custom category (social media) dropdown */
+        .custom-category-select { position: relative; }
+        .custom-category-select-trigger {
+            width: 100%;
+            padding: 14px 44px 14px 16px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: rgba(0, 0, 0, 0.28);
+            color: var(--text);
+            font-size: 14px;
+            font-family: inherit;
+            line-height: 1.3;
+            text-align: left;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            position: relative;
+            transition: border-color 0.15s, box-shadow 0.15s;
+            min-height: 52px;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        .custom-category-select-trigger > * { color: inherit; }
+        [data-theme="light"] .custom-category-select-trigger { background: var(--card2); }
+        .custom-category-select-trigger:hover:not(:disabled) { border-color: var(--teal); }
+        .custom-category-select-trigger.open {
+            border-color: var(--teal);
+            box-shadow: 0 0 0 2px rgba(0, 210, 211, 0.2);
+        }
+        .custom-category-select-trigger .chevron {
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            transition: transform 0.2s;
+            color: var(--text3);
+            pointer-events: none;
+            font-size: 12px;
+        }
+        .custom-category-select-trigger.open .chevron { transform: translateY(-50%) rotate(180deg); }
+        .custom-category-select-trigger .css-trigger-placeholder {
+            color: var(--text3) !important;
+            font-size: 14px;
+            font-weight: 500;
+            opacity: 1 !important;
+            display: inline-flex;
+            align-items: center;
+            line-height: 1.2;
+            background: transparent !important;
+        }
+        .custom-category-select-trigger .selected-content {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex: 1;
+            min-width: 0;
+        }
+        .custom-category-select-trigger .selected-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-weight: 600;
+        }
+        .category-icon-wrap {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.06);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+        [data-theme="light"] .category-icon-wrap { background: rgba(0, 0, 0, 0.05); }
+        .category-icon-wrap img,
+        .category-icon-wrap svg {
+            width: 20px;
+            height: 20px;
+            object-fit: contain;
+        }
+        .category-icon-wrap i { font-size: 14px; color: var(--text2); }
+        .category-icon-wrap .fallback {
+            font-size: 12px;
+            font-weight: 800;
+            color: var(--text2);
+        }
+        .custom-category-select-panel {
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            right: 0;
+            z-index: 50;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+            overflow: hidden;
+            max-height: 360px;
+            display: flex;
+            flex-direction: column;
+        }
+        [data-theme="light"] .custom-category-select-panel { box-shadow: 0 16px 50px rgba(0, 0, 0, 0.12); }
+        .custom-category-select-list {
+            overflow-y: auto;
+            flex: 1;
+            padding: 6px 0;
+        }
+        .custom-category-select-list::-webkit-scrollbar { width: 8px; }
+        .custom-category-select-list::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.08);
+            border-radius: 4px;
+        }
+        .custom-category-select-option {
+            width: 100%;
+            padding: 11px 14px;
+            background: transparent;
+            border: 0;
+            text-align: left;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--text2);
+            font-size: 14px;
+            transition: background 0.1s;
+        }
+        .custom-category-select-option:hover {
+            background: rgba(0, 210, 211, 0.12);
+            color: var(--text);
+        }
+        .custom-category-select-option.selected {
+            background: rgba(0, 210, 211, 0.18);
+            color: var(--text);
+            font-weight: 600;
+        }
+        .custom-category-select-option .opt-name { flex: 1; min-width: 0; }
+        .custom-category-select-option .opt-driver {
+            flex-shrink: 0;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: rgba(108, 92, 231, 0.14);
+            color: var(--purple-light);
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border: 1px solid rgba(108, 92, 231, 0.3);
+        }
+
+        /* Custom searchable service dropdown */
+        .custom-service-select { position: relative; }
+        .custom-service-select-trigger {
+            width: 100%;
+            padding: 14px 44px 14px 16px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: rgba(0, 0, 0, 0.28);
+            color: var(--text);
+            font-size: 14px;
+            font-family: inherit;
+            line-height: 1.3;
+            text-align: left;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            position: relative;
+            transition: border-color 0.15s, box-shadow 0.15s;
+            min-height: 52px;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        .custom-service-select-trigger > * { color: inherit; }
+        [data-theme="light"] .custom-service-select-trigger { background: var(--card2); }
+        .custom-service-select-trigger:hover:not(:disabled) { border-color: var(--purple-light); }
+        .custom-service-select-trigger:disabled { opacity: 0.6; cursor: not-allowed; }
+        .custom-service-select-trigger.open {
+            border-color: var(--purple-light);
+            box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.2);
+        }
+        .custom-service-select-trigger .chevron {
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            transition: transform 0.2s;
+            color: var(--text3);
+            pointer-events: none;
+            font-size: 12px;
+        }
+        .custom-service-select-trigger.open .chevron { transform: translateY(-50%) rotate(180deg); }
+        .custom-service-select-trigger .css-trigger-placeholder {
+            color: var(--text3) !important;
+            font-size: 14px;
+            font-weight: 500;
+            opacity: 1 !important;
+            display: inline-flex;
+            align-items: center;
+            line-height: 1.2;
+            background: transparent !important;
+        }
+        .custom-service-select-trigger .css-trigger-placeholder > span {
+            color: inherit !important;
+            background: transparent !important;
+        }
+        .custom-service-select-trigger .selected-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            flex: 1;
+            min-width: 0;
+        }
+        .custom-service-select-trigger .selected-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+            min-width: 0;
+        }
+        .custom-service-select-trigger .id-tag {
+            font-weight: 800;
+            color: var(--purple-light);
+            margin-right: 6px;
+        }
+        .custom-service-select-trigger .price-tag {
+            flex-shrink: 0;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: rgba(0, 210, 211, 0.15);
+            border: 1px solid rgba(0, 210, 211, 0.4);
+            color: var(--teal);
+            font-weight: 800;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        [data-theme="light"] .custom-service-select-trigger .price-tag {
+            background: rgba(0, 184, 184, 0.10);
+            border-color: rgba(0, 184, 184, 0.45);
+            color: #008b8b;
+        }
+        .custom-service-select-panel {
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            right: 0;
+            z-index: 50;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+            overflow: hidden;
+            max-height: 440px;
+            display: flex;
+            flex-direction: column;
+        }
+        [data-theme="light"] .custom-service-select-panel { box-shadow: 0 16px 50px rgba(0, 0, 0, 0.12); }
+        .custom-service-select-search {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            position: relative;
+        }
+        /* Use input[type="text"] to match specificity of the global .new-order-page rules */
+        .new-order-page .custom-service-select-search input[type="text"] {
+            width: 100%;
+            padding: 10px 12px 10px 38px !important;
+            border-radius: 8px !important;
+            border: 1px solid var(--border) !important;
+            background: rgba(0, 0, 0, 0.28) !important;
+            color: var(--text) !important;
+            font-size: 13px !important;
+            box-shadow: none !important;
+        }
+        [data-theme="light"] .new-order-page .custom-service-select-search input[type="text"] {
+            background: var(--card2) !important;
+        }
+        .custom-service-select-search .search-icon {
+            position: absolute;
+            left: 22px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text3);
+            font-size: 13px;
+            pointer-events: none;
+            z-index: 1;
+        }
+        .custom-service-select-list { overflow-y: auto; flex: 1; padding: 4px 0 8px; }
+        .custom-service-select-list::-webkit-scrollbar { width: 8px; }
+        .custom-service-select-list::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.08);
+            border-radius: 4px;
+        }
+        .custom-service-select-group {
+            padding: 10px 14px 6px;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text3);
+            background: var(--card);
+            border-bottom: 1px solid var(--border);
+            position: relative;
+            top: 0;
+            z-index: 2;
+        }
+        [data-theme="light"] .custom-service-select-group { background: var(--card); }
+        .custom-service-select-option {
+            width: 100%;
+            padding: 11px 14px;
+            background: transparent;
+            border: 0;
+            text-align: left;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            color: var(--text2);
+            font-size: 13.5px;
+            transition: background 0.1s;
+        }
+        .custom-service-select-option:hover {
+            background: rgba(108, 92, 231, 0.14);
+            color: var(--text);
+        }
+        .custom-service-select-option.selected {
+            background: rgba(108, 92, 231, 0.22);
+            color: var(--text);
+            font-weight: 600;
+        }
+        .custom-service-select-option .opt-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+            min-width: 0;
+        }
+        .custom-service-select-option .opt-id {
+            font-weight: 800;
+            color: var(--purple-light);
+            margin-right: 6px;
+            display: inline-block;
+            min-width: 32px;
+        }
+        .custom-service-select-option .opt-price {
+            flex-shrink: 0;
+            padding: 3px 9px;
+            border-radius: 999px;
+            background: rgba(0, 210, 211, 0.12);
+            color: var(--teal);
+            font-weight: 700;
+            font-size: 11.5px;
+            border: 1px solid rgba(0, 210, 211, 0.3);
+            white-space: nowrap;
+        }
+        [data-theme="light"] .custom-service-select-option .opt-price {
+            background: rgba(0, 184, 184, 0.08);
+            color: #008b8b;
+            border-color: rgba(0, 184, 184, 0.35);
+        }
+        .custom-service-select-empty {
+            padding: 22px 14px;
+            text-align: center;
+            color: var(--text3);
+            font-size: 13px;
+        }
+        @media (max-width: 640px) {
+            .custom-service-select-trigger { padding: 12px 40px 12px 14px; flex-wrap: wrap; }
+            .custom-service-select-trigger .price-tag { font-size: 11px; padding: 3px 8px; }
+            .custom-service-select-option { padding: 10px 12px; font-size: 13px; gap: 8px; }
+            .custom-service-select-option .opt-price { font-size: 11px; padding: 2px 7px; }
+        }
+
+        /* Link-type expectation pill ("Channel link required") */
+        .new-order-link-hint {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 9px;
+            border-radius: 999px;
+            background: rgba(108, 92, 231, 0.14);
+            border: 1px solid rgba(108, 92, 231, 0.32);
+            color: var(--purple-light);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-left: 8px;
+            white-space: nowrap;
+        }
+        .new-order-link-hint i { font-size: 10px; }
+        [data-theme="light"] .new-order-link-hint {
+            background: rgba(108, 92, 231, 0.10);
+            color: #5546d6;
+            border-color: rgba(108, 92, 231, 0.35);
+        }
+
+        /* "Accepted: ..." helper line under the link section */
+        .new-order-link-accepted {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: -4px 0 12px;
+            padding: 8px 12px;
+            border-radius: 10px;
+            background: rgba(0, 210, 211, 0.07);
+            border: 1px dashed rgba(0, 210, 211, 0.28);
+            color: var(--text2);
+            font-size: 12.5px;
+            line-height: 1.4;
+        }
+        .new-order-link-accepted i {
+            color: var(--teal);
+            font-size: 12px;
+            flex-shrink: 0;
+        }
+        [data-theme="light"] .new-order-link-accepted {
+            background: rgba(0, 184, 184, 0.06);
+            border-color: rgba(0, 184, 184, 0.30);
+        }
+
+        /* Section header (e.g. Links & Quantities) */
+        .new-order-section-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .new-order-section-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text2);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .new-order-section-title i {
+            color: var(--purple-light);
+            font-size: 13px;
+        }
+        /* "Add Link" / "Add Service" pill button */
+        .new-order-add-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            border-radius: 999px;
+            background: rgba(108, 92, 231, 0.16);
+            border: 1px dashed rgba(108, 92, 231, 0.5);
+            color: var(--purple-light);
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s, transform 0.1s;
+            font-family: inherit;
+            line-height: 1;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        .new-order-add-btn:hover {
+            background: rgba(108, 92, 231, 0.26);
+            border-color: var(--purple-light);
+            border-style: solid;
+        }
+        .new-order-add-btn:active { transform: scale(0.97); }
+        .new-order-add-btn .plus {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: rgba(108, 92, 231, 0.28);
+            font-size: 11px;
+            font-weight: 800;
+            line-height: 1;
+        }
+        [data-theme="light"] .new-order-add-btn {
+            background: rgba(108, 92, 231, 0.10);
+            color: #5546d6;
+        }
+        [data-theme="light"] .new-order-add-btn:hover {
+            background: rgba(108, 92, 231, 0.18);
+        }
+
+        /* Compact charge summary line above submit */
+        .new-order-charge-summary {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin: 14px 0 4px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            background: rgba(108, 92, 231, 0.10);
+            border: 1px solid rgba(108, 92, 231, 0.28);
+        }
+        .new-order-charge-summary .label {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text3);
+        }
+        .new-order-charge-summary .amount {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--teal);
+            letter-spacing: -0.01em;
+        }
     </style>
 
     <div class="new-order-page">
@@ -245,54 +877,202 @@
                             <input type="hidden" name="form_type" value="single">
 
                             <!-- Category (platform / social media) -->
-                            <div class="mb-6">
-                                <label for="category_id" class="new-order-lab">
+                            <div class="new-order-category-wrap">
+                                <label class="new-order-lab">
                                     <i class="fa-solid fa-globe" aria-hidden="true"></i>
                                     {{ __('common.social_media') }} <span class="text-red-400">*</span>
                                 </label>
-                                <select
-                                    id="category_id"
-                                    name="category_id"
-                                    x-model="categoryId"
-                                    @change="onCategoryChange(); if (categoryId) loadServices()"
-                                    required
-                                    class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                                    <option value="">{{ __('common.select_platform') }}</option>
-                                    @foreach($categories as $category)
-                                        <option value="{{ $category->id }}" {{ old('category_id', $preselectedCategoryId ?? '') == $category->id ? 'selected' : '' }}>{{ $category->name }}</option>
-                                    @endforeach
-                                </select>
+                                <div class="custom-category-select"
+                                     x-data="{ open: false }"
+                                     @click.outside="open = false"
+                                     @keydown.escape.window="open = false">
+                                    <input type="hidden" name="category_id" :value="categoryId" required>
+                                    <button type="button"
+                                            class="custom-category-select-trigger"
+                                            :class="open ? 'open' : ''"
+                                            @click="open = !open">
+                                        <template x-if="selectedCategory">
+                                            <span class="selected-content">
+                                                <span class="category-icon-wrap" x-html="renderCategoryIcon(selectedCategory)"></span>
+                                                <span class="selected-name" x-text="selectedCategory.name"></span>
+                                            </span>
+                                        </template>
+                                        <template x-if="!selectedCategory">
+                                            <span class="css-trigger-placeholder">{{ __('common.select_platform') }}</span>
+                                        </template>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+
+                                    <div class="custom-category-select-panel" x-show="open" x-transition.opacity x-cloak>
+                                        <div class="custom-category-select-list">
+                                            <template x-for="cat in categoriesData" :key="'cat-' + cat.id">
+                                                <button type="button"
+                                                        class="custom-category-select-option"
+                                                        :class="categoryId == cat.id ? 'selected' : ''"
+                                                        @click="categoryId = cat.id; onCategoryChange(); loadServices(); open = false">
+                                                    <span class="category-icon-wrap" x-html="renderCategoryIcon(cat)"></span>
+                                                    <span class="opt-name" x-text="cat.name"></span>
+                                                    <span class="opt-driver" x-show="cat.link_driver" x-text="cat.link_driver"></span>
+                                                </button>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </div>
                                 @error('category_id')
                                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                 @enderror
                             </div>
 
-                            <!-- Service -->
+                            <!-- Service (custom searchable dropdown) -->
                             <div class="mb-6">
-                                <label for="service_id" class="new-order-lab">
+                                <label class="new-order-lab">
                                     <i class="fa-solid fa-gear" aria-hidden="true"></i>
                                     {{ __('Service') }} <span class="text-red-400">*</span>
                                 </label>
-                                <select
-                                    id="service_id"
-                                    name="service_id"
-                                    x-model="serviceId"
-                                    @change="updateServiceInfo"
-                                    :disabled="!categoryId || loading"
-                                    :required="categoryId"
-                                    class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm disabled:bg-gray-100 disabled:cursor-not-allowed">
-                                    <option value="" x-text="loading ? '{{ __('Loading...') }}' : '{{ __('common.select_service_placeholder') }}'"></option>
-                                    <template x-for="group in serviceGroups" :key="'group-' + group.label">
-                                        <optgroup :label="group.label">
-                                            <template x-for="service in group.services" :key="'service-' + service.id">
-                                                <option :value="service.id" :selected="serviceId == service.id" x-text="service.id + ' - ' + service.name"></option>
+                                <div class="custom-service-select"
+                                     x-data="{ open: false, search: '' }"
+                                     @click.outside="open = false; search = ''"
+                                     @keydown.escape.window="open = false">
+                                    <input type="hidden" name="service_id" :value="serviceId">
+                                    <button type="button"
+                                            class="custom-service-select-trigger"
+                                            :class="open ? 'open' : ''"
+                                            :disabled="!categoryId || loading"
+                                            @click="if (!loading && categoryId) { open = !open; if (open) $nextTick(() => $refs.csearch?.focus()); }">
+                                        <template x-if="selectedService">
+                                            <span class="selected-content">
+                                                <span class="selected-name">
+                                                    <span class="id-tag">#<span x-text="selectedService.id"></span></span>
+                                                    <span x-text="selectedService.name"></span>
+                                                </span>
+                                                <span class="price-tag" x-show="selectedService.hide_quantity !== true">
+                                                    $<span x-text="formatMoney(selectedService.rate_per_1000 || 0)"></span> / 1000
+                                                </span>
+                                            </span>
+                                        </template>
+                                        <template x-if="!selectedService">
+                                            <span class="css-trigger-placeholder">
+                                                <span x-show="loading" x-cloak>{{ __('Loading...') }}</span>
+                                                <span x-show="!loading && categoryId" x-cloak>{{ __('common.select_service_placeholder') }}</span>
+                                                <span x-show="!loading && !categoryId" x-cloak>{{ __('common.select_platform') }}</span>
+                                            </span>
+                                        </template>
+                                        <i class="fa-solid fa-chevron-down chevron"></i>
+                                    </button>
+
+                                    <div class="custom-service-select-panel" x-show="open" x-transition.opacity x-cloak>
+                                        <div class="custom-service-select-search">
+                                            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                                            <input type="text"
+                                                   x-ref="csearch"
+                                                   x-model="search"
+                                                   @click.stop
+                                                   autocomplete="off"
+                                                   placeholder="{{ __('Search services…') }}"
+                                                   style="padding: 10px 12px 10px 38px !important; font-size: 13px;">
+                                        </div>
+                                        <div class="custom-service-select-list">
+                                            <template x-for="group in filteredServiceGroups(search)" :key="'g-' + group.label">
+                                                <div>
+                                                    <div class="custom-service-select-group" x-text="group.label"></div>
+                                                    <template x-for="service in group.services" :key="'sopt-' + service.id">
+                                                        <button type="button"
+                                                                class="custom-service-select-option"
+                                                                :class="serviceId == service.id ? 'selected' : ''"
+                                                                @click="serviceId = service.id; updateServiceInfo(); open = false; search = ''">
+                                                            <span class="opt-name">
+                                                                <span class="opt-id">#<span x-text="service.id"></span></span>
+                                                                <span x-text="service.name"></span>
+                                                            </span>
+                                                            <span class="opt-price" x-show="service.hide_quantity !== true">
+                                                                $<span x-text="formatMoney(service.rate_per_1000 || 0)"></span> / 1000
+                                                            </span>
+                                                        </button>
+                                                    </template>
+                                                </div>
                                             </template>
-                                        </optgroup>
-                                    </template>
-                                </select>
+                                            <div x-show="filteredServiceGroups(search).length === 0"
+                                                 class="custom-service-select-empty">
+                                                {{ __('No matching services') }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                                 @error('service_id')
                                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                 @enderror
+                            </div>
+
+                            <!-- Service Info Block (visible BEFORE link/quantity inputs) -->
+                            <div class="new-order-info-block" x-show="selectedService" x-cloak>
+                                <div class="new-order-info-row">
+                                    <div class="new-order-info-label">{{ __('Service') }}</div>
+                                    <div class="new-order-info-value">
+                                        <span x-text="'#' + (selectedService?.id || '') + ' — ' + (selectedService?.name || '')"></span>
+                                    </div>
+                                </div>
+
+                                <!-- Price (Pill, prominently visible) -->
+                                <div class="new-order-info-row" x-show="selectedService?.hide_quantity !== true">
+                                    <div class="new-order-info-label">{{ __('Price') }}</div>
+                                    <div class="new-order-price-pill">
+                                        <i class="fa-solid fa-tag" aria-hidden="true"></i>
+                                        <span>$<span x-text="formatMoney(selectedService?.rate_per_1000 || 0)"></span> / 1000</span>
+                                    </div>
+                                </div>
+
+                                <!-- Fixed order price (e.g. premium folder) -->
+                                <div class="new-order-info-row" x-show="selectedService?.hide_quantity === true" x-cloak>
+                                    <div class="new-order-info-label">{{ __('Order price') }}</div>
+                                    <div class="new-order-price-pill">
+                                        <i class="fa-solid fa-tag" aria-hidden="true"></i>
+                                        <span>$<span x-text="formatMoney(calculateCharge() || 0)"></span></span>
+                                    </div>
+                                </div>
+
+                                <!-- Discount applied -->
+                                <div class="new-order-info-row" x-show="selectedService?.discount_applies && selectedService?.client_discount > 0">
+                                    <div class="new-order-info-label">{{ __('Discount') }}</div>
+                                    <div class="new-order-rate-line">
+                                        <span class="strike">$<span x-text="formatMoney(selectedService?.default_rate_per_1000 || 0)"></span></span>
+                                        <span class="new-order-discount-tag">
+                                            -<span x-text="selectedService?.client_discount || 0"></span>%
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <!-- Custom rate applied -->
+                                <div class="new-order-info-row" x-show="selectedService?.has_custom_rate && selectedService?.custom_rate">
+                                    <div class="new-order-info-label">{{ __('Custom Rate') }}</div>
+                                    <div class="new-order-rate-line">
+                                        <template x-if="selectedService?.custom_rate?.type === 'fixed'">
+                                            <span>{{ __('Fixed') }} ${{ '' }}<span x-text="formatMoney(selectedService?.custom_rate?.value || 0)"></span> / 1000</span>
+                                        </template>
+                                        <template x-if="selectedService?.custom_rate?.type === 'percent'">
+                                            <span>
+                                                <span x-text="selectedService?.custom_rate?.value || 0"></span>% {{ __('of default') }}
+                                                <span class="strike ml-2">$<span x-text="formatMoney(selectedService?.default_rate_per_1000 || 0)"></span></span>
+                                            </span>
+                                        </template>
+                                    </div>
+                                </div>
+
+                                <!-- Quantity Rules / Row Count Rules -->
+                                <div class="new-order-info-row" x-show="selectedService?.hide_quantity !== true">
+                                    <div class="new-order-info-label">
+                                        <span x-show="selectedService?.service_type === 'custom_comments'">{{ __('Row Count Rules') }}</span>
+                                        <span x-show="selectedService?.service_type !== 'custom_comments'">{{ __('Quantity Rules') }}</span>
+                                    </div>
+                                    <div class="new-order-info-value">
+                                        <span x-text="'Min: ' + (selectedService?.min_quantity || 1)"></span>
+                                        <span x-show="selectedService?.max_quantity" x-text="' • Max: ' + (selectedService?.max_quantity || '')"></span>
+                                        <span x-show="selectedService?.service_type !== 'custom_comments' && selectedService?.increment > 0"
+                                              x-text="' • Increment: ' + (selectedService?.increment || 0)"></span>
+                                    </div>
+                                </div>
+
+                                <!-- Service description (visible before user enters link) -->
+                                <div class="new-order-info-desc" x-show="selectedService?.description" x-text="selectedService?.description"></div>
                             </div>
 
                             <!-- Custom Comments Field (only for custom_comments service type) -->
@@ -335,17 +1115,11 @@
 
                                 <p x-show="commentsCountError" class="mt-2 text-sm text-red-600 font-medium" x-text="commentsCountError"></p>
 
-                                <!-- Real-time Total Calculation -->
+                                <!-- Real-time Comments Count (rate shown above in info block) -->
                                 <div class="mt-3 p-3 bg-indigo-50 rounded-md border border-indigo-200" x-show="selectedService?.service_type === 'custom_comments'">
-                                    <div class="flex items-center justify-between">
-                                        <div class="text-sm text-gray-700">
-                                            <span class="font-medium">{{ __('Comments Count') }}:</span>
-                                            <span x-text="commentsCount || 0"></span>
-                                        </div>
-                                        <div class="text-sm text-gray-700">
-                                            <span class="font-medium">{{ __('Rate') }}:</span>
-                                            <span>$<span x-text="(selectedService?.rate_per_1000 || 0).toFixed(2)"></span> {{ __('per 1000') }}</span>
-                                        </div>
+                                    <div class="text-sm text-gray-700">
+                                        <span class="font-medium">{{ __('Comments Count') }}:</span>
+                                        <span x-text="commentsCount || 0"></span>
                                     </div>
                                 </div>
 
@@ -533,20 +1307,29 @@
                             <!-- Targets (Link + Quantity pairs) — x-if removes fields so premium-folder block is the only targets[0] submitter -->
                             <template x-if="selectedService?.service_type !== 'custom_comments' && selectedService?.template_key !== 'invite_subscribers_from_other_channel' && selectedService?.template_key !== 'telegram_premium_folder'">
                             <div class="mb-6" x-cloak>
-                                <div class="flex items-center justify-between mb-2">
-                                    <label class="block text-sm font-medium text-gray-700">
-                                        {{ __('Links & Quantities') }} <span class="text-red-500">*</span>
-                                    </label>
+                                <div class="new-order-section-head">
+                                    <span class="new-order-section-title">
+                                        <i class="fa-solid fa-link" aria-hidden="true"></i>
+                                        {{ __('Links & Quantities') }} <span class="text-red-400">*</span>
+                                        <span class="new-order-link-hint" x-show="linkTypeLabel()" x-cloak>
+                                            <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+                                            <span x-text="linkTypeLabel() + ' ' + '{{ __('link') }}'"></span>
+                                        </span>
+                                    </span>
                                     <button
                                         type="button"
                                         @click="addTargetRow"
-                                        class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                                        </svg>
-                                        {{ __('Add Link') }}
+                                        class="new-order-add-btn"
+                                        title="{{ __('Add Link') }}">
+                                        <span class="plus" aria-hidden="true">+</span>
+                                        <span>{{ __('Add Link') }}</span>
                                     </button>
                                 </div>
+
+                                <p class="new-order-link-accepted" x-show="linkAcceptedHint()" x-cloak>
+                                    <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+                                    <span x-text="linkAcceptedHint()"></span>
+                                </p>
 
                                 <div class="space-y-3">
                                     <template x-for="(target, index) in targets" :key="index">
@@ -742,83 +1525,25 @@
                                 @enderror
                             </div>
 
-                            <!-- Service Info -->
-                            <div class="mt-4 p-3 bg-gray-50 rounded-md" x-show="selectedService">
-                                <!-- Fixed order price (e.g. premium folder: one unit, no per-1000 framing) -->
-                                <div class="text-sm text-gray-800 new-order-charge-legacy" x-show="selectedService?.hide_quantity === true" x-cloak>
-                                    <p>
-                                        <span class="font-medium">{{ __('Order price') }}:</span>
-                                        $<span x-text="Number(calculateCharge() || 0).toFixed(2)"></span>
-                                    </p>
+                            <!-- Compact charge summary (no big total card) -->
+                            <div class="new-order-charge-summary"
+                                 x-show="selectedService && (selectedService?.hide_quantity === true || (selectedService?.service_type === 'custom_comments' ? commentsCount > 0 : getTotalQuantity() > 0))"
+                                 x-cloak>
+                                <div>
+                                    <div class="label">{{ __('Total') }}</div>
+                                    <div class="text-xs" style="color: var(--text3); margin-top: 2px;"
+                                         x-show="selectedService?.hide_quantity !== true">
+                                        <span x-show="selectedService?.service_type === 'custom_comments'">
+                                            <span x-text="commentsCount || 0"></span> × $<span x-text="formatMoney(chargePerComment || 0)"></span>
+                                        </span>
+                                        <span x-show="selectedService?.service_type !== 'custom_comments'">
+                                            <span x-text="getTotalQuantity()"></span> × $<span x-text="formatMoney(selectedService?.rate_per_1000 || 0)"></span> / 1000
+                                        </span>
+                                    </div>
                                 </div>
-
-                                <div x-show="selectedService?.hide_quantity !== true">
-                                <!-- For custom_comments: show only min/max row count -->
-                                <div class="text-xs text-gray-600 mb-2" x-show="selectedService?.service_type === 'custom_comments'">
-                                    <span class="font-medium">{{ __('Row Count Rules') }}:</span>
-                                    <span x-text="'Min: ' + (selectedService?.min_quantity || 1)"></span>
-                                    <span x-show="selectedService?.max_quantity" x-text="' - Max: ' + (selectedService?.max_quantity || '')"></span>
+                                <div class="amount">
+                                    $<span x-text="formatMoney(displayOrderTotalAmount)"></span>
                                 </div>
-                                <!-- For other services: show quantity rules with increment -->
-                                <div class="text-xs text-gray-600 mb-2" x-show="selectedService?.service_type !== 'custom_comments'">
-                                    <span class="font-medium">{{ __('Quantity Rules') }}:</span>
-                                    <span x-text="'Min: ' + (selectedService?.min_quantity || 1)"></span>
-                                    <span x-show="selectedService?.max_quantity" x-text="' - Max: ' + (selectedService?.max_quantity || '')"></span>
-                                    <span x-show="selectedService?.increment > 0" x-text="' (Increment: ' + (selectedService?.increment || 0) + ')'"></span>
-                                </div>
-
-                                <!-- Rate Info -->
-                                <div class="text-xs text-gray-600 mb-2">
-                                    <span class="font-medium">{{ __('Default Rate') }}:</span>
-                                    <span>$<span x-text="(selectedService?.default_rate_per_1000 || 0).toFixed(2)"></span> {{ __('per 1000') }}</span>
-                                </div>
-
-                                <!-- Discount Info -->
-                                <div class="text-xs text-blue-600 mb-2" x-show="selectedService?.discount_applies && selectedService?.client_discount > 0">
-                                    <span class="font-medium">{{ __('Discount Applied') }}:</span>
-                                    <span x-text="selectedService?.client_discount || 0"></span>% {{ __('discount') }}
-                                    <span class="text-gray-500">
-                                        ({{ __('Final Rate') }}: $<span x-text="(selectedService?.rate_per_1000 || 0).toFixed(2)"></span> {{ __('per 1000') }})
-                                    </span>
-                                </div>
-
-                                <!-- Custom Rate Info -->
-                                <div class="text-xs text-green-600 mb-2" x-show="selectedService?.has_custom_rate && selectedService?.custom_rate">
-                                    <span class="font-medium">{{ __('Custom Rate Applied') }}:</span>
-                                    <span class="text-gray-500 text-xs">({{ __('Discounts do not apply to services with custom rates') }})</span>
-                                    <span x-show="selectedService?.custom_rate?.type === 'fixed'">
-                                        <br>$<span x-text="(selectedService?.custom_rate?.value || 0).toFixed(2)"></span> {{ __('per 1000') }} ({{ __('Fixed') }})
-                                    </span>
-                                    <span x-show="selectedService?.custom_rate?.type === 'percent'">
-                                        <br><span x-text="selectedService?.custom_rate?.value || 0"></span>% {{ __('of default') }}
-                                        ({{ __('Default') }}: $<span x-text="(selectedService?.default_rate_per_1000 || 0).toFixed(2)"></span>)
-                                        <br>{{ __('Final Rate') }}: $<span x-text="(selectedService?.rate_per_1000 || 0).toFixed(2)"></span> {{ __('per 1000') }}
-                                    </span>
-                                </div>
-
-                                <!-- Final Rate (when no custom rate and no discount) -->
-                                <div class="text-xs text-gray-600 mb-2" x-show="!selectedService?.has_custom_rate && !selectedService?.discount_applies">
-                                    <span class="font-medium">{{ __('Rate') }}:</span>
-                                    <span>$<span x-text="(selectedService?.rate_per_1000 || 0).toFixed(2)"></span> {{ __('per 1000') }}</span>
-                                </div>
-                                </div>
-                            </div>
-
-                            <p class="mt-2 text-sm text-gray-700 new-order-charge-legacy" x-show="selectedService?.service_type === 'custom_comments' && commentsCount > 0">
-                                {{ __('Total quantity') }}: <span x-text="commentsCount"></span> |
-                                {{ __('Estimated charge') }}: $<span x-text="(commentsTotalCharge || 0).toFixed(2)"></span>
-                            </p>
-
-
-                            <p class="mt-2 text-sm text-gray-700 new-order-charge-legacy" x-show="selectedService?.service_type !== 'custom_comments' && selectedService && getTotalQuantity() > 0 && selectedService?.hide_quantity !== true">
-                                {{ __('Total quantity') }}: <span x-text="getTotalQuantity()"></span> |
-                                {{ __('Estimated charge') }}: $<span x-text="Number(calculateCharge() || 0).toFixed(2)"></span>
-                            </p>
-
-                            <div class="new-order-total-box">
-                                <div class="new-order-total-label">{{ __('common.total_price') }}</div>
-                                <div class="new-order-total-amount">$<span x-text="displayOrderTotalAmount"></span></div>
-                                <div class="new-order-total-hint" x-show="!selectedService">{{ __('common.select_service_pricing_hint') }}</div>
                             </div>
 
                             <!-- Submit Button -->
@@ -892,18 +1617,18 @@
 
                             <!-- Services Multi-Select -->
                             <div class="mb-6">
-                                <div class="flex items-center justify-between mb-2">
-                                    <label class="block text-sm font-medium text-gray-700">
-                                        {{ __('Select Services') }} <span class="text-red-500">*</span>
-                                    </label>
+                                <div class="new-order-section-head">
+                                    <span class="new-order-section-title">
+                                        <i class="fa-solid fa-gear" aria-hidden="true"></i>
+                                        {{ __('Select Services') }} <span class="text-red-400">*</span>
+                                    </span>
                                     <button
                                         type="button"
                                         @click="addMultiServiceRow"
-                                        class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                                        </svg>
-                                        {{ __('Add Service') }}
+                                        class="new-order-add-btn"
+                                        title="{{ __('Add Service') }}">
+                                        <span class="plus" aria-hidden="true">+</span>
+                                        <span>{{ __('Add Service') }}</span>
                                     </button>
                                 </div>
                                 <div x-show="multiLoading" class="text-sm text-gray-500 mb-2">
@@ -931,7 +1656,7 @@
                                                         class="block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                                                         <option value="">{{ __('Select a service') }}</option>
                                                         <template x-for="service in getFilteredServicesForRow(index)" :key="'multi-service-' + service.id">
-                                                            <option :value="service.id" x-text="service.id + ' - ' + service.name"></option>
+                                                            <option :value="service.id" x-text="'#' + service.id + ' - ' + service.name"></option>
                                                         </template>
                                                     </select>
                                                 </div>
@@ -983,8 +1708,8 @@
                                                 </div>
                                                 <div class="w-36 pt-6" x-show="serviceRow.service_id">
                                                     <div class="text-xs text-gray-600">
-                                                        <div>{{ __('Rate') }}: $<span x-text="(serviceRow.rate_per_1000 || 0).toFixed(2)"></span>/1000</div>
-                                                        <div>{{ __('Charge') }}: $<span x-text="calculateMultiServiceCharge(index).toFixed(2)"></span></div>
+                                                        <div>{{ __('Price') }}: $<span x-text="formatMoney(serviceRow.rate_per_1000 || 0)"></span> / 1000</div>
+                                                        <div>{{ __('Charge') }}: $<span x-text="formatMoney(calculateMultiServiceCharge(index))"></span></div>
                                                         <div class="mt-1 text-gray-500" x-show="!isMultiRowCustomComments(index)">
                                                             <span>{{ __('Min') }}: <span x-text="serviceRow.min_quantity || 1"></span></span>
                                                             <span x-show="serviceRow.max_quantity"> | {{ __('Max') }}: <span x-text="serviceRow.max_quantity"></span></span>
@@ -1029,12 +1754,16 @@
                                 @enderror
                             </div>
 
-                            <!-- Total Preview -->
-                            <div class="new-order-total-box" x-show="multiSelectedServices.length > 0" x-cloak>
-                                <div class="new-order-total-label">{{ __('common.total_price') }}</div>
-                                <div class="new-order-total-amount">$<span x-text="calculateMultiTotalCharge().toFixed(2)"></span></div>
-                                <div class="new-order-total-hint">
-                                    <span x-text="multiSelectedServices.length"></span> {{ __('service(s) selected') }}
+                            <!-- Compact total summary (multi) -->
+                            <div class="new-order-charge-summary" x-show="multiSelectedServices.length > 0" x-cloak>
+                                <div>
+                                    <div class="label">{{ __('Total') }}</div>
+                                    <div class="text-xs" style="color: var(--text3); margin-top: 2px;">
+                                        <span x-text="multiSelectedServices.length"></span> {{ __('service(s) selected') }}
+                                    </div>
+                                </div>
+                                <div class="amount">
+                                    $<span x-text="formatMoney(calculateMultiTotalCharge())"></span>
                                 </div>
                             </div>
 
@@ -1063,6 +1792,40 @@
                 orderType: @json(old('form_type') === 'multi' ? 'multi' : 'single'),
                 categoryIdsWithTargetType: @js($categoryIdsWithTargetType ?? []),
                 categoryLinkTypes: @js($categoryLinkTypes ?? []),
+                /** Categories list passed to the custom dropdown (id, name, icon, link_driver). */
+                categoriesData: @js(collect($categories)->map(fn($c) => [
+                    'id' => (int) $c->id,
+                    'name' => $c->name,
+                    'icon' => $c->icon,
+                    'link_driver' => $c->link_driver,
+                ])->values()->all()),
+                get selectedCategory() {
+                    if (!this.categoryId) return null;
+                    return (this.categoriesData || []).find(c => c.id == this.categoryId) || null;
+                },
+                /**
+                 * Render a category icon as inline HTML.
+                 * Supports raw <svg>, data: URIs, FontAwesome class strings, and a fallback initial.
+                 */
+                renderCategoryIcon(cat) {
+                    if (!cat) return '';
+                    const icon = (cat.icon || '').trim();
+                    if (!icon) {
+                        const initial = (cat.name || '?').charAt(0).toUpperCase();
+                        return '<span class="fallback">' + initial + '</span>';
+                    }
+                    if (icon.startsWith('<svg')) return icon;
+                    if (icon.startsWith('data:')) {
+                        const safe = icon.replace(/"/g, '&quot;');
+                        return '<img src="' + safe + '" alt="" />';
+                    }
+                    if (/^(fas|far|fab|fal|fad)\s/.test(icon)) {
+                        return '<i class="' + icon + '"></i>';
+                    }
+                    // Plain text / emoji fallback
+                    const text = icon.replace(/</g, '&lt;');
+                    return '<span class="fallback">' + text + '</span>';
+                },
                 get categoryHasTargetType() {
                     if (!this.categoryId) return false;
                     const id = Number(this.categoryId);
@@ -1128,6 +1891,31 @@
                     return this.calculateCharge() || 0;
                 },
 
+                /**
+                 * Safely format a money value for display.
+                 * - Avoids float artifacts (0.11220000000000001 → 0.11)
+                 * - Whole numbers and 2-decimal values: 2 decimals (e.g. $0.60, $5.00)
+                 * - Smaller values that need more precision: up to 4 decimals, trimmed
+                 */
+                formatMoney(value) {
+                    const n = Number(value);
+                    if (!Number.isFinite(n)) return '0.00';
+                    // Round to 4 decimals first to drop float artifacts, then format
+                    const rounded4 = Math.round(n * 10000) / 10000;
+                    const rounded2 = Math.round(n * 100) / 100;
+                    // If value is "clean" at 2 decimals (no precision lost), show 2 decimals.
+                    if (Math.abs(rounded4 - rounded2) < 1e-9) {
+                        return rounded2.toFixed(2);
+                    }
+                    // Otherwise show up to 4 decimals, but always at least 2
+                    let s = rounded4.toFixed(4);
+                    // Trim trailing zeros but keep at least 2 decimals
+                    s = s.replace(/0+$/, '').replace(/\.$/, '');
+                    if (!s.includes('.')) s += '.00';
+                    else if (s.split('.')[1].length < 2) s += '0';
+                    return s;
+                },
+
                 linkErrorForType(type) {
                     const m = {
                         telegram: @json(__('common.link_error_telegram')),
@@ -1161,13 +1949,30 @@
                     return order.map(g => grouped[g]);
                 },
 
+                /** Filter service groups for the custom dropdown search box. */
+                filteredServiceGroups(query) {
+                    const q = (query || '').trim().toLowerCase().replace(/^#/, '');
+                    if (!q) return this.serviceGroups;
+                    return this.serviceGroups
+                        .map(group => ({
+                            label: group.label,
+                            services: group.services.filter(s => {
+                                const name = (s.name || '').toLowerCase();
+                                const id = String(s.id);
+                                const desc = (s.description || '').toLowerCase();
+                                return name.includes(q) || id.includes(q) || desc.includes(q);
+                            }),
+                        }))
+                        .filter(g => g.services.length > 0);
+                },
+
                 // Single service order data
                 categoryId: '{{ old('category_id', $preselectedCategoryId ?? '') }}',
                 targetType: '{{ old('target_type', $preselectedTargetType ?? '') }}',
                 serviceId: '{{ old('service_id', $preselectedServiceId ?? '') }}',
                 services: [],
                 selectedService: null,
-                targets: @js(old('targets') ?: [['link' => '', 'quantity' => 1]]),
+                targets: @js(old('targets') ?: [['link' => '', 'quantity' => 1000]]),
                 loading: false,
                 submitting: false,
                 // Custom comments
@@ -1221,7 +2026,7 @@
                             'comments' => (string)($s['comments'] ?? ''),
                             'star_rating' => (int)($s['star_rating'] ?? 5),
                         ])->values()->all()
-                        : [['service_id' => '', 'target_type' => '', 'quantity' => 1, 'min_quantity' => 1, 'max_quantity' => null, 'increment' => 0, 'rate_per_1000' => 0, 'comments' => '', 'star_rating' => 5]]
+                        : [['service_id' => '', 'target_type' => '', 'quantity' => 1000, 'min_quantity' => 1, 'max_quantity' => null, 'increment' => 0, 'rate_per_1000' => 0, 'comments' => '', 'star_rating' => 5]]
                 ),
                 multiLoading: false,
 
@@ -1262,14 +2067,14 @@
                     }
                     // Ensure at least one target row exists
                     if (!this.targets || this.targets.length === 0) {
-                        this.targets = [{ link: '', quantity: 1, linkValid: true }];
+                        this.targets = [{ link: '', quantity: 1000, linkValid: true }];
                     } else {
                         this.targets.forEach((target, index) => {
                             if (target.linkValid === undefined) {
                                 target.linkValid = !target.link || this.validateLink(target.link);
                             }
                             if (!target.quantity || target.quantity < 1) {
-                                target.quantity = 1;
+                                target.quantity = 1000;
                             }
                         });
                     }
@@ -1362,7 +2167,86 @@
                 getServiceError(index, field) {
                     return this.getFieldError(`services.${index}.${field}`);
                 },
+                /**
+                 * Per-service link placeholder + accepted-link helper text.
+                 * Keyed by Telegram template_key. Easy to extend for new services.
+                 */
+                serviceLinkProfiles: {
+                    // Bot services
+                    bot_start:                              { ph: 'https://t.me/botusername',                   label: 'Bot',     hint: @json(__('Accepted: bot link')) },
+                    bot_start_referral:                     { ph: 'https://t.me/botusername?start=ref123',      label: 'Bot',     hint: @json(__('Accepted: bot start link with referral parameter')) },
+                    bot_start_from_search:                  { ph: 'https://t.me/botusername',                   label: 'Bot',     hint: @json(__('Accepted: bot link')) },
+                    premium_bot_start:                      { ph: 'https://t.me/botusername',                   label: 'Bot',     hint: @json(__('Accepted: bot link')) },
+                    premium_bot_start_referral:             { ph: 'https://t.me/botusername?start=ref123',      label: 'Bot',     hint: @json(__('Accepted: bot start link with referral parameter')) },
+
+                    // Channel / group subscribe
+                    channel_subscribe:                                       { ph: 'https://t.me/channelusername',  label: 'Channel', hint: @json(__('Accepted: public channel link or invite link (https://t.me/+abc... or /joinchat/...)')) },
+                    channel_subscribe_private_public:                        { ph: 'https://t.me/channelusername',  label: 'Channel', hint: @json(__('Accepted: public channel link or invite link (https://t.me/+abc... or /joinchat/...)')) },
+                    channel_subscribe_daily:                                 { ph: 'https://t.me/channelusername',  label: 'Channel', hint: @json(__('Accepted: public channel link or invite link (https://t.me/+abc... or /joinchat/...)')) },
+                    real_channel_subscribe_from_search:                      { ph: 'https://t.me/channelusername',  label: 'Channel', hint: @json(__('Accepted: public channel link only')) },
+                    subscribe_by_geo_account:                                { ph: 'https://t.me/channelusername',  label: 'Channel', hint: @json(__('Accepted: public channel/group link or invite link')) },
+                    subscribe_daily_by_geo_account:                          { ph: 'https://t.me/channelusername',  label: 'Channel', hint: @json(__('Accepted: public channel/group link or invite link')) },
+                    group_join:                                              { ph: 'https://t.me/groupusername',    label: 'Group',   hint: @json(__('Accepted: public group link or invite link')) },
+                    premium_daily_subscribe_public_private_group_channel:    { ph: 'https://t.me/channelusername',  label: 'Channel', hint: @json(__('Accepted: public channel link or invite link')) },
+
+                    // Posts (views / reactions / repost / comment reaction / poll)
+                    channel_post_views:             { ph: 'https://t.me/channelusername/123', label: 'Post', hint: @json(__('Accepted: post link (e.g. https://t.me/channel/123)')) },
+                    channel_post_reactions:         { ph: 'https://t.me/channelusername/123', label: 'Post', hint: @json(__('Accepted: post link (e.g. https://t.me/channel/123)')) },
+                    channel_post_repost:            { ph: 'https://t.me/channelusername/123', label: 'Post', hint: @json(__('Accepted: post link (e.g. https://t.me/channel/123)')) },
+                    channel_post_comment_reaction:  { ph: 'https://t.me/channelusername/123', label: 'Post', hint: @json(__('Accepted: post link (comment reactions will be applied)')) },
+                    channel_poll:                   { ph: 'https://t.me/channelusername/123', label: 'Poll', hint: @json(__('Accepted: post link to a poll (e.g. https://t.me/channel/123)')) },
+
+                    // Stories
+                    story_repost:   { ph: 'https://t.me/username/s/1', label: 'Story', hint: @json(__('Accepted: story link (e.g. https://t.me/username/s/1)')) },
+                    story_like:     { ph: 'https://t.me/username/s/1', label: 'Story', hint: @json(__('Accepted: story link (e.g. https://t.me/username/s/1)')) },
+
+                    // Premium / boost
+                    premium_boost:  { ph: 'https://t.me/channelusername?boost', label: 'Boost', hint: @json(__('Accepted: boost link (e.g. https://t.me/channelusername?boost)')) },
+
+                    // Folder / add list
+                    telegram_premium_folder: { ph: 'https://t.me/addlist/xxxxx', label: 'Folder', hint: @json(__('Accepted: folder link (e.g. https://t.me/addlist/xxxxx)')) },
+
+                    // Invite (uses 2-link UI but keep example for safety)
+                    invite_subscribers_from_other_channel: { ph: 'https://t.me/channelusername', label: 'Channel', hint: @json(__('Accepted: public channel link or invite link')) },
+                },
+
+                /**
+                 * Resolve the active link "profile" for the current selected service.
+                 * Falls back to a generic profile based on category linkType / target_type.
+                 */
+                linkProfile() {
+                    const s = this.selectedService;
+                    if (!s) return null;
+                    // 1. Direct lookup by template_key
+                    if (s.template_key && this.serviceLinkProfiles[s.template_key]) {
+                        return this.serviceLinkProfiles[s.template_key];
+                    }
+                    // 2. Fallbacks for non-telegram categories
+                    if (this.linkType === 'youtube') {
+                        return { ph: @json(__('home.link_placeholder_youtube')), label: 'Video', hint: @json(__('Accepted: YouTube video URL')) };
+                    }
+                    if (this.linkType === 'app') {
+                        return { ph: @json(__('home.link_placeholder_app')), label: 'App', hint: @json(__('Accepted: Google Play or App Store link')) };
+                    }
+                    if (this.linkType === 'max') {
+                        return { ph: @json(__('home.link_placeholder_max')), label: 'MAX', hint: @json(__('Accepted: MAX link or @username')) };
+                    }
+                    // 3. Generic telegram fallback by target_type
+                    const targetMap = {
+                        bot:     { ph: 'https://t.me/botusername',     label: 'Bot',     hint: @json(__('Accepted: bot link')) },
+                        channel: { ph: 'https://t.me/channelusername', label: 'Channel', hint: @json(__('Accepted: public channel link or invite link')) },
+                        group:   { ph: 'https://t.me/groupusername',   label: 'Group',   hint: @json(__('Accepted: public group link or invite link')) },
+                    };
+                    if (s.target_type && targetMap[s.target_type]) return targetMap[s.target_type];
+                    // 4. Last resort
+                    return { ph: @json(__('home.link_placeholder_tg')), label: '', hint: '' };
+                },
+
                 linkPlaceholder(type) {
+                    // Service-aware override
+                    const profile = this.linkProfile();
+                    if (profile && profile.ph) return profile.ph;
+                    // Category-fallback (used by multi-form / pre-selection)
                     const t = type || this.linkType;
                     const placeholders = {
                         telegram: @json(__('home.link_placeholder_tg')),
@@ -1377,6 +2261,16 @@
                         generic: @json(__('home.link_placeholder_tg')),
                     };
                     return placeholders[t] || placeholders.generic;
+                },
+                /** Short label (Channel / Bot / Post / Story / Boost / Folder / Group / Poll) for the section pill. */
+                linkTypeLabel() {
+                    const profile = this.linkProfile();
+                    return profile ? (profile.label || '') : '';
+                },
+                /** Detailed "Accepted: ..." helper text shown under the input. */
+                linkAcceptedHint() {
+                    const profile = this.linkProfile();
+                    return profile ? (profile.hint || '') : '';
                 },
 
                 // Single service order methods
@@ -1410,12 +2304,22 @@
                         return;
                     }
                     this.selectedService = this.services.find(s => s.id == this.serviceId) || null;
-                    // Ensure target quantities meet min; preserve higher values (e.g. from old input)
+                    // Ensure target quantities meet min; default to 1000 (clamped to min/max) if not set
                     if (this.selectedService) {
-                        const defaultQty = this.selectedService.min_quantity || 1;
+                        const min = Number(this.selectedService.min_quantity || 1);
+                        const max = this.selectedService.max_quantity != null ? Number(this.selectedService.max_quantity) : null;
+                        let preferred = 1000;
+                        preferred = Math.max(min, preferred);
+                        if (max !== null) preferred = Math.min(max, preferred);
                         this.targets.forEach(target => {
                             const qty = parseInt(target.quantity) || 0;
-                            target.quantity = qty >= defaultQty ? qty : defaultQty;
+                            if (qty <= 0) {
+                                target.quantity = preferred;
+                            } else if (qty < min) {
+                                target.quantity = min;
+                            } else if (max !== null && qty > max) {
+                                target.quantity = max;
+                            }
                         });
                         // Recalculate comments total if service changed and comments exist
                         if (this.comments && this.selectedService.service_type === 'custom_comments') {
@@ -1533,7 +2437,13 @@
                 },
 
                 addTargetRow() {
-                    const defaultQty = this.selectedService ? (this.selectedService.min_quantity || 1) : 1;
+                    let defaultQty = 1000;
+                    if (this.selectedService) {
+                        const min = Number(this.selectedService.min_quantity || 1);
+                        const max = this.selectedService.max_quantity != null ? Number(this.selectedService.max_quantity) : null;
+                        defaultQty = Math.max(min, defaultQty);
+                        if (max !== null) defaultQty = Math.min(max, defaultQty);
+                    }
                     this.targets.push({ link: '', quantity: defaultQty, linkValid: true });
                 },
 
@@ -1740,7 +2650,7 @@
                         const hasOldSelections = Array.isArray(this.multiSelectedServices) &&
                             this.multiSelectedServices.some(row => row.service_id);
                         if (!hasOldSelections) {
-                            this.multiSelectedServices = [{ service_id: '', target_type: '', quantity: 1, min_quantity: 1, max_quantity: null, increment: 0, rate_per_1000: 0 }];
+                            this.multiSelectedServices = [{ service_id: '', target_type: '', quantity: 1000, min_quantity: 1, max_quantity: null, increment: 0, rate_per_1000: 0 }];
                         } else {
                             // Populate service metadata for old selections
                             this.multiSelectedServices.forEach((row, i) => this.updateMultiServiceInfo(i));
@@ -1757,7 +2667,7 @@
                     this.multiSelectedServices.push({
                         service_id: '',
                         target_type: '',
-                        quantity: 1,
+                        quantity: 1000,
                         min_quantity: 1,
                         max_quantity: null,
                         increment: 0,
@@ -1788,9 +2698,19 @@
                         serviceRow.max_quantity = service.max_quantity || null;
                         serviceRow.increment = service.increment || 0;
                         serviceRow.rate_per_1000 = service.rate_per_1000 || 0;
-                        const defaultQty = service.min_quantity || 1;
+                        const min = Number(service.min_quantity || 1);
+                        const max = service.max_quantity != null ? Number(service.max_quantity) : null;
+                        let preferred = 1000;
+                        preferred = Math.max(min, preferred);
+                        if (max !== null) preferred = Math.min(max, preferred);
                         const currentQty = parseInt(serviceRow.quantity) || 0;
-                        serviceRow.quantity = currentQty >= defaultQty ? currentQty : defaultQty;
+                        if (currentQty <= 0) {
+                            serviceRow.quantity = preferred;
+                        } else if (currentQty < min) {
+                            serviceRow.quantity = min;
+                        } else if (max !== null && currentQty > max) {
+                            serviceRow.quantity = max;
+                        }
                         if (service.service_type === 'custom_comments' && serviceRow.comments === undefined) {
                             serviceRow.comments = serviceRow.comments ?? '';
                         }

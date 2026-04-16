@@ -184,6 +184,7 @@
     "Optional: normal, fast, or super_fast. Default: normal": "اختياري: normal أو fast أو super_fast. الافتراضي: normal",
     "Order": "طلب",
     "Order Details": "تفاصيل الطلب",
+    "Order ID": "معرّف الطلب",
     "Order not found": "الطلب غير موجود",
     "Order price": "سعر الطلب",
     "Order quantity within service min\/max": "كمية الطلب ضمن الحد الأدنى\/الأقصى للخدمة",

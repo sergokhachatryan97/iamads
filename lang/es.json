@@ -184,6 +184,7 @@
     "Optional: normal, fast, or super_fast. Default: normal": "Opcional: normal, fast o super_fast. Predeterminado: normal",
     "Order": "Pedido",
     "Order Details": "Detalles del pedido",
+    "Order ID": "ID del pedido",
     "Order not found": "Pedido no encontrado",
     "Order price": "Precio del pedido",
     "Order quantity within service min\/max": "Cantidad del pedido dentro del mín\/máx del servicio",

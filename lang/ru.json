@@ -184,6 +184,7 @@
     "Optional: normal, fast, or super_fast. Default: normal": "Необязательно: normal, fast или super_fast. По умолчанию: normal",
     "Order": "Заказ",
     "Order Details": "Детали заказа",
+    "Order ID": "ID заказа",
     "Order not found": "Заказ не найден",
     "Order price": "Цена заказа",
     "Order quantity within service min\/max": "Количество заказа в пределах мин\/макс услуги",

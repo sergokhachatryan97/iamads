@@ -184,6 +184,7 @@
     "Optional: normal, fast, or super_fast. Default: normal": "İsteğe bağlı: normal, fast veya super_fast. Varsayılan: normal",
     "Order": "Sipariş",
     "Order Details": "Sipariş detayları",
+    "Order ID": "Sipariş ID",
     "Order not found": "Sipariş bulunamadı",
     "Order price": "Sipariş fiyatı",
     "Order quantity within service min\/max": "Hizmet min\/maks içinde sipariş miktarı",

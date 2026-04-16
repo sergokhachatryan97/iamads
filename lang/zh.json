@@ -184,6 +184,7 @@
     "Optional: normal, fast, or super_fast. Default: normal": "可选：normal、fast 或 super_fast。默认：normal",
     "Order": "订单",
     "Order Details": "订单详情",
+    "Order ID": "订单 ID",
     "Order not found": "未找到订单",
     "Order price": "订单价格",
     "Order quantity within service min\/max": "订单数量在服务最小\/最大范围内",

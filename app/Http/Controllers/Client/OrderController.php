@@ -489,6 +489,7 @@ class OrderController extends Controller
             ->get([
                 'id',
                 'name',
+                'description',
                 'min_quantity',
                 'max_quantity',
                 'rate_per_1000',
@@ -546,6 +547,7 @@ class OrderController extends Controller
                 return [
                     'id' => $service->id,
                     'name' => $service->name,
+                    'description' => $service->description,
                     'target_type' => $service->target_type,
                     'template_key' => $service->template_key,
 

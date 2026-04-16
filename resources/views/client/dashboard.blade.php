@@ -116,7 +116,7 @@
                     <table class="smm-dash-table">
                         <thead>
                             <tr>
-                                <th>{{ __('Order') }}</th>
+                                <th>{{ __('Order ID') }}</th>
                                 <th>{{ __('Service') }}</th>
                                 <th>{{ __('Progress') }}</th>
                                 <th>{{ __('Price') }}</th>
