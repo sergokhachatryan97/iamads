@@ -22,8 +22,11 @@ class MtprotoSessionRegistry
     /** Maximum concurrent MadelineProto sessions. */
     private const MAX_SESSIONS = 15;
 
-    /** Kill workers older than this (seconds). */
-    private const MAX_AGE_SECONDS = 900; // 15 minutes
+    /** Kill workers idle longer than this (seconds since last use). */
+    private const MAX_IDLE_SECONDS = 900; // 15 minutes
+
+    /** Kill workers older than this (seconds since start) regardless of activity. */
+    private const MAX_LIFETIME_SECONDS = 1800; // 30 minutes
 
     /** Redis key for the sorted set of active sessions. */
     private const SESSIONS_KEY = 'mtp:sessions';
@@ -161,17 +164,42 @@ class MtprotoSessionRegistry
         try {
             $sessions = Redis::zrangebyscore(self::SESSIONS_KEY, '-inf', '+inf', ['withscores' => true]);
 
-            $cutoff = time() - self::MAX_AGE_SECONDS;
+            $now = time();
+            $idleCutoff = $now - self::MAX_IDLE_SECONDS;
+            $lifetimeCutoff = $now - self::MAX_LIFETIME_SECONDS;
 
             foreach ($sessions as $sessionName => $lastUsed) {
                 $meta = Redis::hgetall(self::SESSION_PREFIX . $sessionName);
                 $pid = (int) ($meta['pid'] ?? 0);
+                $startedAt = (int) ($meta['started_at'] ?? $lastUsed);
 
-                // Reap if too old
-                if ((int) $lastUsed < $cutoff) {
-                    Log::info('MtprotoSessionRegistry: reaping stale session', [
+                // Reap if orphaned metadata (zset entry without hash)
+                if (empty($meta)) {
+                    Log::info('MtprotoSessionRegistry: reaping session with missing metadata', [
                         'session' => $sessionName,
-                        'age_seconds' => time() - (int) $lastUsed,
+                    ]);
+                    $this->release($sessionName);
+                    $reaped++;
+                    continue;
+                }
+
+                // Reap if idle too long (not used recently)
+                if ((int) $lastUsed < $idleCutoff) {
+                    Log::info('MtprotoSessionRegistry: reaping idle session', [
+                        'session' => $sessionName,
+                        'idle_seconds' => $now - (int) $lastUsed,
+                        'pid' => $pid,
+                    ]);
+                    $this->release($sessionName);
+                    $reaped++;
+                    continue;
+                }
+
+                // Reap if exceeded max lifetime (regardless of recent use — prevents memory growth)
+                if ($startedAt < $lifetimeCutoff) {
+                    Log::info('MtprotoSessionRegistry: reaping session past max lifetime', [
+                        'session' => $sessionName,
+                        'lifetime_seconds' => $now - $startedAt,
                         'pid' => $pid,
                     ]);
                     $this->release($sessionName);

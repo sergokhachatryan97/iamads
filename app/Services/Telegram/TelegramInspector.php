@@ -41,24 +41,6 @@ class TelegramInspector
         ];
 
 
-//        return [
-//            'ok' => true,
-//            'parsed' => $parsed,
-//            'chat_type' => 'channel',
-//            'title' => $parsed['username'],
-//            'member_count' => null,
-//            'is_paid_join' => false,
-//            'error_code' => null,
-//            'error' => null,
-//            'resolved' => [
-//                'source' => 'test',
-//            ],
-//            'audience_type' => 'subscribers',
-//            'is_channel' => true,
-//            'is_group' => false,
-//            'is_boost' => false,
-//        ];
-
         if (count($templateKey) > 0 && ! in_array($parsed['kind'], $templateKey, true)) {
             return $this->fail($result, 'INVALID_FORMAT', 'Invalid Telegram link format');
         }
@@ -220,6 +202,24 @@ class TelegramInspector
                     return $result;
                 }
 
+                if ($telegramLinkInspector['status'] == 'ok' || $telegramLinkInspector['exists']) {
+                    $result['ok'] = true;
+                    $result['chat_type'] = $telegramLinkInspector['entity_kind'] ?? null;
+                    $result['audience_type'] = $telegramLinkInspector['entity_kind'] === 'group' ? 'members' : 'subscribers';
+                    $result['is_channel'] = $telegramLinkInspector['entity_kind'] === 'channel';
+                    $result['is_group'] = $telegramLinkInspector['entity_kind'] === 'group';
+
+                    $result['title'] = $telegramLinkInspector['title'] ?? null;
+
+                    $result['member_count'] = $telegramLinkInspector['subscribers_count'] ?? $telegramLinkInspector['members_count'] ?? null;
+
+                    $result['resolved'] = [
+                        'source' => 'telegramLinkInspector',
+                        'raw' => $telegramLinkInspector,
+                    ];
+                    return $result;
+                }
+
                 $info = $this->mtprotoPool->getInfoByUsername($username, $forB2c);
 
                 if (($info['ok'] ?? false) === true) {
@@ -275,23 +275,23 @@ class TelegramInspector
                 'MTPROTO_THROTTLE_SLOT_UNAVAILABLE',
             ];
 
-            if ($telegramLinkInspector['status'] == 'ok' || $telegramLinkInspector['exists']) {
-                $result['ok'] = true;
-                $result['chat_type'] = $telegramLinkInspector['entity_kind'] ?? null;
-                $result['audience_type'] = $telegramLinkInspector['entity_kind'] === 'group' ? 'members' : 'subscribers';
-                $result['is_channel'] = $telegramLinkInspector['entity_kind'] === 'channel';
-                $result['is_group'] = $telegramLinkInspector['entity_kind'] === 'group';
-
-                $result['title'] = $telegramLinkInspector['title'] ?? null;
-
-                $result['member_count'] = $telegramLinkInspector['subscribers_count'] ?? $telegramLinkInspector['members_count'] ?? null;
-
-                $result['resolved'] = [
-                    'source' => 'telegramLinkInspector',
-                    'raw' => $telegramLinkInspector,
-                ];
-                return $result;
-            }
+//            if ($telegramLinkInspector['status'] == 'ok' || $telegramLinkInspector['exists']) {
+//                $result['ok'] = true;
+//                $result['chat_type'] = $telegramLinkInspector['entity_kind'] ?? null;
+//                $result['audience_type'] = $telegramLinkInspector['entity_kind'] === 'group' ? 'members' : 'subscribers';
+//                $result['is_channel'] = $telegramLinkInspector['entity_kind'] === 'channel';
+//                $result['is_group'] = $telegramLinkInspector['entity_kind'] === 'group';
+//
+//                $result['title'] = $telegramLinkInspector['title'] ?? null;
+//
+//                $result['member_count'] = $telegramLinkInspector['subscribers_count'] ?? $telegramLinkInspector['members_count'] ?? null;
+//
+//                $result['resolved'] = [
+//                    'source' => 'telegramLinkInspector',
+//                    'raw' => $telegramLinkInspector,
+//                ];
+//                return $result;
+//            }
 
             if (in_array($mtCode, $mtTemporary, true)) {
                 return $this->fail(
