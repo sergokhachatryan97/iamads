@@ -186,22 +186,67 @@ class PreassignTelegramTasksJob implements ShouldQueue
                 continue;
             }
 
-            // Fetch PENDING tasks for these orders — cap how many we push to avoid bloat.
-            $pushLimit = self::MAX_PENDING_PER_ORDER - $currentLen;
-            $taskRows = DB::table('telegram_tasks')
-                ->select('id', 'action')
-                ->where('status', TelegramTask::STATUS_PENDING)
-                ->whereIn('order_id', $affectedOrderIds)
-                ->limit($pushLimit)
-                ->get();
+            // Fetch PENDING tasks per-order with a fair share each, then
+            // interleave in round-robin so LPOP serves every order evenly.
+            //
+            // Previously this was a single SELECT ... WHERE IN (orderIds) LIMIT N
+            // with no ORDER BY — InnoDB returns rows in PK (ULID) order, so the
+            // order whose tasks were inserted first in this run filled the entire
+            // queue. Result: one order got ~99% of throughput while peers starved.
+            $pushLimit      = self::MAX_PENDING_PER_ORDER - $currentLen;
+            $orderCount     = count($affectedOrderIds);
+            $perOrderLimit  = (int) ceil($pushLimit / max(1, $orderCount));
 
-            if ($taskRows->isEmpty()) {
+            // Shuffle order IDs so the round-robin starting position rotates
+            // between runs — removes any first-order bias if totals differ.
+            $shuffledOrderIds = $affectedOrderIds;
+            shuffle($shuffledOrderIds);
+
+            $byOrder = [];
+            foreach ($shuffledOrderIds as $oid) {
+                $rows = DB::table('telegram_tasks')
+                    ->select('id', 'action')
+                    ->where('status', TelegramTask::STATUS_PENDING)
+                    ->where('order_id', $oid)
+                    ->limit($perOrderLimit)
+                    ->get()
+                    ->all();
+
+                if (! empty($rows)) {
+                    $byOrder[] = $rows;
+                }
+            }
+
+            if (empty($byOrder)) {
+                continue;
+            }
+
+            // Round-robin interleave: [o1[0], o2[0], o3[0], o1[1], o2[1], ...]
+            $interleaved = [];
+            while (count($interleaved) < $pushLimit) {
+                $progressed = false;
+                foreach ($byOrder as &$rows) {
+                    if (! empty($rows)) {
+                        $interleaved[] = array_shift($rows);
+                        $progressed = true;
+                        if (count($interleaved) >= $pushLimit) {
+                            break;
+                        }
+                    }
+                }
+                unset($rows);
+                if (! $progressed) {
+                    break;
+                }
+            }
+
+            if (empty($interleaved)) {
                 continue;
             }
 
             // Pipeline all RPUSHes + EXPIRE in a single round-trip.
-            Redis::pipeline(function ($pipe) use ($queueKey, $taskRows) {
-                foreach ($taskRows as $row) {
+            Redis::pipeline(function ($pipe) use ($queueKey, $interleaved) {
+                foreach ($interleaved as $row) {
                     $pipe->rpush($queueKey, "{$row->id}:{$row->action}");
                 }
                 $pipe->expire($queueKey, self::QUEUE_TTL_SECONDS);
@@ -212,7 +257,7 @@ class PreassignTelegramTasksJob implements ShouldQueue
                 Redis::del("tg:no_work:{$this->scope}:{$serviceId}");
             } catch (\Throwable) {}
 
-            $totalQueued += $taskRows->count();
+            $totalQueued += count($interleaved);
         }
 
         Log::info('PreassignTelegramTasksJob completed', [
