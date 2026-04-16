@@ -19,53 +19,67 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withSchedule(function (\Illuminate\Console\Scheduling\Schedule $schedule): void {
-        //        $schedule->command('subscriptions:renew-expired')
-        //            ->daily()
-        //            ->at('00:00')
-        //            ->timezone(config('app.timezone'));
-        //
-        //        // Poll provider status every 10 minutes as fallback to webhooks
-        //        $schedule->command('orders:sync-provider-status')
-        //            ->daily()
-        //            ->withoutOverlapping()
-        //            ->runInBackground();
+        // NOTE: schedules are staggered across different minutes to avoid a
+        // thundering-herd at :00. Commands (run in-process via schedule:run
+        // and fork a PHP CLI) are spread across minute offsets; queued jobs
+        // (ShouldQueue → dispatched, not run inline) are also staggered so
+        // the Horizon workers don't get a synchronized wave of new jobs.
 
-        // Sweeper for orders stuck in VALIDATING with a recorded error —
-        // re-dispatches them through OrderInspectionDispatcher. Handles the
-        // case where InspectTelegramLinkJob exhausted its in-process retries
-        // on a temporary MTProto failure and left the order in VALIDATING.
+        // --- Commands (heavy: fork a PHP CLI each run) ---------------------
+
+        // orders:process-validating sweeper — every 5 min @ :00
         $schedule->command('orders:process-validating-with-provider-sending')
-            ->everyFiveMinutes()
+            ->cron('0-59/5 * * * *')
             ->withoutOverlapping()
             ->onOneServer()
             ->runInBackground();
 
-        //        $schedule->command('telegram:process-folder-expirations')
-        //            ->everyFiveMinutes()
-        //            ->withoutOverlapping()
-        //            ->runInBackground();
-
-        // Process due unsubscribe tasks every minute
-        //        $schedule->job(new \App\Jobs\ProcessTelegramUnsubscribeTasksJob())
-        //            ->everyMinute()
-        //            ->withoutOverlapping();
-
-        // Generate Telegram tasks for provider pull architecture
-        //        $schedule->command('telegram:tasks:generate')
-        //            ->everyMinute()
-        //            ->withoutOverlapping()
-        //            ->runInBackground();
-
-        // Server health check: CPU, memory, disk, queue/Horizon.
-        // Alerts via Telegram with per-metric cooldown (see config/health.php).
+        // Server health check — every 5 min @ :02 (was everyMinute).
+        // Alerts have per-metric cooldown anyway; 5-min granularity is plenty
+        // and frees ~1150 PHP CLI boots per day.
         $schedule->command('server:health-check')
-            ->everyMinute()
+            ->cron('2-59/5 * * * *')
             ->withoutOverlapping(2)
             ->runInBackground();
 
+        // Reap stale MadelineProto IPC workers — every 3 min @ :01 (was everyMinute).
+        // Stale threshold is 15 min inside the command, so worst-case lifetime
+        // becomes 15 + 3 = 18 min. Acceptable.
+        $schedule->command('mtproto:reap')
+            ->cron('1-59/3 * * * *')
+            ->withoutOverlapping()
+            ->onOneServer();
+
+        // Poll socpanel providers — every 3 min @ :00 (kept).
+        $schedule->command('socpanel:poll')
+            ->cron('0-59/3 * * * *')
+            ->withoutOverlapping(4);
+
+//        $schedule->command('memberpro:poll')
+//            ->cron('2-59/3 * * * *')
+//            ->withoutOverlapping(4);
+
+        // Cancel invalid provider orders — every 3 min @ :02 (was everyMinute).
+        $schedule->command('socpanel:cancel-invalid')
+            ->cron('2-59/3 * * * *')
+            ->withoutOverlapping(10);
+
+        // Daily cleanups — moved off midnight to avoid overlapping with
+        // other daily cron activity (backups, logrotate, etc).
+        $schedule->command('max:clean-expired-subscriptions')
+            ->dailyAt('02:30')
+            ->withoutOverlapping(10);
+
+        $schedule->command('telegram:clean-expired-subscriptions')
+            ->dailyAt('02:45')
+            ->withoutOverlapping(10);
+
+        // --- Queued jobs (ShouldQueue → cheap dispatch, run by Horizon) ----
+
         // Push-model pre-assignment: fills Redis service queues so /getOrder
-        // requires only an LPOP + single-row UPDATE instead of a full DB transaction.
-        // onOneServer() + withoutOverlapping() prevent concurrent instances.
+        // requires only an LPOP + single-row UPDATE instead of a full DB
+        // transaction. Kept at 30s — this is a cheap dispatch and critical
+        // for /getOrder latency.
         $schedule->job(new \App\Jobs\PreassignTelegramTasksJob(\App\Support\TelegramPremiumTemplateScope::SCOPE_DEFAULT))
             ->everyThirtySeconds()
             ->withoutOverlapping(1)
@@ -76,57 +90,34 @@ return Application::configure(basePath: dirname(__DIR__))
 //            ->withoutOverlapping(1)
 //            ->onOneServer();
 
-        // Reap stale/orphaned MadelineProto IPC workers every minute.
-        // Kills workers >15min old and processes not tracked in the registry.
-        $schedule->command('mtproto:reap')
-            ->everyMinute()
-            ->withoutOverlapping()
-            ->onOneServer();
-
-        $schedule->command('socpanel:poll')
-            ->everyThreeMinutes()
-            ->withoutOverlapping(4);
-
-//        $schedule->command('memberpro:poll')
-//            ->everyThreeMinutes()
-//            ->withoutOverlapping(4);
-
+        // Sync validating provider orders — every 10 min @ :03 (staggered off :00).
         $schedule->job(new SyncValidatingProviderOrdersJob('validating'))
-            ->everyTenMinutes()
+            ->cron('3-59/10 * * * *')
             ->withoutOverlapping(10)
             ->onOneServer();
 
 //        $schedule->job(new SyncValidatingProviderOrdersJob('ok'))
-//            ->everyFourHours()
+//            ->cron('7 */4 * * *')
 //            ->withoutOverlapping(10)
 //            ->onOneServer();
 
-        $schedule->command('socpanel:cancel-invalid')
-            ->everyMinute()
-            ->withoutOverlapping(10);
-
+        // Clean expired tasks — all reduced from everyMinute to every 5 min
+        // with different offsets. Expired-task cleanup has no sub-minute SLA.
         $schedule->job(new \App\Jobs\CleanExpiredYouTubeTasksJob)
-            ->everyFiveMinutes()
+            ->cron('1-59/5 * * * *')
             ->withoutOverlapping(2);
 
         $schedule->job(new \App\Jobs\CleanExpiredTelegramTasksJob)
-            ->everyMinute()
+            ->cron('3-59/5 * * * *')
             ->withoutOverlapping(2);
 
         $schedule->job(new \App\Jobs\CleanExpiredMaxTasksJob)
-            ->everyMinute()
+            ->cron('4-59/5 * * * *')
             ->withoutOverlapping(2);
 
-        $schedule->command('max:clean-expired-subscriptions')
-            ->daily()
-            ->withoutOverlapping(10);
-
-        $schedule->command('telegram:clean-expired-subscriptions')
-            ->daily()
-            ->withoutOverlapping(10);
-
+        // Sync completed provider orders — every 5 min @ :02 (staggered off :00).
         $schedule->job(new \App\Jobs\SyncCompletedProviderOrdersJob)
-            ->everyFiveMinutes()
+            ->cron('2-59/5 * * * *')
             ->withoutOverlapping(30)
             ->onOneServer();
 
