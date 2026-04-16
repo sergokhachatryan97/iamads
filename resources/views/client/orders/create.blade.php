@@ -53,11 +53,50 @@
         }
         .new-order-page select:focus,
         .new-order-page input:focus,
-        .new-order-page textarea:focus {
+        .new-order-page textarea:focus,
+        .new-order-page select:focus-visible,
+        .new-order-page input:focus-visible,
+        .new-order-page textarea:focus-visible,
+        .new-order-page input:active,
+        .new-order-page textarea:active {
             border-color: var(--purple-light) !important;
             outline: none !important;
             ring: none !important;
             box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.2) !important;
+            background: rgba(0, 0, 0, 0.28) !important;
+            color: var(--text) !important;
+        }
+        [data-theme="light"] .new-order-page input:focus,
+        [data-theme="light"] .new-order-page textarea:focus,
+        [data-theme="light"] .new-order-page select:focus,
+        [data-theme="light"] .new-order-page input:active,
+        [data-theme="light"] .new-order-page textarea:active {
+            background: var(--card2) !important;
+        }
+        /* Kill Chrome / Edge autofill white-ish/yellow background on inputs */
+        .new-order-page input:-webkit-autofill,
+        .new-order-page input:-webkit-autofill:hover,
+        .new-order-page input:-webkit-autofill:focus,
+        .new-order-page input:-webkit-autofill:active,
+        .new-order-page textarea:-webkit-autofill,
+        .new-order-page textarea:-webkit-autofill:focus {
+            -webkit-box-shadow: 0 0 0 1000px rgba(20, 24, 38, 1) inset !important;
+            -webkit-text-fill-color: var(--text) !important;
+            caret-color: var(--text);
+            border-color: var(--border) !important;
+            transition: background-color 5000s ease-in-out 0s, color 5000s ease-in-out 0s;
+        }
+        [data-theme="light"] .new-order-page input:-webkit-autofill,
+        [data-theme="light"] .new-order-page input:-webkit-autofill:focus,
+        [data-theme="light"] .new-order-page textarea:-webkit-autofill {
+            -webkit-box-shadow: 0 0 0 1000px var(--card2) inset !important;
+            -webkit-text-fill-color: var(--text) !important;
+        }
+        /* Kill any stray Tailwind focus:bg-white / hover:bg-white that may apply */
+        .new-order-page input.bg-white,
+        .new-order-page input:focus.bg-white,
+        .new-order-page textarea.bg-white {
+            background: rgba(0, 0, 0, 0.28) !important;
         }
         .new-order-page select:disabled {
             opacity: 0.65;
@@ -194,6 +233,38 @@
         [data-theme="light"] .new-order-category-wrap {
             background: linear-gradient(145deg, rgba(0, 184, 184, 0.08), rgba(108, 92, 231, 0.08));
             border-color: rgba(0, 184, 184, 0.35);
+        }
+
+        /* Service-row layout in the info block (ID badge + name) */
+        .new-order-svc-value {
+            display: inline-flex !important;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+        .new-order-id-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 9px;
+            border-radius: 6px;
+            background: rgba(108, 92, 231, 0.18);
+            color: var(--purple-light);
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            white-space: nowrap;
+            border: 1px solid rgba(108, 92, 231, 0.28);
+        }
+        [data-theme="light"] .new-order-id-badge {
+            background: rgba(108, 92, 231, 0.10);
+            color: #5546d6;
+            border-color: rgba(108, 92, 231, 0.30);
+        }
+        .new-order-svc-name {
+            font-weight: 600;
+            color: var(--text);
+            word-break: break-word;
         }
 
         /* Service info block (above link inputs) */
@@ -576,12 +647,16 @@
         }
         .custom-service-select-group {
             padding: 10px 14px 6px;
-            font-size: 10px;
-            font-weight: 800;
+            font-size: 12px;
+            font-weight: 850;
             text-transform: uppercase;
             letter-spacing: 0.08em;
-            color: var(--text3);
-            background: var(--card);
+            color: var(--teal);
+            background: linear-gradient(
+                to right,
+                rgba(0,224,198,0.12),
+                rgba(0,224,198,0.02)
+            );
             border-bottom: 1px solid var(--border);
             position: relative;
             top: 0;
@@ -942,7 +1017,7 @@
                                         <template x-if="selectedService">
                                             <span class="selected-content">
                                                 <span class="selected-name">
-                                                    <span class="id-tag">#<span x-text="selectedService.id"></span></span>
+                                                    <span class="id-tag">ID&nbsp;<span x-text="selectedService.id"></span></span>
                                                     <span x-text="selectedService.name"></span>
                                                 </span>
                                                 <span class="price-tag" x-show="selectedService.hide_quantity !== true">
@@ -979,9 +1054,9 @@
                                                         <button type="button"
                                                                 class="custom-service-select-option"
                                                                 :class="serviceId == service.id ? 'selected' : ''"
-                                                                @click="serviceId = service.id; updateServiceInfo(); open = false; search = ''">
+                                                                @click="serviceId = service.id; updateServiceInfo(true); open = false; search = ''">
                                                             <span class="opt-name">
-                                                                <span class="opt-id">#<span x-text="service.id"></span></span>
+                                                                <span class="opt-id">ID&nbsp;<span x-text="service.id"></span></span>
                                                                 <span x-text="service.name"></span>
                                                             </span>
                                                             <span class="opt-price" x-show="service.hide_quantity !== true">
@@ -1007,8 +1082,9 @@
                             <div class="new-order-info-block" x-show="selectedService" x-cloak>
                                 <div class="new-order-info-row">
                                     <div class="new-order-info-label">{{ __('Service') }}</div>
-                                    <div class="new-order-info-value">
-                                        <span x-text="'#' + (selectedService?.id || '') + ' — ' + (selectedService?.name || '')"></span>
+                                    <div class="new-order-info-value new-order-svc-value">
+                                        <span class="new-order-id-badge">ID&nbsp;<span x-text="selectedService?.id"></span></span>
+                                        <span class="new-order-svc-name" x-text="selectedService?.name"></span>
                                     </div>
                                 </div>
 
@@ -1065,7 +1141,7 @@
                                     </div>
                                     <div class="new-order-info-value">
                                         <span x-text="'Min: ' + (selectedService?.min_quantity || 1)"></span>
-                                        <span x-show="selectedService?.max_quantity" x-text="' • Max: ' + (selectedService?.max_quantity || '')"></span>
+                                        <span x-show="selectedService?.max_quantity" x-text="' , Max: ' + (selectedService?.max_quantity || '')"></span>
                                         <span x-show="selectedService?.service_type !== 'custom_comments' && selectedService?.increment > 0"
                                               x-text="' • Increment: ' + (selectedService?.increment || 0)"></span>
                                     </div>
@@ -1311,10 +1387,10 @@
                                     <span class="new-order-section-title">
                                         <i class="fa-solid fa-link" aria-hidden="true"></i>
                                         {{ __('Links & Quantities') }} <span class="text-red-400">*</span>
-                                        <span class="new-order-link-hint" x-show="linkTypeLabel()" x-cloak>
-                                            <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
-                                            <span x-text="linkTypeLabel() + ' ' + '{{ __('link') }}'"></span>
-                                        </span>
+{{--                                        <span class="new-order-link-hint" x-show="linkTypeLabel()" x-cloak>--}}
+{{--                                            <i class="fa-solid fa-circle-info" aria-hidden="true"></i>--}}
+{{--                                            <span x-text="linkTypeLabel() + ' ' + '{{ __('link') }}'"></span>--}}
+{{--                                        </span>--}}
                                     </span>
                                     <button
                                         type="button"
@@ -1326,10 +1402,10 @@
                                     </button>
                                 </div>
 
-                                <p class="new-order-link-accepted" x-show="linkAcceptedHint()" x-cloak>
-                                    <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
-                                    <span x-text="linkAcceptedHint()"></span>
-                                </p>
+{{--                                <p class="new-order-link-accepted" x-show="linkAcceptedHint()" x-cloak>--}}
+{{--                                    <i class="fa-solid fa-circle-check" aria-hidden="true"></i>--}}
+{{--                                    <span x-text="linkAcceptedHint()"></span>--}}
+{{--                                </p>--}}
 
                                 <div class="space-y-3">
                                     <template x-for="(target, index) in targets" :key="index">
@@ -1656,7 +1732,7 @@
                                                         class="block w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                                                         <option value="">{{ __('Select a service') }}</option>
                                                         <template x-for="service in getFilteredServicesForRow(index)" :key="'multi-service-' + service.id">
-                                                            <option :value="service.id" x-text="'#' + service.id + ' - ' + service.name"></option>
+                                                            <option :value="service.id" x-text="'ID' + service.id + ' - ' + service.name"></option>
                                                         </template>
                                                     </select>
                                                 </div>
@@ -2298,22 +2374,26 @@
                     }
                 },
 
-                updateServiceInfo() {
+                updateServiceInfo(forceResetQty = false) {
                     if (!this.serviceId) {
                         this.selectedService = null;
                         return;
                     }
                     this.selectedService = this.services.find(s => s.id == this.serviceId) || null;
-                    // Ensure target quantities meet min; default to 1000 (clamped to min/max) if not set
+                    // Quantity defaulting:
+                    //   - on a user-initiated service change → always reset to 1000 (clamped to min/max)
+                    //   - on init / silent updates → only fix invalid values (out of range or empty)
                     if (this.selectedService) {
                         const min = Number(this.selectedService.min_quantity || 1);
                         const max = this.selectedService.max_quantity != null ? Number(this.selectedService.max_quantity) : null;
                         let preferred = 1000;
-                        preferred = Math.max(min, preferred);
-                        if (max !== null) preferred = Math.min(max, preferred);
+                        if (max !== null && max < preferred) preferred = max;
+                        if (min > preferred) preferred = min;
                         this.targets.forEach(target => {
                             const qty = parseInt(target.quantity) || 0;
-                            if (qty <= 0) {
+                            if (forceResetQty) {
+                                target.quantity = preferred;
+                            } else if (qty <= 0) {
                                 target.quantity = preferred;
                             } else if (qty < min) {
                                 target.quantity = min;
