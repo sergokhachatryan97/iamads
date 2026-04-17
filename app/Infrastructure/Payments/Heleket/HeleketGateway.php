@@ -79,7 +79,11 @@ final class HeleketGateway implements PaymentGatewayInterface
 
         $bodyWithoutSign = $body;
         unset($bodyWithoutSign['sign']);
-        ksort($bodyWithoutSign); // Ensure deterministic JSON for verification
+        // DO NOT ksort — Heleket computes their sign from the original key
+        // order. Sorting changes the JSON string → different base64 → different
+        // MD5 hash → signature mismatch on every webhook. This was causing all
+        // webhook deliveries to be rejected with 400, leaving payments stuck
+        // in "pending" forever.
         $expected = $this->client->computeSign($bodyWithoutSign);
 
         if (!hash_equals($expected, (string) $sign)) {
