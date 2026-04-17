@@ -90,7 +90,33 @@ class YouTubeTaskClaimService
             // Redis down — fall through to DB check below.
         }
 
-        // DB fallback for watch cooldown (in case Redis missed the SET)
+        // Check eligible orders EARLY — before any DB queries.
+        // If no orders are available, skip the watch-cooldown DB fallback,
+        // recently-watched bias query, and the entire claim pipeline.
+        $categoryId = $this->getYoutubeCategoryId();
+        if ($categoryId === null) {
+            return null;
+        }
+
+        $now = now();
+
+        // Cached eligible orders: id, remains, timing fields.
+        // 10s TTL — shared across all performers.
+        $eligible = $this->getEligibleOrders($categoryId);
+        if (empty($eligible)) {
+            return null;
+        }
+
+        // Pre-filter: remove orders not due yet (dripfeed / speed limit).
+        // This avoids loading and locking orders that will be rejected.
+        $due = array_filter($eligible, fn (object $row) => $this->isTimingDue($row, $now));
+        if (empty($due)) {
+            return null;
+        }
+
+        // DB fallback for watch cooldown (in case Redis missed the SET).
+        // Placed after eligible-orders check so we skip this DB query when
+        // there's no work at all.
         $recentWatchTask = YouTubeTask::query()
             ->where('account_identity', $accountIdentity)
             ->where('action', 'watch')
@@ -128,27 +154,6 @@ class YouTubeTaskClaimService
             ->where('action', 'watch')
             ->where('created_at', '>=', now()->subSeconds(self::WATCH_BIAS_WINDOW_SECONDS))
             ->exists();
-
-        $categoryId = $this->getYoutubeCategoryId();
-        if ($categoryId === null) {
-            return null;
-        }
-
-        $now = now();
-
-        // Cached eligible orders: id, remains, timing fields.
-        // 10s TTL — shared across all performers.
-        $eligible = $this->getEligibleOrders($categoryId);
-        if (empty($eligible)) {
-            return null;
-        }
-
-        // Pre-filter: remove orders not due yet (dripfeed / speed limit).
-        // This avoids loading and locking orders that will be rejected.
-        $due = array_filter($eligible, fn (object $row) => $this->isTimingDue($row, $now));
-        if (empty($due)) {
-            return null;
-        }
 
         // Fairness sort.
         //

@@ -236,11 +236,10 @@ class MtprotoSessionRegistry
             // Also find unregistered MadelineProto processes (not in registry)
             $orphans += $this->killUnregisteredWorkers($sessions);
 
-            // Scan for zombie (defunct) processes and group them by parent so
-            // operators can see which queue worker is leaking children. We
-            // cannot waitpid() them from this process (we're not their parent),
-            // but surfacing the count + PPID makes it obvious which worker to
-            // restart.
+            // Scan for zombie (defunct) processes and group them by parent.
+            // We cannot waitpid() them from this process (we're not their parent),
+            // but we CAN kill the parent — once the parent dies, init adopts the
+            // zombies and reaps them immediately.
             [$zombieCount, $zombieParents] = $this->scanZombies();
 
             if ($zombieCount > 0) {
@@ -248,6 +247,20 @@ class MtprotoSessionRegistry
                     'total' => $zombieCount,
                     'by_parent' => $zombieParents,
                 ]);
+
+                // Kill parent processes that have accumulated zombie children.
+                // This forces init to adopt and reap the defunct processes.
+                // Only kill parents with 3+ zombies to avoid false positives
+                // from normal short-lived transient zombies.
+                foreach ($zombieParents as $ppid => $count) {
+                    if ($count >= 3 && $ppid > 1) {
+                        Log::warning('MtprotoSessionRegistry: killing zombie-leaking parent', [
+                            'ppid' => $ppid,
+                            'zombie_count' => $count,
+                        ]);
+                        $this->forceKill($ppid);
+                    }
+                }
             }
 
         } catch (\Throwable $e) {

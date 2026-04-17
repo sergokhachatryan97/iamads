@@ -33,22 +33,24 @@ class YouTubeTaskClaimController extends Controller
 
         $account = $validated['account_identity'];
 
-        // Single Redis round-trip: poll throttle + no-work check + HyperLogLog
+        // Single Redis round-trip: poll throttle + no-work check (global + per-account) + HyperLogLog
         $noWorkKey = 'yt:no_work';
+        $accountNoWorkKey = 'yt:no_work:account:' . md5($account);
         $throttleKey = 'yt:poll_throttle:' . md5($account);
         $hourKey = 'yt:claim_attempts:' . now()->format('Y-m-d-H');
         try {
-            [$throttleAcquired, $_, $noWork, $_, $_] = Redis::pipeline(function ($pipe) use ($throttleKey, $noWorkKey, $hourKey, $account) {
+            [$throttleAcquired, $_, $noWork, $accountNoWork, $_, $_] = Redis::pipeline(function ($pipe) use ($throttleKey, $noWorkKey, $accountNoWorkKey, $hourKey, $account) {
                 $pipe->set($throttleKey, 1, 'EX', 10, 'NX');
                 $pipe->expire($throttleKey, 10);
                 $pipe->exists($noWorkKey);
+                $pipe->exists($accountNoWorkKey);
                 $pipe->pfadd($hourKey, [$account]);
                 $pipe->expire($hourKey, 7200);
             });
             if (! $throttleAcquired) {
                 return self::emptyResponse();
             }
-            if ($noWork) {
+            if ($noWork || $accountNoWork) {
                 return self::emptyResponse();
             }
         } catch (\Throwable) {
@@ -59,17 +61,31 @@ class YouTubeTaskClaimController extends Controller
 
             if ($payload === null) {
                 try {
-                    $ttl = $this->noWorkTtl();
-                    Redis::setex($noWorkKey, $ttl, 1);
+                    // Check if there are any eligible orders at all.
+                    // If none — set global no-work flag (blocks all accounts).
+                    // If there are orders but this account couldn't claim — set
+                    // per-account no-work flag (only blocks this account, short TTL).
+                    $eligible = \Illuminate\Support\Facades\Cache::get('yt:claim:eligible');
+                    $hasEligible = $eligible !== null && (is_countable($eligible) ? count($eligible) > 0 : !empty($eligible));
+
+                    if (! $hasEligible) {
+                        $ttl = $this->noWorkTtl();
+                        Redis::setex($noWorkKey, $ttl, 1);
+                    } else {
+                        // Orders exist but this account can't claim any — block
+                        // only this account for 30s so it doesn't hot-loop through
+                        // the full claim pipeline every 10s.
+                        Redis::setex($accountNoWorkKey, 30, 1);
+                    }
                 } catch (\Throwable) {
                 }
 
                 return self::emptyResponse();
             }
 
-            // Work found — clear no-work flag
+            // Work found — clear both no-work flags
             try {
-                Redis::del($noWorkKey);
+                Redis::del($noWorkKey, $accountNoWorkKey);
             } catch (\Throwable) {
             }
 

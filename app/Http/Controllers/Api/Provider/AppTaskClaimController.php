@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Redis;
 
 /**
  * App performer claim: performer requests a task, backend returns one task with link and order info.
@@ -28,18 +29,46 @@ class AppTaskClaimController extends Controller
             'account_identity' => ['required', 'string', 'max:255'],
         ]);
 
+        $account = $validated['account_identity'];
+
+        // Single Redis round-trip: poll throttle + no-work check + HyperLogLog
+        $noWorkKey = 'app:no_work';
+        $throttleKey = 'app:poll_throttle:' . md5($account);
+        $hourKey = 'app:claim_attempts:' . now()->format('Y-m-d-H');
         try {
-            $payload = $this->claimService->claim($validated['account_identity']);
+            [$throttleAcquired, $_, $noWork, $_, $_] = Redis::pipeline(function ($pipe) use ($throttleKey, $noWorkKey, $hourKey, $account) {
+                $pipe->set($throttleKey, 1, 'EX', 10, 'NX');
+                $pipe->expire($throttleKey, 10);
+                $pipe->exists($noWorkKey);
+                $pipe->pfadd($hourKey, [$account]);
+                $pipe->expire($hourKey, 7200);
+            });
+            if (! $throttleAcquired) {
+                return self::emptyResponse();
+            }
+            if ($noWork) {
+                return self::emptyResponse();
+            }
+        } catch (\Throwable) {
+        }
+
+        try {
+            $payload = $this->claimService->claim($account);
 
             if ($payload === null) {
-                return response()->json([
-                    'ok' => true,
-                    'count' => 0,
-                    'tasks' => [],
-                    'task_id' => null,
-                    'link' => null,
-                    'order' => null,
-                ]);
+                try {
+                    $ttl = $this->noWorkTtl();
+                    Redis::setex($noWorkKey, $ttl, 1);
+                } catch (\Throwable) {
+                }
+
+                return self::emptyResponse();
+            }
+
+            // Work found — clear no-work flag
+            try {
+                Redis::del($noWorkKey);
+            } catch (\Throwable) {
             }
 
             $response = [
@@ -80,18 +109,48 @@ class AppTaskClaimController extends Controller
                 || str_contains($msg, 'gone away')) {
                 Log::warning('AppTaskClaim: DB pool exhausted', ['error' => $msg]);
 
-                return response()->json([
-                    'ok' => true,
-                    'count' => 0,
-                    'tasks' => [],
-                    'task_id' => null,
-                    'link' => null,
-                    'order' => null,
-                ]);
+                return self::emptyResponse();
             }
             throw $e;
         } finally {
             DB::disconnect();
         }
+    }
+
+    private static function emptyResponse(): JsonResponse
+    {
+        return response()->json([
+            'ok' => true,
+            'count' => 0,
+            'tasks' => [],
+            'task_id' => null,
+            'link' => null,
+            'order' => null,
+        ]);
+    }
+
+    private function noWorkTtl(): int
+    {
+        $eligible = \Illuminate\Support\Facades\Cache::get('app:claim:eligible');
+
+        if ($eligible === null || (is_countable($eligible) && count($eligible) === 0)) {
+            return random_int(90, 150);
+        }
+
+        try {
+            $hourKey = 'app:claim_attempts:' . now()->format('Y-m-d-H');
+            $accounts = (int) Redis::pfcount($hourKey);
+        } catch (\Throwable) {
+            return 10;
+        }
+
+        if ($accounts >= 50000) {
+            return 5;
+        }
+        if ($accounts >= 5000) {
+            return 10;
+        }
+
+        return 30;
     }
 }
