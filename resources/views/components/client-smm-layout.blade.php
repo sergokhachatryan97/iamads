@@ -93,7 +93,7 @@
             display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit;
         }
         .smm-dash-brand-mark {
-            height: 44px; width: auto; max-width: 100%;
+            height: 20px; width: auto; max-width: 100%;
             display: block; flex-shrink: 0;
             filter: drop-shadow(0 4px 14px rgba(124, 58, 237, 0.35));
         }
