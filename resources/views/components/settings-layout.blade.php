@@ -31,15 +31,15 @@
                                         {{ __('Invitations') }}
                                     </a>
                                 </li>
-{{--                                <li>--}}
-{{--                                    <a href="{{ route('staff.settings.referral.index') }}"--}}
-{{--                                       class="flex items-center px-4 py-3 rounded-md text-sm font-medium transition {{ request()->routeIs('staff.settings.referral.*') ? 'bg-indigo-50 text-indigo-700 border-l-4 border-indigo-600' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900' }}">--}}
-{{--                                        <svg class="mr-3 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">--}}
-{{--                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>--}}
-{{--                                        </svg>--}}
-{{--                                        {{ __('Referral Program') }}--}}
-{{--                                    </a>--}}
-{{--                                </li>--}}
+                                <li>
+                                    <a href="{{ route('staff.settings.referral.index') }}"
+                                       class="flex items-center px-4 py-3 rounded-md text-sm font-medium transition {{ request()->routeIs('staff.settings.referral.*') ? 'bg-indigo-50 text-indigo-700 border-l-4 border-indigo-600' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900' }}">
+                                        <svg class="mr-3 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
+                                        </svg>
+                                        {{ __('Referral Program') }}
+                                    </a>
+                                </li>
                             </ul>
                         </nav>
                     </div>
