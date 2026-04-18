@@ -16,6 +16,8 @@ class ClientTransaction extends Model
     public const TYPE_SUBSCRIPTION_CHARGE = 'subscription_charge';
     public const TYPE_BALANCE_TOPUP = 'balance_topup';
     public const TYPE_MANUAL_CREDIT = 'manual_credit';
+    public const TYPE_MANUAL_DEBIT = 'manual_debit';
+    public const TYPE_REFERRAL_BONUS = 'referral_bonus';
 
     /**
      * The attributes that are mass assignable.

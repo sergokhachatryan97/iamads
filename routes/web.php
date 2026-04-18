@@ -104,6 +104,9 @@ Route::middleware('auth:client')->group(function () {
     Route::post('orders/bulk-action', [OrderController::class, 'bulkAction'])->name('client.orders.bulk-action');
     Route::get('orders/statuses', [OrderController::class, 'getStatuses'])->name('client.orders.statuses');
 
+    // Referral Program
+    Route::get('referral', [\App\Http\Controllers\Client\ReferralController::class, 'index'])->name('client.referral.index');
+
     // API Access
     Route::get('api', [\App\Http\Controllers\Client\ApiController::class, 'index'])->name('client.api.index');
     Route::post('api/toggle', [\App\Http\Controllers\Client\ApiController::class, 'toggle'])->name('client.api.toggle');
@@ -160,6 +163,9 @@ Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSess
         Route::get('settings/roles/{role}/edit', [RoleController::class, 'edit'])->name('staff.settings.roles.edit');
         Route::put('settings/roles/{role}', [RoleController::class, 'update'])->name('staff.settings.roles.update');
 
+        Route::get('settings/referral', [\App\Http\Controllers\Settings\ReferralSettingsController::class, 'index'])->name('staff.settings.referral.index');
+        Route::put('settings/referral', [\App\Http\Controllers\Settings\ReferralSettingsController::class, 'update'])->name('staff.settings.referral.update');
+
         Route::get('settings/invitations', [InvitationController::class, 'index'])->name('staff.settings.invitations.index');
         Route::get('settings/invitations/create', [InvitationController::class, 'create'])->name('staff.settings.invitations.create');
         Route::post('settings/invitations', [InvitationController::class, 'store'])->name('staff.settings.invitations.store');
@@ -188,6 +194,7 @@ Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSess
     Route::get('clients', [ClientController::class, 'index'])->name('staff.clients.index');
     Route::get('clients/{client}/edit', [ClientController::class, 'edit'])->name('staff.clients.edit');
     Route::post('clients/{client}/add-balance', [ClientController::class, 'addBalance'])->name('staff.clients.add-balance');
+    Route::post('clients/{client}/deduct-balance', [ClientController::class, 'deductBalance'])->name('staff.clients.deduct-balance');
     Route::patch('clients/{client}', [ClientController::class, 'update'])->name('staff.clients.update');
     Route::delete('clients/{client}', [ClientController::class, 'destroy'])->name('staff.clients.destroy');
     Route::post('clients/{client}/suspend', [ClientController::class, 'suspend'])->name('staff.clients.suspend');

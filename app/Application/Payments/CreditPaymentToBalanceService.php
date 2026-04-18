@@ -16,6 +16,10 @@ use Illuminate\Support\Facades\DB;
  */
 final class CreditPaymentToBalanceService
 {
+    public function __construct(
+        private readonly ReferralBonusService $referralBonusService,
+    ) {}
+
     public function credit(Payment $payment): bool
     {
         if (!$payment->client_id) {
@@ -31,7 +35,7 @@ final class CreditPaymentToBalanceService
             return false;
         }
 
-        return DB::transaction(function () use ($payment) {
+        $credited = DB::transaction(function () use ($payment) {
             $client = Client::query()
                 ->where('id', $payment->client_id)
                 ->lockForUpdate()
@@ -67,5 +71,11 @@ final class CreditPaymentToBalanceService
 
             return true;
         });
+
+        if ($credited) {
+            $this->referralBonusService->creditIfEligible($payment);
+        }
+
+        return $credited;
     }
 }

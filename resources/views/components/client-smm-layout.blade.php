@@ -15,6 +15,7 @@
         request()->routeIs('client.subscriptions.index') => __('Subscription Plans'),
         request()->routeIs('client.balance.*') => __('Add Funds'),
         request()->routeIs('client.api.*') => __('API Documentation'),
+        request()->routeIs('client.referral.*') => __('Referral Program'),
         request()->routeIs('client.account.*') => __('Settings'),
         request()->routeIs('client.orders.*') => __('Orders'),
         request()->routeIs('contacts') => __('contacts.title'),
@@ -508,6 +509,11 @@
                 <a href="{{ route('client.api.index') }}" class="{{ request()->routeIs('client.api.*') ? 'active' : '' }}" @click="sidebarOpen = false">
                     <i class="fa-solid fa-code"></i> {{ __('API') }}
                 </a>
+
+                <a href="{{ route('client.referral.index') }}" class="{{ request()->routeIs('client.referral.*') ? 'active' : '' }}" @click="sidebarOpen = false">
+                    <i class="fa-solid fa-user-plus"></i> {{ __('Referral Program') }}
+                </a>
+
                 <a href="{{ route('contacts') }}" class="{{ request()->routeIs('contacts') ? 'active' : '' }}" @click="sidebarOpen = false">
                     <i class="fa-solid fa-headset"></i> {{ __('Support') }}
                 </a>

@@ -52,6 +52,31 @@
                                     </button>
                                 </div>
                             </form>
+                            <form method="POST" action="{{ route('staff.clients.deduct-balance', $client) }}" class="mt-4">
+                                @csrf
+                                <div class="flex flex-wrap items-center gap-3">
+                                    <input type="number" name="deduct_amount" step="0.01" min="0.01" max="999999.99"
+                                        value="{{ old('deduct_amount') }}"
+                                        placeholder="{{ __('Amount') }}" required
+                                        class="w-32 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-red-500 focus:border-red-500 sm:text-sm @error('deduct_amount') border-red-500 @enderror" />
+                                    <input type="text" name="deduct_description" maxlength="255"
+                                        value="{{ old('deduct_description') }}"
+                                        placeholder="{{ __('Description') }}" required
+                                        class="w-64 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-red-500 focus:border-red-500 sm:text-sm @error('deduct_description') border-red-500 @enderror" />
+                                    <label class="inline-flex items-center gap-2 cursor-pointer px-3 py-2 rounded-md border border-gray-300 bg-gray-50 hover:bg-yellow-50 transition-colors">
+                                        <input type="checkbox" name="deduct_is_test_balance" value="1"
+                                            @checked(old('deduct_is_test_balance'))
+                                            class="rounded border-gray-300 text-yellow-500 focus:ring-yellow-500" />
+                                        <span class="text-sm font-medium text-gray-700">{{ __('Test') }}</span>
+                                    </label>
+                                    <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
+                                        {{ __('Deduct Balance') }}
+                                    </button>
+                                </div>
+                                @error('deduct_amount')
+                                    <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                                @enderror
+                            </form>
                         </div>
 
                     <form method="POST" action="{{ route('staff.clients.update', $client) }}">

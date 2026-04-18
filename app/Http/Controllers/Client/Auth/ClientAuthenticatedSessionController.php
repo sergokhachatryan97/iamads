@@ -20,8 +20,12 @@ class ClientAuthenticatedSessionController extends Controller
     /**
      * Display the client login view.
      */
-    public function create(): View
+    public function create(Request $request): View
     {
+        if ($request->has('ref')) {
+            $request->session()->put('referral_code', $request->input('ref'));
+        }
+
         return view('auth.login');
     }
 

@@ -7,6 +7,8 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 class Client extends Authenticatable
 {
@@ -25,6 +27,8 @@ class Client extends Authenticatable
         'api_key',
         'api_key_generated_at',
         'api_last_used_at',
+        'referral_code',
+        'referred_by',
         'balance',
         'spent',
         'discount',
@@ -140,5 +144,43 @@ class Client extends Authenticatable
     public function serviceLimits(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(ClientServiceLimit::class);
+    }
+
+    /**
+     * Get the client who referred this client.
+     */
+    public function referrer(): BelongsTo
+    {
+        return $this->belongsTo(Client::class, 'referred_by');
+    }
+
+    /**
+     * Get the clients referred by this client.
+     */
+    public function referrals(): HasMany
+    {
+        return $this->hasMany(Client::class, 'referred_by');
+    }
+
+    /**
+     * Ensure the client has a referral code, generating one if needed.
+     */
+    public function ensureReferralCode(): string
+    {
+        if (!$this->referral_code) {
+            $this->referral_code = $this->generateUniqueReferralCode();
+            $this->save();
+        }
+
+        return $this->referral_code;
+    }
+
+    private function generateUniqueReferralCode(): string
+    {
+        do {
+            $code = Str::lower(Str::random(8));
+        } while (static::where('referral_code', $code)->exists());
+
+        return $code;
     }
 }

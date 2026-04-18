@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 use Illuminate\View\View;
+use App\Models\Client as ClientModel;
 
 class ClientRegisteredUserController extends Controller
 {
@@ -22,8 +23,12 @@ class ClientRegisteredUserController extends Controller
     /**
      * Display the client registration view.
      */
-    public function create(): View
+    public function create(Request $request): View
     {
+        if ($request->has('ref')) {
+            $request->session()->put('referral_code', $request->input('ref'));
+        }
+
         return view('auth.register');
     }
 
@@ -40,15 +45,25 @@ class ClientRegisteredUserController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
+        $referrerId = null;
+        $refCode = $request->input('ref') ?? $request->session()->get('referral_code');
+        if ($refCode) {
+            $referrer = ClientModel::where('referral_code', $refCode)->first();
+            if ($referrer) {
+                $referrerId = $referrer->id;
+            }
+        }
+
         $client = Client::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
-            'staff_id' => null, // Default to null - will be assigned by staff later
+            'staff_id' => null,
             'balance' => 0,
             'spent' => 0,
             'discount' => 0,
-            'status' => 'active', // Default status for new clients
+            'status' => 'active',
+            'referred_by' => $referrerId,
         ]);
 
         event(new Registered($client));

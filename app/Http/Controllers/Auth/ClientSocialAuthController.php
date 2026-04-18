@@ -190,10 +190,19 @@ class ClientSocialAuthController extends Controller
                 $counter++;
             }
 
+            $referrerId = null;
+            $refCode = request()->session()->get('referral_code');
+            if ($refCode) {
+                $referrer = Client::where('referral_code', $refCode)->first();
+                if ($referrer) {
+                    $referrerId = $referrer->id;
+                }
+            }
+
             $client = Client::create([
                 'name' => $name ?: 'Unnamed',
                 'email' => $email,
-                'password' => Hash::make(Str::random(60)), // Random strong password
+                'password' => Hash::make(Str::random(60)),
                 'provider' => $provider,
                 'provider_id' => $providerId,
                 'avatar' => $avatar,
@@ -202,6 +211,7 @@ class ClientSocialAuthController extends Controller
                 'spent' => 0,
                 'discount' => 0,
                 'status' => 'active',
+                'referred_by' => $referrerId,
             ]);
         }
 

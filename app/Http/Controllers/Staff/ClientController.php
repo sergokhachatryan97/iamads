@@ -17,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class ClientController extends Controller
@@ -184,6 +185,71 @@ class ClientController extends Controller
 
         return redirect()->route('staff.clients.edit', $client)
             ->with('success', 'Balance added successfully. New balance: $' . number_format((float) $client->fresh()->balance, 2));
+    }
+
+    /**
+     * Deduct balance manually for a client (staff).
+     */
+    public function deductBalance(Request $request, Client $client): RedirectResponse
+    {
+        $currentUser = Auth::guard('staff')->user();
+
+        if ($currentUser && ! $currentUser->hasRole('super_admin') && $client->staff_id !== $currentUser->id) {
+            return redirect()->back()
+                ->withErrors(['error' => 'You do not have permission to adjust balance for this client.']);
+        }
+
+        $validated = $request->validate([
+            'deduct_amount' => ['required', 'numeric', 'min:0.01', 'max:999999.99'],
+            'deduct_description' => ['required', 'string', 'max:255'],
+            'deduct_is_test_balance' => ['nullable', 'boolean'],
+        ]);
+
+        $amount = (float) $validated['deduct_amount'];
+        $description = trim($validated['deduct_description']);
+        $isTestBalance = (bool) ($validated['deduct_is_test_balance'] ?? false);
+
+        try {
+            DB::transaction(function () use ($client, $amount, $description, $isTestBalance) {
+                $client = Client::query()->where('id', $client->id)->lockForUpdate()->firstOrFail();
+                $balance = (float) $client->balance;
+
+                if ($balance + 1e-6 < $amount) {
+                    throw ValidationException::withMessages([
+                        'deduct_amount' => __('Insufficient balance. Current balance: :balance', [
+                            'balance' => '$'.number_format($balance, 2),
+                        ]),
+                    ]);
+                }
+
+                $client->balance = $balance - $amount;
+                $client->save();
+
+                ClientTransaction::create([
+                    'client_id' => $client->id,
+                    'order_id' => null,
+                    'payment_id' => null,
+                    'amount' => -$amount,
+                    'type' => ClientTransaction::TYPE_MANUAL_DEBIT,
+                    'description' => $description,
+                    'is_test_balance' => $isTestBalance,
+                ]);
+            });
+        } catch (ValidationException $e) {
+            return redirect()->route('staff.clients.edit', $client)
+                ->withErrors($e->errors())
+                ->withInput($request->only(['deduct_amount', 'deduct_description', 'deduct_is_test_balance']));
+        }
+
+        $testLabel = $isTestBalance ? ' [TEST]' : '';
+        \App\Models\StaffActivityLog::log('balance', "Deducted \${$amount}{$testLabel} from client #{$client->id} ({$client->email})", $client, [
+            'amount' => $amount,
+            'description' => $description,
+            'is_test_balance' => $isTestBalance,
+        ]);
+
+        return redirect()->route('staff.clients.edit', $client)
+            ->with('success', 'Balance deducted successfully. New balance: $'.number_format((float) $client->fresh()->balance, 2));
     }
 
     /**
