@@ -153,10 +153,10 @@
                                 <div class="text-sm text-gray-500 truncate max-w-xs">{{ $client->email }}</div>
                             </td>
                             <td class="px-2 sm:px-3 py-2 whitespace-nowrap cursor-not-allowed">
-                                <div class="text-sm font-semibold text-gray-500">${{ $client->balance }}</div>
+                                <div class="text-sm font-semibold text-gray-500">${{ number_format((float) $client->balance, 2) }}</div>
                             </td>
                             <td class="px-2 sm:px-3 py-2 whitespace-nowrap cursor-not-allowed">
-                                <div class="text-sm text-gray-500">${{ $client->spent }}</div>
+                                <div class="text-sm text-gray-500">${{ number_format((float) $client->spent, 2) }}</div>
                             </td>
                             <td class="px-2 sm:px-3 py-2 whitespace-nowrap cursor-not-allowed">
                                 <div class="text-sm text-gray-500">

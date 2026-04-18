@@ -79,66 +79,299 @@
                             </form>
                         </div>
 
-                    <form method="POST" action="{{ route('staff.clients.update', $client) }}">
-                        @csrf
-                        @method('PATCH')
-
-                        <!-- Staff Assignment and Personal Discount Row -->
-                        <div class="mb-6 pb-6 border-b border-gray-200">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <!-- Staff Assignment (Super Admin Only) -->
-                                @if(auth()->guard('staff')->check() && auth()->guard('staff')->user()->hasRole('super_admin'))
-                                    <div>
-                                        <label for="staff_id" class="block text-sm font-medium text-gray-700 mb-2">
-                                            {{ __('Assigned Staff Member') }}
-                                        </label>
-
-                                        <x-custom-select
-                                            name="staff_id"
-                                            :value="old('staff_id', $client->staff_id ?? '')"
-                                            placeholder="{{ __('No Staff Assigned') }}"
-                                            :options="collect($staffMembers)->map(function ($staff) {
-                                                return [
-                                                    'value' => $staff->id,
-                                                    'label' => $staff->name . ' (' . $staff->email . ')',
-                                                ];
-                                            })->toArray()"
-                                        />
-
-                                        @error('staff_id')
-                                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                                        @enderror
-                                    </div>
-                                @endif
-
-                                <!-- Personal Discount -->
-                                <div>
-                                    <label for="discount" class="block text-sm font-medium text-gray-700 mb-2">
-                                        {{ __('Personal Discount (%)') }}
-                                    </label>
-                                    <input
-                                        type="number"
-                                        id="discount"
-                                        name="discount"
-                                        value="{{ old('discount', $client->discount) }}"
-                                        step="0.01"
-                                        min="0"
-                                        max="100"
-                                        class="block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                                    />
-                                    <p class="mt-1 text-sm text-gray-500">
-                                        {{ __('Enter 0 to disable discount, 100 to make all services free. Discounts do not apply to services with custom rates.') }}
-                                    </p>
-                                    @error('discount')
-                                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                                    @enderror
-                                </div>
-                            </div>
+                    @php
+                        $activeTab = request('tab', 'orders');
+                    @endphp
+                    <div x-data="{ tab: '{{ $activeTab }}' }">
+                        <!-- Tab Navigation -->
+                        <div class="border-b border-gray-200 mb-5 overflow-x-auto">
+                            <nav class="-mb-px flex space-x-1 min-w-max" aria-label="Tabs">
+                                @foreach([
+                                    'orders' => ['label' => __('Orders'), 'icon' => 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2', 'count' => $clientOrders->total()],
+                                    'payments' => ['label' => __('Payments'), 'icon' => 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z', 'count' => $payments->total()],
+                                    'transactions' => ['label' => __('Transactions'), 'icon' => 'M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2', 'count' => $clientTransactions->total()],
+                                    'settings' => ['label' => __('Settings'), 'icon' => 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z'],
+                                    'signin' => ['label' => __('Sign-ins'), 'icon' => 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'],
+                                ] as $tabKey => $tabData)
+                                    <button type="button" @click="tab = '{{ $tabKey }}'"
+                                        :class="tab === '{{ $tabKey }}'
+                                            ? 'border-indigo-500 text-indigo-600 bg-indigo-50'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 hover:bg-gray-50'"
+                                        class="group inline-flex items-center gap-2 whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm transition-all rounded-t-md">
+                                        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $tabData['icon'] }}"/>
+                                        </svg>
+                                        {{ $tabData['label'] }}
+                                        @if(isset($tabData['count']))
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                                                :class="tab === '{{ $tabKey }}' ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-600'">
+                                                {{ $tabData['count'] }}
+                                            </span>
+                                        @endif
+                                    </button>
+                                @endforeach
+                            </nav>
                         </div>
 
-                        <!-- Payment History & Transaction History -->
-                        <div class="mb-6 pb-6 border-b border-gray-200">
-                            <h3 class="text-sm font-medium text-gray-700 mb-3">{{ __('Payment History') }}</h3>
+                        <!-- Orders Tab -->
+                        <div x-show="tab === 'orders'" x-cloak>
+                            <!-- Orders Filters -->
+                            <form method="GET" action="{{ route('staff.clients.edit', $client) }}" class="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                                <input type="hidden" name="tab" value="orders">
+                                @php
+                                    $statusLabels = [];
+                                    foreach ($orderStatuses as $s) {
+                                        $statusLabels[$s] = ucfirst(str_replace('_', ' ', $s));
+                                    }
+                                @endphp
+                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3"
+                                     x-data="{
+                                         categoryId: '{{ request('orders_category_id', '') }}',
+                                         serviceId: '{{ request('orders_service_id', '') }}',
+                                         statusVal: '{{ request('orders_status', '') }}',
+                                         svcOpen: false, svcSearch: '',
+                                         statusOpen: false,
+                                         platformOpen: false,
+                                         groups: @js($orderServicesGrouped),
+                                         statuses: @js($statusLabels),
+                                         platforms: @js($orderCategories),
+                                         get selectedServiceName() {
+                                             if (!this.serviceId) return '{{ __('All Services') }}';
+                                             for (const g of this.groups) {
+                                                 for (const s of g.services) {
+                                                     if (String(s.id) === String(this.serviceId)) return s.name;
+                                                 }
+                                             }
+                                             return '{{ __('All Services') }}';
+                                         },
+                                         get filteredGroups() {
+                                             const q = this.svcSearch.toLowerCase().trim();
+                                             let src = this.groups;
+                                             if (this.categoryId) {
+                                                 const catId = Number(this.categoryId);
+                                                 src = src.map(g => ({
+                                                     ...g,
+                                                     services: g.services.filter(s => s.category_id === catId)
+                                                 })).filter(g => g.services.length > 0);
+                                             }
+                                             if (!q) return src;
+                                             return src.map(g => ({
+                                                 ...g,
+                                                 services: g.services.filter(s => s.name.toLowerCase().includes(q) || String(s.id).includes(q))
+                                             })).filter(g => g.services.length > 0);
+                                         },
+                                         pickService(id) { this.serviceId = String(id); this.svcOpen = false; this.svcSearch = ''; },
+                                         pickStatus(val) { this.statusVal = val; this.statusOpen = false; },
+                                         pickPlatform(val) { this.categoryId = val; this.platformOpen = false; this.serviceId = ''; },
+                                     }">
+
+                                    <!-- Status Dropdown -->
+                                    <div class="relative" @click.outside="statusOpen = false">
+                                        <label class="block text-xs font-medium text-gray-500 uppercase mb-1">{{ __('Status') }}</label>
+                                        <input type="hidden" name="orders_status" :value="statusVal">
+                                        <button type="button" @click="statusOpen = !statusOpen"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm text-left bg-white hover:border-indigo-400 flex items-center justify-between gap-2 transition-colors"
+                                            :class="statusOpen ? 'ring-2 ring-indigo-500 border-indigo-500' : ''">
+                                            <span :class="statusVal ? 'text-gray-900' : 'text-gray-400'" x-text="statusVal ? statuses[statusVal] : '{{ __('All Statuses') }}'"></span>
+                                            <svg class="w-4 h-4 text-gray-400 flex-shrink-0 transition-transform" :class="statusOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                        </button>
+                                        <div x-show="statusOpen" x-transition.opacity x-cloak class="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+                                            <div class="overflow-y-auto" style="max-height: 300px;">
+                                                <button type="button" @click="pickStatus('')" class="w-full px-3 py-2 text-sm text-left hover:bg-indigo-50 transition-colors" :class="!statusVal ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-gray-600'">{{ __('All Statuses') }}</button>
+                                                <template x-for="[val, label] in Object.entries(statuses)" :key="val">
+                                                    <button type="button" @click="pickStatus(val)" class="w-full px-3 py-2 text-sm text-left hover:bg-indigo-50 transition-colors" :class="statusVal === val ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-gray-700'" x-text="label"></button>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Platform Dropdown -->
+                                    <div class="relative" @click.outside="platformOpen = false">
+                                        <label class="block text-xs font-medium text-gray-500 uppercase mb-1">{{ __('Platform') }}</label>
+                                        <input type="hidden" name="orders_category_id" :value="categoryId">
+                                        <button type="button" @click="platformOpen = !platformOpen"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm text-left bg-white hover:border-indigo-400 flex items-center justify-between gap-2 transition-colors"
+                                            :class="platformOpen ? 'ring-2 ring-indigo-500 border-indigo-500' : ''">
+                                            <span :class="categoryId ? 'text-gray-900' : 'text-gray-400'" x-text="categoryId ? platforms[categoryId] : '{{ __('All Platforms') }}'"></span>
+                                            <svg class="w-4 h-4 text-gray-400 flex-shrink-0 transition-transform" :class="platformOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                        </button>
+                                        <div x-show="platformOpen" x-transition.opacity x-cloak class="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+                                            <div class="overflow-y-auto" style="max-height: 300px;">
+                                                <button type="button" @click="pickPlatform('')" class="w-full px-3 py-2 text-sm text-left hover:bg-indigo-50 transition-colors" :class="!categoryId ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-gray-600'">{{ __('All Platforms') }}</button>
+                                                <template x-for="[id, name] in Object.entries(platforms)" :key="id">
+                                                    <button type="button" @click="pickPlatform(id)" class="w-full px-3 py-2 text-sm text-left hover:bg-indigo-50 transition-colors" :class="categoryId === id ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-gray-700'" x-text="name"></button>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Service Dropdown (grouped, searchable, filtered by platform) -->
+                                    <div class="relative lg:col-span-3" @click.outside="svcOpen = false" @keydown.escape.window="svcOpen = false">
+                                        <label class="block text-xs font-medium text-gray-500 uppercase mb-1">{{ __('Service') }}</label>
+                                        <input type="hidden" name="orders_service_id" :value="serviceId">
+                                        <button type="button" @click="svcOpen = !svcOpen; $nextTick(() => svcOpen && $refs.svcSearchInput.focus())"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm text-left bg-white hover:border-indigo-400 flex items-center justify-between gap-2 transition-colors"
+                                            :class="svcOpen ? 'ring-2 ring-indigo-500 border-indigo-500' : ''">
+                                            <span class="flex items-center gap-2 min-w-0">
+                                                <span x-show="serviceId" class="text-xs font-bold text-indigo-500 flex-shrink-0" x-text="'#' + serviceId"></span>
+                                                <span class="truncate" :class="serviceId ? 'text-gray-900' : 'text-gray-400'" x-text="selectedServiceName"></span>
+                                            </span>
+                                            <svg class="w-4 h-4 text-gray-400 flex-shrink-0 transition-transform" :class="svcOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                        </button>
+                                        <div x-show="svcOpen" x-transition.opacity x-cloak
+                                            class="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+                                            <div class="p-2 border-b border-gray-100">
+                                                <input type="text" x-ref="svcSearchInput" x-model="svcSearch" @click.stop
+                                                    placeholder="{{ __('Search by name or ID...') }}"
+                                                    class="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50">
+                                            </div>
+                                            <div class="overflow-y-auto" style="max-height: 300px;">
+                                                <button type="button" @click="pickService('')"
+                                                    class="w-full px-3 py-2 text-sm text-left hover:bg-indigo-50 transition-colors"
+                                                    :class="!serviceId ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-gray-600'">
+                                                    {{ __('All Services') }}
+                                                </button>
+                                                <template x-for="group in filteredGroups" :key="group.label">
+                                                    <div>
+                                                        <div class="px-3 py-1.5 text-xs font-bold text-indigo-600 uppercase tracking-wider bg-gray-50 border-y border-gray-100 sticky top-0" x-text="group.label"></div>
+                                                        <template x-for="svc in group.services" :key="svc.id">
+                                                            <button type="button" @click="pickService(svc.id)"
+                                                                class="w-full px-3 py-2.5 text-sm text-left hover:bg-indigo-50 flex items-center gap-3 transition-colors"
+                                                                :class="String(serviceId) === String(svc.id) ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-gray-700'">
+                                                                <span class="text-xs font-bold text-indigo-400 flex-shrink-0 w-10" x-text="'ID' + svc.id"></span>
+                                                                <span x-text="svc.name"></span>
+                                                            </button>
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                                <div x-show="filteredGroups.length === 0" class="px-3 py-4 text-sm text-gray-400 text-center">{{ __('No matching services') }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Date filters row -->
+                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-3">
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-500 uppercase mb-1">{{ __('From') }}</label>
+                                        <input type="date" name="orders_date_from" value="{{ request('orders_date_from') }}"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-500 uppercase mb-1">{{ __('To') }}</label>
+                                        <input type="date" name="orders_date_to" value="{{ request('orders_date_to') }}"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-white">
+                                    </div>
+                                    <div class="flex items-end gap-2 lg:col-span-3">
+                                        <button type="submit"
+                                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                                            {{ __('Filter') }}
+                                        </button>
+                                        <a href="{{ route('staff.clients.edit', ['client' => $client, 'tab' => 'orders']) }}"
+                                            class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                                            {{ __('Reset') }}
+                                        </a>
+                                    </div>
+                                </div>
+                            </form>
+
+                            <!-- Orders Table -->
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200 text-sm">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            @php
+                                                $currentSort = request('orders_sort', 'created_at');
+                                                $currentDir = request('orders_dir', 'desc');
+                                                $filterParams = request()->only(['orders_status', 'orders_category_id', 'orders_service_id', 'orders_date_from', 'orders_date_to']);
+                                                $filterParams['tab'] = 'orders';
+                                            @endphp
+                                            @foreach([
+                                                'id' => __('Order ID'),
+                                                'category_name' => __('Platform'),
+                                                'service_name' => __('Service'),
+                                                'quantity' => __('Quantity'),
+                                                'charge' => __('Total Charge'),
+                                                'status' => __('Status'),
+                                                'created_at' => __('Date'),
+                                            ] as $sortKey => $label)
+                                                @php
+                                                    $nextDir = ($currentSort === $sortKey && $currentDir === 'asc') ? 'desc' : 'asc';
+                                                    $sortUrl = route('staff.clients.edit', array_merge(
+                                                        ['client' => $client->id, 'orders_sort' => $sortKey, 'orders_dir' => $nextDir],
+                                                        $filterParams
+                                                    ));
+                                                @endphp
+                                                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">
+                                                    <a href="{{ $sortUrl }}" class="inline-flex items-center gap-1 hover:text-gray-700">
+                                                        {{ $label }}
+                                                        @if($currentSort === $sortKey)
+                                                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                                                @if($currentDir === 'asc')
+                                                                    <path d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L10 6.414l-3.293 3.293a1 1 0 01-1.414 0z"/>
+                                                                @else
+                                                                    <path d="M14.707 10.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L10 13.586l3.293-3.293a1 1 0 011.414 0z"/>
+                                                                @endif
+                                                            </svg>
+                                                        @endif
+                                                    </a>
+                                                </th>
+                                            @endforeach
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        @forelse ($clientOrders as $order)
+                                            <tr>
+                                                <td class="px-3 py-2 text-gray-900 font-medium">#{{ $order->id }}</td>
+                                                <td class="px-3 py-2 text-gray-600">
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                                        {{ $order->category_name }}
+                                                    </span>
+                                                </td>
+                                                <td class="px-3 py-2 text-gray-600" style="max-width: 250px;">
+                                                    <div class="truncate" title="{{ $order->service_name }}">{{ $order->service_name }}</div>
+                                                </td>
+                                                <td class="px-3 py-2 text-gray-600">{{ number_format($order->quantity) }}</td>
+                                                <td class="px-3 py-2 text-gray-900 font-medium">${{ rtrim(rtrim(number_format((float) $order->charge, 4), '0'), '.') }}</td>
+                                                <td class="px-3 py-2">
+                                                    @php
+                                                        $statusColors = [
+                                                            'completed' => 'bg-green-100 text-green-800',
+                                                            'in_progress' => 'bg-blue-100 text-blue-800',
+                                                            'processing' => 'bg-blue-100 text-blue-800',
+                                                            'pending' => 'bg-yellow-100 text-yellow-800',
+                                                            'pending_dependency' => 'bg-yellow-100 text-yellow-800',
+                                                            'awaiting' => 'bg-yellow-100 text-yellow-800',
+                                                            'validating' => 'bg-yellow-100 text-yellow-800',
+                                                            'partial' => 'bg-orange-100 text-orange-800',
+                                                            'canceled' => 'bg-gray-100 text-gray-800',
+                                                            'fail' => 'bg-red-100 text-red-800',
+                                                            'invalid_link' => 'bg-red-100 text-red-800',
+                                                            'restricted' => 'bg-red-100 text-red-800',
+                                                        ];
+                                                        $color = $statusColors[$order->status] ?? 'bg-gray-100 text-gray-800';
+                                                    @endphp
+                                                    <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium {{ $color }}">
+                                                        {{ ucfirst(str_replace('_', ' ', $order->status)) }}
+                                                    </span>
+                                                </td>
+                                                <td class="px-3 py-2 text-gray-600 whitespace-nowrap">{{ $order->created_at?->format('Y-m-d H:i') }}</td>
+                                            </tr>
+                                        @empty
+                                            <tr>
+                                                <td colspan="7" class="px-3 py-4 text-center text-gray-500">{{ __('No orders found.') }}</td>
+                                            </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                            @if ($clientOrders->hasPages())
+                                <div class="mt-3">{{ $clientOrders->links() }}</div>
+                            @endif
+                        </div>
+
+                        <!-- Payments Tab -->
+                        <div x-show="tab === 'payments'" x-cloak>
                             <div class="overflow-x-auto">
                                 <table class="min-w-full divide-y divide-gray-200 text-sm">
                                     <thead class="bg-gray-50">
@@ -196,8 +429,10 @@
                             @if ($payments->hasPages())
                                 <div class="mt-3">{{ $payments->links() }}</div>
                             @endif
+                        </div>
 
-                            <h3 class="text-sm font-medium text-gray-700 mb-3 mt-6">{{ __('Transaction History') }}</h3>
+                        <!-- Transactions Tab -->
+                        <div x-show="tab === 'transactions'" x-cloak>
                             <div class="overflow-x-auto">
                                 <table class="min-w-full divide-y divide-gray-200 text-sm">
                                     <thead class="bg-gray-50">
@@ -234,6 +469,65 @@
                             @if ($clientTransactions->hasPages())
                                 <div class="mt-3">{{ $clientTransactions->links() }}</div>
                             @endif
+                        </div>
+
+                        <!-- Settings Tab (Custom Rates, Social Media, Service Limits) -->
+                        <div x-show="tab === 'settings'" x-cloak>
+                    <form method="POST" action="{{ route('staff.clients.update', $client) }}">
+                        @csrf
+                        @method('PATCH')
+
+                        <!-- Staff Assignment and Personal Discount Row -->
+                        <div class="mb-6 pb-6 border-b border-gray-200">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <!-- Staff Assignment (Super Admin Only) -->
+                                @if(auth()->guard('staff')->check() && auth()->guard('staff')->user()->hasRole('super_admin'))
+                                    <div>
+                                        <label for="staff_id" class="block text-sm font-medium text-gray-700 mb-2">
+                                            {{ __('Assigned Staff Member') }}
+                                        </label>
+
+                                        <x-custom-select
+                                            name="staff_id"
+                                            :value="old('staff_id', $client->staff_id ?? '')"
+                                            placeholder="{{ __('No Staff Assigned') }}"
+                                            :options="collect($staffMembers)->map(function ($staff) {
+                                                return [
+                                                    'value' => $staff->id,
+                                                    'label' => $staff->name . ' (' . $staff->email . ')',
+                                                ];
+                                            })->toArray()"
+                                        />
+
+                                        @error('staff_id')
+                                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                        @enderror
+                                    </div>
+                                @endif
+
+                                <!-- Personal Discount -->
+                                <div>
+                                    <label for="discount" class="block text-sm font-medium text-gray-700 mb-2">
+                                        {{ __('Personal Discount (%)') }}
+                                    </label>
+                                    <input
+                                        type="number"
+                                        id="discount"
+                                        name="discount"
+                                        value="{{ old('discount', $client->discount) }}"
+                                        step="0.01"
+                                        min="0"
+                                        max="100"
+                                        class="block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                    />
+                                    <p class="mt-1 text-sm text-gray-500">
+                                        {{ __('Enter 0 to disable discount, 100 to make all services free. Discounts do not apply to services with custom rates.') }}
+                                    </p>
+                                    @error('discount')
+                                        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                    @enderror
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Custom Rates -->
@@ -1157,7 +1451,7 @@
                         </div>
 
                         <!-- Submit Button -->
-                        <div class="flex items-center justify-end gap-4">
+                        <div class="flex items-center justify-end gap-4 mt-6">
                             <a
                                 href="{{ route('staff.clients.index') }}"
                                 class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
@@ -1172,86 +1466,67 @@
                             </button>
                         </div>
                     </form>
-                </div>
-            </div>
+                        </div>{{-- /settings tab --}}
 
-            <!-- Sign-in History Section -->
-            <div class="mt-6 bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6 text-gray-900">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-medium text-gray-900">{{ __('Sign-in History') }}</h3>
-                        <a
-                            href="{{ route('staff.clients.sign-ins', $client) }}"
-                            class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-gray-700 border border-gray-300 rounded-md hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 uppercase transition-colors shadow-sm"
-                        >
-                            {{ __('View All') }}
-                        </a>
-                    </div>
+                        <!-- Sign-in History Tab -->
+                        <div x-show="tab === 'signin'" x-cloak>
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-sm font-medium text-gray-700">{{ __('Recent Sign-ins') }}</h3>
+                                <a
+                                    href="{{ route('staff.clients.sign-ins', $client) }}"
+                                    class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-gray-700 border border-gray-300 rounded-md hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 uppercase transition-colors shadow-sm"
+                                >
+                                    {{ __('View All') }}
+                                </a>
+                            </div>
 
-                    @if(isset($recentSignIns) && $recentSignIns->count() > 0)
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            {{ __('Date/Time') }}
-                                        </th>
-                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            {{ __('IP Address') }}
-                                        </th>
-                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            {{ __('Device') }}
-                                        </th>
-                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            {{ __('Location') }}
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody class="bg-white divide-y divide-gray-200">
-                                    @foreach($recentSignIns as $log)
-                                        <tr>
-                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                                                {{ $log->signed_in_at->format('M d, Y H:i:s') }}
-                                            </td>
-                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-mono">
-                                                {{ $log->ip }}
-                                            </td>
-                                            <td class="px-4 py-3 text-sm text-gray-500">
-                                                <div>
-                                                    <span class="font-medium">{{ ucfirst($log->device_type ?? 'unknown') }}</span>
-                                                    @if($log->os || $log->browser)
-                                                        <span class="text-gray-400"> • </span>
-                                                        <span>{{ $log->os }}</span>
-                                                        @if($log->browser)
-                                                            <span class="text-gray-400"> / </span>
-                                                            <span>{{ $log->browser }}</span>
+                            @if(isset($recentSignIns) && $recentSignIns->count() > 0)
+                                <div class="overflow-x-auto">
+                                    <table class="min-w-full divide-y divide-gray-200 text-sm">
+                                        <thead class="bg-gray-50">
+                                            <tr>
+                                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Date/Time') }}</th>
+                                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('IP Address') }}</th>
+                                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Device') }}</th>
+                                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Location') }}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="bg-white divide-y divide-gray-200">
+                                            @foreach($recentSignIns as $log)
+                                                <tr>
+                                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ $log->signed_in_at->format('M d, Y H:i:s') }}</td>
+                                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-mono">{{ $log->ip }}</td>
+                                                    <td class="px-4 py-3 text-sm text-gray-500">
+                                                        <span class="font-medium">{{ ucfirst($log->device_type ?? 'unknown') }}</span>
+                                                        @if($log->os || $log->browser)
+                                                            <span class="text-gray-400"> &bull; </span>{{ $log->os }}
+                                                            @if($log->browser) <span class="text-gray-400"> / </span>{{ $log->browser }} @endif
                                                         @endif
-                                                    @endif
-                                                </div>
-                                            </td>
-                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                                                @if($log->city || $log->country)
-                                                    {{ $log->city }}{{ $log->city && $log->country ? ', ' : '' }}{{ $log->country }}
-                                                @else
-                                                    <span class="text-gray-400">{{ __('N/A') }}</span>
-                                                @endif
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    @else
-                        <div class="text-center py-8">
-                            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            <p class="mt-2 text-sm text-gray-500">{{ __('No sign-in history available yet.') }}</p>
-                            <p class="mt-1 text-xs text-gray-400">{{ __('Sign-in history will appear here after the client logs in.') }}</p>
-                        </div>
-                    @endif
-                </div>
-            </div>
+                                                    </td>
+                                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                                        @if($log->city || $log->country)
+                                                            {{ $log->city }}{{ $log->city && $log->country ? ', ' : '' }}{{ $log->country }}
+                                                        @else
+                                                            <span class="text-gray-400">{{ __('N/A') }}</span>
+                                                        @endif
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            @else
+                                <div class="text-center py-8">
+                                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <p class="mt-2 text-sm text-gray-500">{{ __('No sign-in history available yet.') }}</p>
+                                </div>
+                            @endif
+                        </div>{{-- /signin tab --}}
+
+                    </div>{{-- /x-data tabs wrapper --}}
+
         </div>
     </div>
 

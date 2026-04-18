@@ -8,6 +8,7 @@ use App\Http\Requests\Staff\UpdateClientRequest;
 use App\Models\Category;
 use App\Models\Client;
 use App\Models\ClientServiceLimit;
+use App\Models\Order;
 use App\Models\ClientTransaction;
 use App\Models\Service;
 use App\Services\ClientServiceInterface;
@@ -510,6 +511,93 @@ class ClientController extends Controller
             ->paginate(15, ['*'], 'payments_page')
             ->appends(request()->except('payments_page'));
 
+        // Client orders with filters
+        $ordersQuery = Order::query()
+            ->where('orders.client_id', $client->id)
+            ->join('services', 'orders.service_id', '=', 'services.id')
+            ->join('categories', 'services.category_id', '=', 'categories.id')
+            ->select([
+                'orders.*',
+                'services.name as service_name',
+                'categories.name as category_name',
+            ]);
+
+        // Apply filters
+        if (request('orders_status')) {
+            $ordersQuery->where('orders.status', request('orders_status'));
+        }
+        if (request('orders_category_id')) {
+            $ordersQuery->where('categories.id', request('orders_category_id'));
+        }
+        if (request('orders_service_id')) {
+            $ordersQuery->where('orders.service_id', request('orders_service_id'));
+        }
+        if (request('orders_date_from')) {
+            $ordersQuery->where('orders.created_at', '>=', request('orders_date_from') . ' 00:00:00');
+        }
+        if (request('orders_date_to')) {
+            $ordersQuery->where('orders.created_at', '<=', request('orders_date_to') . ' 23:59:59');
+        }
+
+        // Sorting
+        $ordersSortBy = request('orders_sort', 'created_at');
+        $ordersSortDir = request('orders_dir', 'desc');
+        $allowedSorts = ['id', 'created_at', 'charge', 'quantity', 'status', 'category_name', 'service_name'];
+        if (!in_array($ordersSortBy, $allowedSorts)) {
+            $ordersSortBy = 'created_at';
+        }
+        $sortColumn = match ($ordersSortBy) {
+            'category_name' => 'categories.name',
+            'service_name' => 'services.name',
+            default => 'orders.' . $ordersSortBy,
+        };
+        $ordersQuery->orderBy($sortColumn, $ordersSortDir === 'asc' ? 'asc' : 'desc');
+
+        $clientOrders = $ordersQuery
+            ->paginate(15, ['*'], 'orders_page')
+            ->appends(request()->except('orders_page'));
+
+        // All categories for platform filter dropdown
+        $orderCategories = Category::query()
+            ->where('status', true)
+            ->orderBy('name')
+            ->pluck('name', 'id');
+
+        // Services grouped by dropdown_group (from template) for the service filter
+        $orderServicesGrouped = Service::query()
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
+            ->whereHas('category', fn ($q) => $q->where('status', true))
+            ->with('category:id,name')
+            ->orderBy('name')
+            ->get()
+            ->map(function ($service) {
+                $tpl = $service->template();
+                return [
+                    'id' => $service->id,
+                    'name' => $service->name,
+                    'category_id' => $service->category_id,
+                    'group' => $tpl['dropdown_group'] ?? $service->category->name ?? 'Other',
+                    'group_label' => $tpl['dropdown_label'] ?? $tpl['dropdown_group'] ?? $service->category->name ?? 'Other',
+                    'group_priority' => $tpl['dropdown_priority'] ?? 99,
+                ];
+            })
+            ->groupBy('group')
+            ->sortBy(fn ($group) => $group->first()['group_priority'])
+            ->map(fn ($services, $group) => [
+                'label' => $services->first()['group_label'],
+                'services' => $services->values()->all(),
+            ])
+            ->values()
+            ->all();
+
+        // All statuses for status filter
+        $orderStatuses = [
+            Order::STATUS_VALIDATING, Order::STATUS_INVALID_LINK, Order::STATUS_AWAITING,
+            Order::STATUS_IN_PROGRESS, Order::STATUS_PROCESSING, Order::STATUS_PARTIAL,
+            Order::STATUS_COMPLETED, Order::STATUS_CANCELED, Order::STATUS_FAIL,
+        ];
+
         return view('staff.clients.edit', [
             'client' => $client,
             'categories' => $categories,
@@ -524,6 +612,10 @@ class ClientController extends Controller
             'disabledServiceLimitIds' => $disabledServiceLimitIds,
             'clientTransactions' => $clientTransactions,
             'payments' => $payments,
+            'clientOrders' => $clientOrders,
+            'orderCategories' => $orderCategories,
+            'orderServicesGrouped' => $orderServicesGrouped,
+            'orderStatuses' => $orderStatuses,
         ]);
     }
 
