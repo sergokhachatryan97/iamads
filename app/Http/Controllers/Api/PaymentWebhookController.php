@@ -31,12 +31,7 @@ class PaymentWebhookController extends Controller
         $rawBody = $request->getContent();
         $headers = $request->headers->all();
         $ip = $request->ip() ?? '';
-        Log::info('WEBHOOK HIT', [
-            'ip' => request()->ip(),
-            'body' => request()->getContent(),
-            'ip1' => $request->ip(),
-            'body1' => $request->getContent(),
-        ]);
+
         try {
             $this->handleWebhookService->handle($provider, $rawBody, $headers, $ip);
             return response('', 200);
