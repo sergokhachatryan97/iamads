@@ -31,43 +31,64 @@ class AppTaskClaimController extends Controller
 
         $account = $validated['account_identity'];
 
-        // Single Redis round-trip: poll throttle + no-work check + HyperLogLog
+        // Single Redis round-trip: poll throttle + no-work check (global + per-account) + HyperLogLog
         $noWorkKey = 'app:no_work';
+        $accountNoWorkKey = 'app:no_work:account:' . md5($account);
         $throttleKey = 'app:poll_throttle:' . md5($account);
         $hourKey = 'app:claim_attempts:' . now()->format('Y-m-d-H');
         try {
-            [$throttleAcquired, $_, $noWork, $_, $_] = Redis::pipeline(function ($pipe) use ($throttleKey, $noWorkKey, $hourKey, $account) {
+            [$throttleAcquired, $_, $noWork, $accountNoWork, $_, $_] = Redis::pipeline(function ($pipe) use ($throttleKey, $noWorkKey, $accountNoWorkKey, $hourKey, $account) {
                 $pipe->set($throttleKey, 1, 'EX', 10, 'NX');
                 $pipe->expire($throttleKey, 10);
                 $pipe->exists($noWorkKey);
+                $pipe->exists($accountNoWorkKey);
                 $pipe->pfadd($hourKey, [$account]);
                 $pipe->expire($hourKey, 7200);
             });
             if (! $throttleAcquired) {
                 return self::emptyResponse();
             }
-            if ($noWork) {
+            if ($noWork || $accountNoWork) {
                 return self::emptyResponse();
             }
         } catch (\Throwable) {
         }
 
         try {
-            $payload = $this->claimService->claim($account);
-
-            if ($payload === null) {
+            // Early exit: if eligible orders cache is empty, skip expensive claim
+            // and set no-work flag immediately. Prevents CPU spikes when no tasks exist.
+            $eligible = \Illuminate\Support\Facades\Cache::get('app:claim:eligible');
+            if ($eligible !== null && (is_countable($eligible) ? count($eligible) === 0 : empty($eligible))) {
                 try {
-                    $ttl = $this->noWorkTtl();
-                    Redis::setex($noWorkKey, $ttl, 1);
+                    Redis::setex($noWorkKey, random_int(90, 150), 1);
                 } catch (\Throwable) {
                 }
 
                 return self::emptyResponse();
             }
 
-            // Work found — clear no-work flag
+            $payload = $this->claimService->claim($account);
+
+            if ($payload === null) {
+                try {
+                    $hasEligible = $eligible !== null && (is_countable($eligible) ? count($eligible) > 0 : !empty($eligible));
+
+                    if (! $hasEligible) {
+                        Redis::setex($noWorkKey, $this->noWorkTtl(), 1);
+                    } else {
+                        // Orders exist but this account can't claim — block only
+                        // this account so others can still attempt.
+                        Redis::setex($accountNoWorkKey, 30, 1);
+                    }
+                } catch (\Throwable) {
+                }
+
+                return self::emptyResponse();
+            }
+
+            // Work found — clear both no-work flags
             try {
-                Redis::del($noWorkKey);
+                Redis::del($noWorkKey, $accountNoWorkKey);
             } catch (\Throwable) {
             }
 

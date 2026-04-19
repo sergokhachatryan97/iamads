@@ -87,20 +87,31 @@ class TelegramTaskClaimController extends Controller
             $task = $this->claimService->claimFromQueue($phone, $scope, $serviceId);
 
             // ── Pull-model fallback: full claim pipeline ─────────────────────────
-            // Reached when the pre-assigned queue is empty (background job hasn't
-            // run yet, or all tasks were just consumed). Keeps the system working
-            // during the transition period and for low-volume services.
+            // Only fall back to the expensive pull path when the queue still has
+            // items (phone was rejected for this specific task) or a pull-gate
+            // flag is set. When the queue is truly empty, skip pull entirely —
+            // preassign will refill within 30s, and running the full claim
+            // pipeline for every request in the meantime causes CPU spikes
+            // (expensive DB queries + row locks with no results).
             if ($task === null) {
-                $pulled = $this->claimService->claimForPhone($phone, 1, $scope, $serviceId);
-                $task   = $pulled[0] ?? null;
+                $queueKey = "tg:service_queue:{$scope}:{$serviceId}";
+                $queueLen = 0;
+                try {
+                    $queueLen = (int) Redis::llen($queueKey);
+                } catch (\Throwable) {
+                }
+
+                if ($queueLen > 0) {
+                    // Queue has tasks but push-model couldn't claim — try pull path
+                    $pulled = $this->claimService->claimForPhone($phone, 1, $scope, $serviceId);
+                    $task   = $pulled[0] ?? null;
+                }
             }
 
             if ($task === null) {
                 try {
-                    // Decide which no-work key to set based on whether the queue
-                    // is truly empty or this specific phone just couldn't claim.
-                    $queueKey = "tg:service_queue:{$scope}:{$serviceId}";
-                    $queueLen = (int) Redis::llen($queueKey);
+                    $queueKey = $queueKey ?? "tg:service_queue:{$scope}:{$serviceId}";
+                    $queueLen = $queueLen ?? (int) Redis::llen($queueKey);
 
                     if ($queueLen === 0) {
                         // Queue empty → service-wide block until preassign refills.

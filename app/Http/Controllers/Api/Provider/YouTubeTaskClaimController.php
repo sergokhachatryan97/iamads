@@ -57,24 +57,28 @@ class YouTubeTaskClaimController extends Controller
         }
 
         try {
+            // Early exit: if eligible orders cache is empty, skip expensive claim
+            // and set no-work flag immediately. Prevents CPU spikes when no tasks exist.
+            $eligible = \Illuminate\Support\Facades\Cache::get('yt:claim:eligible');
+            if ($eligible !== null && (is_countable($eligible) ? count($eligible) === 0 : empty($eligible))) {
+                try {
+                    Redis::setex($noWorkKey, random_int(90, 150), 1);
+                } catch (\Throwable) {
+                }
+
+                return self::emptyResponse();
+            }
+
             $payload = $this->claimService->claim($account);
 
             if ($payload === null) {
                 try {
-                    // Check if there are any eligible orders at all.
-                    // If none — set global no-work flag (blocks all accounts).
-                    // If there are orders but this account couldn't claim — set
-                    // per-account no-work flag (only blocks this account, short TTL).
-                    $eligible = \Illuminate\Support\Facades\Cache::get('yt:claim:eligible');
                     $hasEligible = $eligible !== null && (is_countable($eligible) ? count($eligible) > 0 : !empty($eligible));
 
                     if (! $hasEligible) {
                         $ttl = $this->noWorkTtl();
                         Redis::setex($noWorkKey, $ttl, 1);
                     } else {
-                        // Orders exist but this account can't claim any — block
-                        // only this account for 30s so it doesn't hot-loop through
-                        // the full claim pipeline every 10s.
                         Redis::setex($accountNoWorkKey, 30, 1);
                     }
                 } catch (\Throwable) {
