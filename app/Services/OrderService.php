@@ -155,6 +155,7 @@ class OrderService implements OrderServiceInterface
             }
 
             $client->balance -= $totalCharge;
+            $client->spent = (float) $client->spent + $totalCharge;
             $client->save();
 
             // 10) Create orders
@@ -369,6 +370,7 @@ class OrderService implements OrderServiceInterface
             }
 
             $client->balance -= $charge;
+            $client->spent = (float) $client->spent + $charge;
             $client->save();
 
             $pricingSnapshot = [
@@ -493,6 +495,7 @@ class OrderService implements OrderServiceInterface
             }
 
             $client->balance -= $totalCharge;
+            $client->spent = (float) $client->spent + $totalCharge;
             $client->save();
             $batchId = (string) \Illuminate\Support\Str::uuid();
 
@@ -697,6 +700,7 @@ class OrderService implements OrderServiceInterface
                 }
 
                 $client->balance -= $totalBalanceCharge;
+                $client->spent = (float) $client->spent + $totalBalanceCharge;
                 $client->save();
             }
 
@@ -801,6 +805,7 @@ class OrderService implements OrderServiceInterface
 
             if ($charge > 0 && $order->payment_source === Order::PAYMENT_SOURCE_BALANCE) {
                 $client->balance += $charge;
+                $client->spent = max(0, (float) $client->spent - $charge);
                 $client->save();
 
                 ClientTransaction::create([
@@ -871,6 +876,7 @@ class OrderService implements OrderServiceInterface
 
                 if ($refund > 0) {
                     $client->balance += $refund;
+                    $client->spent = max(0, (float) $client->spent - $refund);
                     $client->save();
 
                     ClientTransaction::create([
@@ -929,6 +935,7 @@ class OrderService implements OrderServiceInterface
 
             if ($order->payment_source === Order::PAYMENT_SOURCE_BALANCE && $refund > 0) {
                 $client->balance += $refund;
+                $client->spent = max(0, (float) $client->spent - $refund);
                 $client->save();
 
                 ClientTransaction::create([
@@ -978,6 +985,7 @@ class OrderService implements OrderServiceInterface
 
             if ($order->payment_source === Order::PAYMENT_SOURCE_BALANCE && $refund > 0) {
                 $client->balance += $refund;
+                $client->spent = max(0, (float) $client->spent - $refund);
                 $client->save();
 
                 ClientTransaction::create([
