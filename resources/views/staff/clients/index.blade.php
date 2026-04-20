@@ -115,6 +115,7 @@
                                          x-cloak
                                          class="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg py-1 border border-gray-200"
                                          style="display: none; z-index: 1001; position: absolute;">
+                                        @staffcan('clients.suspend')
                                         <button type="button"
                                                 @click="open = false; showBulkSuspendConfirm()"
                                                 class="block w-full text-left px-4 py-2 text-sm text-yellow-600 hover:bg-gray-100">
@@ -125,6 +126,7 @@
                                                 class="block w-full text-left px-4 py-2 text-sm text-green-600 hover:bg-gray-100">
                                             {{ __('Activate selected users') }}
                                         </button>
+                                        @endstaffcan
                                     </div>
                                 </div>
 

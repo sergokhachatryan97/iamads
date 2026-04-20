@@ -38,6 +38,10 @@ class RoleRepository implements RoleRepositoryInterface
     public function syncPermissions(Role $role, array $permissions): Role
     {
         $role->syncPermissions($permissions);
+
+        // Clear Spatie's permission cache so middleware picks up changes immediately
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+
         return $role;
     }
 }

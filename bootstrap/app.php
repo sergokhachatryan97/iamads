@@ -149,6 +149,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role_or_permission' => RoleOrPermissionMiddleware::class,
             'staff.verified' => \App\Http\Middleware\EnsureStaffEmailIsVerified::class,
             'staff.role' => \App\Http\Middleware\EnsureStaffHasRole::class,
+            'staff.permission' => \App\Http\Middleware\EnsureStaffHasPermission::class,
             'client.status' => \App\Http\Middleware\EnsureClientNotSuspended::class,
             'auth.provider' => \App\Http\Middleware\AuthenticateProvider::class,
             'throttle.provider_poll' => \App\Http\Middleware\ThrottleProviderPolling::class,

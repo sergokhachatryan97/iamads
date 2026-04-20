@@ -228,6 +228,7 @@
                         <td class="px-1 sm:px-3 py-2 whitespace-nowrap text-right text-sm font-medium sticky right-0 {{ $isSuspended ? 'bg-gray-100' : 'bg-white' }}" onclick="event.stopPropagation();" style="position: sticky; right: 0; z-index: 10;">
                             @if($isSuspended)
                                 {{-- Show Activate button directly for suspended clients (no Actions dropdown) --}}
+                                @staffcan('clients.suspend')
                                 <form method="POST" action="{{ route('staff.clients.activate', $client) }}" class="inline-block" id="activate-form-{{ $client->id }}">
                                     @csrf
                                     <button type="button"
@@ -236,8 +237,14 @@
                                         {{ __('Activate') }}
                                     </button>
                                 </form>
+                                @endstaffcan
                             @else
                                 {{-- Show Actions dropdown for active clients --}}
+                                @php
+                                    $staffUser = $staffUser ?? auth()->guard('staff')->user();
+                                    $hasClientActions = $staffUser && ($staffUser->hasRole('super_admin') || $staffUser->hasPermissionTo('clients.edit', 'staff') || $staffUser->hasPermissionTo('clients.suspend', 'staff') || $staffUser->hasPermissionTo('clients.assign-staff', 'staff'));
+                                @endphp
+                                @if($hasClientActions)
                                 <div
                                     class="relative"
                                     x-data="{
@@ -324,10 +331,13 @@
                                             :style="`top:${top}px; left:${left}px; z-index:99999;`"
                                             @click.stop
                                         >
+                                            @staffcan('clients.edit')
                                             <a href="{{ route('staff.clients.edit', $client) }}" @click.stop class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                                 {{ __('Edit') }}
                                             </a>
+                                            @endstaffcan
 
+                                            @staffcan('clients.suspend')
                                             <form method="POST" action="{{ route('staff.clients.suspend', $client) }}" class="block" id="suspend-form-{{ $client->id }}">
                                                 @csrf
                                                 <button type="button"
@@ -336,8 +346,9 @@
                                                     {{ __('Suspend user') }}
                                                 </button>
                                             </form>
+                                            @endstaffcan
 
-                                            @if($isSuperAdmin)
+                                            @staffcan('clients.assign-staff')
                                                 @if(!$client->staff_id)
                                                     <button
                                                         type="button"
@@ -355,10 +366,11 @@
                                                         {{ __('Change Staff') }}
                                                     </button>
                                                 @endif
-                                            @endif
+                                            @endstaffcan
                                         </div>
                                     </template>
                                 </div>
+                                @endif
                             @endif
                         </td>
                     </tr>

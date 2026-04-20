@@ -13,7 +13,8 @@ class UpdateUserRoleRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return auth()->guard('staff')->check() && auth()->guard('staff')->user()->hasRole('super_admin');
+        $user = auth()->guard('staff')->user();
+        return $user && ($user->hasRole('super_admin') || $user->hasPermissionTo('users.edit', 'staff'));
     }
 
 

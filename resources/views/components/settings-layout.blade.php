@@ -13,6 +13,7 @@
                     <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                         <nav class="p-4">
                             <ul class="space-y-1">
+                                @staffcan('settings.roles')
                                 <li>
                                     <a href="{{ route('staff.settings.roles.index') }}"
                                        class="flex items-center px-4 py-3 rounded-md text-sm font-medium transition {{ request()->routeIs('staff.settings.roles.*') ? 'bg-indigo-50 text-indigo-700 border-l-4 border-indigo-600' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900' }}">
@@ -22,6 +23,8 @@
                                         {{ __('Roles') }}
                                     </a>
                                 </li>
+                                @endstaffcan
+                                @staffcan('settings.invitations')
                                 <li>
                                     <a href="{{ route('staff.settings.invitations.index') }}"
                                        class="flex items-center px-4 py-3 rounded-md text-sm font-medium transition {{ request()->routeIs('staff.settings.invitations.*') ? 'bg-indigo-50 text-indigo-700 border-l-4 border-indigo-600' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900' }}">
@@ -31,6 +34,8 @@
                                         {{ __('Invitations') }}
                                     </a>
                                 </li>
+                                @endstaffcan
+                                @staffcan('settings.referral')
                                 <li>
                                     <a href="{{ route('staff.settings.referral.index') }}"
                                        class="flex items-center px-4 py-3 rounded-md text-sm font-medium transition {{ request()->routeIs('staff.settings.referral.*') ? 'bg-indigo-50 text-indigo-700 border-l-4 border-indigo-600' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900' }}">
@@ -40,6 +45,7 @@
                                         {{ __('Referral Program') }}
                                     </a>
                                 </li>
+                                @endstaffcan
                             </ul>
                         </nav>
                     </div>

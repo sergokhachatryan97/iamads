@@ -1,3 +1,4 @@
+@php $staffUser = auth()->guard('staff')->user(); @endphp
 @if($categories->isEmpty())
     {{-- Empty table when no results found --}}
     <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
@@ -202,9 +203,11 @@
                             <td colspan="10" class="px-6 py-2">
                                 <div class="flex items-center justify-between">
                                     <div class="flex items-center gap-3">
+                                        @staffcan('categories.reorder')
                                         <span class="category-drag-handle cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600" title="Drag to reorder">
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path></svg>
                                         </span>
+                                        @endstaffcan
                                         @if($category->icon)
                                             <span class="text-xl">
                                                 @if(Str::startsWith($category->icon, '<svg'))
@@ -236,6 +239,7 @@
                                         </button>
 
                                         @if(!($category->status ?? true))
+                                            @staffcan('categories.toggle-status')
                                             <!-- Enable Category Button (shown when disabled) -->
                                             <form method="POST" action="{{ route('staff.categories.toggle-status', $category) }}" class="inline">
                                                 @csrf
@@ -243,7 +247,12 @@
                                                     {{ __('Enable category') }}
                                                 </button>
                                             </form>
+                                            @endstaffcan
                                         @else
+                                            @php
+                                                $hasCatActions = $staffUser && ($staffUser->hasRole('super_admin') || $staffUser->hasPermissionTo('categories.edit', 'staff') || $staffUser->hasPermissionTo('categories.toggle-status', 'staff'));
+                                            @endphp
+                                            @if($hasCatActions)
                                             <!-- Actions Dropdown (shown when enabled) -->
                                             <div class="relative" x-data="{ open: false }">
                                                 <button type="button"
@@ -259,24 +268,31 @@
                                                      x-cloak
                                                      class="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg py-1 border border-gray-200"
                                                      style="display: none; z-index: 9999;">
+                                                    @staffcan('categories.edit')
                                                     <a href="#"
                                                        @click.prevent="openEditModal(@js(['id' => $category->id, 'name' => $category->name, 'link_driver' => $category->link_driver ?? 'generic', 'icon' => $category->icon ?? ''])); open = false"
                                                        class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                                         Edit category
                                                     </a>
+                                                    @endstaffcan
+                                                    @staffcan('categories.toggle-status')
                                                     <form method="POST" action="{{ route('staff.categories.toggle-status', $category) }}" class="inline">
                                                         @csrf
                                                         <button type="submit" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                                             {{ __('Disable category') }}
                                                         </button>
                                                     </form>
+                                                    @endstaffcan
+                                                    @if($staffUser && ($staffUser->hasRole('super_admin') || $staffUser->hasPermissionTo('services.toggle-status', 'staff') || $staffUser->hasPermissionTo('services.delete', 'staff')))
                                                     <a href="#"
                                                        @click.prevent="selectAllCategoryServices({{ $category->id }}); open = false"
                                                        class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                                         Select all category services
                                                     </a>
+                                                    @endif
                                                 </div>
                                             </div>
+                                            @endif
                                         @endif
                                     </div>
                                 </div>
@@ -344,6 +360,10 @@
                                                         <span>{{ $groupLabel }} ({{ $targetServices->count() }})</span>
                                                     </button>
                                                 </div>
+                                                @php
+                                                    $hasTargetGroupActions = $staffUser && ($staffUser->hasRole('super_admin') || $staffUser->hasPermissionTo('services.toggle-status', 'staff') || $staffUser->hasPermissionTo('services.delete', 'staff'));
+                                                @endphp
+                                                @if($hasTargetGroupActions)
                                                 <div class="flex items-center gap-3">
                                                     {{-- Actions Dropdown for Target Type Group --}}
                                                     <div class="relative" x-data="{ open{{ $targetGroupId }}: false }">
@@ -365,6 +385,7 @@
                                                                     class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                                                 {{ __('Select all') }}
                                                             </button>
+                                                            @staffcan('services.toggle-status')
                                                             <button type="button"
                                                                     @click="showBulkEnableTargetGroupConfirm('{{ $targetGroupId }}', {{ $category->id }}, '{{ $targetType }}'); open{{ $targetGroupId }} = false"
                                                                     class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
@@ -375,9 +396,11 @@
                                                                     class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                                                 {{ __('Disable all') }}
                                                             </button>
+                                                            @endstaffcan
                                                         </div>
                                                     </div>
                                                 </div>
+                                                @endif
                                             </div>
                                         </td>
                                     </tr>
@@ -394,9 +417,12 @@
                                     @endif>
                                         <td class="px-4 py-2 whitespace-nowrap" @click.stop>
                                             <div class="flex items-center gap-2">
+                                                @staffcan('services.edit')
                                                 <span class="service-drag-handle cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600" title="Drag to reorder">
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path></svg>
                                                 </span>
+                                                @endstaffcan
+                                            @if($staffUser && ($staffUser->hasRole('super_admin') || $staffUser->hasPermissionTo('services.toggle-status', 'staff') || $staffUser->hasPermissionTo('services.delete', 'staff')))
                                             <input type="checkbox"
                                                    data-category-id="{{ $category->id }}"
                                                    data-target-type="{{ $targetType }}"
@@ -405,6 +431,7 @@
                                                    :checked="selectedServices.includes({{ $service->id }})"
                                                    class="service-checkbox rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 {{ !($service->is_active ?? true) ? 'opacity-50' : '' }}"
                                                    @change="toggleServiceSelection({{ $service->id }}, $event.target.checked, {{ $category->id }})">
+                                            @endif
                                             </div>
                                         </td>
                                         <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
@@ -476,6 +503,7 @@
                                         </td>
                                         <td class="px-4 py-2 whitespace-nowrap text-sm" style="position: relative; overflow: visible;" @click.stop>
                                             @if(!($service->is_active ?? true))
+                                                @staffcan('services.toggle-status')
                                                 <!-- Enable Service Button (shown when disabled) -->
                                                 <form method="POST" action="{{ route('staff.services.toggle-status', $service) }}" class="inline">
                                                     @csrf
@@ -483,9 +511,14 @@
                                                         {{ __('Enable') }}
                                                     </button>
                                                 </form>
+                                                @endstaffcan
                                             @else
+                                                @php
+                                                    $hasServiceActions = $staffUser && ($staffUser->hasRole('super_admin') || $staffUser->hasPermissionTo('services.edit', 'staff') || $staffUser->hasPermissionTo('services.create', 'staff') || $staffUser->hasPermissionTo('services.toggle-status', 'staff') || $staffUser->hasPermissionTo('services.delete', 'staff'));
+                                                @endphp
                                                 @if($service->trashed())
                                                     <!-- Restore Button for Deleted Services -->
+                                                    @staffcan('services.create')
                                                     <button type="button"
                                                             @click.stop="setTimeout(function() { window.dispatchEvent(new CustomEvent('show-restore-confirm', { detail: { serviceId: {{ $service->id }}, serviceName: '{{ addslashes($service->name) }}' }, bubbles: true })); }, 150);"
                                                             class="inline-flex items-center px-3 py-1 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500">
@@ -494,7 +527,9 @@
                                                         </svg>
                                                         {{ __('Restore') }}
                                                     </button>
+                                                    @endstaffcan
                                                 @else
+                                                    @if($hasServiceActions)
                                                     <!-- Actions Dropdown (shown when enabled) -->
                                                     <div class="relative" x-data="{ open{{ $service->id }}: false }" style="position: relative;">
                                                         <button type="button"
@@ -520,26 +555,35 @@
                                                             x-transition:leave-end="transform opacity-0 scale-95"
                                                             class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 border border-gray-200"
                                                             style="display: none; z-index: 9999;">
+                                                            @staffcan('services.edit')
                                                             <a href="{{ route('staff.services.edit', $service) }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Edit</a>
+                                                            @endstaffcan
+                                                            @staffcan('services.create')
                                                             <form method="POST" action="{{ route('staff.services.duplicate', $service) }}" class="inline">
                                                                 @csrf
                                                                 <button type="submit" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                                                     {{ __('Duplicate') }}
                                                                 </button>
                                                             </form>
+                                                            @endstaffcan
+                                                            @staffcan('services.toggle-status')
                                                             <form method="POST" action="{{ route('staff.services.toggle-status', $service) }}" class="inline">
                                                                 @csrf
                                                                 <button type="submit" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                                                     {{ __('Disable') }}
                                                                 </button>
                                                             </form>
+                                                            @endstaffcan
+                                                            @staffcan('services.delete')
                                                             <button type="button"
                                                                     @click.stop="open{{ $service->id }} = false; setTimeout(function() { window.dispatchEvent(new CustomEvent('show-delete-confirm', { detail: { serviceId: {{ $service->id }}, serviceName: '{{ addslashes($service->name) }}' }, bubbles: true })); }, 150);"
                                                                     class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
                                                                 {{ __('Delete') }}
                                                             </button>
+                                                            @endstaffcan
                                                         </div>
                                                     </div>
+                                                    @endif
                                                 @endif
                                             @endif
                                         </td>

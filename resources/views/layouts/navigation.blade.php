@@ -15,54 +15,51 @@
                     <x-nav-link :href="route('staff.dashboard')" :active="request()->routeIs('staff.dashboard')">
                         {{ __('Dashboard') }}
                     </x-nav-link>
-                    @if(Auth::guard('staff')->check() && Auth::guard('staff')->user()->hasRole('super_admin'))
+                    @staffcan('users.view')
                         <x-nav-link :href="route('staff.users.index')" :active="request()->routeIs('staff.users.*')">
                             {{ __('Managers') }}
                         </x-nav-link>
+                    @endstaffcan
+                    @staffcan('socpanel-moderation.view')
                         <x-nav-link :href="route('staff.socpanel-moderation.index')" :active="request()->routeIs('staff.socpanel-moderation.*')">
                             {{ __('Socpanel Moderation') }}
                         </x-nav-link>
+                    @endstaffcan
+                    @staffcan('provider-order-stats.view')
                         <x-nav-link :href="route('staff.provider-order-stats.index')" :active="request()->routeIs('staff.provider-order-stats.*')">
                             {{ __('Provider Order Stats') }}
                         </x-nav-link>
+                    @endstaffcan
+                    @staffcan('activity-logs.view')
                         <x-nav-link :href="route('staff.activity-logs.index')" :active="request()->routeIs('staff.activity-logs.*')">
                             {{ __('Activity Log') }}
                         </x-nav-link>
-                    @endif
-                    @if(Auth::guard('staff')->check())
+                    @endstaffcan
+                    @staffcan('orders.view')
                         <x-nav-link :href="route('staff.orders.index')" :active="request()->routeIs('staff.orders.*')">
                             {{ __('Orders') }}
                         </x-nav-link>
-{{--                        <x-nav-link :href="route('staff.order-stats.index')" :active="request()->routeIs('staff.order-stats.*')">--}}
-{{--                            {{ __('Order Stats') }}--}}
-{{--                        </x-nav-link>--}}
-                        @if(Auth::guard('staff')->user()?->hasRole('super_admin'))
-                            <x-nav-link :href="route('staff.telegram-stats.index')" :active="request()->routeIs('staff.telegram-stats.*')">
-                                {{ __('Telegram Stats') }}
-                            </x-nav-link>
-                        @endif
-                    @endif
-                    @if(Auth::guard('staff')->check())
+                    @endstaffcan
+                    @staffcan('telegram-stats.view')
+                        <x-nav-link :href="route('staff.telegram-stats.index')" :active="request()->routeIs('staff.telegram-stats.*')">
+                            {{ __('Telegram Stats') }}
+                        </x-nav-link>
+                    @endstaffcan
+                    @staffcan('clients.view')
                         <x-nav-link :href="route('staff.clients.index')" :active="request()->routeIs('staff.clients.*')">
                             {{ __('Users') }}
                         </x-nav-link>
+                    @endstaffcan
+                    @staffcan('payments.view')
                         <x-nav-link :href="route('staff.payments.index')" :active="request()->routeIs('staff.payments.*')">
                             {{ __('Payments') }}
                         </x-nav-link>
-                    @endif
-                    @if(Auth::guard('staff')->check())
+                    @endstaffcan
+                    @staffcan('services.view')
                         <x-nav-link :href="route('staff.services.index')" :active="request()->routeIs('staff.services.*')">
                             {{ __('Services') }}
                         </x-nav-link>
-                    @endif
-{{--            @if(Auth::guard('staff')->check())--}}
-{{--                <x-nav-link :href="route('staff.subscriptions.index')" :active="request()->routeIs('staff.subscriptions.index') || request()->routeIs('staff.subscriptions.create') || request()->routeIs('staff.subscriptions.edit') || request()->routeIs('staff.subscriptions.edit-header')">--}}
-{{--                    {{ __('Subscription Plans') }}--}}
-{{--                </x-nav-link>--}}
-{{--                <x-nav-link :href="route('staff.subscriptions.client-subscriptions')" :active="request()->routeIs('staff.subscriptions.client-subscriptions')">--}}
-{{--                    {{ __('Client Subscriptions') }}--}}
-{{--                </x-nav-link>--}}
-{{--            @endif--}}
+                    @endstaffcan
                 </div>
             </div>
 
@@ -88,11 +85,17 @@
                             {{ __('Profile') }}
                         </x-dropdown-link>
 
-                        @if(Auth::guard('staff')->check() && Auth::guard('staff')->user()->hasRole('super_admin'))
+                        @staffcan('settings.view')
                             <x-dropdown-link :href="route('staff.settings.index')">
                                 {{ __('Settings') }}
                             </x-dropdown-link>
-                        @endif
+                        @endstaffcan
+
+                        @staffcan('exports.view')
+                            <x-dropdown-link :href="route('staff.exports.index')">
+                                {{ __('Exports') }}
+                            </x-dropdown-link>
+                        @endstaffcan
 
                         <!-- Authentication -->
                         <form method="POST" action="{{ route('staff.logout') }}">
@@ -130,55 +133,56 @@
                 {{ __('Dashboard') }}
             </x-responsive-nav-link>
 
-            @if(Auth::guard('staff')->check() && Auth::guard('staff')->user()->hasRole('super_admin'))
+            @staffcan('users.view')
                 <x-responsive-nav-link :href="route('staff.users.index')" :active="request()->routeIs('staff.users.*')">
-                    {{ __('Users') }}
+                    {{ __('Managers') }}
                 </x-responsive-nav-link>
+            @endstaffcan
+            @staffcan('socpanel-moderation.view')
                 <x-responsive-nav-link :href="route('staff.socpanel-moderation.index')" :active="request()->routeIs('staff.socpanel-moderation.*')">
                     {{ __('Socpanel Moderation') }}
                 </x-responsive-nav-link>
+            @endstaffcan
+            @staffcan('provider-order-stats.view')
                 <x-responsive-nav-link :href="route('staff.provider-order-stats.index')" :active="request()->routeIs('staff.provider-order-stats.*')">
                     {{ __('Provider Order Stats') }}
                 </x-responsive-nav-link>
+            @endstaffcan
+            @staffcan('activity-logs.view')
                 <x-responsive-nav-link :href="route('staff.activity-logs.index')" :active="request()->routeIs('staff.activity-logs.*')">
                     {{ __('Activity Log') }}
                 </x-responsive-nav-link>
-            @endif
-
-            @if(Auth::guard('staff')->check())
+            @endstaffcan
+            @staffcan('orders.view')
                 <x-responsive-nav-link :href="route('staff.orders.index')" :active="request()->routeIs('staff.orders.*')">
                     {{ __('Orders') }}
                 </x-responsive-nav-link>
+            @endstaffcan
+            @staffcan('orders.stats')
                 <x-responsive-nav-link :href="route('staff.order-stats.index')" :active="request()->routeIs('staff.order-stats.*')">
                     {{ __('Order Stats') }}
                 </x-responsive-nav-link>
-                @if(Auth::guard('staff')->user()?->hasRole('super_admin'))
-                    <x-responsive-nav-link :href="route('staff.telegram-stats.index')" :active="request()->routeIs('staff.telegram-stats.*')">
-                        {{ __('Telegram Stats') }}
-                    </x-responsive-nav-link>
-                @endif
+            @endstaffcan
+            @staffcan('telegram-stats.view')
+                <x-responsive-nav-link :href="route('staff.telegram-stats.index')" :active="request()->routeIs('staff.telegram-stats.*')">
+                    {{ __('Telegram Stats') }}
+                </x-responsive-nav-link>
+            @endstaffcan
+            @staffcan('clients.view')
                 <x-responsive-nav-link :href="route('staff.clients.index')" :active="request()->routeIs('staff.clients.*')">
                     {{ __('Clients') }}
                 </x-responsive-nav-link>
+            @endstaffcan
+            @staffcan('payments.view')
                 <x-responsive-nav-link :href="route('staff.payments.index')" :active="request()->routeIs('staff.payments.*')">
                     {{ __('Payments') }}
                 </x-responsive-nav-link>
-            @endif
-
-            @if(Auth::guard('staff')->check())
+            @endstaffcan
+            @staffcan('services.view')
                 <x-responsive-nav-link :href="route('staff.services.index')" :active="request()->routeIs('staff.services.*')">
                     {{ __('Services') }}
                 </x-responsive-nav-link>
-            @endif
-
-{{--            @if(Auth::guard('staff')->check())--}}
-{{--                <x-responsive-nav-link :href="route('staff.subscriptions.index')" :active="request()->routeIs('staff.subscriptions.index') || request()->routeIs('staff.subscriptions.create') || request()->routeIs('staff.subscriptions.edit') || request()->routeIs('staff.subscriptions.edit-header')">--}}
-{{--                    {{ __('Subscription Plans') }}--}}
-{{--                </x-responsive-nav-link>--}}
-{{--                <x-responsive-nav-link :href="route('staff.subscriptions.client-subscriptions')" :active="request()->routeIs('staff.subscriptions.client-subscriptions')">--}}
-{{--                    {{ __('Client Subscriptions') }}--}}
-{{--                </x-responsive-nav-link>--}}
-{{--            @endif--}}
+            @endstaffcan
         </div>
 
         <!-- Responsive Settings Options -->
@@ -196,11 +200,17 @@
                     {{ __('Profile') }}
                 </x-responsive-nav-link>
 
-                @if(Auth::guard('staff')->check() && Auth::guard('staff')->user()->hasRole('super_admin'))
+                @staffcan('settings.view')
                     <x-responsive-nav-link :href="route('staff.settings.index')">
                         {{ __('Settings') }}
                     </x-responsive-nav-link>
-                @endif
+                @endstaffcan
+
+                @staffcan('exports.view')
+                    <x-responsive-nav-link :href="route('staff.exports.index')">
+                        {{ __('Exports') }}
+                    </x-responsive-nav-link>
+                @endstaffcan
 
                 <!-- Authentication -->
                 <form method="POST" action="{{ route('staff.logout') }}">

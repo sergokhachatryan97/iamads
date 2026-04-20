@@ -33,6 +33,7 @@
                                     <div class="text-2xl font-semibold text-gray-900 mt-1">${{ number_format((float) $client->balance, 2) }}</div>
                                 </div>
                             </div>
+                            @staffcan('clients.add-balance')
                             <form method="POST" action="{{ route('staff.clients.add-balance', $client) }}">
                                 @csrf
                                 <div class="flex flex-wrap items-center gap-3">
@@ -52,6 +53,8 @@
                                     </button>
                                 </div>
                             </form>
+                            @endstaffcan
+                            @staffcan('clients.deduct-balance')
                             <form method="POST" action="{{ route('staff.clients.deduct-balance', $client) }}" class="mt-4">
                                 @csrf
                                 <div class="flex flex-wrap items-center gap-3">
@@ -77,6 +80,7 @@
                                     <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                                 @enderror
                             </form>
+                            @endstaffcan
                         </div>
 
                     @php
@@ -402,6 +406,7 @@
                                                 <td class="px-3 py-2 text-gray-600">{{ $payment->created_at?->format('Y-m-d H:i') }}</td>
                                                 <td class="px-3 py-2">
                                                     @if (in_array($payment->status, ['pending', 'new']))
+                                                        @staffcan('payments.update-status')
                                                         <form method="POST" action="{{ route('staff.payments.update-status', $payment) }}" class="inline-flex gap-1">
                                                             @csrf
                                                             <input type="hidden" name="status" value="paid" />
@@ -413,6 +418,9 @@
                                                             <input type="hidden" name="status" value="failed" />
                                                             <button type="submit" class="text-xs font-medium text-red-700 hover:text-red-800">{{ __('Reject') }}</button>
                                                         </form>
+                                                        @else
+                                                            —
+                                                        @endstaffcan
                                                     @else
                                                         —
                                                     @endif

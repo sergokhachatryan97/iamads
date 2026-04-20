@@ -155,113 +155,135 @@ Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSess
     Route::patch('profile', [ProfileController::class, 'update'])->name('staff.profile.update');
     Route::delete('profile/avatar', [ProfileController::class, 'destroyAvatar'])->name('staff.profile.avatar.destroy');
 
-    // Super Admin Routes
-    Route::middleware('staff.role:super_admin')->group(function () {
+    // Settings (requires specific permissions; super_admin bypasses via Gate::before)
+    Route::middleware('staff.permission:settings.view')->group(function () {
         Route::get('settings', [SettingsController::class, 'index'])->name('staff.settings.index');
-
+    });
+    Route::middleware('staff.permission:settings.roles')->group(function () {
         Route::get('settings/roles', [RoleController::class, 'index'])->name('staff.settings.roles.index');
         Route::get('settings/roles/{role}/edit', [RoleController::class, 'edit'])->name('staff.settings.roles.edit');
         Route::put('settings/roles/{role}', [RoleController::class, 'update'])->name('staff.settings.roles.update');
-
+    });
+    Route::middleware('staff.permission:settings.referral')->group(function () {
         Route::get('settings/referral', [\App\Http\Controllers\Settings\ReferralSettingsController::class, 'index'])->name('staff.settings.referral.index');
         Route::put('settings/referral', [\App\Http\Controllers\Settings\ReferralSettingsController::class, 'update'])->name('staff.settings.referral.update');
-
+    });
+    Route::middleware('staff.permission:settings.invitations')->group(function () {
         Route::get('settings/invitations', [InvitationController::class, 'index'])->name('staff.settings.invitations.index');
         Route::get('settings/invitations/create', [InvitationController::class, 'create'])->name('staff.settings.invitations.create');
         Route::post('settings/invitations', [InvitationController::class, 'store'])->name('staff.settings.invitations.store');
         Route::get('settings/invitations/{invitation}', [InvitationController::class, 'show'])->name('staff.settings.invitations.show');
         Route::post('settings/invitations/{invitation}/send-email', [InvitationController::class, 'sendEmail'])->name('staff.settings.invitations.send-email');
+    });
 
-        // Staff Users Management
+    // Users Management
+    Route::middleware('staff.permission:users.view')->group(function () {
         Route::get('users', [UserController::class, 'index'])->name('staff.users.index');
+    });
+    Route::middleware('staff.permission:users.edit')->group(function () {
         Route::get('users/{user}/edit', [UserController::class, 'edit'])->name('staff.users.edit');
         Route::put('users/{user}', [UserController::class, 'update'])->name('staff.users.update');
-        Route::delete('users/{user}', [UserController::class, 'destroy'])->name('staff.users.destroy');
         Route::post('users/{user}/resend-verification', [UserController::class, 'resendVerification'])->name('staff.users.resend-verification');
+    });
+    Route::delete('users/{user}', [UserController::class, 'destroy'])->name('staff.users.destroy')->middleware('staff.permission:users.delete');
 
-        // Socpanel moderation: provider orders table (super admin only)
-        Route::get('socpanel-moderation', [SocpanelModerationController::class, 'index'])->name('staff.socpanel-moderation.index');
-
-        // Provider order statistics (completed orders by user / by service)
+    // Statistics & Reports
+    Route::get('socpanel-moderation', [SocpanelModerationController::class, 'index'])->name('staff.socpanel-moderation.index')->middleware('staff.permission:socpanel-moderation.view');
+    Route::middleware('staff.permission:provider-order-stats.view')->group(function () {
         Route::get('provider-order-stats', [ProviderOrderStatsController::class, 'index'])->name('staff.provider-order-stats.index');
-        Route::get('provider-order-stats/export', [ProviderOrderStatsController::class, 'exportCsv'])->name('staff.provider-order-stats.export');
+        Route::get('provider-order-stats/export', [ProviderOrderStatsController::class, 'exportCsv'])->name('staff.provider-order-stats.export')->middleware('staff.permission:provider-order-stats.export');
+    });
+    Route::get('activity-logs', [\App\Http\Controllers\Staff\ActivityLogController::class, 'index'])->name('staff.activity-logs.index')->middleware('staff.permission:activity-logs.view');
+    Route::get('telegram-stats', [TelegramStatsController::class, 'index'])->name('staff.telegram-stats.index')->middleware('staff.permission:telegram-stats.view');
 
-        // Manager Activity Log
-        Route::get('activity-logs', [\App\Http\Controllers\Staff\ActivityLogController::class, 'index'])->name('staff.activity-logs.index');
+    // Clients Management
+    Route::middleware('staff.permission:clients.view')->group(function () {
+        Route::get('clients', [ClientController::class, 'index'])->name('staff.clients.index');
+        Route::get('clients/{client}/edit', [ClientController::class, 'edit'])->name('staff.clients.edit');
+    });
+    Route::post('clients/{client}/add-balance', [ClientController::class, 'addBalance'])->name('staff.clients.add-balance')->middleware('staff.permission:clients.add-balance');
+    Route::post('clients/{client}/deduct-balance', [ClientController::class, 'deductBalance'])->name('staff.clients.deduct-balance')->middleware('staff.permission:clients.deduct-balance');
+    Route::patch('clients/{client}', [ClientController::class, 'update'])->name('staff.clients.update')->middleware('staff.permission:clients.edit');
+    Route::delete('clients/{client}', [ClientController::class, 'destroy'])->name('staff.clients.destroy')->middleware('staff.permission:clients.delete');
+    Route::post('clients/{client}/suspend', [ClientController::class, 'suspend'])->name('staff.clients.suspend')->middleware('staff.permission:clients.suspend');
+    Route::post('clients/{client}/activate', [ClientController::class, 'activate'])->name('staff.clients.activate')->middleware('staff.permission:clients.suspend');
+    Route::post('clients/bulk-suspend', [ClientController::class, 'bulkSuspend'])->name('staff.clients.bulk-suspend')->middleware('staff.permission:clients.suspend');
+    Route::post('clients/bulk-activate', [ClientController::class, 'bulkActivate'])->name('staff.clients.bulk-activate')->middleware('staff.permission:clients.suspend');
+    Route::post('clients/{client}/assign-staff', [ClientController::class, 'assignStaff'])->name('staff.clients.assign-staff')->middleware('staff.permission:clients.assign-staff');
+    Route::middleware('staff.permission:clients.sign-ins')->group(function () {
+        Route::get('clients/{client}/sign-ins', [ClientLoginLogController::class, 'index'])->name('staff.clients.sign-ins');
+        Route::get('clients/{client}/sign-ins/matching-ips', [ClientLoginLogController::class, 'matchingIps'])->name('staff.clients.sign-ins.matching-ips');
     });
 
-    // Clients Management (accessible to all authenticated staff, filtered by role)
-    Route::get('clients', [ClientController::class, 'index'])->name('staff.clients.index');
-    Route::get('clients/{client}/edit', [ClientController::class, 'edit'])->name('staff.clients.edit');
-    Route::post('clients/{client}/add-balance', [ClientController::class, 'addBalance'])->name('staff.clients.add-balance');
-    Route::post('clients/{client}/deduct-balance', [ClientController::class, 'deductBalance'])->name('staff.clients.deduct-balance');
-    Route::patch('clients/{client}', [ClientController::class, 'update'])->name('staff.clients.update');
-    Route::delete('clients/{client}', [ClientController::class, 'destroy'])->name('staff.clients.destroy');
-    Route::post('clients/{client}/suspend', [ClientController::class, 'suspend'])->name('staff.clients.suspend');
-    Route::post('clients/{client}/activate', [ClientController::class, 'activate'])->name('staff.clients.activate');
-    Route::post('clients/bulk-suspend', [ClientController::class, 'bulkSuspend'])->name('staff.clients.bulk-suspend');
-    Route::post('clients/bulk-activate', [ClientController::class, 'bulkActivate'])->name('staff.clients.bulk-activate');
-    Route::post('clients/{client}/assign-staff', [ClientController::class, 'assignStaff'])->name('staff.clients.assign-staff');
-    Route::get('clients/{client}/sign-ins', [ClientLoginLogController::class, 'index'])->name('staff.clients.sign-ins');
-    Route::get('clients/{client}/sign-ins/matching-ips', [ClientLoginLogController::class, 'matchingIps'])->name('staff.clients.sign-ins.matching-ips');
-
-    Route::get('payments', [PaymentController::class, 'index'])->name('staff.payments.index');
-    Route::post('payments/{payment}/update-status', [PaymentController::class, 'updateStatus'])->name('staff.payments.update-status');
+    // Payments
+    Route::get('payments', [PaymentController::class, 'index'])->name('staff.payments.index')->middleware('staff.permission:payments.view');
+    Route::post('payments/{payment}/update-status', [PaymentController::class, 'updateStatus'])->name('staff.payments.update-status')->middleware('staff.permission:payments.update-status');
 
     // Orders
-    Route::get('orders', [\App\Http\Controllers\Staff\OrderController::class, 'index'])->name('staff.orders.index');
-    Route::get('order-stats', [\App\Http\Controllers\Staff\OrderStatsController::class, 'index'])->name('staff.order-stats.index');
-    Route::get('order-stats/export', [\App\Http\Controllers\Staff\OrderStatsController::class, 'exportCsv'])->name('staff.order-stats.export');
-    Route::post('orders/{order}/cancel', [\App\Http\Controllers\Staff\OrderController::class, 'cancelFull'])->name('staff.orders.cancelFull');
-    Route::post('orders/{order}/cancel-partial', [\App\Http\Controllers\Staff\OrderController::class, 'cancelPartial'])->name('staff.orders.cancelPartial');
-    Route::get('orders/eligible-ids', [\App\Http\Controllers\Staff\OrderController::class, 'getEligibleIds'])->name('staff.orders.eligible-ids');
-    Route::post('orders/bulk-action', [\App\Http\Controllers\Staff\OrderController::class, 'bulkAction'])->name('staff.orders.bulk-action');
-    Route::get('orders/statuses', [\App\Http\Controllers\Staff\OrderController::class, 'getStatuses'])->name('staff.orders.statuses');
-
-    // Telegram Statistics (super_admin only)
-    Route::middleware('staff.role:super_admin')->group(function () {
-        Route::get('telegram-stats', [TelegramStatsController::class, 'index'])->name('staff.telegram-stats.index');
+    Route::middleware('staff.permission:orders.view')->group(function () {
+        Route::get('orders', [\App\Http\Controllers\Staff\OrderController::class, 'index'])->name('staff.orders.index');
+        Route::get('orders/statuses', [\App\Http\Controllers\Staff\OrderController::class, 'getStatuses'])->name('staff.orders.statuses');
+        Route::get('orders/eligible-ids', [\App\Http\Controllers\Staff\OrderController::class, 'getEligibleIds'])->name('staff.orders.eligible-ids');
     });
+    Route::middleware('staff.permission:orders.stats')->group(function () {
+        Route::get('order-stats', [\App\Http\Controllers\Staff\OrderStatsController::class, 'index'])->name('staff.order-stats.index');
+        Route::get('order-stats/export', [\App\Http\Controllers\Staff\OrderStatsController::class, 'exportCsv'])->name('staff.order-stats.export')->middleware('staff.permission:orders.export');
+    });
+    Route::middleware('staff.permission:orders.cancel')->group(function () {
+        Route::post('orders/{order}/cancel', [\App\Http\Controllers\Staff\OrderController::class, 'cancelFull'])->name('staff.orders.cancelFull');
+        Route::post('orders/{order}/cancel-partial', [\App\Http\Controllers\Staff\OrderController::class, 'cancelPartial'])->name('staff.orders.cancelPartial');
+    });
+    Route::post('orders/bulk-action', [\App\Http\Controllers\Staff\OrderController::class, 'bulkAction'])->name('staff.orders.bulk-action')->middleware('staff.permission:orders.bulk-action');
 
     // Export Files
-    Route::get('exports', [\App\Http\Controllers\Staff\ExportFilesController::class, 'index'])->name('staff.exports.index');
-    Route::get('exports/json', [\App\Http\Controllers\Staff\ExportFilesController::class, 'indexJson'])->name('staff.exports.index.json');
-    Route::post('exports', [\App\Http\Controllers\Staff\ExportFilesController::class, 'store'])->name('staff.exports.store');
-    Route::get('exports/{exportFile}/download', [\App\Http\Controllers\Staff\ExportFilesController::class, 'download'])->name('staff.exports.download');
+    Route::get('exports', [\App\Http\Controllers\Staff\ExportFilesController::class, 'index'])->name('staff.exports.index')->middleware('staff.permission:exports.view');
+    Route::get('exports/json', [\App\Http\Controllers\Staff\ExportFilesController::class, 'indexJson'])->name('staff.exports.index.json')->middleware('staff.permission:exports.view');
+    Route::post('exports', [\App\Http\Controllers\Staff\ExportFilesController::class, 'store'])->name('staff.exports.store')->middleware('staff.permission:exports.create');
+    Route::get('exports/{exportFile}/download', [\App\Http\Controllers\Staff\ExportFilesController::class, 'download'])->name('staff.exports.download')->middleware('staff.permission:exports.download');
 
-    // Services Management (accessible to all authenticated staff)
-    Route::get('services', [ServiceController::class, 'index'])->name('staff.services.index');
-    Route::post('services/search', [ServiceController::class, 'search'])->name('staff.services.search');
-    Route::get('services/create', [ServiceController::class, 'create'])->name('staff.services.create');
-    Route::post('services', [ServiceController::class, 'store'])->name('staff.services.store');
-    Route::get('services/{service}/edit', [ServiceController::class, 'edit'])->name('staff.services.edit');
-    Route::put('services/{service}', [ServiceController::class, 'update'])->name('staff.services.update');
-    Route::post('services/{service}/duplicate', [ServiceController::class, 'duplicate'])->name('staff.services.duplicate');
-    Route::post('services/{service}/update-mode', [ServiceController::class, 'updateMode'])->name('staff.services.update-mode');
-    Route::delete('services/{service}', [ServiceController::class, 'destroy'])->name('staff.services.destroy');
-    Route::post('services/{service}/toggle-status', [ServiceController::class, 'toggleServiceStatus'])->name('staff.services.toggle-status');
-    Route::post('services/{serviceId}/restore', [ServiceController::class, 'restore'])->name('staff.services.restore');
+    // Services Management
+    Route::middleware('staff.permission:services.view')->group(function () {
+        Route::get('services', [ServiceController::class, 'index'])->name('staff.services.index');
+        Route::post('services/search', [ServiceController::class, 'search'])->name('staff.services.search');
+    });
+    Route::middleware('staff.permission:services.create')->group(function () {
+        Route::get('services/create', [ServiceController::class, 'create'])->name('staff.services.create');
+        Route::post('services', [ServiceController::class, 'store'])->name('staff.services.store');
+        Route::post('services/{service}/duplicate', [ServiceController::class, 'duplicate'])->name('staff.services.duplicate');
+    });
+    Route::middleware('staff.permission:services.edit')->group(function () {
+        Route::get('services/{service}/edit', [ServiceController::class, 'edit'])->name('staff.services.edit');
+        Route::put('services/{service}', [ServiceController::class, 'update'])->name('staff.services.update');
+        Route::post('services/{service}/update-mode', [ServiceController::class, 'updateMode'])->name('staff.services.update-mode');
+        Route::post('services/reorder', [ServiceController::class, 'reorderServices'])->name('staff.services.reorder');
+    });
+    Route::delete('services/{service}', [ServiceController::class, 'destroy'])->name('staff.services.destroy')->middleware('staff.permission:services.delete');
+    Route::post('services/{service}/toggle-status', [ServiceController::class, 'toggleServiceStatus'])->name('staff.services.toggle-status')->middleware('staff.permission:services.toggle-status');
+    Route::post('services/{serviceId}/restore', [ServiceController::class, 'restore'])->name('staff.services.restore')->middleware('staff.permission:services.create');
 
-    // Categories Management (accessible to all authenticated staff)
-    Route::post('categories', [ServiceController::class, 'storeCategory'])->name('staff.categories.store');
-    Route::put('categories/{category}', [ServiceController::class, 'updateCategory'])->name('staff.categories.update');
-    Route::post('categories/{category}/toggle-status', [ServiceController::class, 'toggleCategoryStatus'])->name('staff.categories.toggle-status');
-    Route::post('categories/reorder', [ServiceController::class, 'reorderCategories'])->name('staff.categories.reorder');
-    Route::post('services/reorder', [ServiceController::class, 'reorderServices'])->name('staff.services.reorder');
+    // Categories Management
+    Route::post('categories', [ServiceController::class, 'storeCategory'])->name('staff.categories.store')->middleware('staff.permission:categories.create');
+    Route::put('categories/{category}', [ServiceController::class, 'updateCategory'])->name('staff.categories.update')->middleware('staff.permission:categories.edit');
+    Route::post('categories/{category}/toggle-status', [ServiceController::class, 'toggleCategoryStatus'])->name('staff.categories.toggle-status')->middleware('staff.permission:categories.toggle-status');
+    Route::post('categories/reorder', [ServiceController::class, 'reorderCategories'])->name('staff.categories.reorder')->middleware('staff.permission:categories.reorder');
 
-    // Subscription Plans Management (staff, super_admin only)
-    Route::middleware('staff.role:staff,super_admin')->group(function () {
+    // Subscription Plans Management
+    Route::middleware('staff.permission:subscriptions.view')->group(function () {
         Route::get('subscriptions', [SubscriptionPlanController::class, 'index'])->name('staff.subscriptions.index');
         Route::get('subscriptions/client-subscriptions', [SubscriptionPlanController::class, 'clientSubscriptions'])->name('staff.subscriptions.client-subscriptions');
+        Route::get('subscriptions/services/by-category', [SubscriptionPlanController::class, 'getServicesByCategory'])->name('staff.subscriptions.services.by-category');
+    });
+    Route::middleware('staff.permission:subscriptions.create')->group(function () {
         Route::get('subscriptions/create', [SubscriptionPlanController::class, 'create'])->name('staff.subscriptions.create');
         Route::post('subscriptions', [SubscriptionPlanController::class, 'store'])->name('staff.subscriptions.store');
+    });
+    Route::middleware('staff.permission:subscriptions.edit')->group(function () {
         Route::get('subscriptions/{subscriptionPlan}/edit', [SubscriptionPlanController::class, 'edit'])->name('staff.subscriptions.edit');
         Route::put('subscriptions/{subscriptionPlan}', [SubscriptionPlanController::class, 'update'])->name('staff.subscriptions.update');
-        Route::delete('subscriptions/{subscriptionPlan}', [SubscriptionPlanController::class, 'destroy'])->name('staff.subscriptions.destroy');
-        Route::get('subscriptions/services/by-category', [SubscriptionPlanController::class, 'getServicesByCategory'])->name('staff.subscriptions.services.by-category');
         Route::get('subscriptions/edit-header', [SubscriptionPlanController::class, 'editHeader'])->name('staff.subscriptions.edit-header');
         Route::post('subscriptions/update-header', [SubscriptionPlanController::class, 'updateHeader'])->name('staff.subscriptions.update-header');
     });
+    Route::delete('subscriptions/{subscriptionPlan}', [SubscriptionPlanController::class, 'destroy'])->name('staff.subscriptions.destroy')->middleware('staff.permission:subscriptions.delete');
 });
 
 // Staff Invitation Acceptance Routes (guest only, under /staff prefix)

@@ -12,6 +12,7 @@
                     </svg>
                     {{ request('show_deleted') == '1' ? __('Show Active') : __('Show Deleted') }}
                 </a>
+                @staffcan('categories.create')
                 <button type="button"
                         x-data
                         @click="$dispatch('open-create-category-modal')"
@@ -21,6 +22,8 @@
                     </svg>
                     {{ __('Create Category') }}
                 </button>
+                @endstaffcan
+                @staffcan('services.create')
                 <a href="{{ route('staff.services.create') }}"
                    class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition ease-in-out duration-150">
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -28,6 +31,7 @@
                     </svg>
                     {{ __('Create Service') }}
                 </a>
+                @endstaffcan
             </div>
         </div>
     </x-slot>
@@ -179,6 +183,11 @@
                         <form method="GET" action="{{ route('staff.services.index') }}" id="filter-form" @submit="handleFormSubmit($event)">
                             <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 mb-4 justify-end">
                                 <!-- Bulk Actions Button (shown when services are selected) -->
+                                @php
+                                    $staffUser = auth()->guard('staff')->user();
+                                    $hasBulkPerms = $staffUser && ($staffUser->hasRole('super_admin') || $staffUser->hasPermissionTo('services.toggle-status', 'staff') || $staffUser->hasPermissionTo('services.delete', 'staff') || $staffUser->hasPermissionTo('services.create', 'staff'));
+                                @endphp
+                                @if($hasBulkPerms)
                                 <div x-show="selectedServices.length > 0"
                                      x-cloak
                                      class="relative flex-shrink-0"
@@ -200,14 +209,15 @@
                                          class="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg py-1 border border-gray-200"
                                          style="display: none; z-index: 1001; position: absolute;">
                                         @if(request('show_deleted') == '1')
-                                            <!-- Restore All (only shown when viewing deleted services) -->
+                                            @staffcan('services.create')
                                             <button type="button"
                                                     @click="showBulkRestoreConfirm(); open = false"
                                                     class="block w-full text-left px-4 py-2 text-sm text-green-600 hover:bg-gray-100">
                                                 {{ __('Restore all') }}
                                             </button>
+                                            @endstaffcan
                                         @else
-                                            <!-- Regular bulk operations (shown when viewing active services) -->
+                                            @staffcan('services.toggle-status')
                                             <button type="button"
                                                     @click="showBulkEnableConfirm(); open = false"
                                                     class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
@@ -218,15 +228,19 @@
                                                     class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                                 {{ __('Disable all') }}
                                             </button>
+                                            @endstaffcan
+                                            @staffcan('services.delete')
                                             <div class="border-t border-gray-200 my-1"></div>
                                             <button type="button"
                                                     @click="showBulkDeleteConfirm(); open = false"
                                                     class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
                                                 {{ __('Delete all') }}
                                             </button>
+                                            @endstaffcan
                                         @endif
                                     </div>
                                 </div>
+                                @endif
 
                                 <!-- Filter Button with Badge -->
                                 <x-filter-button count="activeFiltersCount">

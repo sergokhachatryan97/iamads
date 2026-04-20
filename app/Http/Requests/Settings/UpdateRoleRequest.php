@@ -12,8 +12,8 @@ class UpdateRoleRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        // Only super_admin can update roles
-        return $this->user() && $this->user()->hasRole('super_admin');
+        $user = auth()->guard('staff')->user();
+        return $user && ($user->hasRole('super_admin') || $user->hasPermissionTo('settings.roles', 'staff'));
     }
 
     /**

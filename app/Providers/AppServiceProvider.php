@@ -105,6 +105,18 @@ class AppServiceProvider extends ServiceProvider
 
             return null;
         });
+
+        // @staffcan / @endstaffcan — checks permissions against the staff guard
+        \Illuminate\Support\Facades\Blade::if('staffcan', function (string $permission) {
+            $user = auth()->guard('staff')->user();
+            if (!$user) {
+                return false;
+            }
+            if ($user->hasRole('super_admin')) {
+                return true;
+            }
+            return $user->hasPermissionTo($permission, 'staff');
+        });
     }
 
     /**
