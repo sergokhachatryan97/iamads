@@ -2,7 +2,7 @@
     $providerCode = array_key_first($paymentTypes ?? []);
 @endphp
 
-<x-client-layout :title="__('Add Funds')">
+<x-client-layout :title="__('Add Balance')">
     <style>
         .add-funds-wrap { max-width: 560px; margin: 0 auto; }
         .add-funds-card {
