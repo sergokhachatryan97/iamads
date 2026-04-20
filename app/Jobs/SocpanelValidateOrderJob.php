@@ -28,6 +28,10 @@ class SocpanelValidateOrderJob implements ShouldQueue
 
         143 => ['mode' => 'chat_link_only_public_or_private', 'allow' => ['channel'], 'audience' => ['subscribers']],
 
+        // ✅ group links only (no channels)
+        224 => ['mode' => 'channel_link', 'allow' => ['supergroup', 'group'], 'audience' => ['members']],
+        225 => ['mode' => 'chat_link_only_public_or_private', 'allow' => ['supergroup', 'group'], 'audience' => ['members']],
+
         // ✅ public post links - channel/supergroup ok
         86  => ['mode' => 'public_post', 'allow' => ['channel','supergroup'], 'audience' => null],
         131 => ['mode' => 'public_post', 'allow' => ['channel','supergroup'], 'audience' => null],
