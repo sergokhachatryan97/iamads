@@ -17,6 +17,7 @@ return new class extends Migration
         'clients.deduct-balance',
         'clients.suspend',
         'clients.assign-staff',
+        'clients.change-password',
         'clients.sign-ins',
 
         // Orders
