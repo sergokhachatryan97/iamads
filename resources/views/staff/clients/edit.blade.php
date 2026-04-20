@@ -488,8 +488,8 @@
                         <!-- Staff Assignment and Personal Discount Row -->
                         <div class="mb-6 pb-6 border-b border-gray-200">
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <!-- Staff Assignment (Super Admin Only) -->
-                                @if(auth()->guard('staff')->check() && auth()->guard('staff')->user()->hasRole('super_admin'))
+                                <!-- Staff Assignment -->
+                                @staffcan('clients.assign-staff')
                                     <div>
                                         <label for="staff_id" class="block text-sm font-medium text-gray-700 mb-2">
                                             {{ __('Assigned Staff Member') }}
@@ -511,7 +511,7 @@
                                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                         @enderror
                                     </div>
-                                @endif
+                                @endstaffcan
 
                                 <!-- Personal Discount -->
                                 <div>
@@ -1459,6 +1459,7 @@
                         </div>
 
                         <!-- Submit Button -->
+                        @staffcan('clients.edit')
                         <div class="flex items-center justify-end gap-4 mt-6">
                             <a
                                 href="{{ route('staff.clients.index') }}"
@@ -1473,6 +1474,7 @@
                                 {{ __('Update') }}
                             </button>
                         </div>
+                        @endstaffcan
                     </form>
                         </div>{{-- /settings tab --}}
 

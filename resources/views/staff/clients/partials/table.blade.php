@@ -1,7 +1,8 @@
 @php
     $currentSort = request('sort', 'created_at');
     $currentDir = request('dir', 'desc');
-    $isSuperAdmin = auth()->guard('staff')->check() && auth()->guard('staff')->user()->hasRole('super_admin');
+    $staffUser = auth()->guard('staff')->user();
+    $isSuperAdmin = $staffUser && $staffUser->hasRole('super_admin');
 @endphp
 
 @if($clients->count() > 0)
@@ -183,22 +184,27 @@
                                 {{ $client->created_at->format('Y-m-d H:i') }}
                             </td>
                         @else
-                            <td class="px-2 sm:px-3 py-2 whitespace-nowrap cursor-pointer" onclick="window.location.href='{{ route('staff.clients.edit', $client) }}'">
+                            @php
+                                $canEditThisClient = $isSuperAdmin || $client->staff_id === $staffUser?->id;
+                                $rowClick = $canEditThisClient ? "window.location.href='" . route('staff.clients.edit', $client) . "'" : '';
+                                $rowCursor = $canEditThisClient ? 'cursor-pointer' : '';
+                            @endphp
+                            <td class="px-2 sm:px-3 py-2 whitespace-nowrap {{ $rowCursor }}" @if($canEditThisClient) onclick="{{ $rowClick }}" @endif>
                                 <div class="text-sm font-medium text-gray-900">{{ $client->id }}</div>
                             </td>
-                            <td class="px-2 sm:px-3 py-2 whitespace-nowrap cursor-pointer" onclick="window.location.href='{{ route('staff.clients.edit', $client) }}'">
+                            <td class="px-2 sm:px-3 py-2 whitespace-nowrap {{ $rowCursor }}" @if($canEditThisClient) onclick="{{ $rowClick }}" @endif>
                                 <div class="text-sm font-medium text-gray-900">{{ $client->name }}</div>
                             </td>
-                            <td class="px-2 sm:px-3 py-2 whitespace-nowrap cursor-pointer" onclick="window.location.href='{{ route('staff.clients.edit', $client) }}'">
+                            <td class="px-2 sm:px-3 py-2 whitespace-nowrap {{ $rowCursor }}" @if($canEditThisClient) onclick="{{ $rowClick }}" @endif>
                                 <div class="text-sm text-gray-900 truncate max-w-xs">{{ $client->email }}</div>
                             </td>
-                            <td class="px-2 sm:px-3 py-2 whitespace-nowrap cursor-pointer" onclick="window.location.href='{{ route('staff.clients.edit', $client) }}'">
+                            <td class="px-2 sm:px-3 py-2 whitespace-nowrap {{ $rowCursor }}" @if($canEditThisClient) onclick="{{ $rowClick }}" @endif>
                                 <div class="text-sm font-semibold text-gray-900">${{ number_format($client->balance, 2) }}</div>
                             </td>
-                            <td class="px-2 sm:px-3 py-2 whitespace-nowrap cursor-pointer" onclick="window.location.href='{{ route('staff.clients.edit', $client) }}'">
+                            <td class="px-2 sm:px-3 py-2 whitespace-nowrap {{ $rowCursor }}" @if($canEditThisClient) onclick="{{ $rowClick }}" @endif>
                                 <div class="text-sm text-gray-900">${{ number_format($client->spent, 2) }}</div>
                             </td>
-                            <td class="px-2 sm:px-3 py-2 whitespace-nowrap cursor-pointer" onclick="window.location.href='{{ route('staff.clients.edit', $client) }}'">
+                            <td class="px-2 sm:px-3 py-2 whitespace-nowrap {{ $rowCursor }}" @if($canEditThisClient) onclick="{{ $rowClick }}" @endif>
                                 <div class="text-sm text-gray-900">
                                     @if($client->staff)
                                         {{ $client->staff->name }}
@@ -207,7 +213,7 @@
                                     @endif
                                 </div>
                             </td>
-                            <td class="px-2 sm:px-3 py-2 whitespace-nowrap text-sm text-gray-500 cursor-pointer" onclick="window.location.href='{{ route('staff.clients.edit', $client) }}'">
+                            <td class="px-2 sm:px-3 py-2 whitespace-nowrap text-sm text-gray-500 {{ $rowCursor }}" @if($canEditThisClient) onclick="{{ $rowClick }}" @endif>
                                 @if($client->last_auth)
                                     @php
                                         $lastAuth = $client->last_auth instanceof \Carbon\Carbon
@@ -219,7 +225,7 @@
                                     <span class="text-gray-400">{{ __('Never') }}</span>
                                 @endif
                             </td>
-                            <td class="px-2 sm:px-3 py-2 whitespace-nowrap text-sm text-gray-500 cursor-pointer" onclick="window.location.href='{{ route('staff.clients.edit', $client) }}'">
+                            <td class="px-2 sm:px-3 py-2 whitespace-nowrap text-sm text-gray-500 {{ $rowCursor }}" @if($canEditThisClient) onclick="{{ $rowClick }}" @endif>
                                 {{ $client->created_at->format('Y-m-d H:i') }}
                             </td>
                         @endif
@@ -332,9 +338,11 @@
                                             @click.stop
                                         >
                                             @staffcan('clients.edit')
-                                            <a href="{{ route('staff.clients.edit', $client) }}" @click.stop class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                                {{ __('Edit') }}
-                                            </a>
+                                                @if($staffUser->hasRole('super_admin') || $client->staff_id === $staffUser->id)
+                                                <a href="{{ route('staff.clients.edit', $client) }}" @click.stop class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                    {{ __('Edit') }}
+                                                </a>
+                                                @endif
                                             @endstaffcan
 
                                             @staffcan('clients.suspend')

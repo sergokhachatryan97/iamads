@@ -343,8 +343,8 @@ class ClientController extends Controller
 
         $currentUser = Auth::guard('staff')->user();
 
-        // Only super_admin can assign staff
-        if (!$currentUser || !$currentUser->hasRole('super_admin')) {
+        // Permission check for assign staff
+        if (!$currentUser || (!$currentUser->hasRole('super_admin') && !$currentUser->hasPermissionTo('clients.assign-staff', 'staff'))) {
             return redirect()->route('staff.clients.index')
                 ->withErrors(['error' => 'You do not have permission to assign staff members.']);
         }

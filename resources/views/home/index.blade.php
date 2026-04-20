@@ -788,6 +788,8 @@ function orderFromModal(categoryId, serviceId) {
     document.getElementById('step-1').scrollIntoView({ behavior: 'smooth' });
 }
 
+const IS_LOGGED_IN = {{ Auth::guard('client')->check() ? 'true' : 'false' }};
+
 // Fast order
 async function submitFastOrder() {
     const btn = document.getElementById('btnComplete');
@@ -804,8 +806,23 @@ async function submitFastOrder() {
     btn.disabled = true;
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ' + escapeHtml(HOME_I18N.processing);
 
+    // Logged-in client: create order from balance (no payment needed)
+    if (IS_LOGGED_IN) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = @js(route('home.create-order'));
+        form.innerHTML = '<input type="hidden" name="_token" value="{{ csrf_token() }}">' +
+            '<input type="hidden" name="service_id" value="' + serviceId + '">' +
+            '<input type="hidden" name="category_id" value="' + categoryId + '">' +
+            '<input type="hidden" name="link" value="' + link.replace(/"/g, '&quot;') + '">' +
+            '<input type="hidden" name="quantity" value="' + qty + '">';
+        document.body.appendChild(form);
+        form.submit();
+        return;
+    }
+
+    // Guest: fast order + Heleket payment
     try {
-        // 1) Create fast order draft
         const res = await fetch('/api/fast-orders', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
@@ -826,53 +843,36 @@ async function submitFastOrder() {
         const uuid = data.fast_order?.uuid;
         if (!uuid) throw new Error(HOME_I18N.noUuid);
 
-        // 2) Set payment method
+        // Set payment method
         const pmRes = await fetch(`/api/fast-orders/${uuid}/payment-method`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
             body: JSON.stringify({ payment_method: 'heleket' })
         });
-        const pmData = await pmRes.json().catch(() => ({}));
         if (!pmRes.ok) {
-            const msg = pmData.message || (pmData.errors ? Object.values(pmData.errors).flat().join('; ') : null) || HOME_I18N.checkoutFailed;
-            throw new Error(msg);
+            const pmData = await pmRes.json().catch(() => ({}));
+            throw new Error(pmData.message || HOME_I18N.checkoutFailed);
         }
 
-        // 3) Payment
+        // Payment
         @if(app()->environment('local', 'testing', 'staging'))
-        // DEV MODE: simulate payment (no real charge)
         const simRes = await fetch(`/api/fast-orders/${uuid}/simulate-payment-success`, {
             method: 'POST',
             headers: { 'Accept': 'application/json' }
         });
         const simData = await simRes.json().catch(() => ({}));
-
-        if (!simRes.ok) {
-            throw new Error(simData.message || HOME_I18N.simulateFailed);
-        }
-
-        const loginUrl = simData.auto_login_url;
-        if (loginUrl) {
-            window.location.href = loginUrl;
-        } else {
-            throw new Error(HOME_I18N.noLoginUrl);
-        }
+        if (!simRes.ok) throw new Error(simData.message || HOME_I18N.simulateFailed);
+        if (simData.auto_login_url) { window.location.href = simData.auto_login_url; return; }
+        throw new Error(HOME_I18N.noLoginUrl);
         @else
-        // PRODUCTION: initiate real Heleket payment
         const payRes = await fetch(`/api/payments/heleket/initiate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
             body: JSON.stringify({ fast_order_uuid: uuid })
         });
         const payData = await payRes.json().catch(() => ({}));
-
-        if (payData.pay_url) {
-            window.location.href = payData.pay_url;
-            return;
-        }
-
-        const payErr = payData.message || (payData.errors ? Object.values(payData.errors).flat().join('; ') : null) || HOME_I18N.paymentFailed;
-        throw new Error(payErr);
+        if (payData.pay_url) { window.location.href = payData.pay_url; return; }
+        throw new Error(payData.message || HOME_I18N.paymentFailed);
         @endif
 
     } catch (err) {

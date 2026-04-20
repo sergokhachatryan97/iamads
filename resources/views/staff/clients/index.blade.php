@@ -583,7 +583,7 @@
 
                     <!-- Loading Indicator -->
                     <!-- Assign Staff Script (must be before table for function availability) -->
-                    @if(auth()->guard('staff')->check() && auth()->guard('staff')->user()->hasRole('super_admin'))
+                    @staffcan('clients.assign-staff')
                         <script>
                             (function() {
                                 function handleAssignStaff(clientId, clientName, currentStaffId) {
@@ -668,7 +668,7 @@
                                 window.openAssignStaffModal = openAssignStaffModal;
                             })();
                         </script>
-                    @endif
+                    @endstaffcan
 
                     <!-- Clients Table -->
                     <div id="clients-table" class="relative" style="z-index: 0; overflow: visible;">
@@ -676,7 +676,7 @@
                     </div>
 
                     <!-- Assign Staff Modal -->
-                    @if(auth()->guard('staff')->check() && auth()->guard('staff')->user()->hasRole('super_admin'))
+                    @staffcan('clients.assign-staff')
                         <div id="assignStaffModal" x-data="{ open: false, clientId: null, clientName: '', currentStaffId: null }" x-show="open" x-cloak class="fixed inset-0 z-50 overflow-y-auto" style="display: none;">
                             <div class="flex items-center justify-center min-h-screen px-4 py-4">
                                 <div x-show="open"
@@ -746,7 +746,7 @@
                                 </div>
                             </div>
                         </div>
-                    @endif
+                    @endstaffcan
 
                     <!-- Bulk Actions Confirmation Modals -->
                     <div id="bulkSuspendModal" x-data="{ open: false }" x-show="open" x-cloak class="fixed inset-0 z-50 overflow-y-auto" style="display: none;">
