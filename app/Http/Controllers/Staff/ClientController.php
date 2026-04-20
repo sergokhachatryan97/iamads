@@ -43,7 +43,10 @@ class ClientController extends Controller
         // Calculate totals (filtered by staff assignment for non-super_admin)
         $totalsQuery = Client::query();
         if ($currentUser && !$currentUser->hasRole('super_admin')) {
-            $totalsQuery->where('staff_id', $currentUser->id);
+            $totalsQuery->where(function ($q) use ($currentUser) {
+                $q->where('staff_id', $currentUser->id)
+                  ->orWhereNull('staff_id');
+            });
         }
         $totals = $totalsQuery
             ->selectRaw('COALESCE(SUM(balance), 0) as total_balance, COALESCE(SUM(spent), 0) as total_spent')

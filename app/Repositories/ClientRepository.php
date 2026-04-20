@@ -20,9 +20,12 @@ class ClientRepository implements ClientRepositoryInterface
             ->with('staff:id,name,email')
             ->select(['id', 'name', 'email', 'balance', 'spent', 'discount', 'staff_id', 'last_auth', 'status', 'created_at']);
 
-        // Permission-based filtering: non-super_admin can only see their own clients
+        // Permission-based filtering: non-super_admin see their own clients + unassigned
         if ($user && !$user->hasRole('super_admin')) {
-            $query->where('staff_id', $user->id);
+            $query->where(function ($q) use ($user) {
+                $q->where('staff_id', $user->id)
+                  ->orWhereNull('staff_id');
+            });
         }
 
         // Search
