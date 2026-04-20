@@ -60,7 +60,7 @@
         }
         .landing-navbar-spacer { flex: 1; min-width: 8px; }
         .landing-logo { display: flex; align-items: center; gap: 10px; line-height: 1.1; text-decoration: none; }
-        .landing-logo-mark { height: 20px; width: auto; flex-shrink: 0; filter: drop-shadow(0 4px 14px rgba(124, 58, 237, 0.35)); }
+        .landing-logo-mark { height: 33px; width: auto; flex-shrink: 0; filter: drop-shadow(0 4px 14px rgba(124, 58, 237, 0.35)); }
         .landing-logo-text { display: flex; flex-direction: column; }
         .landing-logo-name {
             font-size: 17px; font-weight: 800;
