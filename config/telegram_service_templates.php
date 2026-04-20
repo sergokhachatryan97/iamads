@@ -16,49 +16,75 @@ return [
     // ------------------------------------------------------------
     // PREMIUM TELEGRAM SERVICE TYPES
     // ------------------------------------------------------------
-//    'premium_daily_subscribe_public_private_group_channel' => [
-//        'label' => 'Premium: Daily Public/Private Group/Channel Subscribe',
-//        'action' => 'subscribe',
-//        'policy_key' => 'default',
-//        'allowed_link_kinds' => ['public_username', 'invite'],
-//        'allowed_peer_types' => ['channel', 'group'],
-//        'requires_duration_days' => true,
-//        'requires_start_param' => false,
-//        'default_priority' => 60,
-//    ],
-//
-//    'premium_bot_start' => [
-//        'label' => 'Premium: Bot Start',
-//        'action' => 'bot_start',
-//        'policy_key' => 'bot',
-//        'allowed_link_kinds' => ['bot_start', 'public_username'],
-//        'allowed_peer_types' => ['bot'],
-//        'requires_duration_days' => false,
-//        'requires_start_param' => false,
-//        'default_priority' => 50,
-//    ],
-//
-//    'premium_bot_start_referral' => [
-//        'label' => 'Premium: Bot Start With Referral',
-//        'action' => 'bot_start',
-//        'policy_key' => 'bot',
-//        'allowed_link_kinds' => ['bot_start_with_referral', 'bot_start', 'public_username'],
-//        'allowed_peer_types' => ['bot'],
-//        'requires_duration_days' => false,
-//        'requires_start_param' => true,
-//        'default_priority' => 50,
-//    ],
-//
-//    'premium_boost' => [
-//        'label' => 'Premium: Boost',
-//        'action' => 'subscribe',
-//        'policy_key' => 'default',
-//        'allowed_link_kinds' => ['boost_link'],
-//        'allowed_peer_types' => ['channel'],
-//        'requires_duration_days' => true,
-//        'requires_start_param' => false,
-//        'default_priority' => 60,
-//    ],
+    'premium_daily_subscribe_public_private_group_channel' => [
+        'label' => 'Premium: Daily Public/Private Group/Channel Subscribe',
+        'action' => 'subscribe',
+        'policy_key' => 'default',
+        'allowed_link_kinds' => ['public_username', 'invite'],
+        'allowed_peer_types' => ['channel', 'group'],
+        'dropdown_label' => 'Telegram Premium',
+        'dropdown_group' => 'premium',
+        'dropdown_priority' => 1,
+        'requires_duration_days' => true,
+        'requires_start_param' => false,
+        'default_priority' => 60,
+    ],
+
+    'premium_live_time_subscribe_public_private_group_channel' => [
+        'label' => 'Premium: Live Time Public/Private Group/Channel Subscribe',
+        'action' => 'subscribe',
+        'policy_key' => 'default',
+        'allowed_link_kinds' => ['public_username', 'invite'],
+        'allowed_peer_types' => ['channel', 'group'],
+        'dropdown_label' => 'Telegram Premium',
+        'dropdown_group' => 'premium',
+        'dropdown_priority' => 1,
+        'requires_duration_days' => false,
+        'requires_start_param' => false,
+        'default_priority' => 60,
+    ],
+
+    'premium_bot_start' => [
+        'label' => 'Premium: Bot Start',
+        'action' => 'bot_start',
+        'policy_key' => 'bot',
+        'allowed_link_kinds' => ['bot_start', 'public_username'],
+        'allowed_peer_types' => ['bot'],
+        'dropdown_label' => 'Telegram Premium',
+        'dropdown_group' => 'premium',
+        'dropdown_priority' => 1,
+        'requires_duration_days' => false,
+        'requires_start_param' => false,
+        'default_priority' => 50,
+    ],
+
+    'premium_bot_start_referral' => [
+        'label' => 'Premium: Bot Start With Referral',
+        'action' => 'bot_start',
+        'policy_key' => 'bot',
+        'allowed_link_kinds' => ['bot_start_with_referral', 'bot_start', 'public_username'],
+        'allowed_peer_types' => ['bot'],
+        'dropdown_label' => 'Telegram Premium',
+        'dropdown_group' => 'premium',
+        'dropdown_priority' => 1,
+        'requires_duration_days' => false,
+        'requires_start_param' => true,
+        'default_priority' => 50,
+    ],
+
+    'premium_boost' => [
+        'label' => 'Premium: Boost',
+        'action' => 'subscribe',
+        'policy_key' => 'default',
+        'allowed_link_kinds' => ['boost_link'],
+        'allowed_peer_types' => ['channel'],
+        'dropdown_label' => 'Telegram Premium',
+        'dropdown_group' => 'premium',
+        'dropdown_priority' => 1,
+        'requires_duration_days' => true,
+        'requires_start_param' => false,
+        'default_priority' => 60,
+    ],
 
     // ------------------------------------------------------------
     // BOT START
@@ -361,5 +387,6 @@ return [
         'premium_bot_start',
         'telegram_premium_folder',
         'premium_daily_subscribe_public_private_group_channel',
+        'premium_live_time_subscribe_public_private_group_channel'
     ],
 ];

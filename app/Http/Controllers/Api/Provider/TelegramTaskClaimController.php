@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Provider;
 
 use App\Http\Controllers\Controller;
+use App\Models\Service;
 use App\Services\Telegram\TelegramTaskClaimService;
 use App\Support\TelegramPremiumTemplateScope;
 use Illuminate\Database\QueryException;
@@ -14,7 +15,7 @@ use Illuminate\Support\Facades\Redis;
 
 /**
  * Account-driven claim: performer sends phone, core returns tasks for that phone.
- * Endpoint: POST /api/provider/telegram/tasks/claim
+ * Unified endpoint: scope (default/premium) is auto-detected from service_id.
  */
 class TelegramTaskClaimController extends Controller
 {
@@ -23,24 +24,52 @@ class TelegramTaskClaimController extends Controller
     ) {}
 
     /**
-     * Claim tasks for the given performer phone (non-premium Telegram templates only).
+     * Unified claim endpoint. Scope is determined by the service's template_key.
      */
     public function claim(Request $request): JsonResponse
     {
-        return $this->claimByScope($request, TelegramPremiumTemplateScope::SCOPE_DEFAULT);
+        $validated = $request->validate([
+            'account_identity' => ['required', 'string'],
+            'service_id' => ['required', 'integer'],
+        ]);
+
+        $serviceId = (int) $validated['service_id'];
+        $scope = $this->resolveScope($serviceId);
+
+        return $this->claimByScope($request, $scope);
     }
 
     /**
-     * Claim tasks for the given performer phone (premium Telegram templates only).
+     * Legacy premium endpoint — redirects to unified claim with auto-detected scope.
      */
     public function claimPremium(Request $request): JsonResponse
     {
-        return $this->claimByScope($request, TelegramPremiumTemplateScope::SCOPE_PREMIUM);
+        return $this->claim($request);
     }
 
     private static function emptyResponse(): JsonResponse
     {
         return response()->json(['ok' => true, 'count' => 0, 'tasks' => []]);
+    }
+
+    /**
+     * Resolve scope from service_id by checking the service's template_key.
+     * Cached per-request to avoid repeated DB lookups.
+     */
+    private function resolveScope(int $serviceId): string
+    {
+        static $cache = [];
+
+        if (isset($cache[$serviceId])) {
+            return $cache[$serviceId];
+        }
+
+        $templateKey = Service::where('id', $serviceId)->value('template_key');
+        $scope = TelegramPremiumTemplateScope::isPremiumTemplateKey($templateKey)
+            ? TelegramPremiumTemplateScope::SCOPE_PREMIUM
+            : TelegramPremiumTemplateScope::SCOPE_DEFAULT;
+
+        return $cache[$serviceId] = $scope;
     }
 
     private function claimByScope(Request $request, string $scope): JsonResponse
