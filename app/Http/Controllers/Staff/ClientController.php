@@ -88,6 +88,32 @@ class ClientController extends Controller
     }
 
     /**
+     * Change client password.
+     */
+    public function changePassword(Request $request, Client $client): RedirectResponse
+    {
+        $currentUser = Auth::guard('staff')->user();
+
+        if ($currentUser && !$currentUser->hasRole('super_admin') && $client->staff_id !== $currentUser->id) {
+            return redirect()->back()
+                ->withErrors(['error' => 'You do not have permission to change this client\'s password.']);
+        }
+
+        $validated = $request->validate([
+            'new_password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $client->update([
+            'password' => \Illuminate\Support\Facades\Hash::make($validated['new_password']),
+        ]);
+
+        \App\Models\StaffActivityLog::log('update', "Changed password for client #{$client->id} ({$client->email})", $client);
+
+        return redirect()->route('staff.clients.edit', $client)
+            ->with('status', 'password-changed');
+    }
+
+    /**
      * Suspend a single client.
      */
     public function suspend(Client $client): RedirectResponse

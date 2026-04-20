@@ -81,6 +81,40 @@
                                 @enderror
                             </form>
                             @endstaffcan
+
+                            @staffcan('clients.change-password')
+                            <div class="mt-4 pt-4 border-t border-gray-200">
+                                <h4 class="text-sm font-medium text-gray-700 mb-3">{{ __('Change Client Password') }}</h4>
+                                @if(session('status') === 'password-changed')
+                                    <div class="mb-3 p-3 bg-green-50 border border-green-200 rounded-md">
+                                        <p class="text-sm text-green-700">{{ __('Password changed successfully.') }}</p>
+                                    </div>
+                                @endif
+                                <form method="POST" action="{{ route('staff.clients.change-password', $client) }}">
+                                    @csrf
+                                    <div class="flex flex-wrap items-end gap-3">
+                                        <div>
+                                            <label for="new_password" class="block text-xs text-gray-500 mb-1">{{ __('New Password') }}</label>
+                                            <input type="password" name="new_password" id="new_password" required minlength="8"
+                                                placeholder="{{ __('Min 8 characters') }}"
+                                                class="w-48 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                                        </div>
+                                        <div>
+                                            <label for="new_password_confirmation" class="block text-xs text-gray-500 mb-1">{{ __('Confirm Password') }}</label>
+                                            <input type="password" name="new_password_confirmation" id="new_password_confirmation" required minlength="8"
+                                                placeholder="{{ __('Repeat password') }}"
+                                                class="w-48 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" />
+                                        </div>
+                                        <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors">
+                                            {{ __('Change Password') }}
+                                        </button>
+                                    </div>
+                                    @error('new_password')
+                                        <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                                    @enderror
+                                </form>
+                            </div>
+                            @endstaffcan
                         </div>
 
                     @php

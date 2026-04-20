@@ -203,6 +203,7 @@ Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSess
     });
     Route::post('clients/{client}/add-balance', [ClientController::class, 'addBalance'])->name('staff.clients.add-balance')->middleware('staff.permission:clients.add-balance');
     Route::post('clients/{client}/deduct-balance', [ClientController::class, 'deductBalance'])->name('staff.clients.deduct-balance')->middleware('staff.permission:clients.deduct-balance');
+    Route::post('clients/{client}/change-password', [ClientController::class, 'changePassword'])->name('staff.clients.change-password')->middleware('staff.permission:clients.change-password');
     Route::patch('clients/{client}', [ClientController::class, 'update'])->name('staff.clients.update')->middleware('staff.permission:clients.edit');
     Route::delete('clients/{client}', [ClientController::class, 'destroy'])->name('staff.clients.destroy')->middleware('staff.permission:clients.delete');
     Route::post('clients/{client}/suspend', [ClientController::class, 'suspend'])->name('staff.clients.suspend')->middleware('staff.permission:clients.suspend');
