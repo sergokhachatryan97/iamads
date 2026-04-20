@@ -8,8 +8,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/favicon-32.png') }}">
-    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/apple-touch-icon.png') }}">
+    <link rel="icon" type="image/png" href="{{ asset('images/adtag_fav.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('images/adtag_fav.png') }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <x-heleket-site-verification />
 
@@ -45,7 +45,7 @@
         /* NAVBAR */
         .navbar { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: var(--navbar-bg); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border2); padding: 0 24px; }
         .navbar-inner { max-width: 1280px; margin: 0 auto; height: 60px; display: flex; align-items: center; gap: 28px; }
-        .logo { display: flex; align-items: center; gap: 10px; line-height: 1.1; flex-shrink: 0; }
+        .logo { display: flex; flex-direction: column; align-items: center; gap: 4px; line-height: 1.1; flex-shrink: 0; }
         .logo-mark { height: 40px; width: auto; flex-shrink: 0; filter: drop-shadow(0 4px 14px rgba(124, 58, 237, 0.35)); }
         .logo-text { display: flex; flex-direction: column; }
         .logo-name { font-size: 18px; font-weight: 800; background: linear-gradient(135deg, var(--purple), var(--teal)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
@@ -284,11 +284,8 @@
 <nav class="navbar">
     <div class="navbar-inner">
       <a href="/" class="logo">
-        <img src="{{ asset('images/logo-smt.png') }}" alt="{{ config('app.name', 'SMM Tool') }}" class="logo-mark">
-        <span class="logo-text" style="display:none">
-          <span class="logo-name">{{ config('app.name', 'SMM Tool') }}</span>
-          <span class="logo-slogan">Social Media Growth</span>
-        </span>
+        <img src="{{ asset('images/adtag_fav.png') }}" alt="{{ config('app.name', 'SMM Tool') }}" class="logo-mark">
+        <span class="logo-slogan">Social Media Growth Tool</span>
       </a>
       <ul class="nav-links">
         <li><a href="#" onclick="openServicesModal(); return false;">{{ __('Services') }}</a></li>
@@ -475,8 +472,8 @@
       <div class="footer-grid">
         <div class="footer-brand">
           <a href="/" class="logo">
-            <img src="{{ asset('images/logo-smt.png') }}" alt="{{ config('app.name', 'SMM Tool') }}" class="logo-mark" style="height:44px;width:auto">
-            <span class="logo-text" style="display:none"><span class="logo-name" style="font-size:20px">{{ config('app.name', 'SMM Tool') }}</span></span>
+            <img src="{{ asset('images/adtag_fav.png') }}" alt="{{ config('app.name', 'SMM Tool') }}" class="logo-mark" style="height:44px;width:auto">
+            <span class="logo-slogan">Social Media Growth Tool</span>
           </a>
           <p>{{ __('home.footer_brand_blurb') }}</p>
           <div class="footer-social">

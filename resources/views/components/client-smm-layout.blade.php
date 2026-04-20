@@ -36,8 +36,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/favicon-32.png') }}">
-    <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('images/apple-touch-icon.png') }}">
+    <link rel="icon" type="image/png" href="{{ asset('images/adtag_fav.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('images/adtag_fav.png') }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>
         :root { --radius: 12px; --sidebar-w: 260px; }
@@ -90,11 +90,11 @@
         .smm-dash-overlay.show { display: block; }
         @media (min-width: 1024px) { .smm-dash-overlay { display: none !important; } }
         .smm-dash-brand {
-            padding: 20px 18px; border-bottom: 1px solid var(--border);
-            display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit;
+            padding: 10px 18px; border-bottom: 1px solid var(--border);
+            display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; color: inherit;
         }
         .smm-dash-brand-mark {
-            height: 20px; width: auto; max-width: 100%;
+            height: 40px; width: auto; max-width: 100%;
             display: block; flex-shrink: 0;
             filter: drop-shadow(0 4px 14px rgba(124, 58, 237, 0.35));
         }
@@ -482,7 +482,8 @@
         @unless($hideSidebar)
         <aside class="smm-dash-sidebar" :class="{ 'open': sidebarOpen }">
             <a href="{{ route('dashboard') }}" class="smm-dash-brand" @click="sidebarOpen = false">
-                <img src="{{ asset('images/logo-smt.png') }}" alt="{{ config('app.name', 'SMM Tool') }}" class="smm-dash-brand-mark">
+                <img src="{{ asset('images/adtag_fav.png') }}" alt="{{ config('app.name', 'SMM Tool') }}" class="smm-dash-brand-mark">
+                <div class="smm-dash-brand-sub">Social Media Growth Tool</div>
             </a>
             <nav class="smm-dash-nav">
                 <a href="{{ route('dashboard') }}" class="{{ request()->routeIs('dashboard') ? 'active' : '' }}" @click="sidebarOpen = false">
