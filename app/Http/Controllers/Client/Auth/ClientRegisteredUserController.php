@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Client\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\Client;
+use App\Services\AdminReferralService;
 use App\Services\ClientLoginLogServiceInterface;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
@@ -17,7 +18,8 @@ use App\Models\Client as ClientModel;
 class ClientRegisteredUserController extends Controller
 {
     public function __construct(
-        private ClientLoginLogServiceInterface $clientLoginLogService
+        private ClientLoginLogServiceInterface $clientLoginLogService,
+        private AdminReferralService $adminReferralService,
     ) {
     }
     /**
@@ -45,6 +47,7 @@ class ClientRegisteredUserController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
+        // Client-to-client referral
         $referrerId = null;
         $refCode = $request->input('ref') ?? $request->session()->get('referral_code');
         if ($refCode) {
@@ -54,17 +57,25 @@ class ClientRegisteredUserController extends Controller
             }
         }
 
+        // Admin (staff) referral — auto-assign staff
+        $staffId = $this->adminReferralService->resolveStaffId($request);
+
         $client = Client::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
-            'staff_id' => null,
+            'staff_id' => $staffId,
+            'referred_by_staff_id' => $staffId,
             'balance' => 0,
             'spent' => 0,
             'discount' => 0,
             'status' => 'active',
             'referred_by' => $referrerId,
         ]);
+
+        if ($staffId) {
+            $this->adminReferralService->clearReferral($request);
+        }
 
         event(new Registered($client));
 

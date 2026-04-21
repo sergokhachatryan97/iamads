@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\Client;
+use App\Services\AdminReferralService;
 use App\Services\ClientLoginLogServiceInterface;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,7 +21,8 @@ class ClientSocialAuthController extends Controller
     private const ALLOWED_PROVIDERS = ['google', 'apple', 'yandex', 'telegram'];
 
     public function __construct(
-        private ClientLoginLogServiceInterface $clientLoginLogService
+        private ClientLoginLogServiceInterface $clientLoginLogService,
+        private AdminReferralService $adminReferralService,
     ) {
     }
 
@@ -199,6 +201,9 @@ class ClientSocialAuthController extends Controller
                 }
             }
 
+            // Admin (staff) referral — auto-assign staff
+            $staffId = $this->adminReferralService->resolveStaffId(request());
+
             $client = Client::create([
                 'name' => $name ?: 'Unnamed',
                 'email' => $email,
@@ -206,13 +211,18 @@ class ClientSocialAuthController extends Controller
                 'provider' => $provider,
                 'provider_id' => $providerId,
                 'avatar' => $avatar,
-                'staff_id' => null,
+                'staff_id' => $staffId,
+                'referred_by_staff_id' => $staffId,
                 'balance' => 0,
                 'spent' => 0,
                 'discount' => 0,
                 'status' => 'active',
                 'referred_by' => $referrerId,
             ]);
+
+            if ($staffId) {
+                $this->adminReferralService->clearReferral(request());
+            }
         }
 
         // Check if client is suspended

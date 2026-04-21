@@ -38,6 +38,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('locale/{locale}', [LocaleController::class, 'switch'])->name('locale.switch');
 
 
+Route::get('/r/{code}', \App\Http\Controllers\AdminReferralController::class)->name('admin.referral');
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/contacts', [HomeController::class, 'contacts'])->name('contacts');
 Route::post('/order/create-from-main', [HomeController::class, 'createOrder'])->name('home.create-order');

@@ -133,7 +133,8 @@
                                 <!-- Filter Button with Badge -->
                                 @php
                                     $activeFilters = [];
-                                    if ((request('staff_id') || request('no_staff')) && auth()->guard('staff')->check() && auth()->guard('staff')->user()->hasRole('super_admin')) {
+                                    $su = auth()->guard('staff')->user();
+                                    if ((request('staff_id') || request('no_staff')) && $su && ($su->hasRole('super_admin') || $su->hasPermissionTo('clients.assign-staff', 'staff'))) {
                                         $activeFilters[] = request('staff_id') ?: request('no_staff');
                                     }
                                     if (request('balance_min')) $activeFilters[] = request('balance_min');
@@ -156,8 +157,8 @@
                                     </x-slot>
 
                                     <x-slot name="dropdown">
-                                        <!-- Staff Member Filter (only visible to super_admin) -->
-                                        @if(auth()->guard('staff')->check() && auth()->guard('staff')->user()->hasRole('super_admin'))
+                                        <!-- Staff Assignment Filter -->
+                                        @staffcan('clients.assign-staff')
                                             <x-custom-select
                                                 label="{{ __('Staff Member') }}"
                                                 name="staff_id"
@@ -166,7 +167,7 @@
                                                 :options="['' => __('All Staff'), 'null' => __('No Staff Assigned')]
                                                         + collect($staffMembers)->pluck('name', 'id')->toArray()"
                                             />
-                                        @endif
+                                        @endstaffcan
 
                                         <!-- Balance Range -->
                                         <div>

@@ -37,9 +37,8 @@ class ClientService implements ClientServiceInterface
      */
     public function getAllStaff(?\App\Models\User $user = null): Collection
     {
-        // Non-super_admin can only see themselves in the filter
+        // Only super_admin sees all staff. Others see only themselves.
         if ($user && !$user->hasRole('super_admin')) {
-            // Return an Eloquent Collection containing only this user
             return User::where('id', $user->id)->get();
         }
         

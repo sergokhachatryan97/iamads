@@ -29,6 +29,7 @@ class Client extends Authenticatable
         'api_last_used_at',
         'referral_code',
         'referred_by',
+        'referred_by_staff_id',
         'balance',
         'spent',
         'discount',
@@ -152,6 +153,14 @@ class Client extends Authenticatable
     public function referrer(): BelongsTo
     {
         return $this->belongsTo(Client::class, 'referred_by');
+    }
+
+    /**
+     * Get the staff member who referred this client via admin referral link.
+     */
+    public function referredByStaff(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'referred_by_staff_id');
     }
 
     /**
