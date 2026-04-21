@@ -96,8 +96,17 @@
                 </div>
             @endif
 
-            <!-- Export Button -->
-            <div class="mb-4 flex justify-end">
+            <!-- Action Buttons -->
+            <div class="mb-4 flex justify-end gap-3">
+                @staffcan('orders.create')
+                <a href="{{ route('staff.orders.create') }}"
+                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-full text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                    <svg class="mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    {{ __('Create Order') }}
+                </a>
+                @endstaffcan
                 <a
                     href="{{ route('staff.exports.index', ['module' => 'orders']) }}"
                     class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
@@ -220,6 +229,92 @@
                                 @endforeach
                             </select>
                         </div>
+                        <div class="min-w-0 w-full shrink-0 basis-full sm:basis-[9rem] sm:w-auto sm:flex-none">
+                            <label for="filter-purpose" class="mb-1 block text-xs font-medium text-gray-500">{{ __('Type') }}</label>
+                            <select name="order_purpose" id="filter-purpose" class="w-full max-w-full rounded-full border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500">
+                                <option value="">{{ __('All') }}</option>
+                                <option value="normal" {{ ($filterPurpose ?? '') === 'normal' ? 'selected' : '' }}>{{ __('Normal') }}</option>
+                                <option value="refill" {{ ($filterPurpose ?? '') === 'refill' ? 'selected' : '' }}>{{ __('Refill') }}</option>
+                                <option value="test" {{ ($filterPurpose ?? '') === 'test' ? 'selected' : '' }}>{{ __('Test') }}</option>
+                            </select>
+                        </div>
+                        @if($isSuperAdmin)
+                        {{-- Client searchable dropdown --}}
+                        <div class="min-w-0 w-full shrink-0 basis-full sm:basis-[14rem] sm:w-auto sm:flex-[1.35] sm:min-w-[12rem] relative"
+                             x-data="{
+                                 open: false, search: '',
+                                 val: '{{ $filterClientId ?? '' }}',
+                                 items: @js($allClients->map(fn($c) => ['id' => $c->id, 'label' => '#'.$c->id.' '.$c->name, 'email' => $c->email])),
+                                 get selected() { return this.items.find(i => String(i.id) === String(this.val)); },
+                                 get filtered() {
+                                     const q = this.search.toLowerCase();
+                                     if (!q) return this.items;
+                                     return this.items.filter(i => i.label.toLowerCase().includes(q) || i.email.toLowerCase().includes(q));
+                                 },
+                                 pick(id) { this.val = String(id); this.open = false; this.search = ''; }
+                             }" @click.outside="open = false">
+                            <label class="mb-1 block text-xs font-medium text-gray-500">{{ __('Client') }}</label>
+                            <input type="hidden" name="client_id" :value="val">
+                            <button type="button" @click="open = !open; $nextTick(() => open && $refs.csearch.focus())"
+                                class="w-full rounded-full border border-gray-300 bg-white px-4 py-2 text-sm text-left flex items-center justify-between gap-1 hover:border-indigo-400 transition-colors"
+                                :class="open ? 'ring-2 ring-indigo-500 border-indigo-500' : ''">
+                                <span class="truncate" :class="val ? 'text-gray-900' : 'text-gray-400'" x-text="val ? selected?.label : '{{ __('All Clients') }}'"></span>
+                                <svg class="w-4 h-4 text-gray-400 flex-shrink-0" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                            </button>
+                            <div x-show="open" x-transition.opacity x-cloak class="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden" style="min-width: 260px;">
+                                <div class="p-2 border-b border-gray-100">
+                                    <input type="text" x-ref="csearch" x-model="search" @click.stop placeholder="{{ __('Search by name or email...') }}"
+                                        class="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50">
+                                </div>
+                                <div class="overflow-y-auto" style="max-height: 250px;">
+                                    <button type="button" @click="pick('')" class="w-full px-3 py-2 text-sm text-left hover:bg-indigo-50 transition-colors" :class="!val ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-gray-600'">{{ __('All Clients') }}</button>
+                                    <template x-for="item in filtered" :key="item.id">
+                                        <button type="button" @click="pick(item.id)" class="w-full px-3 py-2 text-sm text-left hover:bg-indigo-50 transition-colors flex items-center gap-2" :class="String(val) === String(item.id) ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-gray-700'">
+                                            <span class="truncate" x-text="item.label"></span>
+                                        </button>
+                                    </template>
+                                    <div x-show="filtered.length === 0" class="px-3 py-3 text-sm text-gray-400 text-center">{{ __('No clients found') }}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Manager searchable dropdown --}}
+                        <div class="min-w-0 w-full shrink-0 basis-full sm:basis-[11rem] sm:w-auto sm:flex-1 sm:min-w-[10rem] relative"
+                             x-data="{
+                                 open: false, search: '',
+                                 val: '{{ $filterCreatedBy ?? '' }}',
+                                 items: @js($allStaff->map(fn($s) => ['id' => $s->id, 'label' => $s->name])),
+                                 get selected() { return this.items.find(i => String(i.id) === String(this.val)); },
+                                 get filtered() {
+                                     const q = this.search.toLowerCase();
+                                     if (!q) return this.items;
+                                     return this.items.filter(i => i.label.toLowerCase().includes(q));
+                                 },
+                                 pick(id) { this.val = String(id); this.open = false; this.search = ''; }
+                             }" @click.outside="open = false">
+                            <label class="mb-1 block text-xs font-medium text-gray-500">{{ __('Created By') }}</label>
+                            <input type="hidden" name="created_by" :value="val">
+                            <button type="button" @click="open = !open; $nextTick(() => open && $refs.msearch.focus())"
+                                class="w-full rounded-full border border-gray-300 bg-white px-4 py-2 text-sm text-left flex items-center justify-between gap-1 hover:border-indigo-400 transition-colors"
+                                :class="open ? 'ring-2 ring-indigo-500 border-indigo-500' : ''">
+                                <span class="truncate" :class="val ? 'text-gray-900' : 'text-gray-400'" x-text="val ? selected?.label : '{{ __('All Managers') }}'"></span>
+                                <svg class="w-4 h-4 text-gray-400 flex-shrink-0" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                            </button>
+                            <div x-show="open" x-transition.opacity x-cloak class="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+                                <div class="p-2 border-b border-gray-100">
+                                    <input type="text" x-ref="msearch" x-model="search" @click.stop placeholder="{{ __('Search manager...') }}"
+                                        class="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50">
+                                </div>
+                                <div class="overflow-y-auto" style="max-height: 250px;">
+                                    <button type="button" @click="pick('')" class="w-full px-3 py-2 text-sm text-left hover:bg-indigo-50 transition-colors" :class="!val ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-gray-600'">{{ __('All Managers') }}</button>
+                                    <template x-for="item in filtered" :key="item.id">
+                                        <button type="button" @click="pick(item.id)" class="w-full px-3 py-2 text-sm text-left hover:bg-indigo-50 transition-colors" :class="String(val) === String(item.id) ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-gray-700'" x-text="item.label"></button>
+                                    </template>
+                                    <div x-show="filtered.length === 0" class="px-3 py-3 text-sm text-gray-400 text-center">{{ __('No managers found') }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        @endif
                         <div class="min-w-0 w-full shrink-0 basis-full sm:w-auto sm:max-w-full">
                             <label for="filter-date-from" class="mb-1 block text-xs font-medium text-gray-500">{{ __('Date') }}</label>
                             <div class="flex min-w-0 flex-wrap gap-2">
@@ -399,10 +494,26 @@
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             @php
-                                                $sourceLabel = $order->source === \App\Models\Order::SOURCE_API ? 'API' : 'WEB';
-                                                $sourceClasses = $order->source === \App\Models\Order::SOURCE_API
-                                                    ? 'bg-gray-100 text-gray-700'
-                                                    : 'bg-indigo-50 text-indigo-700';
+                                                $sourceLabel = match($order->source) {
+                                                    \App\Models\Order::SOURCE_API => 'API',
+                                                    \App\Models\Order::SOURCE_STAFF => 'STAFF',
+                                                    default => 'WEB',
+                                                };
+                                                $sourceClasses = match($order->source) {
+                                                    \App\Models\Order::SOURCE_API => 'bg-gray-100 text-gray-700',
+                                                    \App\Models\Order::SOURCE_STAFF => 'bg-purple-50 text-purple-700',
+                                                    default => 'bg-indigo-50 text-indigo-700',
+                                                };
+                                                $purposeLabel = match($order->order_purpose ?? 'normal') {
+                                                    'refill' => 'REFILL',
+                                                    'test' => 'TEST',
+                                                    default => null,
+                                                };
+                                                $purposeClasses = match($order->order_purpose ?? 'normal') {
+                                                    'refill' => 'bg-blue-50 text-blue-700',
+                                                    'test' => 'bg-yellow-50 text-yellow-700',
+                                                    default => '',
+                                                };
                                             @endphp
                                             <div class="flex flex-col gap-1">
                                                 <div class="flex items-center gap-2">
@@ -418,9 +529,15 @@
                                                         </svg>
                                                     </button>
                                                 </div>
-                                                <span class="inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $sourceClasses }}">
-                                                    {{ $sourceLabel }}
-                                                </span>
+                                                <div class="flex flex-wrap gap-1">
+                                                    <span class="inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $sourceClasses }}">{{ $sourceLabel }}</span>
+                                                    @if($purposeLabel)
+                                                        <span class="inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $purposeClasses }}">{{ $purposeLabel }}</span>
+                                                    @endif
+                                                </div>
+                                                @if($order->creator)
+                                                    <span class="text-[10px] text-gray-400">{{ __('by') }} {{ $order->creator->name }}</span>
+                                                @endif
                                             </div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">

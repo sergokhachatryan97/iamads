@@ -360,7 +360,16 @@
                                     <tbody class="bg-white divide-y divide-gray-200">
                                         @forelse ($clientOrders as $order)
                                             <tr>
-                                                <td class="px-3 py-2 text-gray-900 font-medium">#{{ $order->id }}</td>
+                                                <td class="px-3 py-2 text-gray-900 font-medium">
+                                                    <div class="flex items-center gap-1.5">
+                                                        #{{ $order->id }}
+                                                        @if(($order->order_purpose ?? 'normal') === 'refill')
+                                                            <span class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-50 text-blue-700">REFILL</span>
+                                                        @elseif(($order->order_purpose ?? 'normal') === 'test')
+                                                            <span class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold bg-yellow-50 text-yellow-700">TEST</span>
+                                                        @endif
+                                                    </div>
+                                                </td>
                                                 <td class="px-3 py-2 text-gray-600">
                                                     <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
                                                         {{ $order->category_name }}

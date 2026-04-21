@@ -30,9 +30,9 @@ class OrderService implements OrderServiceInterface
     /**
      * Create new orders (one per target link).
      */
-    public function create(Client $client, array $data, ?int $createdBy = null): Collection
+    public function create(Client $client, array $data, ?int $createdBy = null, string $source = Order::SOURCE_WEB, string $orderPurpose = Order::PURPOSE_NORMAL): Collection
     {
-        return DB::transaction(function () use ($client, $data, $createdBy) {
+        return DB::transaction(function () use ($client, $data, $createdBy, $source, $orderPurpose) {
             $now = now();
 
             // 1) Lock client row
@@ -147,16 +147,20 @@ class OrderService implements OrderServiceInterface
                 $totalCharge += $charge;
             }
 
-            // 9) Payment source is ALWAYS balance
-            if ($client->balance < $totalCharge) {
-                throw ValidationException::withMessages([
-                    'balance' => 'Insufficient balance. Please top up.',
-                ]);
-            }
+            // 9) Payment source — staff orders (refill/test) don't deduct balance
+            $isStaffOrder = $source === Order::SOURCE_STAFF;
 
-            $client->balance -= $totalCharge;
-            $client->spent = (float) $client->spent + $totalCharge;
-            $client->save();
+            if (!$isStaffOrder) {
+                if ($client->balance < $totalCharge) {
+                    throw ValidationException::withMessages([
+                        'balance' => 'Insufficient balance. Please top up.',
+                    ]);
+                }
+
+                $client->balance -= $totalCharge;
+                $client->spent = (float) $client->spent + $totalCharge;
+                $client->save();
+            }
 
             // 10) Create orders
             $batchId = (string) \Illuminate\Support\Str::uuid();
@@ -202,6 +206,8 @@ class OrderService implements OrderServiceInterface
                 $orderData = [
                     'batch_id' => $batchId,
                     'client_id' => $client->id,
+                    'source' => $source,
+                    'order_purpose' => $orderPurpose,
                     'created_by' => $createdBy,
                     'category_id' => (int) $data['category_id'],
                     'service_id' => $service->id,
@@ -266,8 +272,8 @@ class OrderService implements OrderServiceInterface
                 $orders[] = Order::create($orderData);
             }
 
-            // 11) Transaction history (only if charge > 0)
-            if ($totalCharge > 0) {
+            // 11) Transaction history (only if charge > 0 and not a staff order)
+            if (!$isStaffOrder && $totalCharge > 0) {
                 ClientTransaction::create([
                     'client_id' => $client->id,
                     'order_id' => null,

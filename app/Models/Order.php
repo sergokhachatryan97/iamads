@@ -76,10 +76,20 @@ class Order extends Model
 
     public const SOURCE_API = 'api';
 
+    public const SOURCE_STAFF = 'staff';
+
+    // Order purpose constants
+    public const PURPOSE_NORMAL = 'normal';
+
+    public const PURPOSE_REFILL = 'refill';
+
+    public const PURPOSE_TEST = 'test';
+
     protected $fillable = [
         'batch_id',
         'client_id',
         'source',
+        'order_purpose',
         'external_order_id',
         'created_by',
         'category_id',

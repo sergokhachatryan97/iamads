@@ -81,10 +81,21 @@
                     $dotClass = $statusDots[$order->status] ?? 'bg-gray-500';
                     $statusLabel = ucfirst(str_replace('_', ' ', $order->status));
                     $charge = (float) ($order->charge ?? 0);
-                    $sourceLabel = $order->source === \App\Models\Order::SOURCE_API ? 'API' : 'WEB';
-                    $sourceClasses = $order->source === \App\Models\Order::SOURCE_API
-                        ? 'order-source-api'
-                        : 'order-source-web';
+                    $sourceLabel = match($order->source) {
+                        \App\Models\Order::SOURCE_API => 'API',
+                        \App\Models\Order::SOURCE_STAFF => 'STAFF',
+                        default => 'WEB',
+                    };
+                    $sourceClasses = match($order->source) {
+                        \App\Models\Order::SOURCE_API => 'order-source-api',
+                        \App\Models\Order::SOURCE_STAFF => 'order-source-staff',
+                        default => 'order-source-web',
+                    };
+                    $purposeLabel = match($order->order_purpose ?? 'normal') {
+                        'refill' => 'REFILL',
+                        'test' => 'TEST',
+                        default => null,
+                    };
                 @endphp
                 <tr>
                     <td class="co-th-checkbox px-3 py-4 whitespace-nowrap text-center align-middle">
@@ -116,9 +127,12 @@
                                     </svg>
                                 </button>
                             </div>
-                            <span class="inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $sourceClasses }}">
-                                {{ $sourceLabel }}
-                            </span>
+                            <div class="flex flex-wrap gap-1">
+                                <span class="inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $sourceClasses }}">{{ $sourceLabel }}</span>
+                                @if($purposeLabel)
+                                    <span class="inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $purposeLabel === 'REFILL' ? 'order-source-refill' : 'order-source-test' }}">{{ $purposeLabel }}</span>
+                                @endif
+                            </div>
                         </div>
                     </td>
                     <td class="px-6 py-4">

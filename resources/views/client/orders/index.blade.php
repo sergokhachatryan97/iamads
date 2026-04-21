@@ -67,6 +67,30 @@
             background: rgba(108, 92, 231, 0.12) !important;
             color: var(--purple-dark) !important;
         }
+        .client-orders-table-wrap .order-source-staff {
+            background: rgba(147, 51, 234, 0.2) !important;
+            color: #c084fc !important;
+        }
+        [data-theme="light"] .client-orders-table-wrap .order-source-staff {
+            background: rgba(147, 51, 234, 0.12) !important;
+            color: #7c3aed !important;
+        }
+        .client-orders-table-wrap .order-source-refill {
+            background: rgba(59, 130, 246, 0.2) !important;
+            color: #60a5fa !important;
+        }
+        [data-theme="light"] .client-orders-table-wrap .order-source-refill {
+            background: rgba(59, 130, 246, 0.12) !important;
+            color: #2563eb !important;
+        }
+        .client-orders-table-wrap .order-source-test {
+            background: rgba(234, 179, 8, 0.2) !important;
+            color: #fbbf24 !important;
+        }
+        [data-theme="light"] .client-orders-table-wrap .order-source-test {
+            background: rgba(234, 179, 8, 0.12) !important;
+            color: #b45309 !important;
+        }
         .client-orders-table-wrap .client-order-avatar-cutout {
             background: var(--card) !important;
         }

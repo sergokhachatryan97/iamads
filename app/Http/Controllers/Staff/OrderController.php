@@ -6,9 +6,11 @@ use App\Helpers\OrderQueryBuilder;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\BulkOrderActionRequest;
 use App\Models\Category;
+use App\Models\Client;
 use App\Models\Order;
 use App\Models\Service;
 use App\Services\OrderServiceInterface;
+use App\Services\PricingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,8 +21,121 @@ use Illuminate\View\View;
 class OrderController extends Controller
 {
     public function __construct(
-        private OrderServiceInterface $orderService
+        private OrderServiceInterface $orderService,
+        private PricingService $pricingService,
     ) {
+    }
+
+    /**
+     * Show the staff order creation form.
+     */
+    public function create(): View
+    {
+        $categories = Category::query()
+            ->where('status', true)
+            ->whereHas('services', fn ($q) => $q->where('is_active', true)->whereNull('deleted_at'))
+            ->with(['services' => fn ($q) => $q->where('is_active', true)->whereNull('deleted_at')->orderBy('name')])
+            ->orderBy('name')
+            ->get();
+
+        $user = Auth::guard('staff')->user();
+        $isSuperAdmin = $user->hasRole('super_admin');
+
+        $clientsQuery = Client::query()->where('status', 'active')->orderBy('name');
+        if (!$isSuperAdmin) {
+            $clientsQuery->where('staff_id', $user->id);
+        }
+        $clients = $clientsQuery->select(['id', 'name', 'email', 'balance'])->get();
+
+        return view('staff.orders.create', [
+            'categories' => $categories,
+            'clients' => $clients,
+        ]);
+    }
+
+    /**
+     * Store a staff-created order.
+     */
+    public function store(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'client_id' => ['nullable', 'integer', 'exists:clients,id'],
+            'category_id' => ['required', 'integer', 'exists:categories,id'],
+            'service_id' => ['required', 'integer', 'exists:services,id'],
+            'targets' => ['required', 'array', 'min:1'],
+            'targets.*.link' => ['required', 'string', 'max:2048'],
+            'targets.*.quantity' => ['required', 'integer', 'min:1'],
+            'order_purpose' => ['required', 'string', 'in:refill,test'],
+        ]);
+
+        $orderPurpose = $validated['order_purpose'];
+
+        // Refill must have a client
+        if ($orderPurpose === Order::PURPOSE_REFILL && empty($validated['client_id'])) {
+            return redirect()->back()->withInput()
+                ->withErrors(['client_id' => 'Client is required for refill orders.']);
+        }
+
+        // For test orders without a client, create a temporary test client context
+        if ($orderPurpose === Order::PURPOSE_TEST && empty($validated['client_id'])) {
+            // Use a system test client or the first available
+            $client = Client::firstOrCreate(
+                ['email' => 'system-test@internal.local'],
+                [
+                    'name' => 'System Test',
+                    'password' => \Illuminate\Support\Str::random(32),
+                    'balance' => 0,
+                    'spent' => 0,
+                    'discount' => 0,
+                    'status' => 'active',
+                ]
+            );
+        } else {
+            $client = Client::findOrFail($validated['client_id']);
+
+            // Non-super_admin can only create orders for their own or unassigned clients
+            $user = Auth::guard('staff')->user();
+            if (!$user->hasRole('super_admin') && $client->staff_id !== null && $client->staff_id !== $user->id) {
+                return redirect()->back()->withInput()
+                    ->withErrors(['client_id' => 'You can only create orders for your own assigned clients.']);
+            }
+        }
+
+        $user = $user ?? Auth::guard('staff')->user();
+        $targets = array_map(fn ($t) => [
+            'link' => trim($t['link']),
+            'quantity' => (int) $t['quantity'],
+        ], $validated['targets']);
+
+        $payload = [
+            'category_id' => $validated['category_id'],
+            'service_id' => $validated['service_id'],
+            'targets' => $targets,
+        ];
+
+        try {
+            $orders = $this->orderService->create(
+                $client,
+                $payload,
+                $user->id,
+                Order::SOURCE_STAFF,
+                $orderPurpose,
+            );
+
+            \App\Models\StaffActivityLog::log(
+                'create',
+                "Created {$orderPurpose} order #{$orders->first()?->id} for client #{$client->id}",
+                $orders->first()
+            );
+
+            return redirect()->route('staff.orders.index')
+                ->with('status', "Order created successfully ({$orderPurpose}).");
+        } catch (ValidationException $e) {
+            return redirect()->back()->withInput()->withErrors($e->errors());
+        } catch (\Throwable $e) {
+            return redirect()->back()->withInput()
+                ->withErrors(['error' => $e->getMessage()]);
+        }
     }
 
     /**
@@ -74,6 +189,21 @@ class OrderController extends Controller
             } else {
                 $query->whereRaw('CAST(id AS CHAR) LIKE ?', ['%' . addcslashes($orderId, '%_\\') . '%']);
             }
+        }
+
+        // Order purpose filter (refill / test / normal)
+        if ($request->filled('order_purpose')) {
+            $query->where('order_purpose', $request->order_purpose);
+        }
+
+        // Client filter (super admin only)
+        if ($isSuperAdmin && $request->filled('client_id')) {
+            $query->where('client_id', $request->client_id);
+        }
+
+        // Manager (created_by) filter (super admin only)
+        if ($isSuperAdmin && $request->filled('created_by')) {
+            $query->where('created_by', $request->created_by);
         }
 
         // Date range filter
@@ -135,6 +265,15 @@ class OrderController extends Controller
                 $countBase->whereRaw('CAST(id AS CHAR) LIKE ?', ['%' . addcslashes($orderId, '%_\\') . '%']);
             }
         }
+        if ($request->filled('order_purpose')) {
+            $countBase->where('order_purpose', $request->order_purpose);
+        }
+        if ($isSuperAdmin && $request->filled('client_id')) {
+            $countBase->where('client_id', $request->client_id);
+        }
+        if ($isSuperAdmin && $request->filled('created_by')) {
+            $countBase->where('created_by', $request->created_by);
+        }
         if ($request->filled('date_from')) {
             $countBase->whereDate('created_at', '>=', $request->date_from);
         }
@@ -183,6 +322,11 @@ class OrderController extends Controller
             'filterDateFrom' => $request->get('date_from'),
             'filterDateTo' => $request->get('date_to'),
             'filterSearch' => $request->get('search', $request->get('link', $request->get('order_id'))),
+            'filterPurpose' => $request->get('order_purpose'),
+            'filterClientId' => $request->get('client_id'),
+            'filterCreatedBy' => $request->get('created_by'),
+            'allClients' => $isSuperAdmin ? Client::query()->where('status', 'active')->orderBy('name')->select(['id', 'name', 'email'])->limit(500)->get() : collect(),
+            'allStaff' => $isSuperAdmin ? \App\Models\User::query()->orderBy('name')->select(['id', 'name'])->get() : collect(),
         ]);
     }
 

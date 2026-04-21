@@ -531,6 +531,7 @@ class ClientController extends Controller
             ->all();
 
         $clientTransactions = $client->transactions()
+            ->whereDoesntHave('order', fn ($oq) => $oq->whereIn('order_purpose', ['refill', 'test']))
             ->orderByDesc('created_at')
             ->paginate(15, ['*'], 'transactions_page')
             ->appends(request()->except('transactions_page'));

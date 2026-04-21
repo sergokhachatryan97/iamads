@@ -222,6 +222,10 @@ Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSess
     Route::post('payments/{payment}/update-status', [PaymentController::class, 'updateStatus'])->name('staff.payments.update-status')->middleware('staff.permission:payments.update-status');
 
     // Orders
+    Route::middleware('staff.permission:orders.create')->group(function () {
+        Route::get('orders/create', [\App\Http\Controllers\Staff\OrderController::class, 'create'])->name('staff.orders.create');
+        Route::post('orders', [\App\Http\Controllers\Staff\OrderController::class, 'store'])->name('staff.orders.store');
+    });
     Route::middleware('staff.permission:orders.view')->group(function () {
         Route::get('orders', [\App\Http\Controllers\Staff\OrderController::class, 'index'])->name('staff.orders.index');
         Route::get('orders/statuses', [\App\Http\Controllers\Staff\OrderController::class, 'getStatuses'])->name('staff.orders.statuses');
