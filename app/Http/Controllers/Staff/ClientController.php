@@ -646,6 +646,7 @@ class ClientController extends Controller
             'orderCategories' => $orderCategories,
             'orderServicesGrouped' => $orderServicesGrouped,
             'orderStatuses' => $orderStatuses,
+            'activityLogs' => $this->getClientActivityLog($client, 50),
         ]);
     }
 
@@ -831,5 +832,67 @@ class ClientController extends Controller
                 ->route('staff.clients.edit', $client)
                 ->with('error', __('Failed to update client. Please try again.'));
         }
+    }
+
+    /**
+     * Build a unified activity log for a client from orders, transactions, payments, and logins.
+     */
+    private function getClientActivityLog(Client $client, int $limit = 50): \Illuminate\Support\Collection
+    {
+        $activities = collect();
+
+        // Orders
+        $orders = $client->orders()
+            ->with('service:id,name')
+            ->orderByDesc('created_at')
+            ->limit($limit)
+            ->get();
+
+        foreach ($orders as $order) {
+            $activities->push([
+                'date' => $order->created_at,
+                'type' => 'order',
+                'action' => 'Order #' . $order->id,
+                'detail' => ($order->service?->name ?? 'Unknown service') . ' — qty: ' . number_format($order->quantity) . ' — $' . rtrim(rtrim(number_format((float) $order->charge, 4), '0'), '.'),
+                'status' => $order->status,
+                'purpose' => $order->order_purpose ?? 'normal',
+            ]);
+        }
+
+        // Payments
+        $payments = $client->payments()
+            ->orderByDesc('created_at')
+            ->limit($limit)
+            ->get();
+
+        foreach ($payments as $payment) {
+            $activities->push([
+                'date' => $payment->created_at,
+                'type' => 'payment',
+                'action' => 'Payment',
+                'detail' => $payment->provider . ' — ' . $payment->amount . ' ' . ($payment->currency ?? 'USD'),
+                'status' => $payment->status,
+                'purpose' => null,
+            ]);
+        }
+
+        // Login logs
+        $logins = $client->loginLogs()
+            ->orderByDesc('signed_in_at')
+            ->limit($limit)
+            ->get();
+
+        foreach ($logins as $log) {
+            $activities->push([
+                'date' => $log->signed_in_at,
+                'type' => 'login',
+                'action' => 'Sign in',
+                'detail' => ($log->ip ?? '') . ($log->city || $log->country ? ' — ' . trim($log->city . ', ' . $log->country, ', ') : ''),
+                'status' => null,
+                'purpose' => null,
+            ]);
+        }
+
+        return $activities->sortByDesc('date')->take($limit)->values();
     }
 }

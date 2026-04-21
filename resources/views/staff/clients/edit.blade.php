@@ -130,6 +130,7 @@
                                     'transactions' => ['label' => __('Transactions'), 'icon' => 'M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2', 'count' => $clientTransactions->total()],
                                     'settings' => ['label' => __('Settings'), 'icon' => 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z'],
                                     'signin' => ['label' => __('Sign-ins'), 'icon' => 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'],
+                                    'activity' => ['label' => __('Activity Log'), 'icon' => 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', 'count' => $activityLogs->count()],
                                 ] as $tabKey => $tabData)
                                     <button type="button" @click="tab = '{{ $tabKey }}'"
                                         :class="tab === '{{ $tabKey }}'
@@ -1577,6 +1578,87 @@
                                 </div>
                             @endif
                         </div>{{-- /signin tab --}}
+
+                        <!-- Activity Log Tab -->
+                        <div x-show="tab === 'activity'" x-cloak>
+                            @if($activityLogs->count() > 0)
+                                <div class="overflow-x-auto">
+                                    <table class="min-w-full divide-y divide-gray-200 text-sm">
+                                        <thead class="bg-gray-50">
+                                            <tr>
+                                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Date') }}</th>
+                                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Type') }}</th>
+                                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Event') }}</th>
+                                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Details') }}</th>
+                                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Status') }}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="bg-white divide-y divide-gray-200">
+                                            @foreach($activityLogs as $log)
+                                                @php
+                                                    $typeColors = [
+                                                        'order' => 'bg-indigo-100 text-indigo-800',
+                                                        'payment' => 'bg-green-100 text-green-800',
+                                                        'login' => 'bg-gray-100 text-gray-800',
+                                                    ];
+                                                    $typeColor = $typeColors[$log['type']] ?? 'bg-gray-100 text-gray-800';
+                                                    $typeIcons = [
+                                                        'order' => 'fa-clipboard-list',
+                                                        'payment' => 'fa-credit-card',
+                                                        'login' => 'fa-right-to-bracket',
+                                                    ];
+                                                    $typeIcon = $typeIcons[$log['type']] ?? 'fa-circle';
+                                                @endphp
+                                                <tr>
+                                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ $log['date']->format('M d, Y H:i') }}</td>
+                                                    <td class="px-4 py-3 whitespace-nowrap">
+                                                        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium {{ $typeColor }}">
+                                                            <i class="fa-solid {{ $typeIcon }} text-[10px]"></i>
+                                                            {{ ucfirst($log['type']) }}
+                                                        </span>
+                                                    </td>
+                                                    <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                        {{ $log['action'] }}
+                                                        @if($log['purpose'] && $log['purpose'] !== 'normal')
+                                                            <span class="ml-1 inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold {{ $log['purpose'] === 'refill' ? 'bg-blue-50 text-blue-700' : 'bg-yellow-50 text-yellow-700' }}">{{ strtoupper($log['purpose']) }}</span>
+                                                        @endif
+                                                    </td>
+                                                    <td class="px-4 py-3 text-sm text-gray-600" style="max-width: 300px;">
+                                                        <div class="truncate" title="{{ $log['detail'] }}">{{ $log['detail'] }}</div>
+                                                    </td>
+                                                    <td class="px-4 py-3 whitespace-nowrap">
+                                                        @if($log['status'])
+                                                            @php
+                                                                $sColors = [
+                                                                    'completed' => 'bg-green-100 text-green-800', 'paid' => 'bg-green-100 text-green-800',
+                                                                    'in_progress' => 'bg-blue-100 text-blue-800', 'processing' => 'bg-blue-100 text-blue-800',
+                                                                    'pending' => 'bg-yellow-100 text-yellow-800', 'awaiting' => 'bg-yellow-100 text-yellow-800',
+                                                                    'canceled' => 'bg-gray-100 text-gray-800', 'failed' => 'bg-red-100 text-red-800',
+                                                                    'fail' => 'bg-red-100 text-red-800', 'expired' => 'bg-red-100 text-red-800',
+                                                                ];
+                                                                $sColor = $sColors[$log['status']] ?? 'bg-gray-100 text-gray-800';
+                                                            @endphp
+                                                            <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium {{ $sColor }}">
+                                                                {{ ucfirst(str_replace('_', ' ', $log['status'])) }}
+                                                            </span>
+                                                        @else
+                                                            <span class="text-gray-400">—</span>
+                                                        @endif
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            @else
+                                <div class="text-center py-8">
+                                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    <p class="mt-2 text-sm text-gray-500">{{ __('No activity for this client yet.') }}</p>
+                                </div>
+                            @endif
+                        </div>{{-- /activity tab --}}
 
                     </div>{{-- /x-data tabs wrapper --}}
 
