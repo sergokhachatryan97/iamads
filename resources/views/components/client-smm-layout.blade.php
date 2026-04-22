@@ -555,41 +555,96 @@
             left: 0;
             right: 0;
             z-index: 50;
-            background: var(--sidebar-bg);
-            border-top: 1px solid var(--border);
-            padding: 6px 0 max(6px, env(safe-area-inset-bottom, 0px));
+            padding: 0 12px max(8px, env(safe-area-inset-bottom, 0px));
         }
         .smm-bottom-nav-inner {
             display: flex;
             justify-content: space-around;
-            align-items: center;
-            max-width: 500px;
+            align-items: flex-end;
+            max-width: 420px;
             margin: 0 auto;
+            background: var(--sidebar-bg, #12121c);
+            border: 1px solid var(--border, rgba(255,255,255,0.08));
+            border-radius: 20px;
+            padding: 8px 6px;
+            box-shadow: 0 -4px 24px rgba(0,0,0,0.35);
+        }
+        [data-theme="light"] .smm-bottom-nav-inner {
+            background: #fff;
+            border-color: rgba(0,0,0,0.08);
+            box-shadow: 0 -4px 24px rgba(0,0,0,0.1);
         }
         .smm-bottom-nav-item {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 2px;
-            padding: 4px 8px;
+            gap: 3px;
+            padding: 4px 0;
             text-decoration: none;
-            color: var(--text3);
+            color: var(--text3, #5a6178);
             font-size: 10px;
-            font-weight: 500;
+            font-weight: 600;
             transition: color 0.15s;
             border: none;
             background: none;
             cursor: pointer;
             font-family: inherit;
+            min-width: 52px;
+            position: relative;
         }
-        .smm-bottom-nav-item i { font-size: 18px; }
-        .smm-bottom-nav-item:hover,
-        .smm-bottom-nav-item.active { color: var(--purple-light); }
-        [data-theme="light"] .smm-bottom-nav-item.active { color: var(--purple); }
+        .smm-bottom-nav-item i { font-size: 20px; transition: transform 0.15s; }
+        .smm-bottom-nav-item:hover { color: var(--purple-light, #a29bfe); }
+        .smm-bottom-nav-item.active { color: var(--purple-light, #a29bfe); }
+        [data-theme="light"] .smm-bottom-nav-item.active { color: var(--purple, #6c5ce7); }
+
+        /* Center raised button */
+        .smm-bottom-nav-center {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            text-decoration: none;
+            color: #fff !important;
+            font-size: 10px;
+            font-weight: 600;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-family: inherit;
+            min-width: 52px;
+            position: relative;
+            margin-top: -22px;
+        }
+        .smm-bottom-nav-center-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: var(--purple, #6c5ce7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            box-shadow: 0 4px 16px rgba(108, 92, 231, 0.5);
+            transition: transform 0.15s, box-shadow 0.15s;
+            border: 3px solid var(--sidebar-bg, #12121c);
+        }
+        [data-theme="light"] .smm-bottom-nav-center-icon {
+            border-color: #fff;
+        }
+        .smm-bottom-nav-center:hover .smm-bottom-nav-center-icon {
+            transform: scale(1.06);
+            box-shadow: 0 6px 24px rgba(108, 92, 231, 0.6);
+        }
+        .smm-bottom-nav-center span {
+            color: var(--text3, #5a6178);
+            transition: color 0.15s;
+        }
+        .smm-bottom-nav-center:hover span { color: var(--purple-light, #a29bfe); }
+
         @media (max-width: 768px) {
             .smm-bottom-nav { display: block; }
             .smm-dash-content {
-                padding-bottom: max(70px, calc(56px + env(safe-area-inset-bottom, 0px))) !important;
+                padding-bottom: max(80px, calc(66px + env(safe-area-inset-bottom, 0px))) !important;
             }
         }
 
@@ -768,7 +823,7 @@
     {{-- Bottom Navigation Bar (mobile only) --}}
     <nav class="smm-bottom-nav">
         <div class="smm-bottom-nav-inner">
-            <a href="{{ route('client.orders.index') }}" class="smm-bottom-nav-item {{ request()->routeIs('client.orders.*') ? 'active' : '' }}">
+            <a href="{{ route('client.orders.index') }}" class="smm-bottom-nav-item {{ request()->routeIs('client.orders.index') ? 'active' : '' }}">
                 <i class="fa-solid fa-receipt"></i>
                 <span>{{ __('Orders') }}</span>
             </a>
@@ -776,8 +831,10 @@
                 <i class="fa-solid fa-layer-group"></i>
                 <span>{{ __('Services') }}</span>
             </a>
-            <a href="{{ route('client.orders.create') }}" class="smm-bottom-nav-item {{ request()->routeIs('client.orders.create') ? 'active' : '' }}" style="color:var(--purple-light);">
-                <i class="fa-solid fa-plus-circle" style="font-size:22px;"></i>
+            <a href="{{ route('client.orders.create') }}" class="smm-bottom-nav-center">
+                <div class="smm-bottom-nav-center-icon">
+                    <i class="fa-solid fa-plus"></i>
+                </div>
                 <span>{{ __('New') }}</span>
             </a>
             <a href="{{ route('contacts') }}" class="smm-bottom-nav-item {{ request()->routeIs('contacts') ? 'active' : '' }}">
@@ -785,7 +842,7 @@
                 <span>{{ __('Support') }}</span>
             </a>
             <button type="button" class="smm-bottom-nav-item" @click="sidebarOpen = true">
-                <i class="fa-solid fa-bars"></i>
+                <i class="fa-solid fa-grip" aria-hidden="true"></i>
                 <span>{{ __('Menu') }}</span>
             </button>
         </div>

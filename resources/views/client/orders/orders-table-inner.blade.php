@@ -194,8 +194,27 @@
                     <span class="co-order-card-date">{{ $order->created_at->format('d M') }}</span>
                 </div>
             </div>
-            {{-- Right: chevron --}}
-            <i class="fa-solid fa-chevron-right co-order-card-arrow"></i>
+            {{-- Right: actions --}}
+            <div class="co-order-card-actions" onclick="event.stopPropagation()">
+                <button type="button"
+                    onclick="window.dispatchEvent(new CustomEvent('open-modal', { detail: 'client-order-details-{{ $order->id }}' }))"
+                    class="co-order-card-action-btn" title="{{ __('View') }}">
+                    <i class="fa-solid fa-eye"></i>
+                </button>
+                @if($d->canCancel && $d->isAwaitingOrPending)
+                    <button type="button"
+                        onclick="window.dispatchEvent(new CustomEvent('open-modal', { detail: 'cancel-full-{{ $order->id }}' }))"
+                        class="co-order-card-action-btn co-order-card-action-danger" title="{{ __('Cancel') }}">
+                        <i class="fa-solid fa-ban"></i>
+                    </button>
+                @elseif($d->canCancel && $d->isInProgressOrProcessing)
+                    <button type="button"
+                        onclick="window.dispatchEvent(new CustomEvent('open-modal', { detail: 'cancel-partial-{{ $order->id }}' }))"
+                        class="co-order-card-action-btn co-order-card-action-warn" title="{{ __('Cancel Partial') }}">
+                        <i class="fa-solid fa-ban"></i>
+                    </button>
+                @endif
+            </div>
         </div>
     @endforeach
 
@@ -204,3 +223,39 @@
         <x-pagination :currentPage="$orders->currentPage()" :lastPage="$orders->lastPage()" :hasPages="$orders->hasPages()" id="client-orders-pagination" />
     </div>
 </div>
+
+{{-- Cancel modals (outside both table and cards so they work on mobile) --}}
+@foreach($orders as $idx => $order)
+    @php $d = $ordersData[$idx]; @endphp
+    @if($d->canCancel && $d->isAwaitingOrPending)
+        <div x-data="{ submitForm() { document.getElementById('mobile-client-cancel-full-form-{{ $order->id }}').submit(); } }"
+             x-on:confirm-action.window="if ($event.detail === 'cancel-full-{{ $order->id }}') { submitForm(); }">
+            <x-confirm-modal
+                name="cancel-full-{{ $order->id }}"
+                theme="smm"
+                title="{{ __('Cancel Order') }}"
+                :message="__('Are you sure you want to cancel this order? A full refund of $:amount will be processed.', ['amount' => $order->charge])"
+                confirm-text="{{ __('Yes, Cancel Order') }}"
+                cancel-text="{{ __('No, Keep Order') }}"
+                confirm-button-class="bg-red-600 hover:bg-red-700"
+            >
+                <form id="mobile-client-cancel-full-form-{{ $order->id }}" action="{{ route('client.orders.cancelFull', $order) }}" method="POST" style="display:none;">@csrf</form>
+            </x-confirm-modal>
+        </div>
+    @elseif($d->canCancel && $d->isInProgressOrProcessing)
+        <div x-data="{ submitForm() { document.getElementById('mobile-client-cancel-partial-form-{{ $order->id }}').submit(); } }"
+             x-on:confirm-action.window="if ($event.detail === 'cancel-partial-{{ $order->id }}') { submitForm(); }">
+            <x-confirm-modal
+                name="cancel-partial-{{ $order->id }}"
+                theme="smm"
+                title="{{ __('Cancel Remaining Part') }}"
+                :message="__('Are you sure you want to cancel the remaining part of this order? A partial refund will be processed for the undelivered quantity.')"
+                confirm-text="{{ __('Yes, Cancel Remaining') }}"
+                cancel-text="{{ __('No, Keep Order') }}"
+                confirm-button-class="bg-orange-600 hover:bg-orange-700"
+            >
+                <form id="mobile-client-cancel-partial-form-{{ $order->id }}" action="{{ route('client.orders.cancelPartial', $order) }}" method="POST" style="display:none;">@csrf</form>
+            </x-confirm-modal>
+        </div>
+    @endif
+@endforeach

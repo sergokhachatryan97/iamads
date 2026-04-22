@@ -752,15 +752,44 @@
             font-weight: 600;
             color: var(--text2);
         }
-        .co-order-card-arrow {
-            color: var(--text3);
-            font-size: 12px;
+        .co-order-card-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
             flex-shrink: 0;
-            transition: transform 0.15s;
         }
-        .co-order-card:hover .co-order-card-arrow {
-            transform: translateX(2px);
+        .co-order-card-action-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.04);
+            color: var(--text3);
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .co-order-card-action-btn:hover {
+            background: rgba(108,92,231,0.12);
             color: var(--purple-light);
+            border-color: rgba(108,92,231,0.3);
+        }
+        .co-order-card-action-danger { color: #f87171; }
+        .co-order-card-action-danger:hover { background: rgba(239,68,68,0.12); color: #ef4444; border-color: rgba(239,68,68,0.3); }
+        .co-order-card-action-warn { color: #fb923c; }
+        .co-order-card-action-warn:hover { background: rgba(251,146,60,0.12); color: #f97316; border-color: rgba(251,146,60,0.3); }
+        [data-theme="light"] .co-order-card-action-btn {
+            background: #f9fafb;
+            border-color: #e5e7eb;
+            color: #9ca3af;
+        }
+        [data-theme="light"] .co-order-card-action-btn:hover {
+            background: #eef2ff;
+            color: #6366f1;
+            border-color: #c7d2fe;
         }
 
         /* ===== RESPONSIVE ORDERS ===== */

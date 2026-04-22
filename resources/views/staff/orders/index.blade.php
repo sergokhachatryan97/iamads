@@ -6,7 +6,202 @@
         </h2>
     </x-slot>
 
-    <div class="py-12">
+    <style>
+        /* ===== STAFF ORDERS RESPONSIVE ===== */
+        .staff-orders-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .staff-orders-mobile-cards { display: none; }
+        .staff-orders-search-wrap { width: 100%; display: flex; justify-content: flex-end; }
+        .so-status-tabs {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+        .so-status-tabs::-webkit-scrollbar { display: none; }
+        .so-status-tabs > a,
+        .so-status-tabs > button { flex-shrink: 0; white-space: nowrap; }
+        .so-filter-tabs-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            min-width: 0;
+        }
+        .so-filter-toggle-btn {
+            display: flex;
+            width: 40px;
+            height: 40px;
+            min-width: 40px;
+            align-items: center;
+            justify-content: center;
+            border-radius: 9999px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.15s;
+            flex-shrink: 0;
+        }
+
+        /* Mobile card styles */
+        .so-card {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 14px; background: #fff;
+            border: 1px solid #e5e7eb; border-radius: 12px;
+            margin-bottom: 8px; cursor: pointer;
+            transition: border-color 0.15s, box-shadow 0.15s;
+            overflow: hidden;
+            max-width: 100%;
+        }
+        .so-card:hover { border-color: #a5b4fc; box-shadow: 0 2px 8px rgba(99,102,241,0.08); }
+        .so-card-ring { flex-shrink: 0; }
+        .so-card-ring .order-service-ring { width: 42px !important; height: 42px !important; }
+        .so-card-ring .h-9 { width: 32px !important; height: 32px !important; }
+        .so-card-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; overflow: hidden; }
+        .so-card-top { display: flex; align-items: baseline; gap: 6px; min-width: 0; overflow: hidden; }
+        .so-card-id { font-size: 13px; font-weight: 700; color: #111827; flex-shrink: 0; }
+        .so-card-sname { font-size: 13px; color: #6b7280; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+        .so-card-meta { display: flex; align-items: center; gap: 6px; font-size: 12px; overflow: hidden; }
+        .so-card-status { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; flex-shrink: 0; }
+        .so-card-dot { color: #d1d5db; font-size: 8px; flex-shrink: 0; }
+        .so-card-user { color: #6366f1; font-weight: 500; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .so-card-bottom { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #9ca3af; overflow: hidden; white-space: nowrap; }
+        .so-card-price { font-weight: 700; color: #374151; flex-shrink: 0; }
+        .so-card-badges { display: flex; gap: 4px; }
+        .so-card-badge { display: inline-flex; padding: 1px 6px; border-radius: 9999px; font-size: 10px; font-weight: 600; flex-shrink: 0; }
+        .so-card-actions {
+            display: flex; flex-direction: column; gap: 6px; flex-shrink: 0;
+        }
+        .so-card-action-btn {
+            width: 32px; height: 32px; border-radius: 8px;
+            border: 1px solid #e5e7eb; background: #f9fafb;
+            color: #6b7280; font-size: 13px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.15s;
+        }
+        .so-card-action-btn:hover { background: #eef2ff; color: #6366f1; border-color: #c7d2fe; }
+        .so-card-action-danger { color: #ef4444; }
+        .so-card-action-danger:hover { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
+        .staff-orders-mobile-cards { overflow: hidden; }
+
+        @media (max-width: 1024px) {
+            .staff-orders-table-wrap table th,
+            .staff-orders-table-wrap table td { padding: 8px 10px; font-size: 13px; }
+        }
+
+        @media (max-width: 768px) {
+            div.staff-orders-table-wrap { display: none !important; visibility: hidden !important; height: 0 !important; overflow: hidden !important; }
+            div.staff-orders-mobile-cards { display: block !important; }
+            /* Page container */
+            .staff-orders-page { padding-top: 16px !important; padding-bottom: 16px !important; overflow-x: hidden !important; }
+            .staff-orders-page > div { width: 100% !important; padding: 0 10px !important; overflow: hidden !important; }
+            /* Filters */
+            .staff-orders-filter-form {
+                flex-direction: column !important;
+                flex-wrap: nowrap !important;
+                gap: 8px !important;
+                align-items: stretch !important;
+            }
+            .staff-orders-search-wrap {
+                display: block !important;
+                width: 100% !important;
+            }
+            .staff-orders-search-wrap .relative { width: 100% !important; }
+            .staff-orders-search-wrap input[name="search"] {
+                width: 100% !important;
+                font-size: 16px !important;
+                padding: 10px 40px 10px 36px !important;
+                border-radius: 10px !important;
+                box-sizing: border-box !important;
+            }
+            /* Filter row */
+            .so-filter-tabs-row { width: 100% !important; }
+            .so-filter-toggle-btn { width: 36px !important; height: 36px !important; min-width: 36px !important; }
+            /* Status tabs: force horizontal scroll */
+            .so-status-tabs {
+                flex: 1 !important;
+                min-width: 0 !important;
+                overflow-x: auto !important;
+                flex-wrap: nowrap !important;
+            }
+            .so-status-tabs > a { font-size: 12px !important; padding: 5px 10px !important; flex-shrink: 0 !important; }
+            .staff-orders-advanced-form {
+                flex-direction: column !important;
+                flex-wrap: nowrap !important;
+                gap: 12px !important;
+            }
+            .staff-orders-advanced-form > div {
+                width: 100% !important;
+                max-width: 100% !important;
+                flex-basis: 100% !important;
+                min-width: 0 !important;
+                flex-shrink: 0 !important;
+            }
+            /* Inputs: larger touch targets */
+            .staff-orders-advanced-form select,
+            .staff-orders-advanced-form input[type="date"],
+            .staff-orders-advanced-form button[type="button"] {
+                font-size: 16px !important;
+                padding: 10px 16px !important;
+                border-radius: 10px !important;
+                height: auto !important;
+                min-height: 44px !important;
+            }
+            .staff-orders-advanced-form select {
+                padding-right: 36px !important;
+            }
+            /* Date row: side by side */
+            .staff-orders-advanced-form .flex.min-w-0 {
+                flex-wrap: nowrap !important;
+                gap: 8px !important;
+            }
+            .staff-orders-advanced-form .flex.min-w-0 input {
+                min-width: 0 !important;
+                flex: 1 !important;
+            }
+            /* Apply / Reset buttons: full width, stacked */
+            .staff-orders-advanced-form > div:last-child {
+                flex-direction: column !important;
+                gap: 8px !important;
+            }
+            .staff-orders-advanced-form .h-10 {
+                width: 100% !important;
+                height: 44px !important;
+                border-radius: 10px !important;
+                font-size: 14px !important;
+            }
+            /* Dropdown panels */
+            .staff-orders-advanced-form .absolute.z-50 {
+                position: fixed !important;
+                left: 12px !important;
+                right: 12px !important;
+                width: auto !important;
+                max-height: 50vh !important;
+            }
+            .staff-orders-actions { flex-wrap: wrap !important; gap: 8px !important; }
+            .staff-orders-actions > a { flex: 1 1 auto; justify-content: center; font-size: 13px; }
+            /* Filter panel */
+            .staff-orders-page .rounded-xl.bg-white { padding: 10px !important; border-radius: 12px !important; }
+            /* Bulk bar */
+            .staff-orders-bulk-bar { flex-direction: column; gap: 8px; font-size: 12px; }
+            .staff-orders-select-row { font-size: 12px; }
+        }
+
+        @media (max-width: 480px) {
+            .so-card { padding: 10px 12px; gap: 10px; margin-bottom: 6px; }
+            .so-card-ring .order-service-ring { width: 36px !important; height: 36px !important; }
+            .so-card-ring .h-9 { width: 26px !important; height: 26px !important; }
+            .so-card-id { font-size: 12px; }
+            .so-card-sname { font-size: 12px; }
+            .so-card-meta { font-size: 11px; }
+            .so-card-bottom { font-size: 10px; }
+            .so-filter-toggle-btn { width: 32px !important; height: 32px !important; min-width: 32px !important; }
+            .so-filter-toggle-btn svg { width: 16px !important; height: 16px !important; }
+            .so-status-tabs > a { font-size: 11px !important; padding: 4px 8px !important; }
+        }
+    </style>
+
+    <div class="py-12 staff-orders-page">
         <div class="m-auto" style="width: 95%">
             @if(session('success'))
                 <div
@@ -97,7 +292,7 @@
             @endif
 
             <!-- Action Buttons -->
-            <div class="mb-4 flex justify-end gap-3">
+            <div class="mb-4 flex justify-end gap-3 staff-orders-actions flex-wrap">
                 @staffcan('orders.create')
                 <a href="{{ route('staff.orders.create') }}"
                     class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-full text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
@@ -128,11 +323,11 @@
                  })"
                  @submit.capture.prevent="fetchOrdersFromForm($event.target)">
                 {{-- Row 1: Burger + Status Tabs + Search --}}
-                <form method="GET" action="{{ route('staff.orders.index') }}" class="staff-orders-filter-form flex flex-wrap items-center gap-3">
+                <form method="GET" action="{{ route('staff.orders.index') }}" class="staff-orders-filter-form" style="display:flex;flex-wrap:wrap;align-items:center;gap:12px">
                     @if(request()->has('status') && request('status') !== 'all')
                         <input type="hidden" name="status" value="{{ request('status') }}">
                     @endif
-                        <div style="width: 100%; display: flex; justify-content: end">
+                        <div class="staff-orders-search-wrap">
                             <div class="relative">
                                 <svg class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
@@ -152,8 +347,17 @@
                             </div>
                         </div>
 
-                        {{-- Synced on AJAX so status badge counts match category/service/date/search --}}
-                        <div id="staff-orders-status-tabs-root" class="flex flex-wrap items-center gap-1.5">
+                        {{-- Filter toggle + Status tabs --}}
+                        <div class="so-filter-tabs-row">
+                            <button type="button"
+                                    @click="filtersOpen = !filtersOpen"
+                                    :class="filtersOpen ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+                                    class="so-filter-toggle-btn">
+                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+                                </svg>
+                            </button>
+                        <div id="staff-orders-status-tabs-root" class="so-status-tabs">
                         @php
                             $statusButtons = [
                                 'all' => __('All'),
@@ -167,14 +371,6 @@
                                 \App\Models\Order::STATUS_FAIL => __('Failed'),
                             ];
                         @endphp
-                            <button type="button"
-                                    @click="filtersOpen = !filtersOpen"
-                                    :class="filtersOpen ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
-                                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
-                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
-                                </svg>
-                            </button>
                         @foreach($statusButtons as $statusValue => $statusLabel)
                             @php
                                 $urlParams = request()->except(['status', 'page']);
@@ -194,6 +390,7 @@
                             </a>
                         @endforeach
                     </div>
+                    </div>
 
                 </form>
 
@@ -207,7 +404,7 @@
                      x-cloak
                      class="mt-4 border-t border-gray-200 pt-4">
                     <div id="staff-orders-advanced-filters-root">
-                    <form method="GET" action="{{ route('staff.orders.index') }}" class="staff-orders-filter-form flex w-full min-w-0 flex-wrap items-end gap-x-4 gap-y-3">
+                    <form method="GET" action="{{ route('staff.orders.index') }}" class="staff-orders-filter-form staff-orders-advanced-form flex w-full min-w-0 flex-wrap items-end gap-x-4 gap-y-3">
                         @if(request()->has('status') && request('status') !== 'all')
                             <input type="hidden" name="status" value="{{ request('status') }}">
                         @endif
@@ -409,7 +606,7 @@
                     </div>
 
                     <!-- Selection Controls -->
-                    <div class="mb-4 flex items-center gap-2">
+                    <div class="mb-4 flex items-center gap-2 staff-orders-select-row">
                         <button
                             type="button"
                             @click="selectPage()"
@@ -427,7 +624,7 @@
                         </button>
                     </div>
 
-                <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+                <div class="staff-orders-table-wrap bg-white border border-gray-200 rounded-xl shadow-sm" style="overflow:hidden">
                 <x-table id="orders-table">
                     <x-slot name="header">
                         <tr>
@@ -766,6 +963,135 @@
                     </x-slot>
                 </x-table>
                 </div>
+
+                {{-- Mobile Cards --}}
+                <div class="staff-orders-mobile-cards">
+                    @foreach($orders as $order)
+                        @php
+                            $delivered = (int) ($order->delivered ?? 0);
+                            $quantity = (int) ($order->quantity ?? 0);
+                            $progress = $quantity > 0 ? round(($delivered / $quantity) * 100, 1) : 0;
+                            $categoryIcon = $order->service?->icon ?: ($order->category?->icon ?? null) ?: ($order->service?->category?->icon ?? null);
+                            $statusDots = ['validating'=>'bg-cyan-500','invalid_link'=>'bg-red-500','awaiting'=>'bg-yellow-500','pending'=>'bg-blue-500','in_progress'=>'bg-indigo-500','processing'=>'bg-purple-500','partial'=>'bg-orange-500','completed'=>'bg-green-500','canceled'=>'bg-red-500','fail'=>'bg-gray-500'];
+                            $dotClass = $statusDots[$order->status] ?? 'bg-gray-500';
+                            $statusLabel = ucfirst(str_replace('_', ' ', $order->status));
+                            $charge = (float) ($order->charge ?? 0);
+                            $sourceLabel = match($order->source) { \App\Models\Order::SOURCE_API => 'API', \App\Models\Order::SOURCE_STAFF => 'STAFF', default => 'WEB' };
+                            $sourceClasses = match($order->source) { \App\Models\Order::SOURCE_API => 'bg-gray-100 text-gray-700', \App\Models\Order::SOURCE_STAFF => 'bg-purple-50 text-purple-700', default => 'bg-indigo-50 text-indigo-700' };
+                        @endphp
+                        <div class="so-card" onclick="window.dispatchEvent(new CustomEvent('open-modal', { detail: 'order-details-{{ $order->id }}' }))">
+                            <div class="so-card-ring">
+                                <div class="order-service-ring relative h-12 w-12 rounded-full shrink-0" data-order-id="{{ $order->id }}" style="background: conic-gradient(#0ea5f5 calc({{ number_format(min(100, max(0, $progress)), 1, '.', '') }} * 1%), rgba(0,0,0,.08) 0);">
+                                    <div class="absolute inset-[3px] rounded-full bg-white flex items-center justify-center">
+                                        <div class="h-9 w-9 rounded-full bg-white border border-gray-100 flex items-center justify-center text-sky-400">
+                                            @if($categoryIcon)
+                                                @if(\Illuminate\Support\Str::startsWith($categoryIcon, '<svg'))
+                                                    <span class="h-5 w-5 [&_svg]:h-5 [&_svg]:w-5 [&_svg]:text-sky-400">{!! $categoryIcon !!}</span>
+                                                @elseif(\Illuminate\Support\Str::startsWith($categoryIcon, 'data:') || \Illuminate\Support\Str::startsWith($categoryIcon, 'http'))
+                                                    <img src="{{ $categoryIcon }}" alt="" class="h-5 w-5 object-contain" />
+                                                @elseif(\Illuminate\Support\Str::startsWith($categoryIcon, 'fas ') || \Illuminate\Support\Str::startsWith($categoryIcon, 'far ') || \Illuminate\Support\Str::startsWith($categoryIcon, 'fab ') || \Illuminate\Support\Str::startsWith($categoryIcon, 'fal ') || \Illuminate\Support\Str::startsWith($categoryIcon, 'fad '))
+                                                    <i class="{{ $categoryIcon }}"></i>
+                                                @else
+                                                    <span class="text-xs font-semibold">{{ \Illuminate\Support\Str::limit($categoryIcon, 2, '') }}</span>
+                                                @endif
+                                            @else
+                                                <svg viewBox="0 0 24 24" class="h-4 w-4" fill="currentColor"><path d="M9.993 15.674l-.425 5.987c.608 0 .872-.261 1.19-.573l2.856-2.744 5.92 4.33c1.085.598 1.85.284 2.137-.999L24 1.255 0 10.246c.707.222 1.94.608 1.94.608l6.845 2.136 15.9-10.037c.75-.452 1.437-.2 .873.252"/></svg>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="so-card-info">
+                                <div class="so-card-top">
+                                    <span class="so-card-id">#{{ $order->id }}</span>
+                                    <span class="so-card-sname">{{ $order->service->name ?? '—' }}</span>
+                                </div>
+                                <div class="so-card-meta">
+                                    <span class="so-card-status order-status-badge" data-order-id="{{ $order->id }}" data-status="{{ $order->status }}">
+                                        <span class="h-2 w-2 rounded-full {{ $dotClass }}" style="display:inline-block;"></span>
+                                        {{ $statusLabel }}
+                                    </span>
+                                    <span class="so-card-dot">·</span>
+                                    <span class="order-progress-detail" data-order-id="{{ $order->id }}">{{ number_format($delivered) }} {{ __('of') }} {{ number_format($quantity) }}</span>
+                                </div>
+                                <div class="so-card-bottom">
+                                    <span class="so-card-price">${{ rtrim(rtrim(number_format($charge, 4), '0'), '.') }}</span>
+                                    <span class="so-card-dot">·</span>
+                                    <span>{{ $order->created_at->format('d M H:i') }}</span>
+                                    <span class="so-card-dot">·</span>
+                                    <span class="so-card-user">{{ $order->client->name ?? "#{$order->client_id}" }}</span>
+                                </div>
+                                <div class="so-card-badges">
+                                    <span class="so-card-badge {{ $sourceClasses }}">{{ $sourceLabel }}</span>
+                                </div>
+                            </div>
+                            <div class="so-card-actions" onclick="event.stopPropagation()">
+                                <button type="button"
+                                    onclick="window.dispatchEvent(new CustomEvent('open-modal', { detail: 'order-details-{{ $order->id }}' }))"
+                                    class="so-card-action-btn" title="{{ __('View') }}">
+                                    <i class="fa-solid fa-eye"></i>
+                                </button>
+                                @php
+                                    $service = $order->service;
+                                    $canCancel = $service && $service->user_can_cancel;
+                                    $isAwaitingOrPending = in_array($order->status, [\App\Models\Order::STATUS_AWAITING, \App\Models\Order::STATUS_PENDING, \App\Models\Order::STATUS_PROCESSING], true);
+                                    $isInProgressOrProcessing = in_array($order->status, [\App\Models\Order::STATUS_IN_PROGRESS, \App\Models\Order::STATUS_PROCESSING], true);
+                                @endphp
+                                @if($canCancel && ($isAwaitingOrPending || $isInProgressOrProcessing))
+                                    <button type="button"
+                                        onclick="window.dispatchEvent(new CustomEvent('open-modal', { detail: '{{ $isAwaitingOrPending ? 'cancel-full' : 'cancel-partial' }}-{{ $order->id }}' }))"
+                                        class="so-card-action-btn so-card-action-danger" title="{{ __('Cancel') }}">
+                                        <i class="fa-solid fa-ban"></i>
+                                    </button>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
+                    <div data-pagination-root style="margin-top:12px;">
+                        <x-pagination :currentPage="$orders->currentPage()" :lastPage="$orders->lastPage()" :hasPages="$orders->hasPages()" id="orders-pagination" />
+                    </div>
+                </div>
+
+                    {{-- Cancel modals (outside table so they work on mobile cards too) --}}
+                    @foreach($orders as $order)
+                        @php
+                            $service = $order->service;
+                            $canCancel = $service && $service->user_can_cancel;
+                            $isAwaitingOrPending = in_array($order->status, [\App\Models\Order::STATUS_AWAITING, \App\Models\Order::STATUS_PENDING, \App\Models\Order::STATUS_PROCESSING], true);
+                            $isInProgressOrProcessing = in_array($order->status, [\App\Models\Order::STATUS_IN_PROGRESS, \App\Models\Order::STATUS_PROCESSING], true);
+                        @endphp
+                        @if($canCancel && $isAwaitingOrPending)
+                            <div x-data="{
+                                submitForm() { document.getElementById('mobile-cancel-full-form-{{ $order->id }}').submit(); }
+                            }" x-on:confirm-action.window="if ($event.detail === 'cancel-full-{{ $order->id }}') { submitForm(); }">
+                                <x-confirm-modal
+                                    name="cancel-full-{{ $order->id }}"
+                                    title="{{ __('Cancel Order') }}"
+                                    :message="__('Are you sure you want to cancel this order? A full refund of $:amount will be processed.', ['amount' => $order->charge])"
+                                    confirm-text="{{ __('Yes, Cancel Order') }}"
+                                    cancel-text="{{ __('No, Keep Order') }}"
+                                    confirm-button-class="bg-red-600 hover:bg-red-700"
+                                >
+                                    <form id="mobile-cancel-full-form-{{ $order->id }}" action="{{ route('staff.orders.cancelFull', $order) }}" method="POST" style="display:none;">@csrf</form>
+                                </x-confirm-modal>
+                            </div>
+                        @elseif($canCancel && $isInProgressOrProcessing)
+                            <div x-data="{
+                                submitForm() { document.getElementById('mobile-cancel-partial-form-{{ $order->id }}').submit(); }
+                            }" x-on:confirm-action.window="if ($event.detail === 'cancel-partial-{{ $order->id }}') { submitForm(); }">
+                                <x-confirm-modal
+                                    name="cancel-partial-{{ $order->id }}"
+                                    title="{{ __('Partial Cancel Order') }}"
+                                    :message="__('Are you sure you want to cancel the remaining part of this order? A refund for undelivered quantity will be processed.')"
+                                    confirm-text="{{ __('Yes, Cancel Partial') }}"
+                                    cancel-text="{{ __('No, Keep Order') }}"
+                                    confirm-button-class="bg-orange-600 hover:bg-orange-700"
+                                >
+                                    <form id="mobile-cancel-partial-form-{{ $order->id }}" action="{{ route('staff.orders.cancelPartial', $order) }}" method="POST" style="display:none;">@csrf</form>
+                                </x-confirm-modal>
+                            </div>
+                        @endif
+                    @endforeach
 
                     <!-- Bulk Action Form -->
                     <form id="bulk-action-form" action="{{ route('staff.orders.bulk-action') }}" method="POST" style="display: none;">
