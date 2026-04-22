@@ -706,6 +706,12 @@
             gap: 6px;
             min-width: 0;
         }
+        .co-order-card-svc-id {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--purple-light);
+            flex-shrink: 0;
+        }
         .co-order-card-sid {
             font-size: 13px;
             font-weight: 700;

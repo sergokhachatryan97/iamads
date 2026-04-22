@@ -177,8 +177,9 @@
             {{-- Middle: info --}}
             <div class="co-order-card-info">
                 <div class="co-order-card-service">
-                    <span class="co-order-card-sid">{{ $order->service_id }}</span>
-                    <span class="co-order-card-sname">{{ \Illuminate\Support\Str::limit($order->service->name ?? '—', 32) }}</span>
+                    <span class="co-order-card-sid">#{{ $order->id }}</span>
+                    <span class="co-order-card-svc-id">{{ $order->service_id }}</span>
+                    <span class="co-order-card-sname">{{ \Illuminate\Support\Str::limit($order->service->name ?? '—', 28) }}</span>
                 </div>
                 <div class="co-order-card-meta">
                     <span class="co-order-card-progress order-progress-detail" data-order-id="{{ $order->id }}">{{ number_format($d->delivered) }} {{ __('of') }} {{ number_format($d->quantity) }}</span>
@@ -224,11 +225,11 @@
     </div>
 </div>
 
-{{-- Cancel modals (outside both table and cards so they work on mobile) --}}
+{{-- Cancel modals (outside both table and cards so they work everywhere) --}}
 @foreach($orders as $idx => $order)
     @php $d = $ordersData[$idx]; @endphp
     @if($d->canCancel && $d->isAwaitingOrPending)
-        <div x-data="{ submitForm() { document.getElementById('mobile-client-cancel-full-form-{{ $order->id }}').submit(); } }"
+        <div x-data="{ submitForm() { document.getElementById('cancel-full-form-{{ $order->id }}').submit(); } }"
              x-on:confirm-action.window="if ($event.detail === 'cancel-full-{{ $order->id }}') { submitForm(); }">
             <x-confirm-modal
                 name="cancel-full-{{ $order->id }}"
@@ -239,11 +240,11 @@
                 cancel-text="{{ __('No, Keep Order') }}"
                 confirm-button-class="bg-red-600 hover:bg-red-700"
             >
-                <form id="mobile-client-cancel-full-form-{{ $order->id }}" action="{{ route('client.orders.cancelFull', $order) }}" method="POST" style="display:none;">@csrf</form>
+                <form id="cancel-full-form-{{ $order->id }}" action="{{ route('client.orders.cancelFull', $order) }}" method="POST" style="display:none;">@csrf</form>
             </x-confirm-modal>
         </div>
     @elseif($d->canCancel && $d->isInProgressOrProcessing)
-        <div x-data="{ submitForm() { document.getElementById('mobile-client-cancel-partial-form-{{ $order->id }}').submit(); } }"
+        <div x-data="{ submitForm() { document.getElementById('cancel-partial-form-{{ $order->id }}').submit(); } }"
              x-on:confirm-action.window="if ($event.detail === 'cancel-partial-{{ $order->id }}') { submitForm(); }">
             <x-confirm-modal
                 name="cancel-partial-{{ $order->id }}"
@@ -254,7 +255,7 @@
                 cancel-text="{{ __('No, Keep Order') }}"
                 confirm-button-class="bg-orange-600 hover:bg-orange-700"
             >
-                <form id="mobile-client-cancel-partial-form-{{ $order->id }}" action="{{ route('client.orders.cancelPartial', $order) }}" method="POST" style="display:none;">@csrf</form>
+                <form id="cancel-partial-form-{{ $order->id }}" action="{{ route('client.orders.cancelPartial', $order) }}" method="POST" style="display:none;">@csrf</form>
             </x-confirm-modal>
         </div>
     @endif

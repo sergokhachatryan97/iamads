@@ -60,7 +60,9 @@
         .so-card-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; overflow: hidden; }
         .so-card-top { display: flex; align-items: baseline; gap: 6px; min-width: 0; overflow: hidden; }
         .so-card-id { font-size: 13px; font-weight: 700; color: #111827; flex-shrink: 0; }
-        .so-card-sname { font-size: 13px; color: #6b7280; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+        .so-card-sid { font-size: 11px; font-weight: 600; color: #6366f1; flex-shrink: 0; }
+        .so-card-sname { font-size: 13px; color: #6b7280; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; text-decoration: none; }
+        .so-card-sname-link:hover { color: #6366f1; text-decoration: underline; }
         .so-card-meta { display: flex; align-items: center; gap: 6px; font-size: 12px; overflow: hidden; }
         .so-card-status { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; flex-shrink: 0; }
         .so-card-dot { color: #d1d5db; font-size: 8px; flex-shrink: 0; }
@@ -783,7 +785,7 @@
                                                 <div class="min-w-0">
                                                     <div class="flex items-center gap-2">
                                                         <span class="text-sm font-semibold text-gray-900">{{ $order->service_id }}</span>
-                                                        <span class="text-sm text-gray-700 truncate">{{ $order->service->name ?? '—' }}</span>
+                                                        <a href="{{ route('staff.services.edit', $order->service_id) }}" target="_blank" class="text-sm text-gray-700 truncate hover:text-indigo-600 hover:underline">{{ $order->service->name ?? '—' }}</a>
                                                     </div>
                                                     @if($order->link)
                                                         <a href="{{ $order->link }}" target="_blank" rel="noopener noreferrer" class="text-xs text-indigo-600 hover:underline truncate block" title="{{ $order->link }}">
@@ -875,75 +877,19 @@
                                                     </button>
 
                                                     @if($canCancel && $isAwaitingOrPending)
-                                                        <div x-data="{
-                                                            openModal() {
-                                                                $dispatch('open-modal', 'cancel-full-{{ $order->id }}');
-                                                            },
-                                                            submitForm() {
-                                                                document.getElementById('cancel-full-form-{{ $order->id }}').submit();
-                                                            }
-                                                        }"
-                                                        x-on:confirm-action.window="if ($event.detail === 'cancel-full-{{ $order->id }}') { submitForm(); }">
-                                                            <button
-                                                                type="button"
-                                                                @click="openModal()"
-                                                                class="block w-full px-4 py-2 text-start text-sm leading-5 text-red-700 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 transition duration-150 ease-in-out">
-                                                                {{ __('Cancel') }}
-                                                            </button>
-
-                                                            <x-confirm-modal
-                                                                name="cancel-full-{{ $order->id }}"
-                                                                title="{{ __('Cancel Order') }}"
-                                                                :message="__('Are you sure you want to cancel this order? A full refund of $:amount will be processed.', ['amount' => $order->charge])"
-                                                                confirm-text="{{ __('Yes, Cancel Order') }}"
-                                                                cancel-text="{{ __('No, Keep Order') }}"
-                                                                confirm-button-class="bg-red-600 hover:bg-red-700"
-                                                            >
-                                                                <form
-                                                                    id="cancel-full-form-{{ $order->id }}"
-                                                                    action="{{ route('staff.orders.cancelFull', $order) }}"
-                                                                    method="POST"
-                                                                    style="display: none;"
-                                                                >
-                                                                    @csrf
-                                                                </form>
-                                                            </x-confirm-modal>
-                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onclick="window.dispatchEvent(new CustomEvent('open-modal', { detail: 'cancel-full-{{ $order->id }}' }))"
+                                                            class="block w-full px-4 py-2 text-start text-sm leading-5 text-red-700 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 transition duration-150 ease-in-out">
+                                                            {{ __('Cancel') }}
+                                                        </button>
                                                     @elseif($canCancel && $isInProgressOrProcessing)
-                                                        <div x-data="{
-                                                            openModal() {
-                                                                $dispatch('open-modal', 'cancel-partial-{{ $order->id }}');
-                                                            },
-                                                            submitForm() {
-                                                                document.getElementById('cancel-partial-form-{{ $order->id }}').submit();
-                                                            }
-                                                        }"
-                                                        x-on:confirm-action.window="if ($event.detail === 'cancel-partial-{{ $order->id }}') { submitForm(); }">
-                                                            <button
-                                                                type="button"
-                                                                @click="openModal()"
-                                                                class="block w-full px-4 py-2 text-start text-sm leading-5 text-orange-700 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 transition duration-150 ease-in-out">
-                                                                {{ __('Cancel (Partial)') }}
-                                                            </button>
-
-                                                            <x-confirm-modal
-                                                                name="cancel-partial-{{ $order->id }}"
-                                                                title="{{ __('Partial Cancel Order') }}"
-                                                                :message="__('Are you sure you want to cancel the remaining part of this order? A refund for undelivered quantity will be processed.')"
-                                                                confirm-text="{{ __('Yes, Cancel Partial') }}"
-                                                                cancel-text="{{ __('No, Keep Order') }}"
-                                                                confirm-button-class="bg-orange-600 hover:bg-orange-700"
-                                                            >
-                                                                <form
-                                                                    id="cancel-partial-form-{{ $order->id }}"
-                                                                    action="{{ route('staff.orders.cancelPartial', $order) }}"
-                                                                    method="POST"
-                                                                    style="display: none;"
-                                                                >
-                                                                    @csrf
-                                                                </form>
-                                                            </x-confirm-modal>
-                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onclick="window.dispatchEvent(new CustomEvent('open-modal', { detail: 'cancel-partial-{{ $order->id }}' }))"
+                                                            class="block w-full px-4 py-2 text-start text-sm leading-5 text-orange-700 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 transition duration-150 ease-in-out">
+                                                            {{ __('Cancel (Partial)') }}
+                                                        </button>
                                                     @endif
                                                 </x-slot>
                                             </x-dropdown>
@@ -965,7 +911,7 @@
                 </div>
 
                 {{-- Mobile Cards --}}
-                <div class="staff-orders-mobile-cards">
+                <div id="staff-orders-mobile-root" class="staff-orders-mobile-cards">
                     @foreach($orders as $order)
                         @php
                             $delivered = (int) ($order->delivered ?? 0);
@@ -1004,7 +950,8 @@
                             <div class="so-card-info">
                                 <div class="so-card-top">
                                     <span class="so-card-id">#{{ $order->id }}</span>
-                                    <span class="so-card-sname">{{ $order->service->name ?? '—' }}</span>
+                                    <span class="so-card-sid">{{ $order->service_id }}</span>
+                                    <a href="{{ route('staff.services.edit', $order->service_id) }}" target="_blank" onclick="event.stopPropagation()" class="so-card-sname so-card-sname-link">{{ $order->service->name ?? '—' }}</a>
                                 </div>
                                 <div class="so-card-meta">
                                     <span class="so-card-status order-status-badge" data-order-id="{{ $order->id }}" data-status="{{ $order->status }}">
@@ -1052,7 +999,8 @@
                     </div>
                 </div>
 
-                    {{-- Cancel modals (outside table so they work on mobile cards too) --}}
+                    {{-- Cancel modals (outside table so they work on both desktop and mobile) --}}
+                    <div id="staff-orders-cancel-modals">
                     @foreach($orders as $order)
                         @php
                             $service = $order->service;
@@ -1062,7 +1010,7 @@
                         @endphp
                         @if($canCancel && $isAwaitingOrPending)
                             <div x-data="{
-                                submitForm() { document.getElementById('mobile-cancel-full-form-{{ $order->id }}').submit(); }
+                                submitForm() { document.getElementById('cancel-full-form-{{ $order->id }}').submit(); }
                             }" x-on:confirm-action.window="if ($event.detail === 'cancel-full-{{ $order->id }}') { submitForm(); }">
                                 <x-confirm-modal
                                     name="cancel-full-{{ $order->id }}"
@@ -1072,12 +1020,12 @@
                                     cancel-text="{{ __('No, Keep Order') }}"
                                     confirm-button-class="bg-red-600 hover:bg-red-700"
                                 >
-                                    <form id="mobile-cancel-full-form-{{ $order->id }}" action="{{ route('staff.orders.cancelFull', $order) }}" method="POST" style="display:none;">@csrf</form>
+                                    <form id="cancel-full-form-{{ $order->id }}" action="{{ route('staff.orders.cancelFull', $order) }}" method="POST" style="display:none;">@csrf</form>
                                 </x-confirm-modal>
                             </div>
                         @elseif($canCancel && $isInProgressOrProcessing)
                             <div x-data="{
-                                submitForm() { document.getElementById('mobile-cancel-partial-form-{{ $order->id }}').submit(); }
+                                submitForm() { document.getElementById('cancel-partial-form-{{ $order->id }}').submit(); }
                             }" x-on:confirm-action.window="if ($event.detail === 'cancel-partial-{{ $order->id }}') { submitForm(); }">
                                 <x-confirm-modal
                                     name="cancel-partial-{{ $order->id }}"
@@ -1087,11 +1035,12 @@
                                     cancel-text="{{ __('No, Keep Order') }}"
                                     confirm-button-class="bg-orange-600 hover:bg-orange-700"
                                 >
-                                    <form id="mobile-cancel-partial-form-{{ $order->id }}" action="{{ route('staff.orders.cancelPartial', $order) }}" method="POST" style="display:none;">@csrf</form>
+                                    <form id="cancel-partial-form-{{ $order->id }}" action="{{ route('staff.orders.cancelPartial', $order) }}" method="POST" style="display:none;">@csrf</form>
                                 </x-confirm-modal>
                             </div>
                         @endif
                     @endforeach
+                    </div>
 
                     <!-- Bulk Action Form -->
                     <form id="bulk-action-form" action="{{ route('staff.orders.bulk-action') }}" method="POST" style="display: none;">
@@ -1212,7 +1161,7 @@
                             </div>
                             <div>
                                 <span class="text-gray-600">{{ __('Service') }}:</span>
-                                <span class="font-medium text-gray-900 ml-2">{{ $order->service->name ?? 'N/A' }}</span>
+                                <a href="{{ route('staff.services.edit', $order->service_id) }}" target="_blank" class="font-medium text-indigo-600 hover:text-indigo-800 hover:underline ml-2">{{ $order->service->name ?? 'N/A' }}</a>
                             </div>
                         </div>
                     </div>
@@ -1657,6 +1606,26 @@
                     const curAdvRoot = document.getElementById('staff-orders-advanced-filters-root');
                     if (newAdvRoot && curAdvRoot) {
                         curAdvRoot.innerHTML = newAdvRoot.innerHTML;
+                    }
+
+                    // 3) replace mobile cards
+                    const newMobile = doc.getElementById('staff-orders-mobile-root');
+                    const curMobile = document.getElementById('staff-orders-mobile-root');
+                    if (newMobile && curMobile) {
+                        curMobile.innerHTML = newMobile.innerHTML;
+                        if (window.Alpine && typeof window.Alpine.initTree === 'function') {
+                            curMobile.querySelectorAll('[x-data]').forEach(el => window.Alpine.initTree(el));
+                        }
+                    }
+
+                    // 4) replace cancel modals
+                    const newModals = doc.getElementById('staff-orders-cancel-modals');
+                    const curModals = document.getElementById('staff-orders-cancel-modals');
+                    if (newModals && curModals) {
+                        curModals.innerHTML = newModals.innerHTML;
+                        if (window.Alpine && typeof window.Alpine.initTree === 'function') {
+                            curModals.querySelectorAll('[x-data]').forEach(el => window.Alpine.initTree(el));
+                        }
                     }
 
                     // update URL

@@ -403,15 +403,8 @@
                 gap: 6px;
             }
             .smm-client-top-balance-add { width: 26px; height: 26px; font-size: 11px; }
-            /* New Order: icon only */
-            .smm-btn-order-text { display: none; }
-            .smm-client-top-btn-order {
-                width: 36px; height: 36px; min-width: 36px;
-                padding: 0; border-radius: 10px;
-                justify-content: center;
-                box-shadow: 0 2px 10px rgba(108, 92, 231, 0.35);
-            }
-            .smm-client-top-btn-order .smm-btn-order-icon { font-size: 16px; }
+            /* New Order: hidden on mobile (available in bottom nav) */
+            .smm-client-top-btn-order { display: none !important; }
             /* Utility buttons */
             .smm-client-top-bar-util { gap: 4px; }
             .smm-dash-theme,
@@ -434,10 +427,6 @@
             .smm-dash-menu-toggle { width: 32px; height: 32px; font-size: 13px; border-radius: 8px; }
             .smm-client-top-balance-pill { padding: 3px 4px 3px 8px; font-size: 12px; gap: 4px; }
             .smm-client-top-balance-add { width: 22px; height: 22px; font-size: 10px; }
-            .smm-client-top-btn-order {
-                width: 32px; height: 32px; min-width: 32px; border-radius: 8px;
-            }
-            .smm-client-top-btn-order .smm-btn-order-icon { font-size: 14px; }
             .smm-dash-theme { width: 32px; height: 32px; min-width: 32px; font-size: 13px; border-radius: 8px; }
             .smm-client-top-bar .lang-landing-details > summary {
                 min-height: 32px; padding: 5px 6px; font-size: 11px; border-radius: 8px;
