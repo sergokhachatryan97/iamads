@@ -84,7 +84,7 @@ class DashboardController extends Controller
             'platformStats' => $platformStats,
             'chartMonths' => $chartMonths,
             'chartMax' => $chartMax,
-            'contactTelegram' => ltrim((string) config('contact.telegram', ''), '@'),
+            'contactTelegram' => \App\Helpers\ContactHelper::telegram(),
         ]);
     }
 

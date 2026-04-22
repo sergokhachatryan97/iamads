@@ -11,6 +11,7 @@
     <link rel="icon" type="image/png" href="{{ asset('images/adtag_fav.png') }}">
     <link rel="apple-touch-icon" href="{{ asset('images/adtag_fav.png') }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <x-heleket-site-verification />
 
     <meta property="og:title" content="{{ __('home.meta_og_title', ['name' => config('app.name', 'SMM Tool')]) }}" />
@@ -224,6 +225,8 @@
         .float-btn:hover { transform: scale(1.1); }
         .float-btn-order { background: linear-gradient(135deg, var(--purple), var(--teal)); color: #fff; }
         .float-btn-support { background: #2aabee; color: #fff; }
+        [x-cloak] { display: none !important; }
+
 
         /* FOOTER */
         footer { background: var(--card); border-top: 1px solid var(--border2); padding: 40px 24px 24px; }
@@ -291,16 +294,14 @@
         <li><a href="#" onclick="openServicesModal(); return false;">{{ __('Services') }}</a></li>
         <li><a href="#how-it-works">{{ __('How It Works') }}</a></li>
         <li><a href="#why-us">{{ __('Why Choose Us') }}</a></li>
-        @if($contactTelegram)
-          <li><a href="https://t.me/{{ $contactTelegram }}" target="_blank">{{ __('Support') }}</a></li>
-        @endif
+        <li><a href="{{ route('contacts') }}">{{ __('Support') }}</a></li>
       </ul>
       <div class="nav-right">
         <span class="direct-badge"><i class="fa-solid fa-check-circle"></i> {{ __('home.direct_provider_badge') }}</span>
         <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="{{ __('Toggle theme') }}"><i class="fa-solid fa-moon" id="themeIcon"></i></button>
         <x-language-dropdown variant="landing" />
         @auth('client')
-          <a href="{{ route('client.orders.index') }}" class="btn-signup">{{ __('Dashboard') }}</a>
+          <a href="{{ route('client.orders.index') }}" class="btn-signup">{{ __('Services') }}</a>
         @else
           <a href="{{ route('login') }}" class="btn-signin">{{ __('home.sign_in') }}</a>
           <a href="{{ route('register') }}" class="btn-signup">{{ __('home.sign_up') }}</a>
@@ -481,7 +482,6 @@
               <a href="https://t.me/{{ $contactTelegram }}" target="_blank" rel="noopener noreferrer" title="{{ __('home.footer_telegram') }}"><i class="fa-brands fa-telegram"></i></a>
             @endif
             <a href="#" title="{{ __('home.footer_whatsapp') }}"><i class="fa-brands fa-whatsapp"></i></a>
-            <a href="#" title="Facebook"><i class="fa-brands fa-facebook"></i></a>
           </div>
         </div>
         <div class="footer-col">
@@ -534,9 +534,9 @@
 
 <!-- FLOATING BUTTONS -->
 <div class="floating-btns">
-    @if($contactTelegram)
-        <a href="https://t.me/{{ $contactTelegram }}" target="_blank" rel="noopener noreferrer" class="float-btn float-btn-support" title="{{ __('home.float_support_title') }}"><i class="fa-brands fa-telegram"></i></a>
-    @endif
+    <x-telegram-support-picker variant="float">
+        <button type="button" x-on:click="open = !open" class="float-btn float-btn-support" title="{{ __('home.float_support_title') }}"><i class="fa-brands fa-telegram"></i></button>
+    </x-telegram-support-picker>
 </div>
 
 @if($errors->any())
@@ -590,7 +590,7 @@ const PLATFORM_ICONS = {
     'twitch': '<i class="fa-brands fa-twitch" style="color:#9146ff"></i>',
     'vk': '<i class="fa-brands fa-vk" style="color:#4680c2"></i>',
     'whatsapp': '<i class="fa-brands fa-whatsapp" style="color:#25d366"></i>',
-    'max': '<img src="https://cs1.socpanel.com/cs1/project_images/QdFxuI4RczNFlG54eXfJOcMUCdX3gHjeCjn2TLM2.jpg" alt="" class="platform-icon-img" width="22" height="22" loading="lazy" decoding="async" referrerpolicy="no-referrer">',
+    'max': '<img src="{{ asset("images/max-icon.png") }}" alt="Max" class="platform-icon-img" width="22" height="22" loading="lazy" decoding="async">',
     'app': '<i class="fa-solid fa-mobile-screen" style="color:#a29bfe"></i>',
 };
 

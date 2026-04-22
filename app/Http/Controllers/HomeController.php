@@ -59,7 +59,6 @@ class HomeController extends Controller
                     'whatsapp' => __('home.link_placeholder_tg'),
                     'tiktok' => __('home.link_placeholder_tg'),
                     'instagram' => __('home.link_placeholder_tg'),
-                    'facebook' => __('home.link_placeholder_tg'),
                     'url', 'generic' => __('home.link_placeholder_tg'),
                     default => __('home.link_placeholder_tg'),
                 };
@@ -114,7 +113,7 @@ class HomeController extends Controller
             'categoriesForJs' => $categoriesForJs,
             'translations' => $translations,
             'firstCategoryName' => $firstCategoryName,
-            'contactTelegram' => config('contact.telegram', 'Just_tg'),
+            'contactTelegram' => \App\Helpers\ContactHelper::telegram(),
             'contactEmail' => config('contact.email', ''),
             'service' => null,
         ]);
@@ -126,7 +125,7 @@ class HomeController extends Controller
      */
     public function contacts(): View
     {
-        $contactTelegram = trim((string) config('contact.telegram', ''));
+        $contactTelegram = \App\Helpers\ContactHelper::telegram();
         $contactEmail = trim((string) config('contact.email', ''));
         if ($contactEmail === '') {
             $contactEmail = trim((string) config('mail.from.address', ''));

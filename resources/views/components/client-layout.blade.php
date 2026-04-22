@@ -2,7 +2,7 @@
 
 @php
     $client = \Illuminate\Support\Facades\Auth::guard('client')->user();
-    $contactTelegram = ltrim((string) config('contact.telegram', ''), '@');
+    $contactTelegram = \App\Helpers\ContactHelper::telegram();
 @endphp
 
 <x-client-smm-layout :title="$title" :client="$client" :contactTelegram="$contactTelegram" :hide-sidebar="$hideSidebar">

@@ -525,14 +525,14 @@
                     <i class="fa-solid fa-house"></i> {{ __('Homepage') }}
                 </a>
             </nav>
-            @if($contactTelegram)
-                <div class="smm-dash-sidebar-foot">
-                    <a href="https://t.me/{{ $contactTelegram }}" target="_blank" rel="noopener noreferrer" class="smm-dash-sidebar-telegram" title="{{ __('home.footer_telegram') }}">
+            <div class="smm-dash-sidebar-foot">
+                <x-telegram-support-picker variant="sidebar">
+                    <button type="button" x-on:click="open = !open" class="smm-dash-sidebar-telegram w-full">
                         <i class="fa-brands fa-telegram" aria-hidden="true"></i>
                         <span>{{ __('Support') }}</span>
-                    </a>
-                </div>
-            @endif
+                    </button>
+                </x-telegram-support-picker>
+            </div>
         </aside>
         @endunless
         <div class="smm-dash-main" style="flex:1;min-width:0">

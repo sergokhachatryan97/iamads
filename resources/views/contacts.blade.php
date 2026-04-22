@@ -12,7 +12,7 @@
     <link rel="icon" type="image/png" href="{{ asset('images/adtag_fav.png') }}">
     <link rel="apple-touch-icon" href="{{ asset('images/adtag_fav.png') }}">
     <style>
-        :root { --radius: 12px; }
+        :root { --radius: 14px; }
         [data-theme="dark"] {
             --bg: #0a0a0f; --card: #1a1a2e; --card2: #16213e;
             --purple: #6c5ce7; --purple-light: #a29bfe; --purple-dark: #5a4fcf;
@@ -30,16 +30,13 @@
             --navbar-bg: rgba(245,247,250,0.92);
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: Inter, system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; min-height: 100vh; }
+        body { font-family: Inter, system-ui, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; min-height: 100vh; display: flex; flex-direction: column; }
         a { color: inherit; text-decoration: none; }
 
         .navbar { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: var(--navbar-bg); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border2); padding: 0 24px; }
         .navbar-inner { max-width: 1280px; margin: 0 auto; height: 60px; display: flex; align-items: center; gap: 28px; }
         .logo { display: flex; flex-direction: column; align-items: center; gap: 4px; line-height: 1.1; flex-shrink: 0; }
         .logo-mark { height: 40px; width: auto; flex-shrink: 0; filter: drop-shadow(0 4px 14px rgba(124, 58, 237, 0.35)); }
-        .logo-text { display: flex; flex-direction: column; }
-        .logo-name { font-size: 18px; font-weight: 800; background: linear-gradient(135deg, var(--purple), var(--teal)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-        .logo-slogan { font-size: 9px; color: var(--text2); letter-spacing: 0.5px; }
         .nav-links { display: flex; align-items: center; gap: 2px; flex: 1; list-style: none; }
         .nav-links a { color: var(--text2); font-size: 13px; font-weight: 500; padding: 6px 12px; border-radius: 6px; transition: all 0.2s; }
         .nav-links a:hover { color: var(--text); background: rgba(108,92,231,0.08); }
@@ -51,32 +48,55 @@
         .btn-signup { background: linear-gradient(135deg, var(--purple), var(--purple-dark)); border: none; color: #fff; padding: 7px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-family: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
         .btn-signup:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(108,92,231,0.4); }
 
-        .contacts-main { padding: 88px 24px 80px; max-width: 1100px; margin: 0 auto; }
-        .contacts-title { font-size: clamp(28px, 4vw, 40px); font-weight: 800; text-align: center; margin-bottom: 16px; letter-spacing: -0.02em; color: var(--text); }
-        .contacts-intro { text-align: center; color: var(--text2); font-size: 15px; max-width: 36rem; margin: 0 auto 32px; line-height: 1.5; }
-        .contacts-value-muted { color: var(--text3) !important; font-weight: 500 !important; }
-        .contact-card.telegram .contacts-value-muted { color: rgba(255,255,255,0.8) !important; }
-        .contacts-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
-        @media (max-width: 900px) { .contacts-grid { grid-template-columns: 1fr; } .nav-links { display: none; } }
+        .contacts-main { padding: 100px 24px 60px; max-width: 800px; margin: 0 auto; flex: 1; width: 100%; }
+        .contacts-header { text-align: center; margin-bottom: 40px; }
+        .contacts-title { font-size: clamp(26px, 4vw, 36px); font-weight: 800; letter-spacing: -0.02em; margin-bottom: 10px; background: linear-gradient(135deg, var(--text) 30%, var(--purple-light)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .contacts-intro { color: var(--text2); font-size: 15px; max-width: 28rem; margin: 0 auto; line-height: 1.6; }
+
+        .contacts-grid { display: flex; flex-direction: column; gap: 16px; }
+
+        /* Email card */
         .contact-card {
             background: var(--card); border: 1px solid var(--border2); border-radius: var(--radius);
-            padding: 28px 22px; text-align: center; transition: border-color 0.2s, box-shadow 0.2s;
+            padding: 24px 28px; transition: border-color 0.2s, box-shadow 0.2s;
         }
-        .contact-card:hover { border-color: rgba(108,92,231,0.35); box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
-        .contact-card.telegram {
-            background: linear-gradient(145deg, #0088cc, #006699); border-color: rgba(255,255,255,0.15); color: #fff;
-        }
-        .contact-card .icon { font-size: 40px; margin-bottom: 16px; color: var(--purple-light); }
-        .contact-card.telegram .icon { color: #fff; }
-        .contact-card .label { font-size: 12px; color: var(--text3); margin-bottom: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
-        .contact-card.telegram .label { color: rgba(255,255,255,0.85); }
-        .contact-card .value { font-size: 16px; font-weight: 700; word-break: break-all; color: var(--text); }
-        .contact-card a.value { color: var(--teal); }
-        .contact-card a.value:hover { text-decoration: underline; }
-        .contact-card.telegram a.value { color: #fff; }
+        .contact-card:hover { border-color: rgba(108,92,231,0.3); box-shadow: 0 4px 24px rgba(0,0,0,0.15); }
+        .card-header { display: flex; align-items: center; gap: 14px; margin-bottom: 4px; }
+        .card-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+        .card-icon.email-icon { background: rgba(108,92,231,0.12); color: var(--purple-light); }
+        .card-icon.telegram-icon { background: rgba(42,171,238,0.15); color: #2aabee; }
+        .card-icon.coop-icon { background: rgba(0,210,211,0.12); color: var(--teal); }
+        .card-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); }
+        .card-title { font-size: 15px; font-weight: 700; color: var(--text); }
+        .card-value { margin-top: 2px; }
+        .card-value a { color: var(--teal); font-size: 15px; font-weight: 600; transition: opacity 0.2s; }
+        .card-value a:hover { opacity: 0.8; text-decoration: underline; }
 
-        .footer { padding: 40px 24px 24px; border-top: 1px solid var(--border2); margin-top: auto; }
-        .footer-inner { max-width: 1100px; margin: 0 auto; text-align: center; font-size: 13px; color: var(--text3); }
+        /* Telegram support links */
+        .tg-links { display: flex; flex-direction: column; gap: 0; margin-top: 12px; }
+        .tg-link {
+            display: flex; align-items: center; gap: 14px;
+            padding: 14px 18px; border-radius: 10px;
+            transition: background 0.15s;
+            text-decoration: none; color: var(--text);
+        }
+        .tg-link:hover { background: rgba(42,171,238,0.08); }
+        .tg-flag { font-size: 24px; flex-shrink: 0; }
+        .tg-info { flex: 1; min-width: 0; }
+        .tg-lang { font-size: 14px; font-weight: 600; }
+        .tg-handle { font-size: 12px; color: var(--text3); }
+        .tg-arrow { color: var(--text3); font-size: 12px; transition: transform 0.2s, color 0.2s; }
+        .tg-link:hover .tg-arrow { transform: translateX(3px); color: #2aabee; }
+
+        .footer { padding: 32px 24px 20px; border-top: 1px solid var(--border2); margin-top: auto; }
+        .footer-inner { max-width: 1100px; margin: 0 auto; text-align: center; font-size: 12px; color: var(--text3); }
+
+        @media (max-width: 600px) {
+            .nav-links { display: none; }
+            .contacts-main { padding: 80px 16px 40px; }
+            .contact-card { padding: 20px; }
+            .tg-link { padding: 12px 14px; }
+        }
     </style>
 </head>
 <body>
@@ -95,11 +115,7 @@
             <button type="button" class="theme-toggle" id="contactsThemeBtn" onclick="contactsToggleTheme()" title="{{ __('Toggle theme') }}"><i class="fa-solid fa-moon" id="contactsThemeIcon"></i></button>
             <x-language-dropdown variant="landing" />
             @auth('client')
-                <a href="{{ route('dashboard') }}" class="btn-signup">{{ __('Dashboard') }}</a>
-                <form method="POST" action="{{ route('logout') }}" class="inline" style="margin:0;">
-                    @csrf
-                    <button type="submit" class="btn-signin">{{ __('common.logout') }}</button>
-                </form>
+                <a href="{{ route('client.orders.index') }}" class="btn-signup">{{ __('Services') }}</a>
             @else
                 <a href="{{ route('login') }}" class="btn-signin">{{ __('home.login') }}</a>
                 <a href="{{ route('register') }}" class="btn-signup">{{ __('Sign Up') }}</a>
@@ -109,40 +125,75 @@
 </nav>
 
 <main class="contacts-main">
-    <h1 class="contacts-title">{{ __('contacts.title') }}</h1>
-    <p class="contacts-intro">{{ __('contacts.intro') }}</p>
+    <div class="contacts-header">
+        <h1 class="contacts-title">{{ __('contacts.title') }}</h1>
+        <p class="contacts-intro">{{ __('contacts.intro') }}</p>
+    </div>
+
     <div class="contacts-grid">
+        {{-- Email --}}
         <div class="contact-card">
-            <div class="icon"><i class="far fa-envelope"></i></div>
-            <div class="label">{{ __('contacts.help_desk') }}</div>
-            @if(filled($contactEmail))
-                <a href="mailto:{{ $contactEmail }}" class="value">{{ $contactEmail }}</a>
-            @else
-                <span class="value contacts-value-muted">{{ __('contacts.not_available') }}</span>
-            @endif
-        </div>
-        <div class="contact-card {{ filled($contactTelegram) ? 'telegram' : '' }}">
-            <div class="icon"><i class="fab fa-telegram-plane"></i></div>
-            <div class="label">{{ __('contacts.telegram_bot') }}</div>
-            @if(filled($contactTelegram))
-                <a href="https://t.me/{{ ltrim($contactTelegram, '@') }}" target="_blank" rel="noopener" class="value">{{ $contactTelegram }}</a>
-            @else
-                <span class="value contacts-value-muted">{{ __('contacts.not_available') }}</span>
-            @endif
-        </div>
-        @if(filled($contactCooperationEmail))
-            <div class="contact-card">
-                <div class="icon"><i class="far fa-handshake"></i></div>
-                <div class="label">{{ __('contacts.cooperation') }}</div>
-                <a href="mailto:{{ $contactCooperationEmail }}" class="value">{{ $contactCooperationEmail }}</a>
+            <div class="card-header">
+                <div class="card-icon email-icon"><i class="far fa-envelope"></i></div>
+                <div>
+                    <div class="card-label">{{ __('contacts.help_desk') }}</div>
+                    <div class="card-value">
+                        @if(filled($contactEmail))
+                            <a href="mailto:{{ $contactEmail }}">{{ $contactEmail }}</a>
+                        @else
+                            <span style="color:var(--text3);font-size:14px;">{{ __('contacts.not_available') }}</span>
+                        @endif
+                    </div>
+                </div>
             </div>
+        </div>
+
+        {{-- Telegram --}}
+        <div class="contact-card">
+            <div class="card-header">
+                <div class="card-icon telegram-icon"><i class="fab fa-telegram-plane"></i></div>
+                <div>
+                    <div class="card-label">{{ __('contacts.telegram_bot') }}</div>
+                    <div class="card-title">{{ __('Select Support Language') }}</div>
+                </div>
+            </div>
+            <div class="tg-links">
+                @foreach(config('contact.telegram_support_list', []) as $support)
+                    @if(!empty($support['username']))
+                        @php $handle = ltrim($support['username'], '@'); @endphp
+                        <a href="https://t.me/{{ $handle }}" target="_blank" rel="noopener noreferrer" class="tg-link">
+                            <span class="tg-flag">{{ $support['flag'] }}</span>
+                            <div class="tg-info">
+                                <div class="tg-lang">{{ $support['label'] }}</div>
+                                <div class="tg-handle">{{ '@' . $handle }}</div>
+                            </div>
+                            <i class="fa-solid fa-arrow-right tg-arrow"></i>
+                        </a>
+                    @endif
+                @endforeach
+            </div>
+        </div>
+
+        {{-- Cooperation --}}
+        @if(filled($contactCooperationEmail))
+        <div class="contact-card">
+            <div class="card-header">
+                <div class="card-icon coop-icon"><i class="far fa-handshake"></i></div>
+                <div>
+                    <div class="card-label">{{ __('contacts.cooperation') }}</div>
+                    <div class="card-value">
+                        <a href="mailto:{{ $contactCooperationEmail }}">{{ $contactCooperationEmail }}</a>
+                    </div>
+                </div>
+            </div>
+        </div>
         @endif
     </div>
 </main>
 
 <footer class="footer">
     <div class="footer-inner">
-        © {{ config('contact.company_name') }}, {{ date('Y') }}. {{ __('home.footer_rights') }}
+        &copy; {{ config('contact.company_name') }}, {{ date('Y') }}. {{ __('home.footer_rights') }}
     </div>
 </footer>
 

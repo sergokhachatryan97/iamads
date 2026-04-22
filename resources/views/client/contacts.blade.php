@@ -88,15 +88,19 @@
                     @endif
                 </div>
             </div>
-            <div class="cc-card {{ filled($contactTelegram) ? 'cc-card--telegram' : '' }}">
+            <div class="cc-card cc-card--telegram">
                 <div class="cc-card__icon" aria-hidden="true"><i class="fab fa-telegram-plane"></i></div>
                 <div class="cc-card__label">{{ __('contacts.telegram_bot') }}</div>
-                <div class="cc-card__value">
-                    @if(filled($contactTelegram))
-                        <a href="https://t.me/{{ ltrim($contactTelegram, '@') }}" target="_blank" rel="noopener noreferrer">{{ $contactTelegram }}</a>
-                    @else
-                        <span class="cc-card__muted">{{ __('contacts.not_available') }}</span>
-                    @endif
+                <div class="cc-card__value" style="display:flex;flex-direction:column;gap:8px;">
+                    @foreach(config('contact.telegram_support_list', []) as $support)
+                        @if(!empty($support['username']))
+                            <a href="https://t.me/{{ ltrim($support['username'], '@') }}" target="_blank" rel="noopener noreferrer"
+                               style="display:flex;align-items:center;gap:8px;">
+                                <span>{{ $support['flag'] }}</span>
+                                <span>{{ $support['label'] }}</span>
+                            </a>
+                        @endif
+                    @endforeach
                 </div>
             </div>
             @if(filled($contactCooperationEmail))
