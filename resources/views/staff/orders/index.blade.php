@@ -1678,56 +1678,56 @@
             }
 
             function updateOrderStatus(orderId, statusData) {
-                // Update status badge
-                const statusBadge = document.querySelector(`.order-status-badge[data-order-id="${orderId}"]`);
-                if (statusBadge) {
+                const dotClasses = {
+                    validating: 'bg-cyan-500',
+                    invalid_link: 'bg-red-500',
+                    awaiting: 'bg-yellow-500',
+                    pending: 'bg-blue-500',
+                    in_progress: 'bg-indigo-500',
+                    processing: 'bg-purple-500',
+                    partial: 'bg-orange-500',
+                    completed: 'bg-green-500',
+                    canceled: 'bg-red-500',
+                    fail: 'bg-gray-500',
+                };
+
+                // Update ALL status badges (table + mobile cards)
+                document.querySelectorAll(`.order-status-badge[data-order-id="${orderId}"]`).forEach(statusBadge => {
                     const currentStatus = statusBadge.getAttribute('data-status');
                     if (currentStatus !== statusData.status) {
                         statusBadge.setAttribute('data-status', statusData.status);
-                        const dot = statusBadge.querySelector('span.rounded-full');
-                        const label = statusBadge.querySelectorAll('span')[1];
-
-                        const dotClasses = {
-                            validating: 'bg-cyan-500',
-                            invalid_link: 'bg-red-500',
-                            awaiting: 'bg-yellow-500',
-                            pending: 'bg-blue-500',
-                            in_progress: 'bg-indigo-500',
-                            processing: 'bg-purple-500',
-                            partial: 'bg-orange-500',
-                            completed: 'bg-green-500',
-                            canceled: 'bg-red-500',
-                            fail: 'bg-gray-500',
-                        };
-
-                        if (dot) {
-                            dot.className = `h-2.5 w-2.5 rounded-full ${dotClasses[statusData.status] || 'bg-gray-500'}`;
-                        }
-                        if (label) {
+                        const dot = statusBadge.querySelector('span.rounded-full, .rounded-full');
+                        const label = statusBadge.querySelector('span:last-child');
+                        if (!label || label === dot) {
+                            const spans = statusBadge.querySelectorAll('span');
+                            if (spans.length > 1) spans[spans.length - 1].textContent = formatStatusLabel(statusData.status);
+                        } else {
                             label.textContent = formatStatusLabel(statusData.status);
                         }
-
-                        // Add animation effect
+                        if (dot) {
+                            dot.className = dot.className.replace(/bg-\w+-\d+/g, '');
+                            dot.classList.add(dotClasses[statusData.status] || 'bg-gray-500');
+                            if (!dot.classList.contains('rounded-full')) dot.classList.add('rounded-full');
+                            if (!dot.classList.contains('h-2') && !dot.classList.contains('h-2.5')) {
+                                dot.className = `h-2.5 w-2.5 rounded-full ${dotClasses[statusData.status] || 'bg-gray-500'}`;
+                            }
+                        }
                         statusBadge.classList.add('animate-pulse');
-                        setTimeout(() => {
-                            statusBadge.classList.remove('animate-pulse');
-                        }, 1000);
+                        setTimeout(() => statusBadge.classList.remove('animate-pulse'), 1000);
                     }
-                }
+                });
 
-                // Update progress detail (delivered of quantity)
-                const progressDetail = document.querySelector(`.order-progress-detail[data-order-id="${orderId}"]`);
-                if (progressDetail) {
-                    progressDetail.textContent = `${new Intl.NumberFormat().format(statusData.delivered)} ${'{{ __('of') }}'} ${new Intl.NumberFormat().format(statusData.quantity)}`;
-                }
+                // Update progress detail (delivered of quantity) — all instances
+                document.querySelectorAll(`.order-progress-detail[data-order-id="${orderId}"]`).forEach(el => {
+                    el.textContent = `${new Intl.NumberFormat().format(statusData.delivered)} ${'{{ __('of') }}'} ${new Intl.NumberFormat().format(statusData.quantity)}`;
+                });
 
-                // Update service icon progress ring
-                const serviceRing = document.querySelector(`.order-service-ring[data-order-id="${orderId}"]`);
-                if (serviceRing) {
+                // Update service icon progress ring — all instances
+                document.querySelectorAll(`.order-service-ring[data-order-id="${orderId}"]`).forEach(el => {
                     const p = Math.min(100, Math.max(0, statusData.progress));
-                    serviceRing.style.background = `conic-gradient(#0ea5f5 calc(${p} * 1%), rgba(255,255,255,.25) 0)`;
-                    serviceRing.setAttribute('data-progress', p.toFixed(1));
-                }
+                    el.style.background = `conic-gradient(#0ea5f5 calc(${p} * 1%), rgba(255,255,255,.25) 0)`;
+                    el.setAttribute('data-progress', p.toFixed(1));
+                });
             }
 
             function pollOrderStatuses() {
