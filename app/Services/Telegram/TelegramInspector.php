@@ -198,6 +198,7 @@ class TelegramInspector
                     $result['chat_type'] = 'bot';
                     $result['parsed']['kind'] = $telegramLinkInspector['entity_kind'];
                     $result['title'] = $username;
+                    $result['member_count'] = $telegramLinkInspector['monthly_users_count'];
 
                     return $result;
                 }
