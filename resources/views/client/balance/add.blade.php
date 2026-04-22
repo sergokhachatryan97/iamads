@@ -240,6 +240,35 @@
                 <a href="{{ route('client.account.edit') }}" class="add-funds-cancel">{{ __('Cancel') }}</a>
             </div>
         @endif
+
+        {{-- Promo Code --}}
+        @if(session('promo_success'))
+            <div class="add-funds-alert ok" style="margin-top:16px;">
+                <p class="m-0">{{ session('promo_success') }}</p>
+            </div>
+        @endif
+        <div class="add-funds-card" style="margin-top:16px;">
+            <div class="add-funds-field-label">
+                <i class="fa-solid fa-gift" aria-hidden="true"></i>
+                {{ __('Have a promo code?') }}
+            </div>
+            <form method="POST" action="{{ route('client.promo-code.apply') }}">
+                @csrf
+                <div style="display:flex;gap:8px;align-items:stretch;">
+                    <div class="add-funds-input-wrap" style="flex:1;margin-bottom:0;">
+                        <input name="promo_code" type="text" class="add-funds-input" value="{{ old('promo_code') }}"
+                               placeholder="{{ __('Enter promo code…') }}" autocomplete="off"
+                               style="padding-left:14px;text-transform:uppercase;" maxlength="32">
+                    </div>
+                    <button type="submit" class="add-funds-submit" style="width:auto;margin-top:0;padding:12px 22px;border-radius:12px;white-space:nowrap;">
+                        {{ __('Apply') }}
+                    </button>
+                </div>
+                @error('promo_code')
+                    <p class="add-funds-error">{{ $message }}</p>
+                @enderror
+            </form>
+        </div>
     </div>
 
     <script>

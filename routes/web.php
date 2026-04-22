@@ -83,6 +83,9 @@ Route::middleware('auth:client')->group(function () {
     Route::get('balance/add', [BalanceController::class, 'create'])->name('client.balance.add');
     Route::post('balance', [BalanceController::class, 'store'])->name('client.balance.store');
 
+    // Promo Codes
+    Route::post('promo-code/apply', [\App\Http\Controllers\Client\PromoCodeController::class, 'apply'])->name('client.promo-code.apply');
+
     // Client Services (view only, no actions)
     Route::get('services', [ClientServiceController::class, 'index'])->name('client.services.index');
     Route::post('services/search', [ClientServiceController::class, 'search'])->name('client.services.search');
@@ -240,6 +243,13 @@ Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSess
         Route::post('orders/{order}/cancel-partial', [\App\Http\Controllers\Staff\OrderController::class, 'cancelPartial'])->name('staff.orders.cancelPartial');
     });
     Route::post('orders/bulk-action', [\App\Http\Controllers\Staff\OrderController::class, 'bulkAction'])->name('staff.orders.bulk-action')->middleware('staff.permission:orders.bulk-action');
+
+    // Promo Codes (Super Admin only — enforced in controller constructor)
+    Route::get('promo-codes', [\App\Http\Controllers\Staff\PromoCodeController::class, 'index'])->name('staff.promo-codes.index');
+    Route::get('promo-codes/create', [\App\Http\Controllers\Staff\PromoCodeController::class, 'create'])->name('staff.promo-codes.create');
+    Route::post('promo-codes', [\App\Http\Controllers\Staff\PromoCodeController::class, 'store'])->name('staff.promo-codes.store');
+    Route::post('promo-codes/{promoCode}/toggle', [\App\Http\Controllers\Staff\PromoCodeController::class, 'toggleActive'])->name('staff.promo-codes.toggle');
+    Route::delete('promo-codes/{promoCode}', [\App\Http\Controllers\Staff\PromoCodeController::class, 'destroy'])->name('staff.promo-codes.destroy');
 
     // Export Files
     Route::get('exports', [\App\Http\Controllers\Staff\ExportFilesController::class, 'index'])->name('staff.exports.index')->middleware('staff.permission:exports.view');

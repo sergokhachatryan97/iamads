@@ -97,6 +97,7 @@
                             </x-dropdown-link>
                         @endstaffcan
 
+
                         <!-- Authentication -->
                         <form method="POST" action="{{ route('staff.logout') }}">
                             @csrf

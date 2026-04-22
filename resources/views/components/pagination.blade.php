@@ -62,8 +62,8 @@
 <style>
     .smm-pagination-wrap {
         padding: 12px 16px;
-        border-top: 1px solid var(--border, rgba(255,255,255,0.08));
-        background: var(--card, #1a1a2e);
+        border-top: 1px solid var(--border, rgba(0,0,0,0.08));
+        background: transparent;
     }
     .smm-pagination {
         display: flex;
@@ -83,10 +83,10 @@
         min-width: 36px;
         height: 36px;
         padding: 0 10px;
-        border: 1px solid var(--border, rgba(255,255,255,0.08));
+        border: 1px solid var(--border, rgba(0,0,0,0.12));
         border-radius: 8px;
         background: transparent;
-        color: var(--text2, #8892a4);
+        color: var(--text2, #6b7280);
         font-size: 13px;
         font-weight: 600;
         font-family: inherit;
@@ -95,9 +95,9 @@
         flex-shrink: 0;
     }
     .smm-pg-btn:hover:not(:disabled):not(.smm-pg-disabled) {
-        background: rgba(108, 92, 231, 0.12);
+        background: rgba(108, 92, 231, 0.1);
         border-color: rgba(108, 92, 231, 0.3);
-        color: var(--text, #e2e8f0);
+        color: var(--text, #1f2937);
     }
     .smm-pg-active {
         background: var(--purple, #6c5ce7) !important;
@@ -120,7 +120,7 @@
         justify-content: center;
         min-width: 28px;
         height: 36px;
-        color: var(--text3, #5a6178);
+        color: var(--text3, #9ca3af);
         font-size: 14px;
         letter-spacing: 1px;
         user-select: none;
@@ -128,25 +128,21 @@
     .smm-pg-info {
         display: none;
         font-size: 12px;
-        color: var(--text3, #5a6178);
+        color: var(--text3, #9ca3af);
         white-space: nowrap;
         margin-left: 8px;
     }
 
-    /* Light theme */
-    [data-theme="light"] .smm-pagination-wrap {
-        background: var(--card2, #f0f2f7);
+    /* Dark theme (client side) */
+    [data-theme="dark"] .smm-pg-btn {
+        border-color: rgba(255, 255, 255, 0.08);
+        color: #8892a4;
     }
-    [data-theme="light"] .smm-pg-btn {
-        background: #fff;
-        border-color: rgba(0, 0, 0, 0.1);
-        color: var(--text2, #5a6178);
+    [data-theme="dark"] .smm-pg-btn:hover:not(:disabled):not(.smm-pg-disabled) {
+        color: #e2e8f0;
     }
-    [data-theme="light"] .smm-pg-btn:hover:not(:disabled):not(.smm-pg-disabled) {
-        background: rgba(108, 92, 231, 0.08);
-        border-color: rgba(108, 92, 231, 0.25);
-        color: var(--purple-dark, #5a4fcf);
-    }
+    [data-theme="dark"] .smm-pg-dots { color: #5a6178; }
+    [data-theme="dark"] .smm-pg-info { color: #5a6178; }
 
     /* Tablet */
     @media (max-width: 768px) {

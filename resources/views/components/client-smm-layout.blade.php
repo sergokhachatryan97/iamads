@@ -78,7 +78,14 @@
         @media (max-width: 1023px) {
             .smm-dash-sidebar {
                 padding-top: max(0px, env(safe-area-inset-top, 0px));
+                z-index: 60;
             }
+        }
+        @media (max-width: 768px) {
+            .smm-dash-sidebar {
+                padding-bottom: max(66px, calc(56px + env(safe-area-inset-bottom, 0px)));
+            }
+            .smm-dash-overlay { z-index: 55; }
         }
         @media (min-width: 1024px) {
             .smm-dash-sidebar { position: sticky; top: 0; height: 100vh; transform: none; }
@@ -239,6 +246,8 @@
             border-color: rgba(220, 38, 38, 0.45);
             color: #b91c1c;
         }
+        /* Sidebar logout: hidden on desktop (shown in top bar), visible on mobile only */
+        .smm-sidebar-logout-form { display: none; margin: 0; }
         .smm-sidebar-logout-btn {
             display: flex;
             align-items: center;
@@ -411,8 +420,9 @@
                 min-height: 34px; padding: 6px 8px; font-size: 12px;
             }
             .smm-dash-menu-toggle { width: 34px; height: 34px; font-size: 14px; }
-            /* Hide logout from top bar — it's in sidebar */
+            /* Mobile: hide top bar logout, show sidebar logout */
             .smm-dash-logout-form { display: none; }
+            .smm-sidebar-logout-form { display: block !important; }
         }
 
         @media (max-width: 479px) {
@@ -670,7 +680,7 @@
 {{--                    <i class="fa-solid fa-receipt"></i> {{ __('My Subscriptions') }}--}}
 {{--                </a>--}}
                 <a href="{{ route('client.balance.add') }}" class="{{ request()->routeIs('client.balance.*') ? 'active' : '' }}" @click="sidebarOpen = false">
-                    <i class="fa-solid fa-wallet"></i> {{ __('Add Funds') }}
+                    <i class="fa-solid fa-wallet"></i> {{ __('Add Balance') }}
                 </a>
                 <a href="{{ route('client.api.index') }}" class="{{ request()->routeIs('client.api.*') ? 'active' : '' }}" @click="sidebarOpen = false">
                     <i class="fa-solid fa-code"></i> {{ __('API') }}
@@ -724,7 +734,7 @@
                         <div class="smm-client-top-bar-right">
                             <div class="smm-client-top-balance-pill">
                                 <span><strong>${{ number_format((float) $client->balance, 2) }}</strong></span>
-                                <a href="{{ route('client.balance.add') }}" class="smm-client-top-balance-add" title="{{ __('Add Funds') }}" aria-label="{{ __('Add Funds') }}">
+                                <a href="{{ route('client.balance.add') }}" class="smm-client-top-balance-add" title="{{ __('Add Balance') }}" aria-label="{{ __('Add Balance') }}">
                                     <i class="fa-solid fa-plus" aria-hidden="true"></i>
                                 </a>
                             </div>
