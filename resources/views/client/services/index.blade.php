@@ -273,6 +273,131 @@
             color: var(--text2) !important;
         }
 
+        /* ===== MOBILE SERVICE CARDS ===== */
+        .cs-mobile-cards { display: none; }
+        .cs-desktop-table { display: block; }
+
+        .cs-cat-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 14px;
+            background: var(--card2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin: 12px 0 6px;
+        }
+        .cs-cat-header:first-child { margin-top: 0; }
+        .cs-cat-icon { font-size: 18px; flex-shrink: 0; color: var(--purple-light); }
+        .cs-cat-name { font-size: 15px; font-weight: 700; color: var(--text); }
+        .cs-svc-card {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding: 12px 14px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 6px;
+            cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .cs-svc-card:hover { border-color: rgba(108,92,231,0.3); }
+        .cs-svc-card:active { background: rgba(108,92,231,0.06); }
+        .cs-svc-card-top {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .cs-svc-fav {
+            flex-shrink: 0;
+            background: none;
+            border: none;
+            color: var(--text3);
+            cursor: pointer;
+            padding: 2px;
+            transition: color 0.15s;
+        }
+        .cs-svc-fav-on { color: #f59e0b !important; }
+        .cs-svc-name {
+            flex: 1;
+            min-width: 0;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .cs-svc-arrow {
+            flex-shrink: 0;
+            font-size: 11px;
+            color: var(--text3);
+            transition: transform 0.15s;
+        }
+        .cs-svc-card:hover .cs-svc-arrow {
+            transform: translateX(2px);
+            color: var(--purple-light);
+        }
+        .cs-svc-card-bottom {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text2);
+            padding-left: 26px;
+        }
+        .cs-svc-id { font-weight: 600; color: var(--text3); }
+        .cs-svc-dot { color: var(--text3); font-size: 8px; }
+        .cs-svc-rate { font-weight: 700; color: var(--teal); }
+        .cs-svc-range { color: var(--text3); }
+        .cs-mobile-empty {
+            padding: 20px;
+            text-align: center;
+            color: var(--text3);
+            font-size: 13px;
+        }
+
+        @media (max-width: 768px) {
+            .cs-desktop-table { display: none !important; }
+            .cs-mobile-cards { display: block !important; }
+            .client-services-page .client-orders-filter-panel {
+                padding: 10px; border-radius: 12px; margin-bottom: 10px;
+            }
+            .client-services-page .co-filter-search-box .co-filter-search {
+                font-size: 14px !important;
+                padding: 10px 12px 10px 36px !important;
+                border-radius: 10px !important;
+            }
+            .client-services-page .co-filter-tabs button {
+                font-size: 12px; padding: 6px 10px; border-radius: 8px;
+            }
+            .client-services-page .co-filter-advanced { margin-top: 10px !important; padding-top: 10px !important; }
+            .client-services-page .co-filter-advanced form {
+                flex-direction: column !important; gap: 10px !important;
+            }
+            .client-services-page .co-filter-advanced form > div { width: 100% !important; }
+            .client-services-page .co-filter-field {
+                font-size: 14px !important; padding: 10px 14px !important; border-radius: 10px !important;
+            }
+            .client-services-page .co-filter-apply,
+            .client-services-page .co-filter-reset { height: 42px; font-size: 13px; border-radius: 10px; }
+            .client-services-page { padding-top: 8px !important; padding-bottom: 8px !important; }
+        }
+
+        @media (max-width: 480px) {
+            .client-services-page .client-orders-filter-panel { padding: 8px; border-radius: 10px; }
+            .client-services-page .co-filter-search-box .co-filter-search {
+                font-size: 14px !important; padding: 9px 10px 9px 34px !important;
+            }
+            .client-services-page .co-filter-tabs button { font-size: 11px; padding: 5px 8px; }
+            .cs-cat-header { padding: 10px 12px; margin: 10px 0 4px; }
+            .cs-cat-name { font-size: 14px; }
+            .cs-svc-card { padding: 10px 12px; margin-bottom: 4px; }
+            .cs-svc-name { font-size: 12px; }
+            .cs-svc-card-bottom { font-size: 11px; padding-left: 24px; }
+        }
+
         .client-services-loading .cs-loading-spinner {
             border-width: 2px;
             border-style: solid;
@@ -297,75 +422,80 @@
         <div class="max-w-[95%] mx-auto sm:px-6 lg:px-8 overflow-visible">
             <div class="client-orders-filter-panel relative z-10"
                  @submit.capture.prevent="handleFormSubmit($event)">
-                <form method="GET" action="{{ route('client.services.index') }}" id="filter-form" class="client-services-filter-form flex flex-wrap items-center gap-3">
+                <form method="GET" action="{{ route('client.services.index') }}" id="filter-form" class="client-services-filter-form co-filter-row">
                     <input type="hidden" name="sort" :value="currentSort">
                     <input type="hidden" name="dir" :value="currentDir">
                     <input type="hidden" name="category_id" :value="activeCategoryId">
                     <input type="hidden" name="favorites_only" :value="activeFavoritesOnly">
 
-                    <button type="button"
-                            @click="filtersOpen = !filtersOpen"
-                            :class="filtersOpen ? 'co-filter-toggle-active' : 'co-filter-toggle-idle'"
-                            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-[var(--card)]"
-                            title="{{ __('Filters') }}"
-                            :aria-expanded="filtersOpen">
-                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
-                        </svg>
-                    </button>
-
-                    <div id="client-services-tabs-root" class="flex flex-wrap items-center gap-1.5">
+                    {{-- Search + Filter toggle (same row) --}}
+                    <div class="co-filter-search-row">
                         <button type="button"
-                                @click.prevent="selectServiceTab('all')"
-                                class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
-                                :class="getServiceTab() === 'all' ? 'co-filter-tab-active' : 'co-filter-tab-idle'">
-                            {{ __('All') }}
-                            @if(($serviceTabCounts['all'] ?? 0) > 0)
-                                <span class="rounded-full px-1.5 py-0.5 text-xs font-bold"
-                                      :class="getServiceTab() === 'all' ? 'co-filter-tab-badge-active' : 'co-filter-tab-badge-idle'">{{ number_format($serviceTabCounts['all']) }}</span>
-                            @endif
+                                @click="filtersOpen = !filtersOpen"
+                                :class="filtersOpen ? 'co-filter-toggle-active' : 'co-filter-toggle-idle'"
+                                class="co-filter-toggle-btn"
+                                title="{{ __('Filters') }}"
+                                :aria-expanded="filtersOpen">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+                            </svg>
                         </button>
-                        <button type="button"
-                                @click.prevent="selectServiceTab('favorites')"
-                                class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
-                                :class="getServiceTab() === 'favorites' ? 'co-filter-tab-active' : 'co-filter-tab-idle'">
-                            {{ __('Favorites') }}
-                            @if(($serviceTabCounts['favorites'] ?? 0) > 0)
-                                <span class="rounded-full px-1.5 py-0.5 text-xs font-bold"
-                                      :class="getServiceTab() === 'favorites' ? 'co-filter-tab-badge-active' : 'co-filter-tab-badge-idle'">{{ number_format($serviceTabCounts['favorites']) }}</span>
-                            @endif
-                        </button>
-                        @foreach($categoriesList ?? [] as $category)
-                            @php $tabCount = $serviceTabCounts['categories'][$category->id] ?? 0; @endphp
-                            <button type="button"
-                                    @click.prevent="selectServiceTab('{{ $category->id }}')"
-                                    class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors max-w-[200px]"
-                                    :class="getServiceTab() === '{{ $category->id }}' ? 'co-filter-tab-active' : 'co-filter-tab-idle'">
-                                <span class="truncate">{{ $category->name }}</span>
-                                @if($tabCount > 0)
-                                    <span class="rounded-full px-1.5 py-0.5 text-xs font-bold shrink-0"
-                                          :class="getServiceTab() === '{{ $category->id }}' ? 'co-filter-tab-badge-active' : 'co-filter-tab-badge-idle'">{{ number_format($tabCount) }}</span>
-                                @endif
-                            </button>
-                        @endforeach
+                        <div class="co-filter-search-box">
+                            <div class="relative">
+                                <svg class="co-filter-search-icon absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                </svg>
+                                <input type="text" name="search" id="search" x-model="searchValue"
+                                       @input.debounce.400ms="handleSearchDebounced()"
+                                       placeholder="{{ __('Search by service name') }}"
+                                       class="co-filter-search w-full rounded-full border py-2 pl-10 pr-10 text-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/40">
+                                <button type="button" x-show="searchValue" x-cloak
+                                        @click="searchValue = ''; syncSearchToForm(); performAjaxSearch();"
+                                        class="co-filter-search-clear absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="ml-auto flex-1 min-w-[200px] max-w-md">
-                        <div class="relative">
-                            <svg class="co-filter-search-icon absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                            </svg>
-                            <input type="text" name="search" id="search" x-model="searchValue"
-                                   @input.debounce.400ms="handleSearchDebounced()"
-                                   placeholder="{{ __('Search by service name') }}"
-                                   class="co-filter-search w-full rounded-full border py-2 pl-10 pr-10 text-sm focus:border-purple-500 focus:ring-2 focus:ring-purple-500/40">
-                            <button type="button" x-show="searchValue" x-cloak
-                                    @click="searchValue = ''; syncSearchToForm(); performAjaxSearch();"
-                                    class="co-filter-search-clear absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 focus:outline-none focus:ring-2 focus:ring-purple-500">
-                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                                </svg>
+                    {{-- Category tabs --}}
+                    <div class="co-filter-tabs-row">
+                        <div id="client-services-tabs-root" class="co-filter-tabs">
+                            <button type="button"
+                                    @click.prevent="selectServiceTab('all')"
+                                    class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
+                                    :class="getServiceTab() === 'all' ? 'co-filter-tab-active' : 'co-filter-tab-idle'">
+                                {{ __('All') }}
+                                @if(($serviceTabCounts['all'] ?? 0) > 0)
+                                    <span class="rounded-full px-1.5 py-0.5 text-xs font-bold"
+                                          :class="getServiceTab() === 'all' ? 'co-filter-tab-badge-active' : 'co-filter-tab-badge-idle'">{{ number_format($serviceTabCounts['all']) }}</span>
+                                @endif
                             </button>
+                            <button type="button"
+                                    @click.prevent="selectServiceTab('favorites')"
+                                    class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors"
+                                    :class="getServiceTab() === 'favorites' ? 'co-filter-tab-active' : 'co-filter-tab-idle'">
+                                {{ __('Favorites') }}
+                                @if(($serviceTabCounts['favorites'] ?? 0) > 0)
+                                    <span class="rounded-full px-1.5 py-0.5 text-xs font-bold"
+                                          :class="getServiceTab() === 'favorites' ? 'co-filter-tab-badge-active' : 'co-filter-tab-badge-idle'">{{ number_format($serviceTabCounts['favorites']) }}</span>
+                                @endif
+                            </button>
+                            @foreach($categoriesList ?? [] as $category)
+                                @php $tabCount = $serviceTabCounts['categories'][$category->id] ?? 0; @endphp
+                                <button type="button"
+                                        @click.prevent="selectServiceTab('{{ $category->id }}')"
+                                        class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors max-w-[200px]"
+                                        :class="getServiceTab() === '{{ $category->id }}' ? 'co-filter-tab-active' : 'co-filter-tab-idle'">
+                                    <span class="truncate">{{ $category->name }}</span>
+                                    @if($tabCount > 0)
+                                        <span class="rounded-full px-1.5 py-0.5 text-xs font-bold shrink-0"
+                                              :class="getServiceTab() === '{{ $category->id }}' ? 'co-filter-tab-badge-active' : 'co-filter-tab-badge-idle'">{{ number_format($tabCount) }}</span>
+                                    @endif
+                                </button>
+                            @endforeach
                         </div>
                     </div>
                 </form>

@@ -661,9 +661,218 @@
             color: var(--text3);
             user-select: none;
         }
+        /* ===== MOBILE CARD LAYOUT ===== */
+        .co-mobile-cards { display: none; }
+        .co-desktop-table { display: block; }
+
+        .co-order-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 12px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .co-order-card:hover {
+            border-color: rgba(108,92,231,0.3);
+            background: rgba(108,92,231,0.04);
+        }
+        .co-order-card:active {
+            background: rgba(108,92,231,0.08);
+        }
+        .co-order-card .order-service-ring {
+            width: 44px !important;
+            height: 44px !important;
+            flex-shrink: 0;
+        }
+        .co-order-card .client-order-avatar-inner {
+            width: 34px !important;
+            height: 34px !important;
+        }
+        .co-order-card-info {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        .co-order-card-service {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            min-width: 0;
+        }
+        .co-order-card-sid {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text);
+            flex-shrink: 0;
+        }
+        .co-order-card-sname {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text2);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+        }
+        .co-order-card-meta {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+        }
+        .co-order-card-progress {
+            color: var(--text2);
+        }
+        .co-order-card-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-weight: 600;
+            color: var(--teal);
+        }
+        .co-order-card-dot {
+            color: var(--text3);
+            font-size: 10px;
+        }
+        .co-order-card-bottom {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text3);
+        }
+        .co-order-card-price {
+            font-weight: 600;
+            color: var(--text2);
+        }
+        .co-order-card-arrow {
+            color: var(--text3);
+            font-size: 12px;
+            flex-shrink: 0;
+            transition: transform 0.15s;
+        }
+        .co-order-card:hover .co-order-card-arrow {
+            transform: translateX(2px);
+            color: var(--purple-light);
+        }
+
+        /* ===== RESPONSIVE ORDERS ===== */
+
+        /* Status tabs: horizontal scroll on mobile */
+        #client-orders-status-tabs-root {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            flex-wrap: nowrap !important;
+            white-space: nowrap;
+        }
+        #client-orders-status-tabs-root::-webkit-scrollbar { display: none; }
+
+        /* Table horizontal scroll wrapper */
+        .client-orders-table-wrap {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        @media (max-width: 1024px) {
+            /* Filter panel */
+            .client-orders-filter-panel .client-orders-filter-form {
+                gap: 8px;
+            }
+            #client-orders-status-tabs-root a {
+                font-size: 12px;
+                padding: 6px 10px;
+            }
+            /* Table: shrink padding */
+            .client-orders-table-wrap #client-orders-table th,
+            .client-orders-table-wrap #client-orders-table td {
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+            /* Service column: narrower */
+            .client-orders-table-wrap td .min-w-\[240px\] {
+                min-width: 180px !important;
+            }
+        }
+
+
+        @media (max-width: 768px) {
+            .co-desktop-table { display: none !important; }
+            .co-mobile-cards { display: block !important; }
+
+            .client-orders-filter-panel {
+                padding: 10px;
+                border-radius: 12px;
+                margin-bottom: 10px;
+            }
+            .co-filter-search-box .co-filter-search {
+                font-size: 14px !important;
+                padding: 10px 12px 10px 36px !important;
+                border-radius: 10px !important;
+            }
+            .co-filter-toggle-btn { width: 36px; height: 36px; }
+            .co-filter-tabs a,
+            .co-filter-tabs button { font-size: 12px; padding: 6px 10px; border-radius: 8px; }
+            /* Advanced filters */
+            .co-filter-advanced { margin-top: 10px !important; padding-top: 10px !important; }
+            .co-filter-advanced-form {
+                flex-direction: column !important;
+                gap: 10px !important;
+            }
+            .co-filter-advanced-form > div {
+                width: 100% !important;
+                max-width: 100% !important;
+                flex-basis: 100% !important;
+                min-width: 0 !important;
+            }
+            .co-filter-advanced-form select.co-filter-field,
+            .co-filter-advanced-form input.co-filter-field {
+                font-size: 14px !important;
+                padding: 10px 14px !important;
+                border-radius: 10px !important;
+            }
+            .co-filter-advanced-form .co-filter-apply,
+            .co-filter-advanced-form .co-filter-reset {
+                height: 42px;
+                font-size: 13px;
+                border-radius: 10px;
+            }
+            .co-bulk-bar { padding: 10px 12px; border-radius: 10px; font-size: 12px; }
+            .co-bulk-select-row { font-size: 12px; }
+            .fo-cred-panel { max-width: 95vw; }
+        }
+
+        @media (max-width: 480px) {
+            .client-orders-filter-panel { padding: 8px; margin-bottom: 8px; border-radius: 10px; }
+            .co-filter-search-box .co-filter-search { font-size: 14px !important; padding: 9px 10px 9px 34px !important; }
+            .co-filter-toggle-btn { width: 32px; height: 32px; }
+            .co-filter-toggle-btn svg { width: 16px; height: 16px; }
+            .co-filter-tabs a { font-size: 11px; padding: 5px 8px; }
+            .co-order-card { padding: 12px 10px; gap: 10px; border-radius: 10px; margin-bottom: 6px; }
+            .co-order-card .order-service-ring { width: 38px !important; height: 38px !important; }
+            .co-order-card .client-order-avatar-inner { width: 28px !important; height: 28px !important; }
+            .co-order-card-sid { font-size: 12px; }
+            .co-order-card-sname { font-size: 12px; }
+            .co-order-card-meta { font-size: 11px; }
+            .co-order-card-bottom { font-size: 11px; }
+            .co-bulk-bar { padding: 8px 10px; gap: 8px; font-size: 11px; }
+            .co-bulk-select-row { font-size: 11px; gap: 6px; }
+            .fo-cred-overlay { padding: 8px; }
+            .fo-cred-panel { max-width: 100%; padding: 16px 14px; }
+            .fo-cred-panel h2 { font-size: 1rem; }
+            .fo-cred-field input { font-size: 12px; padding: 8px 10px; }
+            .fo-cred-copy { padding: 0 8px; font-size: 11px; }
+        }
     </style>
-    <div class="py-12">
-        <div class="m-auto sm:px-6 lg:px-8">
+    <div class="py-4 sm:py-8 lg:py-12">
+        <div class="m-auto sm:px-4 lg:px-8">
             <div x-data="{ show: true }"
                  x-init="setTimeout(() => show = false, 3000)"
                  x-show="show"
@@ -798,26 +1007,26 @@
                  @fetch-client-orders.window="fetchOrdersByUrl($event.detail.url)"
                  @submit.capture.prevent="fetchOrdersFromForm($event.target)">
                 {{-- Row 1: Burger + Status Tabs + Search --}}
-                <form method="GET" action="{{ route('client.orders.index') }}" class="client-orders-filter-form flex flex-wrap items-center gap-3">
+                <form method="GET" action="{{ route('client.orders.index') }}" class="client-orders-filter-form co-filter-row">
                     @if(request()->has('status') && request('status') !== 'all')
                         <input type="hidden" name="status" value="{{ request('status') }}">
                     @endif
                     @if(request()->has('source') && in_array(request('source'), ['web', 'api']))
                         <input type="hidden" name="source" value="{{ request('source') }}">
                     @endif
-                    {{-- Burger / Filter toggle --}}
-                    <button type="button"
-                            @click="filtersOpen = !filtersOpen"
-                            :class="filtersOpen ? 'co-filter-toggle-active' : 'co-filter-toggle-idle'"
-                            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-[var(--card)]"
-                            title="{{ __('Filters') }}"
-                            :aria-expanded="filtersOpen">
-                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
-                        </svg>
-                    </button>
-                        {{-- Search bar with clear button --}}
-                        <div class="ml-auto flex-1 min-w-[200px] max-w-md">
+                    {{-- Search + Filter toggle (same row) --}}
+                    <div class="co-filter-search-row">
+                        <button type="button"
+                                @click="filtersOpen = !filtersOpen"
+                                :class="filtersOpen ? 'co-filter-toggle-active' : 'co-filter-toggle-idle'"
+                                class="co-filter-toggle-btn"
+                                title="{{ __('Filters') }}"
+                                :aria-expanded="filtersOpen">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+                            </svg>
+                        </button>
+                        <div class="co-filter-search-box">
                             <div class="relative">
                                 <svg class="co-filter-search-icon absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
@@ -836,8 +1045,10 @@
                                 </button>
                             </div>
                         </div>
-                    {{-- Status Tabs (synced on AJAX filter so counts match category/service/date/search) --}}
-                    <div id="client-orders-status-tabs-root" class="flex flex-wrap items-center gap-1.5">
+                    </div>
+                    {{-- Status Tabs --}}
+                    <div class="co-filter-tabs-row">
+                    <div id="client-orders-status-tabs-root" class="co-filter-tabs">
                         @php
                             $statusButtons = [
                                 'all' => __('All'),
@@ -869,6 +1080,7 @@
                                 @endif
                             </a>
                         @endforeach
+                    </div>
                     </div>
                 </form>
 
@@ -1099,12 +1311,12 @@
                         </div>
 
                         <div class="space-y-4">
-                            <div class="grid grid-cols-2 gap-4">
-                                <div class="bg-gray-50 rounded-lg p-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                                <div class="bg-gray-50 rounded-lg p-3 sm:p-4">
                                     <div class="text-xs font-medium text-gray-500 uppercase mb-1">{{ __('Date') }}</div>
                                     <div class="text-sm font-semibold text-gray-900">{{ $order->created_at->format('M d, Y H:i') }}</div>
                                 </div>
-                                <div class="bg-gray-50 rounded-lg p-4">
+                                <div class="bg-gray-50 rounded-lg p-3 sm:p-4">
                                     <div class="text-xs font-medium text-gray-500 uppercase mb-1">{{ __('Status') }}</div>
                                     @php
                                         $detailStatusColors = [
@@ -1164,8 +1376,8 @@
                             </div>
                             @endif
 
-                            <div class="grid grid-cols-2 gap-4">
-                                <div class="bg-gray-50 rounded-lg p-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                                <div class="bg-gray-50 rounded-lg p-3 sm:p-4">
                                     <div class="text-xs font-medium text-gray-500 uppercase mb-2">{{ __('Quantity') }}</div>
                                     <div class="space-y-1 text-sm">
                                         <div class="flex justify-between">
@@ -1182,7 +1394,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="bg-gray-50 rounded-lg p-4">
+                                <div class="bg-gray-50 rounded-lg p-3 sm:p-4">
                                     <div class="text-xs font-medium text-gray-500 uppercase mb-2">{{ __('Progress') }}</div>
                                     @php
                                         $dDelivered = $order->delivered ?? 0;

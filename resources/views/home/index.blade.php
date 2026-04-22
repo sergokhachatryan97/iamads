@@ -269,15 +269,170 @@
         .svc-order-btn:hover { background: var(--purple-light); }
         .svc-rate { font-weight: 700; color: var(--teal); }
 
-        /* RESPONSIVE */
+        /* MOBILE MENU */
+        .mobile-menu-btn { display: none; background: none; border: 1px solid var(--border2); color: var(--text); width: 36px; height: 36px; border-radius: 8px; cursor: pointer; align-items: center; justify-content: center; font-size: 16px; transition: all 0.2s; }
+        .mobile-menu-btn:hover { border-color: var(--purple); color: var(--purple); }
+        .mobile-menu-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 1100; }
+        .mobile-menu-overlay.show { display: block; }
+        .mobile-menu {
+            position: fixed; top: 0; right: -280px; width: 280px; height: 100vh; z-index: 1200;
+            background: var(--card); border-left: 1px solid var(--border2);
+            display: flex; flex-direction: column; transition: right 0.3s ease;
+            box-shadow: -4px 0 24px rgba(0,0,0,0.3);
+        }
+        .mobile-menu.show { right: 0; }
+        .mobile-menu-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border2); }
+        .mobile-menu-close { background: none; border: 1px solid var(--border2); color: var(--text2); width: 32px; height: 32px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+        .mobile-menu-close:hover { color: var(--text); border-color: var(--purple); }
+        .mobile-menu-links { list-style: none; padding: 12px 0; flex: 1; overflow-y: auto; }
+        .mobile-menu-links li { margin: 0; }
+        .mobile-menu-links a { display: flex; align-items: center; gap: 10px; padding: 14px 20px; color: var(--text); font-size: 14px; font-weight: 500; transition: background 0.15s; }
+        .mobile-menu-links a:hover { background: rgba(108,92,231,0.08); }
+        .mobile-menu-links a i { width: 20px; text-align: center; color: var(--purple-light); font-size: 14px; }
+        .mobile-menu-actions { padding: 16px 20px; border-top: 1px solid var(--border2); display: flex; flex-direction: column; gap: 10px; }
+        .mobile-menu-actions .btn-signup { text-align: center; justify-content: center; padding: 10px; font-size: 14px; }
+        .mobile-menu-actions .btn-signin { text-align: center; padding: 10px; font-size: 14px; display: block; }
+
+        /* ===== RESPONSIVE ===== */
+
+        /* LAPTOP / SMALL DESKTOP (≤1024px) */
+        @media (max-width: 1024px) {
+            .navbar-inner { gap: 16px; }
+            .nav-links a { font-size: 12px; padding: 5px 8px; }
+            .direct-badge { display: none; }
+            .footer-grid { gap: 24px; }
+            .features-grid { grid-template-columns: repeat(2, 1fr); }
+            .testimonials-grid { grid-template-columns: repeat(2, 1fr); }
+            .services-modal { max-width: 95vw; }
+        }
+
+        /* TABLET (≤768px) */
         @media (max-width: 768px) {
             .nav-links, .btn-signin, .direct-badge { display: none; }
-            .footer-grid { grid-template-columns: 1fr; }
-            .stats-bar-inner { gap: 8px; }
-            .stat-pill { min-width: 100px; padding: 12px 10px; }
-            .stat-value { font-size: 18px; }
-            .how-arrow { display: none; }
+            .mobile-menu-btn { display: flex; }
+            .logo-slogan { display: none; }
+            .navbar-inner { gap: 12px; }
+            .navbar { padding: 0 16px; }
+            .nav-right { gap: 8px; margin-left: auto; }
+            .nav-right .btn-signup { padding: 6px 12px; font-size: 12px; }
+
+            .hero-order-section { padding: 68px 16px 16px; min-height: auto; }
+            .hero-compact { padding: 10px 0 12px; }
+            .hero-compact p { font-size: 12px; }
+
+            .order-step-header { padding: 12px 14px; }
+            .order-step-inner { padding: 0 14px 14px; }
             .platform-grid { grid-template-columns: repeat(auto-fit, minmax(72px, max-content)); justify-content: center; }
+
+            .stats-bar { padding: 20px 16px; }
+            .stats-bar-inner { gap: 8px; }
+            .stat-pill { min-width: 0; flex: 1 1 calc(33% - 8px); padding: 12px 8px; }
+            .stat-value { font-size: 18px; }
+            .stat-label { font-size: 10px; }
+
+            .section { padding: 32px 16px; }
+            .section-header { margin-bottom: 20px; }
+            .features-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+            .feature-card { padding: 16px; }
+            .feature-card h4 { font-size: 13px; }
+            .feature-card p { font-size: 12px; }
+
+            .how-arrow { display: none; }
+            .how-step { min-width: 0; max-width: none; flex: 1 1 calc(33% - 12px); padding: 18px 12px; }
+            .how-step-icon { width: 44px; height: 44px; font-size: 18px; }
+
+            .testimonials-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+            .testimonial-card { padding: 16px; }
+
+            .footer-grid { grid-template-columns: 1fr 1fr; gap: 20px; }
+            .footer-brand { grid-column: 1 / -1; }
+
+            .services-modal-overlay { padding: 12px; }
+            .services-modal { border-radius: var(--radius); max-height: 90vh; }
+            .services-modal-header { padding: 14px 16px; flex-wrap: wrap; }
+            .services-search { width: 100%; }
+
+            .floating-btns { right: 14px; bottom: 18px; }
+            .float-btn { width: 46px; height: 46px; font-size: 16px; }
+        }
+
+        /* SMALL MOBILE (≤480px) */
+        @media (max-width: 480px) {
+            .navbar { padding: 0 12px; }
+            .navbar-inner { height: 54px; gap: 8px; }
+            .logo-mark { height: 32px; }
+            .nav-right .btn-signup { padding: 5px 10px; font-size: 11px; }
+            .theme-toggle { width: 30px; height: 30px; font-size: 12px; }
+            .mobile-menu-btn { width: 32px; height: 32px; font-size: 14px; }
+
+            .hero-order-section { padding: 60px 12px 12px; }
+            .hero-compact h1 { font-size: 20px; }
+            .hero-compact h2 { font-size: 14px; }
+            .hero-compact p { font-size: 11px; }
+
+            .steps-indicator { gap: 0; }
+            .step-item { padding: 4px 6px; gap: 4px; }
+            .step-num { width: 22px; height: 22px; font-size: 10px; }
+            .step-label { font-size: 10px; }
+
+            .order-step-header { padding: 10px 12px; gap: 8px; }
+            .order-step-num { width: 24px; height: 24px; font-size: 11px; }
+            .order-step-title { font-size: 12px; }
+            .order-step-summary { font-size: 11px; }
+            .order-step-inner { padding: 0 12px 12px; }
+            .order-step.active .order-step-body { max-height: 1000px; }
+
+            .platform-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+            .platform-btn { padding: 8px 4px; border-radius: 8px; }
+            .platform-btn .icon { font-size: 20px; }
+            .platform-btn span { font-size: 9px; }
+
+            .service-card { padding: 10px 12px; gap: 8px; }
+            .service-name { font-size: 12px; white-space: normal; }
+            .service-price { font-size: 12px; }
+            .service-minmax { font-size: 9px; }
+
+            .form-input { padding: 10px 12px; font-size: 14px; }
+            .qty-row { flex-direction: column; align-items: stretch; gap: 6px; }
+            .qty-row .form-input { max-width: 100%; }
+            .price-calculator { padding: 10px 12px; }
+            .price-total { font-size: 20px; }
+            .btn-complete { padding: 14px; font-size: 14px; }
+
+            .stats-bar { padding: 16px 12px; }
+            .stat-pill { flex: 1 1 calc(50% - 6px); min-width: 0; padding: 10px 6px; border-radius: 10px; }
+            .stat-value { font-size: 16px; }
+            .stat-label { font-size: 9px; }
+
+            .section { padding: 28px 12px; }
+            .section-tag { font-size: 10px; padding: 3px 10px; }
+            .section-title { margin-bottom: 6px; }
+            .section-subtitle { font-size: 13px; }
+            .features-grid { grid-template-columns: 1fr; gap: 8px; }
+            .feature-card { padding: 16px; }
+            .feature-icon { width: 36px; height: 36px; font-size: 14px; margin-bottom: 10px; }
+
+            .steps-visual { gap: 8px; }
+            .how-step { flex: 1 1 100%; max-width: none; padding: 16px 12px; }
+
+            .testimonials-grid { grid-template-columns: 1fr; gap: 8px; }
+            .testimonial-card { padding: 14px; }
+            .testimonial-text { font-size: 12px; margin-bottom: 10px; }
+
+            footer { padding: 28px 12px 16px; }
+            .footer-grid { grid-template-columns: 1fr; gap: 20px; }
+            .footer-brand { text-align: center; }
+            .footer-social { justify-content: center; }
+            .footer-bottom { flex-direction: column; align-items: center; text-align: center; }
+
+            .floating-btns { right: 12px; bottom: 14px; }
+            .float-btn { width: 44px; height: 44px; font-size: 16px; }
+
+            .services-modal-overlay { padding: 0; }
+            .services-modal { border-radius: 0; max-height: 100vh; height: 100vh; }
+            .services-modal-header { padding: 12px 14px; }
+            .services-modal-header h3 { font-size: 14px; }
+            .svc-table th, .svc-table td { padding: 8px 10px; font-size: 12px; }
         }
     </style>
 </head>
@@ -306,9 +461,35 @@
           <a href="{{ route('login') }}" class="btn-signin">{{ __('home.sign_in') }}</a>
           <a href="{{ route('register') }}" class="btn-signup">{{ __('home.sign_up') }}</a>
         @endauth
+        <button class="mobile-menu-btn" onclick="openMobileMenu()" aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
       </div>
     </div>
 </nav>
+
+<!-- MOBILE MENU -->
+<div class="mobile-menu-overlay" id="mobileOverlay" onclick="closeMobileMenu()"></div>
+<div class="mobile-menu" id="mobileMenu">
+    <div class="mobile-menu-header">
+        <a href="/" class="logo" style="text-decoration:none;">
+            <img src="{{ asset('images/adtag_fav.png') }}" alt="{{ config('app.name') }}" style="height:32px;width:auto;">
+        </a>
+        <button class="mobile-menu-close" onclick="closeMobileMenu()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <ul class="mobile-menu-links">
+        <li><a href="#" onclick="openServicesModal();closeMobileMenu();return false;"><i class="fa-solid fa-list"></i> {{ __('Services') }}</a></li>
+        <li><a href="#how-it-works" onclick="closeMobileMenu()"><i class="fa-solid fa-circle-info"></i> {{ __('How It Works') }}</a></li>
+        <li><a href="#why-us" onclick="closeMobileMenu()"><i class="fa-solid fa-star"></i> {{ __('Why Choose Us') }}</a></li>
+        <li><a href="{{ route('contacts') }}"><i class="fa-brands fa-telegram"></i> {{ __('Support') }}</a></li>
+    </ul>
+    <div class="mobile-menu-actions">
+        @auth('client')
+            <a href="{{ route('client.orders.index') }}" class="btn-signup">{{ __('Services') }}</a>
+        @else
+            <a href="{{ route('register') }}" class="btn-signup">{{ __('home.sign_up') }}</a>
+            <a href="{{ route('login') }}" class="btn-signin">{{ __('home.sign_in') }}</a>
+        @endauth
+    </div>
+</div>
 
 <!-- HERO + ORDER -->
 <section class="hero-order-section">
@@ -883,6 +1064,18 @@ async function submitFastOrder() {
 }
 
 renderPlatforms();
+
+// Mobile menu
+function openMobileMenu() {
+    document.getElementById('mobileMenu').classList.add('show');
+    document.getElementById('mobileOverlay').classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+function closeMobileMenu() {
+    document.getElementById('mobileMenu').classList.remove('show');
+    document.getElementById('mobileOverlay').classList.remove('show');
+    document.body.style.overflow = '';
+}
 </script>
 </body>
 </html>

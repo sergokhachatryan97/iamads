@@ -239,6 +239,31 @@
             border-color: rgba(220, 38, 38, 0.45);
             color: #b91c1c;
         }
+        .smm-sidebar-logout-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: none;
+            background: none;
+            color: #ff7675;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: background 0.15s;
+            margin-top: 4px;
+        }
+        .smm-sidebar-logout-btn:hover {
+            background: rgba(255, 118, 117, 0.12);
+        }
+        .smm-sidebar-logout-btn i {
+            font-size: 16px;
+            width: 20px;
+            text-align: center;
+        }
         .smm-dash-balance-pill {
             display: flex; align-items: center; justify-content: space-between; gap: 8px;
             background: rgba(108,92,231,0.12); border: 1px solid rgba(108,92,231,0.25);
@@ -269,7 +294,7 @@
             .smm-dash-content { padding: 28px 28px max(48px, env(safe-area-inset-bottom, 0px)); }
         }
         @media (max-width: 479px) {
-            .smm-dash-content { padding-left: 12px; padding-right: 12px; }
+            .smm-dash-content { padding: 16px 10px max(32px, env(safe-area-inset-bottom, 0px)); }
         }
         .smm-client-top-bar {
             display: flex;
@@ -340,33 +365,75 @@
         @media (max-width: 639px) {
             .smm-client-top-bar-date { display: none; }
         }
-        @media (max-width: 639px) {
+
+        /* ===== MOBILE CLIENT TOP BAR ===== */
+        @media (max-width: 767px) {
+            .smm-client-top-bar {
+                flex-wrap: nowrap;
+                gap: 8px;
+                padding: 10px 12px;
+                margin-left: -18px;
+                margin-right: -18px;
+                align-items: center;
+            }
             .smm-client-top-bar-lead {
                 flex: 1 1 auto;
                 min-width: 0;
-                max-width: 100%;
-            }
-            .smm-client-top-bar-right {
-                flex: 1 1 100%;
-                justify-content: flex-start;
-                flex-wrap: wrap;
+                max-width: none;
                 gap: 8px;
-                min-width: 0;
+            }
+            .smm-client-top-bar-title { font-size: 1rem; }
+            .smm-client-top-bar-right {
+                flex: 0 0 auto;
+                flex-wrap: nowrap;
+                gap: 6px;
             }
             .smm-client-top-balance-pill {
-                flex: 1 1 auto;
-                min-width: 0;
-                justify-content: space-between;
+                padding: 4px 6px 4px 10px;
+                font-size: 13px;
+                gap: 6px;
             }
+            .smm-client-top-balance-add { width: 26px; height: 26px; font-size: 11px; }
+            /* New Order: icon only */
+            .smm-btn-order-text { display: none; }
             .smm-client-top-btn-order {
-                flex: 1 1 auto;
+                width: 36px; height: 36px; min-width: 36px;
+                padding: 0; border-radius: 10px;
                 justify-content: center;
-                min-width: min(100%, 140px);
+                box-shadow: 0 2px 10px rgba(108, 92, 231, 0.35);
             }
-            .smm-client-top-bar-util {
-                flex-wrap: wrap;
-                margin-left: auto;
+            .smm-client-top-btn-order .smm-btn-order-icon { font-size: 16px; }
+            /* Utility buttons */
+            .smm-client-top-bar-util { gap: 4px; }
+            .smm-dash-theme,
+            .smm-dash-logout-btn { width: 34px; height: 34px; min-width: 34px; font-size: 14px; }
+            .smm-client-top-bar .lang-landing-details > summary {
+                min-height: 34px; padding: 6px 8px; font-size: 12px;
             }
+            .smm-dash-menu-toggle { width: 34px; height: 34px; font-size: 14px; }
+            /* Hide logout from top bar — it's in sidebar */
+            .smm-dash-logout-form { display: none; }
+        }
+
+        @media (max-width: 479px) {
+            .smm-client-top-bar {
+                margin-left: -12px; margin-right: -12px;
+                padding: 8px 10px; gap: 5px;
+            }
+            .smm-client-top-bar-title { font-size: 0.9rem; }
+            .smm-dash-menu-toggle { width: 32px; height: 32px; font-size: 13px; border-radius: 8px; }
+            .smm-client-top-balance-pill { padding: 3px 4px 3px 8px; font-size: 12px; gap: 4px; }
+            .smm-client-top-balance-add { width: 22px; height: 22px; font-size: 10px; }
+            .smm-client-top-btn-order {
+                width: 32px; height: 32px; min-width: 32px; border-radius: 8px;
+            }
+            .smm-client-top-btn-order .smm-btn-order-icon { font-size: 14px; }
+            .smm-dash-theme { width: 32px; height: 32px; min-width: 32px; font-size: 13px; border-radius: 8px; }
+            .smm-client-top-bar .lang-landing-details > summary {
+                min-height: 32px; padding: 5px 6px; font-size: 11px; border-radius: 8px;
+            }
+            /* Hide lang on very small — it's in sidebar */
+            .smm-client-top-bar-util .lang-landing-details { display: none; }
         }
         .smm-client-top-bar-date i { opacity: 0.85; font-size: 14px; }
         .smm-client-top-bar-right {
@@ -470,6 +537,104 @@
             padding-left: 13px;
         }
         .smm-account-nav-card nav a svg { flex-shrink: 0; margin-right: 12px; opacity: 0.85; color: inherit; }
+        /* ===== BOTTOM NAV BAR ===== */
+        .smm-bottom-nav {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 50;
+            background: var(--sidebar-bg);
+            border-top: 1px solid var(--border);
+            padding: 6px 0 max(6px, env(safe-area-inset-bottom, 0px));
+        }
+        .smm-bottom-nav-inner {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        .smm-bottom-nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            padding: 4px 8px;
+            text-decoration: none;
+            color: var(--text3);
+            font-size: 10px;
+            font-weight: 500;
+            transition: color 0.15s;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .smm-bottom-nav-item i { font-size: 18px; }
+        .smm-bottom-nav-item:hover,
+        .smm-bottom-nav-item.active { color: var(--purple-light); }
+        [data-theme="light"] .smm-bottom-nav-item.active { color: var(--purple); }
+        @media (max-width: 768px) {
+            .smm-bottom-nav { display: block; }
+            .smm-dash-content {
+                padding-bottom: max(70px, calc(56px + env(safe-area-inset-bottom, 0px))) !important;
+            }
+        }
+
+        /* ===== SHARED FILTER LAYOUT ===== */
+        .co-filter-row {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .co-filter-search-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+        }
+        .co-filter-search-box {
+            flex: 1;
+            min-width: 0;
+        }
+        .co-filter-tabs-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            width: 100%;
+            overflow: hidden;
+        }
+        .co-filter-toggle-btn {
+            display: flex;
+            width: 40px;
+            height: 40px;
+            flex-shrink: 0;
+            align-items: center;
+            justify-content: center;
+            border-radius: 9999px;
+            transition: all 0.15s;
+            border: none;
+            cursor: pointer;
+        }
+        .co-filter-tabs {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+        .co-filter-tabs::-webkit-scrollbar { display: none; }
+        .co-filter-tabs a,
+        .co-filter-tabs button {
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+
         .smm-dash-shell.smm-dash-no-sidebar { display: block; }
         .smm-dash-shell.smm-dash-no-sidebar .smm-dash-main { width: 100%; max-width: 100%; }
     </style>
@@ -532,6 +697,13 @@
                         <span>{{ __('Support') }}</span>
                     </button>
                 </x-telegram-support-picker>
+                <form method="POST" action="{{ route('logout') }}" class="smm-sidebar-logout-form" style="margin:0;">
+                    @csrf
+                    <button type="submit" class="smm-sidebar-logout-btn">
+                        <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
+                        <span>{{ __('Log Out') }}</span>
+                    </button>
+                </form>
             </div>
         </aside>
         @endunless
@@ -556,7 +728,10 @@
                                     <i class="fa-solid fa-plus" aria-hidden="true"></i>
                                 </a>
                             </div>
-                            <a href="{{ route('client.orders.create') }}" class="smm-client-top-btn-order">+ {{ __('New Order') }}</a>
+                            <a href="{{ route('client.orders.create') }}" class="smm-client-top-btn-order">
+                                <i class="fa-solid fa-plus smm-btn-order-icon" aria-hidden="true"></i>
+                                <span class="smm-btn-order-text">{{ __('New Order') }}</span>
+                            </a>
                             <div class="smm-client-top-bar-util">
                                 @if($smmLocaleCount > 1)
                                     <x-language-dropdown variant="landing" />
@@ -578,6 +753,35 @@
             </div>
         </div>
     </div>
+
+    @unless($hideSidebar)
+    {{-- Bottom Navigation Bar (mobile only) --}}
+    <nav class="smm-bottom-nav">
+        <div class="smm-bottom-nav-inner">
+            <a href="{{ route('client.orders.index') }}" class="smm-bottom-nav-item {{ request()->routeIs('client.orders.*') ? 'active' : '' }}">
+                <i class="fa-solid fa-receipt"></i>
+                <span>{{ __('Orders') }}</span>
+            </a>
+            <a href="{{ route('client.services.index') }}" class="smm-bottom-nav-item {{ request()->routeIs('client.services.*') ? 'active' : '' }}">
+                <i class="fa-solid fa-layer-group"></i>
+                <span>{{ __('Services') }}</span>
+            </a>
+            <a href="{{ route('client.orders.create') }}" class="smm-bottom-nav-item {{ request()->routeIs('client.orders.create') ? 'active' : '' }}" style="color:var(--purple-light);">
+                <i class="fa-solid fa-plus-circle" style="font-size:22px;"></i>
+                <span>{{ __('New') }}</span>
+            </a>
+            <a href="{{ route('contacts') }}" class="smm-bottom-nav-item {{ request()->routeIs('contacts') ? 'active' : '' }}">
+                <i class="fa-solid fa-headset"></i>
+                <span>{{ __('Support') }}</span>
+            </a>
+            <button type="button" class="smm-bottom-nav-item" @click="sidebarOpen = true">
+                <i class="fa-solid fa-bars"></i>
+                <span>{{ __('Menu') }}</span>
+            </button>
+        </div>
+    </nav>
+    @endunless
+
     <script>
         function smmDashToggleTheme() {
             const html = document.documentElement;
