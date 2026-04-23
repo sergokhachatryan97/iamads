@@ -42,15 +42,16 @@ class TelegramStatsController extends Controller
         $dateToParsed = $dateTo ? Carbon::parse($dateTo)->endOfDay() : null;
         $serviceId = $request->input('service_id');
 
-        $telegramServiceIds = Cache::remember('tg_stats:service_ids', 300, function () {
+        $telegramServices = Cache::remember('tg_stats:services', 300, function () {
             $catIds = Category::where('link_driver', 'telegram')->pluck('id');
 
-            return Service::whereIn('category_id', $catIds)->pluck('id')->all();
+            return Service::whereIn('category_id', $catIds)
+                ->select('id', 'name', 'rate_per_1000', 'priority', 'category_id')
+                ->orderBy('priority')
+                ->get();
         });
 
-        $telegramServices = Cache::remember('tg_stats:services', 300, function () use ($telegramServiceIds) {
-            return Service::whereIn('id', $telegramServiceIds)->orderBy('priority')->get();
-        });
+        $telegramServiceIds = $telegramServices->pluck('id')->all();
 
         if (empty($telegramServiceIds)) {
             return $this->emptyView($period, $dateFrom, $dateTo, $serviceId);
@@ -74,32 +75,39 @@ class TelegramStatsController extends Controller
         $slowKey = 'tg_stats:slow:'.md5(json_encode($keyPayload));
         $liveKey = 'tg_stats:live:'.md5(json_encode($keyPayload));
 
+        $rateMap = $telegramServices->pluck('rate_per_1000', 'id');
+
         $slowBlock = Cache::remember($slowKey, self::CACHE_TTL_SLOW, function () use (
-            $hasDateFilter,
+            $hasDateFilter, $rateMap,
             $filteredServiceIds, $rangeStart, $rangeEnd, $groupExpr, $resolvedPeriod
         ) {
             $today = now()->startOfDay();
             $todayStr = $today->format('Y-m-d');
             $yesterdayStr = now()->subDay()->format('Y-m-d');
 
-            $chartRows = DB::table('telegram_order_memberships as m')
-                ->join('orders as o', 'o.id', '=', 'm.order_id')
-                ->join('services as s', 's.id', '=', 'o.service_id')
-                ->whereIn('o.service_id', $filteredServiceIds)
+            $rawRows = DB::table('telegram_order_memberships as m')
+                ->whereIn('m.service_id', $filteredServiceIds)
                 ->where('m.state', TelegramOrderMembership::STATE_SUBSCRIBED)
                 ->whereNotNull('m.subscribed_at')
                 ->where('m.subscribed_at', '>=', $rangeStart)
                 ->where('m.subscribed_at', '<=', $rangeEnd)
-                ->selectRaw("{$groupExpr} as period, COUNT(*) as completions, COALESCE(SUM(s.rate_per_1000 / 1000), 0) as income")
-                ->groupByRaw($groupExpr)
-                ->get()
-                ->keyBy('period');
+                ->selectRaw("{$groupExpr} as period, m.service_id, COUNT(*) as completions")
+                ->groupByRaw("{$groupExpr}, m.service_id")
+                ->get();
+
+            $chartRows = $rawRows->groupBy('period')->map(function ($rows) use ($rateMap) {
+                return (object) [
+                    'completions' => $rows->sum('completions'),
+                    'income' => $rows->sum(fn ($r) => $r->completions * (float) ($rateMap[$r->service_id] ?? 0) / 1000),
+                ];
+            });
 
             [$incomeToday, $incomeYesterday, $completionsToday, $completionsYesterday] =
                 $this->resolveTopMetrics($hasDateFilter, $resolvedPeriod, $chartRows, $todayStr, $yesterdayStr);
 
             $serviceStats = DB::table('orders')
                 ->whereIn('service_id', $filteredServiceIds)
+                ->whereIn('status', [Order::STATUS_IN_PROGRESS, Order::STATUS_COMPLETED])
                 ->selectRaw('
                     service_id,
                     COUNT(*) as total_orders,
@@ -131,9 +139,7 @@ class TelegramStatsController extends Controller
             $today = now()->startOfDay();
 
             $completionsQuery = DB::table('telegram_tasks as t')
-                ->join('orders as o', 'o.id', '=', 't.order_id')
-                ->whereIn('o.service_id', $filteredServiceIds)
-                ->whereIn('o.status', [Order::STATUS_IN_PROGRESS, Order::STATUS_COMPLETED])
+                ->whereIn('t.service_id', $filteredServiceIds)
                 ->whereIn('t.status', ['done', 'unsubscribed']);
 
             if ($hasDateFilter) {
@@ -148,8 +154,8 @@ class TelegramStatsController extends Controller
             }
 
             $perServiceRows = $completionsQuery
-                ->selectRaw('o.service_id, COUNT(*) as completions_today')
-                ->groupBy('o.service_id')
+                ->selectRaw('t.service_id, COUNT(*) as completions_today')
+                ->groupBy('t.service_id')
                 ->get()
                 ->keyBy('service_id');
 
@@ -173,11 +179,10 @@ class TelegramStatsController extends Controller
             }
 
             $tasksLastHour = DB::table('telegram_tasks')
-                ->join('orders', 'orders.id', '=', 'telegram_tasks.order_id')
-                ->whereIn('orders.service_id', $filteredServiceIds)
-                ->where('telegram_tasks.created_at', '>=', now()->subHour())
-                ->selectRaw('orders.service_id, COUNT(*) as task_count')
-                ->groupBy('orders.service_id')
+                ->whereIn('service_id', $filteredServiceIds)
+                ->where('created_at', '>=', now()->subHour())
+                ->selectRaw('service_id, COUNT(*) as task_count')
+                ->groupBy('service_id')
                 ->pluck('task_count', 'service_id');
 
             $delayPerService = collect();

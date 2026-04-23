@@ -16,6 +16,7 @@ class TelegramOrderMembership extends Model
 
     protected $fillable = [
         'order_id',
+        'service_id',
         'account_phone',
         'link_hash',
         'link',
@@ -26,6 +27,17 @@ class TelegramOrderMembership extends Model
         'unsubscribed_at',
         'last_error',
     ];
+
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::creating(function (self $model) {
+            if (empty($model->service_id) && $model->order_id) {
+                $model->service_id = Order::where('id', $model->order_id)->value('service_id');
+            }
+        });
+    }
 
     protected $casts = [
         'subscribed_at' => 'datetime',

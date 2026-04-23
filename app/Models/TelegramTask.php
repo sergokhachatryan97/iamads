@@ -15,6 +15,7 @@ class TelegramTask extends Model
     protected $fillable = [
         'id',
         'order_id',
+        'service_id',
         'subject_type',
         'subject_id',
         'action',
@@ -50,6 +51,9 @@ class TelegramTask extends Model
         static::creating(function (TelegramTask $task) {
             if (empty($task->id)) {
                 $task->id = (string) Str::ulid();
+            }
+            if (empty($task->service_id) && $task->order_id) {
+                $task->service_id = Order::where('id', $task->order_id)->value('service_id');
             }
         });
     }

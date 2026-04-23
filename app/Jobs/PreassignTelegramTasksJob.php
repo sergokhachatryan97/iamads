@@ -138,6 +138,7 @@ class PreassignTelegramTasksJob implements ShouldQueue
                 $newTasksByService[$serviceId][] = [
                     'id'                  => (string) Str::ulid(),
                     'order_id'            => $order->id,
+                    'service_id'          => $serviceId,
                     'subject_type'        => Order::class,
                     'subject_id'          => $order->id,
                     'action'              => $action,
