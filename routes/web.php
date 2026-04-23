@@ -228,6 +228,7 @@ Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSess
     Route::middleware('staff.permission:orders.create')->group(function () {
         Route::get('orders/create', [\App\Http\Controllers\Staff\OrderController::class, 'create'])->name('staff.orders.create');
         Route::post('orders', [\App\Http\Controllers\Staff\OrderController::class, 'store'])->name('staff.orders.store');
+        Route::get('orders/client-rates', [\App\Http\Controllers\Staff\OrderController::class, 'clientRates'])->name('staff.orders.client-rates');
     });
     Route::middleware('staff.permission:orders.view')->group(function () {
         Route::get('orders', [\App\Http\Controllers\Staff\OrderController::class, 'index'])->name('staff.orders.index');

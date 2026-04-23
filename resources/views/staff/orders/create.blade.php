@@ -20,7 +20,7 @@
             @endif
 
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6 text-gray-900" x-data="{
+                <div class="p-6 text-gray-900" @client-changed.window="fetchClientRates($event.detail?.clientId || '')" x-data="{
                     purpose: '{{ old('order_purpose', 'refill') }}',
                     categoryId: '{{ old('category_id', '') }}',
                     serviceId: '{{ old('service_id', '') }}',
@@ -29,8 +29,9 @@
                         'id' => $c->id, 'name' => $c->name,
                         'icon' => $c->icon ?? '',
                         'iconType' => !$c->icon ? 'none' : (str_starts_with($c->icon, 'data:') || str_starts_with($c->icon, 'http') ? 'img' : (str_starts_with($c->icon, '<svg') ? 'svg' : ((preg_match('/^fa[srlbdt] /', $c->icon)) ? 'fa' : 'text'))),
-                        'services' => $c->services->map(fn ($s) => ['id' => $s->id, 'name' => $s->name, 'min_quantity' => $s->min_quantity ?? 100, 'max_quantity' => $s->max_quantity ?? 100000, 'rate_per_1000' => (float) ($s->rate_per_1000 ?? 0)]),
+                        'services' => $c->services->map(fn ($s) => ['id' => $s->id, 'name' => $s->name, 'min_quantity' => $s->min_quantity ?? 100, 'max_quantity' => $s->max_quantity ?? 100000, 'rate_per_1000' => (float) ($s->rate_per_1000 ?? 0), 'default_rate' => (float) ($s->rate_per_1000 ?? 0)]),
                     ])),
+                    clientRatesLoading: false,
                     get selectedService() {
                         if (!this.serviceId) return null;
                         for (const c of this.categories) { const s = c.services.find(s => s.id == this.serviceId); if (s) return s; }
@@ -38,6 +39,26 @@
                     },
                     addTarget() { this.targets.push({ link: '', quantity: this.selectedService?.min_quantity || 1000 }); },
                     removeTarget(i) { if (this.targets.length > 1) this.targets.splice(i, 1); },
+                    async fetchClientRates(clientId) {
+                        if (!clientId) {
+                            this.categories.forEach(c => c.services.forEach(s => { s.rate_per_1000 = s.default_rate; }));
+                            return;
+                        }
+                        this.clientRatesLoading = true;
+                        try {
+                            const resp = await fetch(`{{ route('staff.orders.client-rates') }}?client_id=${clientId}`);
+                            const data = await resp.json();
+                            if (data.rates) {
+                                this.categories.forEach(c => c.services.forEach(s => {
+                                    s.rate_per_1000 = data.rates[s.id] !== undefined ? data.rates[s.id] : s.default_rate;
+                                }));
+                            }
+                        } catch (e) {
+                            console.error('Error fetching client rates:', e);
+                        } finally {
+                            this.clientRatesLoading = false;
+                        }
+                    },
                 }">
                     <form method="POST" action="{{ route('staff.orders.store') }}">
                         @csrf
@@ -72,7 +93,7 @@
                             clients: @js($clients->map(fn($c) => ['id' => $c->id, 'name' => $c->name, 'email' => $c->email, 'balance' => number_format((float)$c->balance, 2)])),
                             get selectedClient() { return this.clients.find(c => String(c.id) === String(this.clientId)); },
                             get filteredClients() { const q = this.cSearch.toLowerCase(); if (!q) return this.clients; return this.clients.filter(c => c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || String(c.id).includes(q)); },
-                            pickClient(id) { this.clientId = String(id); this.cOpen = false; this.cSearch = ''; }
+                            pickClient(id) { this.clientId = String(id); this.cOpen = false; this.cSearch = ''; $dispatch('client-changed', { clientId: id }); }
                         }" @click.outside="cOpen = false">
                             <label class="block text-sm font-medium text-gray-700 mb-1">
                                 {{ __('Client') }}
@@ -173,7 +194,9 @@
                                             <template x-for="svc in cat.services" :key="svc.id">
                                                 <button type="button" @click="pickSvc(svc)" class="w-full px-3 py-2.5 text-sm text-left hover:bg-indigo-50 flex items-center justify-between gap-3 transition-colors" :class="String(serviceId) === String(svc.id) ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-gray-700'">
                                                     <span class="flex items-center gap-2 min-w-0"><span class="text-xs font-bold text-indigo-400 flex-shrink-0" x-text="'ID ' + svc.id"></span><span x-text="svc.name"></span></span>
-                                                    <span class="text-xs font-semibold text-teal-600 flex-shrink-0 px-2 py-0.5 rounded-full border border-teal-200 bg-teal-50" x-text="'$' + svc.rate_per_1000.toFixed(2) + ' / 1000'"></span>
+                                                    <span class="text-xs font-semibold flex-shrink-0 px-2 py-0.5 rounded-full border"
+                                                        :class="svc.rate_per_1000 !== svc.default_rate ? 'text-orange-600 border-orange-200 bg-orange-50' : 'text-teal-600 border-teal-200 bg-teal-50'"
+                                                        x-text="'$' + svc.rate_per_1000.toFixed(2) + ' / 1000'"></span>
                                                 </button>
                                             </template>
                                         </div>

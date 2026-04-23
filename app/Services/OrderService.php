@@ -364,9 +364,9 @@ class OrderService implements OrderServiceInterface
 
             $effectiveRate = (float) $this->pricingService->priceForClient($service, $client);
             $speedMultiplier = $service->speed_limit_enabled ? $service->getSpeedMultiplier($speedTier) : 1.0;
-            $charge = round(($quantity / 1000) * $effectiveRate, 2);
+            $charge = round(($quantity / 1000) * $effectiveRate, 4);
             $cost = $service->service_cost_per_1000 !== null
-                ? round(($quantity / 1000) * (float) $service->service_cost_per_1000, 2)
+                ? round(($quantity / 1000) * (float) $service->service_cost_per_1000, 4)
                 : null;
 
             if ($client->balance < $charge) {

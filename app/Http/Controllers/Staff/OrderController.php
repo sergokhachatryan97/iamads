@@ -634,6 +634,34 @@ class OrderController extends Controller
     }
 
     /**
+     * Get effective service rates for a specific client.
+     * Returns a map of service_id => effective_rate for all active services.
+     */
+    public function clientRates(Request $request): JsonResponse
+    {
+        $request->validate([
+            'client_id' => ['required', 'integer', 'exists:clients,id'],
+        ]);
+
+        $client = Client::findOrFail($request->client_id);
+
+        // Check staff access
+        $user = Auth::guard('staff')->user();
+        if (!$user->hasRole('super_admin') && $client->staff_id !== $user->id) {
+            return response()->json(['rates' => []]);
+        }
+
+        $services = Service::where('is_active', true)->get(['id', 'rate_per_1000']);
+
+        $rates = [];
+        foreach ($services as $service) {
+            $rates[$service->id] = (float) $this->pricingService->priceForClient($service, $client);
+        }
+
+        return response()->json(['rates' => $rates]);
+    }
+
+    /**
      * Get order statuses for real-time updates.
      * Returns statuses for orders currently visible on the page.
      */
