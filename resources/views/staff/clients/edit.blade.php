@@ -543,12 +543,12 @@
                                             name="staff_id"
                                             :value="old('staff_id', $client->staff_id ?? '')"
                                             placeholder="{{ __('No Staff Assigned') }}"
-                                            :options="collect($staffMembers)->map(function ($staff) {
+                                            :options="collect([['value' => '', 'label' => __('— Remove Assigned Manager —')]])->merge(collect($staffMembers)->map(function ($staff) {
                                                 return [
                                                     'value' => $staff->id,
                                                     'label' => $staff->name . ' (' . $staff->email . ')',
                                                 ];
-                                            })->toArray()"
+                                            }))->toArray()"
                                         />
 
                                         @error('staff_id')
