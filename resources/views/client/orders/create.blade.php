@@ -1008,8 +1008,8 @@
                                     {{ __('Service') }} <span class="text-red-400">*</span>
                                 </label>
                                 <div class="custom-service-select"
-                                     x-data="{ open: false, search: '' }"
-                                     @click.outside="open = false; search = ''"
+                                     x-data="{ open: false }"
+                                     @click.outside="open = false; serviceSearch = ''"
                                      @keydown.escape.window="open = false">
                                     <input type="hidden" name="service_id" :value="serviceId">
                                     <button type="button"
@@ -1043,21 +1043,21 @@
                                             <i class="fa-solid fa-magnifying-glass search-icon"></i>
                                             <input type="text"
                                                    x-ref="csearch"
-                                                   x-model="search"
+                                                   x-model="serviceSearch"
                                                    @click.stop
                                                    autocomplete="off"
                                                    placeholder="{{ __('Search services…') }}"
                                                    style="padding: 10px 12px 10px 38px !important; font-size: 13px;">
                                         </div>
                                         <div class="custom-service-select-list">
-                                            <template x-for="group in filteredServiceGroups(search)" :key="'g-' + group.label">
+                                            <template x-for="group in filteredServiceGroups(serviceSearch)" :key="'g-' + group.label">
                                                 <div>
                                                     <div class="custom-service-select-group" x-text="group.label"></div>
                                                     <template x-for="service in group.services" :key="'sopt-' + service.id">
                                                         <button type="button"
                                                                 class="custom-service-select-option"
                                                                 :class="serviceId == service.id ? 'selected' : ''"
-                                                                @click="serviceId = service.id; updateServiceInfo(true); open = false; search = ''">
+                                                                @click="serviceId = service.id; updateServiceInfo(true); open = false; serviceSearch = ''">
                                                             <span class="opt-name">
                                                                 <span class="opt-id">ID&nbsp;<span x-text="service.id"></span></span>
                                                                 <span x-text="service.name"></span>
@@ -1069,7 +1069,7 @@
                                                     </template>
                                                 </div>
                                             </template>
-                                            <div x-show="filteredServiceGroups(search).length === 0"
+                                            <div x-show="filteredServiceGroups(serviceSearch).length === 0"
                                                  class="custom-service-select-empty">
                                                 {{ __('No matching services') }}
                                             </div>
@@ -2050,6 +2050,7 @@
                 serviceId: '{{ old('service_id', $preselectedServiceId ?? '') }}',
                 services: [],
                 selectedService: null,
+                serviceSearch: '',
                 targets: @js(old('targets') ?: [['link' => '', 'quantity' => 1000]]),
                 loading: false,
                 submitting: false,
