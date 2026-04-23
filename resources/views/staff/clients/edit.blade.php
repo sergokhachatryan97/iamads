@@ -582,11 +582,16 @@
                             </div>
                         </div>
 
-                        <!-- Custom Rates -->
-                        <div class="mb-6">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
-                                {{ __('Custom Rates per Service') }}
-                            </label>
+                        <!-- Custom Rates section removed — rates are now in Service Overrides -->
+                        <div style="display:none">
+                            <span>{{ __('Custom Rates per Service') }}
+                                    @if(count(is_array($client->rates) ? $client->rates : []) > 0)
+                                        <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">{{ count($client->rates) }}</span>
+                                    @endif
+                                </label>
+                                <svg class="w-5 h-5 text-gray-400 transition-transform" :class="ratesOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                            </button>
+                            <div x-show="ratesOpen" x-collapse x-cloak>
                             <p class="text-sm text-gray-500 mb-3">
                                 {{ __('Select services and set custom pricing. Services with custom rates are not affected by the personal discount.') }}
                             </p>
@@ -974,6 +979,7 @@
                             @error('rates.*')
                                 <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                             @enderror
+                            </div>
                         </div>
 
                         <!-- Social Authentication Section -->
@@ -1012,102 +1018,102 @@
                         @endif
 
                         <!-- Social Media Section -->
-                        <div class="mb-6 pb-6 border-b border-gray-200">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">
-                                {{ __('Social Media') }}
-                            </label>
-                            <p class="text-sm text-gray-500 mb-4">{{ __('Add social media accounts for this client. Select platform and enter username.') }}</p>
+{{--                        <div class="mb-6 pb-6 border-b border-gray-200">--}}
+{{--                            <label class="block text-sm font-medium text-gray-700 mb-2">--}}
+{{--                                {{ __('Social Media') }}--}}
+{{--                            </label>--}}
+{{--                            <p class="text-sm text-gray-500 mb-4">{{ __('Add social media accounts for this client. Select platform and enter username.') }}</p>--}}
 
-                            <div id="social-media-container" class="space-y-4">
-                                @php
-                                    $socialMedia = old('social_media', $client->social_media ?? []);
-                                    $socialMediaArray = [];
+{{--                            <div id="social-media-container" class="space-y-4">--}}
+{{--                                @php--}}
+{{--                                    $socialMedia = old('social_media', $client->social_media ?? []);--}}
+{{--                                    $socialMediaArray = [];--}}
 
-                                    // Handle old input format (array of arrays from form submission)
-                                    if (!empty(old('social_media')) && isset(old('social_media')[0]) && is_array(old('social_media')[0])) {
-                                        $socialMediaArray = old('social_media');
-                                    } elseif (is_array($socialMedia) && !empty($socialMedia)) {
-                                        // Handle database format (associative array: platform => username)
-                                        foreach ($socialMedia as $platform => $username) {
-                                            if (is_string($platform) && !empty($username)) {
-                                                $socialMediaArray[] = ['platform' => $platform, 'username' => $username];
-                                            }
-                                        }
-                                    }
+{{--                                    // Handle old input format (array of arrays from form submission)--}}
+{{--                                    if (!empty(old('social_media')) && isset(old('social_media')[0]) && is_array(old('social_media')[0])) {--}}
+{{--                                        $socialMediaArray = old('social_media');--}}
+{{--                                    } elseif (is_array($socialMedia) && !empty($socialMedia)) {--}}
+{{--                                        // Handle database format (associative array: platform => username)--}}
+{{--                                        foreach ($socialMedia as $platform => $username) {--}}
+{{--                                            if (is_string($platform) && !empty($username)) {--}}
+{{--                                                $socialMediaArray[] = ['platform' => $platform, 'username' => $username];--}}
+{{--                                            }--}}
+{{--                                        }--}}
+{{--                                    }--}}
 
-                                    // Always ensure at least one empty row is shown
-                                    if (empty($socialMediaArray)) {
-                                        $socialMediaArray = [['platform' => '', 'username' => '']];
-                                    }
+{{--                                    // Always ensure at least one empty row is shown--}}
+{{--                                    if (empty($socialMediaArray)) {--}}
+{{--                                        $socialMediaArray = [['platform' => '', 'username' => '']];--}}
+{{--                                    }--}}
 
-                                    // Define platform options for custom-select
-                                    $platformOptions = [
-                                        'telegram' => __('Telegram'),
-                                        'facebook' => __('Facebook'),
-                                        'instagram' => __('Instagram')
-                                    ];
-                                @endphp
+{{--                                    // Define platform options for custom-select--}}
+{{--                                    $platformOptions = [--}}
+{{--                                        'telegram' => __('Telegram'),--}}
+{{--                                        'facebook' => __('Facebook'),--}}
+{{--                                        'instagram' => __('Instagram')--}}
+{{--                                    ];--}}
+{{--                                @endphp--}}
 
-                                @foreach($socialMediaArray as $index => $social)
-                                    <div class="flex gap-3 items-start social-media-row border border-gray-200 rounded-lg p-4 bg-gray-50">
-                                        <div class="flex-1">
-                                            <x-custom-select
-                                                name="social_media[{{ $index }}][platform]"
-                                                id="social_platform_{{ $index }}"
-                                                :value="old('social_media.{$index}.platform', $social['platform'] ?? '')"
-                                                :label="__('Platform')"
-                                                placeholder="{{ __('Select Platform') }}"
-                                                :options="$platformOptions"
-                                            />
-                                            @error('social_media.'.$index.'.platform')
-                                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                                            @enderror
-                                        </div>
-                                        <div class="flex-1">
-                                            <label for="social_username_{{ $index }}" class="block text-sm font-medium text-gray-700 mb-1">
-                                                {{ __('Username') }}
-                                            </label>
-                                            <input
-                                                id="social_username_{{ $index }}"
-                                                name="social_media[{{ $index }}][username]"
-                                                type="text"
-                                                class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                                                value="{{ old("social_media.{$index}.username", $social['username'] ?? '') }}"
-                                                placeholder="{{ __('Enter username or handle') }}"
-                                            />
-                                            @error('social_media.'.$index.'.username')
-                                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                                            @enderror
-                                        </div>
-                                        <div class="pt-6">
-                                            <button
-                                                type="button"
-                                                onclick="removeSocialMediaRow(this)"
-                                                class="px-3 py-2 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors"
-                                            >
-                                                {{ __('Remove') }}
-                                            </button>
-                                        </div>
-                                    </div>
-                                @endforeach
-                            </div>
+{{--                                @foreach($socialMediaArray as $index => $social)--}}
+{{--                                    <div class="flex gap-3 items-start social-media-row border border-gray-200 rounded-lg p-4 bg-gray-50">--}}
+{{--                                        <div class="flex-1">--}}
+{{--                                            <x-custom-select--}}
+{{--                                                name="social_media[{{ $index }}][platform]"--}}
+{{--                                                id="social_platform_{{ $index }}"--}}
+{{--                                                :value="old('social_media.{$index}.platform', $social['platform'] ?? '')"--}}
+{{--                                                :label="__('Platform')"--}}
+{{--                                                placeholder="{{ __('Select Platform') }}"--}}
+{{--                                                :options="$platformOptions"--}}
+{{--                                            />--}}
+{{--                                            @error('social_media.'.$index.'.platform')--}}
+{{--                                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>--}}
+{{--                                            @enderror--}}
+{{--                                        </div>--}}
+{{--                                        <div class="flex-1">--}}
+{{--                                            <label for="social_username_{{ $index }}" class="block text-sm font-medium text-gray-700 mb-1">--}}
+{{--                                                {{ __('Username') }}--}}
+{{--                                            </label>--}}
+{{--                                            <input--}}
+{{--                                                id="social_username_{{ $index }}"--}}
+{{--                                                name="social_media[{{ $index }}][username]"--}}
+{{--                                                type="text"--}}
+{{--                                                class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"--}}
+{{--                                                value="{{ old("social_media.{$index}.username", $social['username'] ?? '') }}"--}}
+{{--                                                placeholder="{{ __('Enter username or handle') }}"--}}
+{{--                                            />--}}
+{{--                                            @error('social_media.'.$index.'.username')--}}
+{{--                                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>--}}
+{{--                                            @enderror--}}
+{{--                                        </div>--}}
+{{--                                        <div class="pt-6">--}}
+{{--                                            <button--}}
+{{--                                                type="button"--}}
+{{--                                                onclick="removeSocialMediaRow(this)"--}}
+{{--                                                class="px-3 py-2 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors"--}}
+{{--                                            >--}}
+{{--                                                {{ __('Remove') }}--}}
+{{--                                            </button>--}}
+{{--                                        </div>--}}
+{{--                                    </div>--}}
+{{--                                @endforeach--}}
+{{--                            </div>--}}
 
-                            <button
-                                type="button"
-                                onclick="addSocialMediaRow()"
-                                class="mt-4 inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors"
-                            >
-                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                                </svg>
-                                {{ __('Add Social Media') }}
-                            </button>
-                        </div>
+{{--                            <button--}}
+{{--                                type="button"--}}
+{{--                                onclick="addSocialMediaRow()"--}}
+{{--                                class="mt-4 inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors"--}}
+{{--                            >--}}
+{{--                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">--}}
+{{--                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>--}}
+{{--                                </svg>--}}
+{{--                                {{ __('Add Social Media') }}--}}
+{{--                            </button>--}}
+{{--                        </div>--}}
 
                         <!-- Service Limits Section -->
                         <div class="mb-6 pb-6 border-b border-gray-200">
-                            <h3 class="text-lg font-medium text-gray-900 mb-2">{{ __('Service Limits') }}</h3>
-                            <p class="text-sm text-gray-600 mb-4">{{ __('Override service defaults (min/max quantity, increment) for this client. Leave empty to use service defaults.') }}</p>
+                            <h3 class="text-lg font-medium text-gray-900 mb-2">{{ __('Service Overrides') }}</h3>
+                            <p class="text-sm text-gray-600 mb-4">{{ __('Set custom rates and override min/max quantity per service for this client. Leave fields empty to use service defaults.') }}</p>
 
                             @error('service_limits')
                                 <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
@@ -1115,13 +1121,13 @@
                                 </div>
                             @enderror
 
-                            <!-- Add Service Limits Section -->
-                            <div class="mb-4">
+                            <!-- Add Service Overrides Section -->
+                            <div class="mb-4" style="position:relative;z-index:30;">
                                 <label class="block text-sm font-medium text-gray-700 mb-2">
-                                    {{ __('Select Services to Add Limits') }}
+                                    {{ __('Select Services') }}
                                 </label>
                                 <div class="flex gap-2">
-                                    <div class="flex-1 relative" id="service-limits-selector" style="z-index: 10;"
+                                    <div class="flex-1 relative" id="service-limits-selector" style="z-index: 30;"
                                          x-data="{
                                              open: false,
                                              selectedServices: [],
@@ -1284,12 +1290,12 @@
                                 </div>
                             </div>
 
-                            <!-- Service Limits List -->
-                            <div id="service-limits-list" class="border border-gray-300 rounded-lg overflow-hidden relative bg-white">
+                            <!-- Service Overrides List -->
+                            <div id="service-limits-list" class="border border-gray-300 rounded-lg relative bg-white" style="overflow:visible;">
                                 <div class="overflow-x-auto">
-                                    <div class="min-w-[800px]">
+                                    <div class="min-w-[900px]">
                                         <!-- Table Header -->
-                                        <div class="bg-gray-50 border-b border-gray-200 sticky top-0 z-20">
+                                        <div class="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
                                             <div class="grid grid-cols-12 gap-2 sm:gap-3 md:gap-4 px-3 sm:px-4 md:px-6 py-3">
                                                 <div class="col-span-1 flex items-center gap-1 sm:gap-2 min-w-[60px]">
                                                     <input
@@ -1311,12 +1317,12 @@
                                                     </button>
                                                 </div>
                                                 <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[100px]">{{ __('Category') }}</div>
-                                                <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[150px]">{{ __('Service') }}</div>
-                                                <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[100px]">{{ __('Min Override') }}</div>
-                                                <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[100px]">{{ __('Max Override') }}</div>
-                                                <div class="col-span-1 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[90px]">{{ __('Increment') }}</div>
-                                                <div class="col-span-1 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[90px]">{{ __('Overflow %') }}</div>
-                                                <div class="col-span-1 text-xs font-semibold text-gray-700 uppercase tracking-wider text-center whitespace-nowrap min-w-[60px]">{{ __('Action') }}</div>
+                                                <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[120px]">{{ __('Service') }}</div>
+                                                <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[120px]">{{ __('Custom Rate') }}</div>
+                                                <div class="col-span-1 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[80px]">{{ __('Min') }}</div>
+                                                <div class="col-span-1 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[80px]">{{ __('Max') }}</div>
+                                                <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[90px]">{{ __('Overflow %') }}</div>
+                                                <div class="col-span-1 text-xs font-semibold text-gray-700 uppercase tracking-wider text-center whitespace-nowrap min-w-[50px]">{{ __('Action') }}</div>
                                             </div>
                                         </div>
 
@@ -1337,6 +1343,11 @@
                                                         data-category-id="{{ $category->id }}"
                                                         data-category-name="{{ $category->name }}"
                                                     >
+                                                        @php
+                                                            $clientRates = is_array($client->rates) ? $client->rates : [];
+                                                            $hasCustomRate = isset($clientRates[$service->id]);
+                                                            $rateValue = $hasCustomRate ? ($clientRates[$service->id]['value'] ?? '') : '';
+                                                        @endphp
                                                         <input type="hidden" name="service_limits[{{ $service->id }}][remove]" value="0" class="limit-remove-input">
                                                         <div class="grid grid-cols-12 gap-2 sm:gap-3 md:gap-4 items-center px-3 sm:px-4 md:px-6 py-3 sm:py-4">
                                                             <div class="col-span-1 flex items-center justify-start min-w-[60px]">
@@ -1349,10 +1360,25 @@
                                                             <div class="col-span-2 min-w-[100px]">
                                                                 <span class="text-xs sm:text-sm font-medium text-gray-900 category-name whitespace-nowrap">{{ $category->name }}</span>
                                                             </div>
-                                                            <div class="col-span-2 min-w-[150px]">
+                                                            <div class="col-span-2 min-w-[120px]">
                                                                 <span class="text-xs sm:text-sm font-medium text-gray-900 service-name break-words">{{ $service->name }}</span>
                                                             </div>
-                                                            <div class="col-span-2 min-w-[100px]">
+                                                            <div class="col-span-2 min-w-[120px]">
+                                                                <div class="flex gap-1 items-center">
+                                                                    <input
+                                                                        type="number"
+                                                                        name="rates[{{ $service->id }}][value]"
+                                                                        value="{{ old("rates.{$service->id}.value", $rateValue) }}"
+                                                                        min="0"
+                                                                        step="0.0001"
+                                                                        class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                                                        placeholder="${{ number_format($service->rate_per_1000 ?? 0, 2) }}"
+                                                                    >
+                                                                    <input type="hidden" name="rates[{{ $service->id }}][type]" value="fixed">
+                                                                    <input type="hidden" name="rates[{{ $service->id }}][enabled]" value="1">
+                                                                </div>
+                                                            </div>
+                                                            <div class="col-span-1 min-w-[80px]">
                                                                 <input
                                                                     type="number"
                                                                     name="service_limits[{{ $service->id }}][min_quantity]"
@@ -1360,10 +1386,10 @@
                                                                     min="0"
                                                                     step="1"
                                                                     class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                                                    placeholder="{{ __('Default') }}"
+                                                                    placeholder="{{ __('Def') }}"
                                                                 >
                                                             </div>
-                                                            <div class="col-span-2 min-w-[100px]">
+                                                            <div class="col-span-1 min-w-[80px]">
                                                                 <input
                                                                     type="number"
                                                                     name="service_limits[{{ $service->id }}][max_quantity]"
@@ -1371,21 +1397,10 @@
                                                                     min="0"
                                                                     step="1"
                                                                     class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                                                    placeholder="{{ __('Default') }}"
+                                                                    placeholder="{{ __('Def') }}"
                                                                 >
                                                             </div>
-                                                            <div class="col-span-1 min-w-[90px]">
-                                                                <input
-                                                                    type="number"
-                                                                    name="service_limits[{{ $service->id }}][increment]"
-                                                                    value="{{ old("service_limits.{$service->id}.increment", $hasLimit->increment ?? '') }}"
-                                                                    min="0"
-                                                                    step="1"
-                                                                    class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                                                    placeholder="{{ __('Default') }}"
-                                                                >
-                                                            </div>
-                                                            <div class="col-span-1 min-w-[90px]">
+                                                            <div class="col-span-2 min-w-[90px]">
                                                                 <input
                                                                     type="number"
                                                                     name="service_limits[{{ $service->id }}][overflow_percent]"
@@ -1438,10 +1453,23 @@
                                         <div class="col-span-2 min-w-[100px]">
                                             <span class="text-xs sm:text-sm font-medium text-gray-900 category-name whitespace-nowrap"></span>
                                         </div>
-                                        <div class="col-span-2 min-w-[150px]">
+                                        <div class="col-span-2 min-w-[120px]">
                                             <span class="text-xs sm:text-sm font-medium text-gray-900 service-name break-words"></span>
                                         </div>
-                                        <div class="col-span-2 min-w-[100px]">
+                                        <div class="col-span-2 min-w-[120px]">
+                                            <input
+                                                type="number"
+                                                name="rates[SERVICE_ID][value]"
+                                                value=""
+                                                min="0"
+                                                step="0.0001"
+                                                class="rate-value-input w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                                placeholder=""
+                                            >
+                                            <input type="hidden" name="rates[SERVICE_ID][type]" value="fixed">
+                                            <input type="hidden" name="rates[SERVICE_ID][enabled]" value="1">
+                                        </div>
+                                        <div class="col-span-1 min-w-[80px]">
                                             <input
                                                 type="number"
                                                 name="service_limits[SERVICE_ID][min_quantity]"
@@ -1449,10 +1477,10 @@
                                                 min="0"
                                                 step="1"
                                                 class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                                placeholder="{{ __('Default') }}"
+                                                placeholder="{{ __('Def') }}"
                                             >
                                         </div>
-                                        <div class="col-span-2 min-w-[100px]">
+                                        <div class="col-span-1 min-w-[80px]">
                                             <input
                                                 type="number"
                                                 name="service_limits[SERVICE_ID][max_quantity]"
@@ -1460,21 +1488,10 @@
                                                 min="0"
                                                 step="1"
                                                 class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                                placeholder="{{ __('Default') }}"
+                                                placeholder="{{ __('Def') }}"
                                             >
                                         </div>
-                                        <div class="col-span-1 min-w-[90px]">
-                                            <input
-                                                type="number"
-                                                name="service_limits[SERVICE_ID][increment]"
-                                                value=""
-                                                min="0"
-                                                step="1"
-                                                class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                                placeholder="{{ __('Default') }}"
-                                            >
-                                        </div>
-                                        <div class="col-span-1 min-w-[90px]">
+                                        <div class="col-span-2 min-w-[90px]">
                                             <input
                                                 type="number"
                                                 name="service_limits[SERVICE_ID][overflow_percent]"

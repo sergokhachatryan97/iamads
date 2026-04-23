@@ -225,6 +225,7 @@
         .float-btn:hover { transform: scale(1.1); }
         .float-btn-order { background: linear-gradient(135deg, var(--purple), var(--teal)); color: #fff; }
         .float-btn-support { background: #2aabee; color: #fff; }
+        .float-btn-whatsapp { background: #25d366; color: #fff; }
         [x-cloak] { display: none !important; }
 
 
@@ -663,7 +664,7 @@
             @if($contactTelegram)
               <a href="https://t.me/{{ $contactTelegram }}" target="_blank" rel="noopener noreferrer" title="{{ __('home.footer_telegram') }}"><i class="fa-brands fa-telegram"></i></a>
             @endif
-            <a href="#" title="{{ __('home.footer_whatsapp') }}"><i class="fa-brands fa-whatsapp"></i></a>
+            <a href="https://wa.me/37495189233" target="_blank" rel="noopener noreferrer" title="{{ __('home.footer_whatsapp') }}"><i class="fa-brands fa-whatsapp"></i></a>
           </div>
         </div>
         <div class="footer-col">
@@ -681,7 +682,7 @@
             @if($contactTelegram)
               <li><a href="https://t.me/{{ $contactTelegram }}" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-telegram"></i> {{ __('home.footer_telegram') }}</a></li>
             @endif
-            <li><a href="#"><i class="fa-brands fa-whatsapp"></i> {{ __('home.footer_whatsapp') }}</a></li>
+            <li><a href="https://wa.me/37495189233" target="_blank" rel="noopener noreferrer"><i class="fa-brands fa-whatsapp"></i> {{ __('home.footer_whatsapp') }}</a></li>
             <li><a href="#"><i class="fa-solid fa-file-contract"></i> {{ __('home.footer_terms') }}</a></li>
             <li><a href="#"><i class="fa-solid fa-shield-halved"></i> {{ __('home.footer_privacy_footer') }}</a></li>
           </ul>
@@ -716,6 +717,7 @@
 
 <!-- FLOATING BUTTONS -->
 <div class="floating-btns">
+    <a href="https://wa.me/37495189233" target="_blank" rel="noopener noreferrer" class="float-btn float-btn-whatsapp" title="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
     <x-telegram-support-picker variant="float">
         <button type="button" x-on:click="open = !open" class="float-btn float-btn-support" title="{{ __('home.float_support_title') }}"><i class="fa-brands fa-telegram"></i></button>
     </x-telegram-support-picker>

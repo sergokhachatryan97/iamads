@@ -246,6 +246,28 @@
             border-color: rgba(220, 38, 38, 0.45);
             color: #b91c1c;
         }
+        .smm-dash-sidebar-whatsapp {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            color: #25d366;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+            transition: background 0.15s, color 0.15s;
+        }
+        .smm-dash-sidebar-whatsapp:hover {
+            background: rgba(37, 211, 102, 0.12);
+            color: #5afa8e;
+        }
+        .smm-dash-sidebar-whatsapp i {
+            font-size: 18px;
+            width: 20px;
+            text-align: center;
+        }
+
         /* Sidebar logout: hidden on desktop (shown in top bar), visible on mobile only */
         .smm-sidebar-logout-form { display: none; margin: 0; }
         .smm-sidebar-logout-btn {
@@ -751,6 +773,10 @@
                         <span>{{ __('Support') }}</span>
                     </button>
                 </x-telegram-support-picker>
+                <a href="https://wa.me/37495189233" target="_blank" rel="noopener noreferrer" class="smm-dash-sidebar-whatsapp" @click="sidebarOpen = false">
+                    <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
+                    <span>WhatsApp</span>
+                </a>
                 <form method="POST" action="{{ route('logout') }}" class="smm-sidebar-logout-form" style="margin:0;">
                     @csrf
                     <button type="submit" class="smm-sidebar-logout-btn">

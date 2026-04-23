@@ -17,7 +17,58 @@
         </div>
     </x-slot>
 
-    <div class="py-6">
+    <style>
+        @media (max-width: 768px) {
+            .svc-edit-page { padding: 12px 0 !important; }
+            .svc-edit-page > div { max-width: 100% !important; padding: 0 10px !important; }
+            /* Stack rate + quantity fields */
+            .svc-edit-page .row { flex-direction: column !important; }
+            .svc-edit-page .row > [class*="col-"] {
+                width: 100% !important;
+                max-width: 100% !important;
+                flex: 0 0 100% !important;
+                padding-left: 0 !important;
+                padding-right: 0 !important;
+                margin-bottom: 12px !important;
+            }
+            /* Inputs: larger touch targets */
+            .svc-edit-page input[type="number"],
+            .svc-edit-page input[type="text"],
+            .svc-edit-page input[type="url"],
+            .svc-edit-page select,
+            .svc-edit-page textarea {
+                font-size: 16px !important;
+                padding: 10px 12px !important;
+                border-radius: 10px !important;
+            }
+            .svc-edit-page input[type="number"].pl-7 {
+                padding-left: 28px !important;
+            }
+            /* Cards: less padding */
+            .svc-edit-page .border.border-gray-200.rounded-lg {
+                padding: 14px !important;
+            }
+            /* Header */
+            .svc-edit-page + header .flex { flex-direction: column; gap: 10px; align-items: flex-start !important; }
+            /* Submit buttons */
+            .svc-edit-page button[type="submit"],
+            .svc-edit-page a.inline-flex {
+                width: 100%;
+                justify-content: center;
+            }
+            .svc-edit-page .flex.justify-end.gap-3 {
+                flex-direction: column !important;
+                gap: 8px !important;
+            }
+        }
+        @media (max-width: 480px) {
+            .svc-edit-page .border.border-gray-200.rounded-lg { padding: 12px !important; }
+            .svc-edit-page h3 { font-size: 14px !important; }
+            .svc-edit-page label { font-size: 13px !important; }
+        }
+    </style>
+
+    <div class="py-6 svc-edit-page">
         <div class="max-w-[95%] mx-auto sm:px-6 lg:px-8">
 
             {{-- Flash / Errors --}}
