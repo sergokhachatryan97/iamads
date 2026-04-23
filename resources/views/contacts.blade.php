@@ -91,6 +91,9 @@
         .footer { padding: 32px 24px 20px; border-top: 1px solid var(--border2); margin-top: auto; }
         .footer-inner { max-width: 1100px; margin: 0 auto; text-align: center; font-size: 12px; color: var(--text3); }
 
+        @media (max-width: 768px) {
+            .logo-slogan { display: none; }
+        }
         @media (max-width: 600px) {
             .nav-links { display: none; }
             .contacts-main { padding: 80px 16px 40px; }
@@ -105,7 +108,7 @@
     <div class="navbar-inner">
         <a href="{{ route('home') }}" class="logo" style="text-decoration:none;">
             <img src="{{ asset('images/adtag_fav.png') }}" alt="{{ config('contact.company_name') }}" class="logo-mark">
-            <span style="font-size:10px;color:#8892a4;white-space:nowrap;">Social Media Growth Tool</span>
+            <span class="logo-slogan" style="font-size:10px;color:#8892a4;white-space:nowrap;">Social Media Growth Tool</span>
         </a>
         <ul class="nav-links">
             <li><a href="{{ route('home') }}">{{ __('home.nav_services') }}</a></li>

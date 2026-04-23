@@ -95,6 +95,20 @@
             outline: none; border-color: var(--purple) !important;
         }
 
+        .landing-auth-btn {
+            padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 500;
+            text-decoration: none; transition: all 0.2s; white-space: nowrap;
+        }
+        .landing-auth-btn-signin {
+            color: var(--text); border: 1px solid var(--border2); background: transparent;
+        }
+        .landing-auth-btn-signin:hover { border-color: var(--purple); color: var(--purple); }
+        .landing-auth-btn-signup {
+            color: #fff !important; background: linear-gradient(135deg, var(--purple), var(--purple-dark));
+            font-weight: 600;
+        }
+        .landing-auth-btn-signup:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(108,92,231,0.4); }
+
         .landing-auth-main {
             min-height: 100vh; display: flex; flex-direction: column;
             align-items: center; justify-content: center;
@@ -242,10 +256,112 @@
         }
         [data-theme="light"] .landing-auth-slot .text-green-600 { color: #008f73 !important; }
 
-        @media (max-width: 520px) {
-            .landing-logo-slogan { display: none; }
-            .landing-nav-home { font-size: 12px; padding: 4px 8px; }
-            .landing-auth-card { padding: 22px 18px 24px; }
+        @media (max-width: 768px) {
+            .landing-logo-sub { display: none; }
+            .landing-logo-mark { height: 28px; }
+            .landing-navbar { padding: 0 12px; }
+            .landing-navbar-inner { height: 48px; gap: 8px; }
+            .landing-nav-home { display: none; }
+            .landing-lang { display: none; }
+            .landing-nav-right { gap: 6px !important; }
+            .landing-theme-toggle { width: 32px; height: 32px; font-size: 13px; }
+            .landing-auth-btn { padding: 6px 12px; font-size: 12px; display: inline-flex !important; }
+            .landing-auth-btn-signin {
+                border-color: rgba(255,255,255,0.2) !important;
+                color: var(--text) !important;
+            }
+            .landing-auth-main { padding: 58px 14px 20px; }
+            .landing-auth-card {
+                max-width: 100%;
+                padding: 18px 16px 20px;
+                border-radius: 14px;
+            }
+            /* Reduce spacing between form groups */
+            .landing-auth-slot .mt-4 { margin-top: 10px !important; }
+            .landing-auth-slot .mb-6 { margin-bottom: 14px !important; }
+            .landing-auth-slot .mt-6 { margin-top: 12px !important; }
+            .landing-auth-slot .mb-4 { margin-bottom: 10px !important; }
+            /* Form inputs: compact but touch-friendly */
+            .landing-auth-card input[type="text"],
+            .landing-auth-card input[type="email"],
+            .landing-auth-card input[type="password"],
+            .landing-auth-slot input[type="text"],
+            .landing-auth-slot input[type="email"],
+            .landing-auth-slot input[type="password"] {
+                font-size: 16px !important;
+                padding: 10px 12px !important;
+                border-radius: 10px !important;
+                margin-top: 2px !important;
+            }
+            /* Labels smaller */
+            .landing-auth-card label.block,
+            .landing-auth-slot label.block {
+                font-size: 12px !important;
+                margin-bottom: 0 !important;
+            }
+            /* Submit button: full width */
+            .landing-auth-card button[type="submit"],
+            .landing-auth-slot button[type="submit"] {
+                width: 100% !important;
+                padding: 12px 20px !important;
+                font-size: 14px !important;
+                border-radius: 10px !important;
+                margin: auto !important;
+            }
+            /* Bottom actions: stack vertically */
+            .landing-auth-slot .flex.items-center.justify-end,
+            .landing-auth-slot .flex.items-center.justify-between {
+                flex-direction: column !important;
+                align-items: stretch !important;
+                gap: 10px !important;
+                margin-top: 14px !important;
+            }
+            .landing-auth-slot .flex.items-center.justify-end a,
+            .landing-auth-slot .flex.items-center.justify-between a {
+                text-align: center;
+                font-size: 13px !important;
+            }
+            .landing-auth-slot .flex.items-center.justify-between .flex.items-center.gap-4 {
+                flex-direction: row !important;
+                justify-content: center !important;
+                gap: 16px !important;
+            }
+            /* Social login buttons: compact */
+            .landing-auth-slot .grid.grid-cols-2 {
+                gap: 8px !important;
+            }
+            .landing-auth-slot .grid.grid-cols-2 > a,
+            .landing-auth-slot #telegram-button-visual {
+                padding: 8px 10px !important;
+                font-size: 13px !important;
+            }
+            #telegram-button-container { height: 36px !important; }
+            /* Divider */
+            .landing-auth-slot .relative .text-sm span { font-size: 12px !important; }
+            /* Title */
+            .landing-auth-card h2.text-2xl,
+            .landing-auth-slot h2.text-2xl {
+                font-size: 1.1rem !important;
+                margin-bottom: 10px !important;
+            }
+            /* Remember me */
+            .landing-auth-slot .block.mt-4 { margin-top: 8px !important; }
+            .landing-auth-slot .block.mt-4 span { font-size: 13px !important; }
+        }
+
+        @media (max-width: 380px) {
+            .landing-auth-main { padding: 52px 10px 14px; }
+            .landing-auth-card { padding: 14px 12px 16px; border-radius: 12px; }
+            .landing-navbar-inner { height: 44px; }
+            .landing-logo-mark { height: 24px; }
+            .landing-theme-toggle { width: 28px; height: 28px; font-size: 12px; }
+            .landing-auth-btn { padding: 4px 8px; font-size: 11px; }
+            .landing-auth-slot input[type="text"],
+            .landing-auth-slot input[type="email"],
+            .landing-auth-slot input[type="password"] {
+                padding: 9px 10px !important;
+                font-size: 15px !important;
+            }
         }
     </style>
 </head>
@@ -254,11 +370,13 @@
         <div class="landing-navbar-inner">
             <a href="{{ route('home') }}" class="landing-logo" style="display:flex;flex-direction:column;align-items:center;gap:4px;text-decoration:none;">
                 <img src="{{ asset('images/adtag_fav.png') }}" alt="{{ config('app.name', 'SMM Tool') }}" class="landing-logo-mark">
-                <span style="font-size:10px;color:#8892a4;white-space:nowrap;">Social Media Growth Tool</span>
+                <span class="landing-logo-sub" style="font-size:10px;color:#8892a4;white-space:nowrap;">Social Media Growth Tool</span>
             </a>
             <div class="landing-navbar-spacer" aria-hidden="true"></div>
             <a href="{{ route('home') }}" class="landing-nav-home">{{ __('Back to home') }}</a>
             <div class="landing-nav-right">
+                <a href="{{ route('login') }}" class="landing-auth-btn landing-auth-btn-signin">{{ __('Sign In') }}</a>
+                <a href="{{ route('register') }}" class="landing-auth-btn landing-auth-btn-signup">{{ __('Sign Up') }}</a>
                 <button type="button" class="landing-theme-toggle" id="guestThemeToggle" onclick="guestToggleTheme()" title="{{ __('Toggle theme') }}">
                     <i class="fa-solid fa-moon" id="guestThemeIcon"></i>
                 </button>

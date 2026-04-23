@@ -50,7 +50,7 @@
         .logo-mark { height: 40px; width: auto; flex-shrink: 0; filter: drop-shadow(0 4px 14px rgba(124, 58, 237, 0.35)); }
         .logo-text { display: flex; flex-direction: column; }
         .logo-name { font-size: 18px; font-weight: 800; background: linear-gradient(135deg, var(--purple), var(--teal)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-        .logo-slogan { font-size: 9px; color: var(--text2); letter-spacing: 0.5px; }
+        .logo-slogan { display: none; }
         .nav-links { display: flex; align-items: center; gap: 2px; flex: 1; list-style: none; }
         .nav-links a { color: var(--text2); font-size: 13px; font-weight: 500; padding: 6px 12px; border-radius: 6px; transition: all 0.2s; }
         .nav-links a:hover { color: var(--text); background: rgba(108,92,231,0.08); }
@@ -291,7 +291,7 @@
         .mobile-menu-links a i { width: 20px; text-align: center; color: var(--purple-light); font-size: 14px; }
         .mobile-menu-actions { padding: 16px 20px; border-top: 1px solid var(--border2); display: flex; flex-direction: column; gap: 10px; }
         .mobile-menu-actions .btn-signup { text-align: center; justify-content: center; padding: 10px; font-size: 14px; }
-        .mobile-menu-actions .btn-signin { text-align: center; padding: 10px; font-size: 14px; display: block; }
+        .mobile-menu-actions .btn-signin { text-align: center; padding: 10px; font-size: 14px; display: block !important; }
 
         /* ===== RESPONSIVE ===== */
 
@@ -308,13 +308,14 @@
 
         /* TABLET (≤768px) */
         @media (max-width: 768px) {
-            .nav-links, .btn-signin, .direct-badge { display: none; }
+            .nav-links, .direct-badge { display: none; }
             .mobile-menu-btn { display: flex; }
             .logo-slogan { display: none; }
             .navbar-inner { gap: 12px; }
             .navbar { padding: 0 16px; }
             .nav-right { gap: 8px; margin-left: auto; }
             .nav-right .btn-signup { padding: 6px 12px; font-size: 12px; }
+            .nav-right .btn-signin { padding: 6px 12px; font-size: 12px; }
 
             .hero-order-section { padding: 68px 16px 16px; min-height: auto; }
             .hero-compact { padding: 10px 0 12px; }
@@ -420,7 +421,7 @@
             .testimonial-text { font-size: 12px; margin-bottom: 10px; }
 
             footer { padding: 28px 12px 16px; }
-            .footer-grid { grid-template-columns: 1fr; gap: 20px; }
+            .footer-grid { grid-template-columns: 1fr 1fr; gap: 16px; }
             .footer-brand { text-align: center; }
             .footer-social { justify-content: center; }
             .footer-bottom { flex-direction: column; align-items: center; text-align: center; }
