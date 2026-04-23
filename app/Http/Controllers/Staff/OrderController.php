@@ -140,7 +140,7 @@ class OrderController extends Controller
 
     /**
      * Display a listing of orders.
-     * Staff members see only their assigned clients' orders.
+     * Staff members see only their assigned clients' orders + orders they created.
      * Super admin sees all orders.
      */
     public function index(Request $request): View
@@ -151,9 +151,12 @@ class OrderController extends Controller
         $query = Order::with(['service', 'client', 'category', 'subscription', 'creator']);
 
         // Filter by staff member (unless super admin)
+        // Show orders from assigned clients OR orders created by this staff member
         if (!$isSuperAdmin) {
-            $query->whereHas('client', function ($q) use ($user) {
-                $q->where('staff_id', $user->id);
+            $query->where(function ($q) use ($user) {
+                $q->whereHas('client', function ($sub) use ($user) {
+                    $sub->where('staff_id', $user->id);
+                })->orWhere('created_by', $user->id);
             });
         }
 
@@ -238,8 +241,10 @@ class OrderController extends Controller
         // Per-status counts (filtered by staff and other filters, but not by status)
         $countBase = Order::query();
         if (!$isSuperAdmin) {
-            $countBase->whereHas('client', function ($q) use ($user) {
-                $q->where('staff_id', $user->id);
+            $countBase->where(function ($q) use ($user) {
+                $q->whereHas('client', function ($sub) use ($user) {
+                    $sub->where('staff_id', $user->id);
+                })->orWhere('created_by', $user->id);
             });
         }
         if ($request->filled('category_id')) {
@@ -409,8 +414,10 @@ class OrderController extends Controller
 
         // Filter by staff member (unless super admin)
         if (!$isSuperAdmin) {
-            $query->whereHas('client', function ($q) use ($user) {
-                $q->where('staff_id', $user->id);
+            $query->where(function ($q) use ($user) {
+                $q->whereHas('client', function ($sub) use ($user) {
+                    $sub->where('staff_id', $user->id);
+                })->orWhere('created_by', $user->id);
             });
         }
 
@@ -660,8 +667,10 @@ class OrderController extends Controller
 
         // Filter by staff member (unless super admin)
         if (!$isSuperAdmin) {
-            $query->whereHas('client', function ($q) use ($user) {
-                $q->where('staff_id', $user->id);
+            $query->where(function ($q) use ($user) {
+                $q->whereHas('client', function ($sub) use ($user) {
+                    $sub->where('staff_id', $user->id);
+                })->orWhere('created_by', $user->id);
             });
         }
 
