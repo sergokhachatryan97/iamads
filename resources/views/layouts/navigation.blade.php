@@ -60,6 +60,11 @@
                             {{ __('Services') }}
                         </x-nav-link>
                     @endstaffcan
+                    @if(Auth::guard('staff')->user()?->hasRole('super_admin'))
+                        <x-nav-link :href="route('staff.failed-telegram-tasks.index')" :active="request()->routeIs('staff.failed-telegram-tasks.*')">
+                            {{ __('Failed Tasks') }}
+                        </x-nav-link>
+                    @endif
                 </div>
             </div>
 

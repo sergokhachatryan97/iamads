@@ -508,25 +508,30 @@ class ClientController extends Controller
             ->with('service.category')
             ->get();
 
-        $serviceLimitsCategoriesData = $baseCategories->map(function ($cat) {
+        $serviceLimitsCategoriesData = $categories->map(function ($cat) {
             return [
-                'id' => $cat['id'],
-                'name' => $cat['name'],
-                'services' => array_values(array_map(function ($s) {
+                'id' => $cat->id,
+                'name' => $cat->name,
+                'services' => $cat->services->map(function ($s) {
                     return [
-                        'id' => (string) $s['id'],
-                        'name' => $s['name'],
+                        'id' => (string) $s->id,
+                        'name' => $s->name,
+                        'min_quantity' => (int) ($s->min_quantity ?? 0),
+                        'max_quantity' => $s->max_quantity !== null ? (int) $s->max_quantity : null,
+                        'rate_per_1000' => (float) ($s->rate_per_1000 ?? 0),
                     ];
-                }, $cat['services'])),
+                })->values()->all(),
             ];
         })->filter(fn ($cat) => count($cat['services']) > 0)
             ->values()
             ->all();
 
-        // Disabled service IDs for limits dropdown (services that already have limits)
+        // Disabled service IDs for limits dropdown (services that already have limits or custom rates)
         $disabledServiceLimitIds = $serviceLimits
             ->pluck('service_id')
             ->map(fn ($id) => (string) $id)
+            ->merge(collect(array_keys($clientRates))->map(fn ($id) => (string) $id))
+            ->unique()
             ->values()
             ->all();
 

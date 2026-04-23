@@ -251,6 +251,11 @@ Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSess
     Route::post('promo-codes/{promoCode}/toggle', [\App\Http\Controllers\Staff\PromoCodeController::class, 'toggleActive'])->name('staff.promo-codes.toggle');
     Route::delete('promo-codes/{promoCode}', [\App\Http\Controllers\Staff\PromoCodeController::class, 'destroy'])->name('staff.promo-codes.destroy');
 
+    // Failed Telegram Tasks (super admin only — enforced in controller)
+    Route::get('failed-telegram-tasks', [\App\Http\Controllers\Staff\FailedTelegramTasksController::class, 'index'])->name('staff.failed-telegram-tasks.index');
+    Route::post('failed-telegram-tasks/delete-completed', [\App\Http\Controllers\Staff\FailedTelegramTasksController::class, 'deleteCompletedOrderTasks'])->name('staff.failed-telegram-tasks.delete-completed');
+    Route::post('failed-telegram-tasks/delete-by-order', [\App\Http\Controllers\Staff\FailedTelegramTasksController::class, 'deleteByOrder'])->name('staff.failed-telegram-tasks.delete-by-order');
+
     // Export Files
     Route::get('exports', [\App\Http\Controllers\Staff\ExportFilesController::class, 'index'])->name('staff.exports.index')->middleware('staff.permission:exports.view');
     Route::get('exports/json', [\App\Http\Controllers\Staff\ExportFilesController::class, 'indexJson'])->name('staff.exports.index.json')->middleware('staff.permission:exports.view');

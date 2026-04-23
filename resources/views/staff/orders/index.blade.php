@@ -639,7 +639,10 @@
                             />
                         </th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            {{ __('Order') }}
+                            <button type="button" data-column="id" onclick="window.dispatchEvent(new CustomEvent('orders-table-sort', { detail: { column: 'id' } }))" class="inline-flex items-center gap-1 group bg-transparent border-0 cursor-pointer font-medium text-xs uppercase tracking-wider text-gray-500">
+                                {{ __('Order') }}
+                                <svg class="h-3.5 w-3.5 {{ $sortBy === 'id' ? 'text-indigo-600' : 'text-gray-400' }} group-hover:text-indigo-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $sortBy === 'id' ? ($sortDir === 'asc' ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7') : 'M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4' }}" /></svg>
+                            </button>
                         </th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             {{ __('User') }}
@@ -651,13 +654,22 @@
                             {{ __('Start') }}
                         </th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            {{ __('Progress') }}
+                            <button type="button" data-column="quantity" onclick="window.dispatchEvent(new CustomEvent('orders-table-sort', { detail: { column: 'quantity' } }))" class="inline-flex items-center gap-1 group bg-transparent border-0 cursor-pointer font-medium text-xs uppercase tracking-wider text-gray-500">
+                                {{ __('Progress') }}
+                                <svg class="h-3.5 w-3.5 {{ $sortBy === 'quantity' ? 'text-indigo-600' : 'text-gray-400' }} group-hover:text-indigo-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $sortBy === 'quantity' ? ($sortDir === 'asc' ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7') : 'M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4' }}" /></svg>
+                            </button>
                         </th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            {{ __('Price') }}
+                            <button type="button" data-column="charge" onclick="window.dispatchEvent(new CustomEvent('orders-table-sort', { detail: { column: 'charge' } }))" class="inline-flex items-center gap-1 group bg-transparent border-0 cursor-pointer font-medium text-xs uppercase tracking-wider text-gray-500">
+                                {{ __('Price') }}
+                                <svg class="h-3.5 w-3.5 {{ $sortBy === 'charge' ? 'text-indigo-600' : 'text-gray-400' }} group-hover:text-indigo-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $sortBy === 'charge' ? ($sortDir === 'asc' ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7') : 'M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4' }}" /></svg>
+                            </button>
                         </th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            {{ __('Date') }}
+                            <button type="button" data-column="created_at" onclick="window.dispatchEvent(new CustomEvent('orders-table-sort', { detail: { column: 'created_at' } }))" class="inline-flex items-center gap-1 group bg-transparent border-0 cursor-pointer font-medium text-xs uppercase tracking-wider text-gray-500">
+                                {{ __('Date') }}
+                                <svg class="h-3.5 w-3.5 {{ $sortBy === 'created_at' ? 'text-indigo-600' : 'text-gray-400' }} group-hover:text-indigo-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $sortBy === 'created_at' ? ($sortDir === 'asc' ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7') : 'M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4' }}" /></svg>
+                            </button>
                         </th>
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             {{ __('Actions') }}

@@ -1296,7 +1296,7 @@
                                     <div class="min-w-[900px]">
                                         <!-- Table Header -->
                                         <div class="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
-                                            <div class="grid grid-cols-12 gap-2 sm:gap-3 md:gap-4 px-3 sm:px-4 md:px-6 py-3">
+                                            <div class="grid grid-cols-13 gap-2 sm:gap-3 md:gap-4 px-3 sm:px-4 md:px-6 py-3" style="grid-template-columns: repeat(13, minmax(0, 1fr));">
                                                 <div class="col-span-1 flex items-center gap-1 sm:gap-2 min-w-[60px]">
                                                     <input
                                                         type="checkbox"
@@ -1318,6 +1318,7 @@
                                                 </div>
                                                 <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[100px]">{{ __('Category') }}</div>
                                                 <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[120px]">{{ __('Service') }}</div>
+                                                <div class="col-span-1 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[70px]">{{ __('Def. Price') }}</div>
                                                 <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[120px]">{{ __('Custom Rate') }}</div>
                                                 <div class="col-span-1 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[80px]">{{ __('Min') }}</div>
                                                 <div class="col-span-1 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[80px]">{{ __('Max') }}</div>
@@ -1328,14 +1329,27 @@
 
                                         <!-- Table Body -->
                                         <div id="service-limits-rows" class="divide-y divide-gray-200">
+                                            @php
+                                                $clientRates = is_array($client->rates) ? $client->rates : [];
+                                                // Collect service IDs that have either a limit or a custom rate
+                                                $overrideServiceIds = collect(array_keys($clientRates))
+                                                    ->map(fn($id) => (int) $id)
+                                                    ->merge($serviceLimits->pluck('service_id'))
+                                                    ->unique()
+                                                    ->all();
+                                            @endphp
                                             @foreach($categories as $category)
                                                 @foreach($category->services as $service)
                                                     @php
                                                         if (!$service->is_active || $service->trashed()) {
                                                             continue;
                                                         }
+                                                        if (!in_array($service->id, $overrideServiceIds)) {
+                                                            continue;
+                                                        }
                                                         $hasLimit = $serviceLimits->where('service_id', $service->id)->first();
-                                                        if (!$hasLimit) continue;
+                                                        $hasCustomRate = isset($clientRates[$service->id]);
+                                                        $rateValue = $hasCustomRate ? ($clientRates[$service->id]['value'] ?? '') : '';
                                                     @endphp
                                                     <div
                                                         class="service-limit-row hover:bg-gray-50 transition-colors"
@@ -1343,13 +1357,9 @@
                                                         data-category-id="{{ $category->id }}"
                                                         data-category-name="{{ $category->name }}"
                                                     >
-                                                        @php
-                                                            $clientRates = is_array($client->rates) ? $client->rates : [];
-                                                            $hasCustomRate = isset($clientRates[$service->id]);
-                                                            $rateValue = $hasCustomRate ? ($clientRates[$service->id]['value'] ?? '') : '';
-                                                        @endphp
                                                         <input type="hidden" name="service_limits[{{ $service->id }}][remove]" value="0" class="limit-remove-input">
-                                                        <div class="grid grid-cols-12 gap-2 sm:gap-3 md:gap-4 items-center px-3 sm:px-4 md:px-6 py-3 sm:py-4">
+                                                        <input type="hidden" name="rates[{{ $service->id }}][remove]" value="0" class="rate-remove-input">
+                                                        <div class="grid grid-cols-13 gap-2 sm:gap-3 md:gap-4 items-center px-3 sm:px-4 md:px-6 py-3 sm:py-4" style="grid-template-columns: repeat(13, minmax(0, 1fr));">
                                                             <div class="col-span-1 flex items-center justify-start min-w-[60px]">
                                                                 <input
                                                                     type="checkbox"
@@ -1363,6 +1373,9 @@
                                                             <div class="col-span-2 min-w-[120px]">
                                                                 <span class="text-xs sm:text-sm font-medium text-gray-900 service-name break-words">{{ $service->name }}</span>
                                                             </div>
+                                                            <div class="col-span-1 min-w-[70px]">
+                                                                <span class="text-xs text-gray-500 font-medium default-price">${{ number_format($service->rate_per_1000 ?? 0, 2) }}</span>
+                                                            </div>
                                                             <div class="col-span-2 min-w-[120px]">
                                                                 <div class="flex gap-1 items-center">
                                                                     <input
@@ -1371,7 +1384,7 @@
                                                                         value="{{ old("rates.{$service->id}.value", $rateValue) }}"
                                                                         min="0"
                                                                         step="0.0001"
-                                                                        class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                                                        class="rate-value-input w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                                                                         placeholder="${{ number_format($service->rate_per_1000 ?? 0, 2) }}"
                                                                     >
                                                                     <input type="hidden" name="rates[{{ $service->id }}][type]" value="fixed">
@@ -1386,7 +1399,8 @@
                                                                     min="0"
                                                                     step="1"
                                                                     class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                                                    placeholder="{{ __('Def') }}"
+                                                                    placeholder="{{ number_format($service->min_quantity ?? 0) }}"
+                                                                    title="{{ __('Default') }}: {{ number_format($service->min_quantity ?? 0) }}"
                                                                 >
                                                             </div>
                                                             <div class="col-span-1 min-w-[80px]">
@@ -1397,7 +1411,8 @@
                                                                     min="0"
                                                                     step="1"
                                                                     class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                                                    placeholder="{{ __('Def') }}"
+                                                                    placeholder="{{ $service->max_quantity ? number_format($service->max_quantity) : __('No limit') }}"
+                                                                    title="{{ __('Default') }}: {{ $service->max_quantity ? number_format($service->max_quantity) : __('No limit') }}"
                                                                 >
                                                             </div>
                                                             <div class="col-span-2 min-w-[90px]">
@@ -1442,7 +1457,8 @@
                                     data-template-service-id="SERVICE_ID"
                                 >
                                     <input type="hidden" name="service_limits[SERVICE_ID][remove]" value="0" class="limit-remove-input">
-                                    <div class="grid grid-cols-12 gap-2 sm:gap-3 md:gap-4 items-center px-3 sm:px-4 md:px-6 py-3 sm:py-4">
+                                    <input type="hidden" name="rates[SERVICE_ID][remove]" value="0" class="rate-remove-input">
+                                    <div class="grid grid-cols-13 gap-2 sm:gap-3 md:gap-4 items-center px-3 sm:px-4 md:px-6 py-3 sm:py-4" style="grid-template-columns: repeat(13, minmax(0, 1fr));">
                                         <div class="col-span-1 flex items-center justify-start min-w-[60px]">
                                             <input
                                                 type="checkbox"
@@ -1455,6 +1471,9 @@
                                         </div>
                                         <div class="col-span-2 min-w-[120px]">
                                             <span class="text-xs sm:text-sm font-medium text-gray-900 service-name break-words"></span>
+                                        </div>
+                                        <div class="col-span-1 min-w-[70px]">
+                                            <span class="text-xs text-gray-500 font-medium default-price"></span>
                                         </div>
                                         <div class="col-span-2 min-w-[120px]">
                                             <input
@@ -2385,7 +2404,10 @@
                             id: service.id,
                             name: service.name,
                             category_id: category.id,
-                            category_name: category.name
+                            category_name: category.name,
+                            min_quantity: service.min_quantity ?? 0,
+                            max_quantity: service.max_quantity ?? null,
+                            rate_per_1000: service.rate_per_1000 ?? 0,
                         };
                     });
                 });
@@ -2429,6 +2451,25 @@
                 if (categoryNameSpan) categoryNameSpan.textContent = service.category_name;
                 if (serviceNameSpan) serviceNameSpan.textContent = service.name;
 
+                // Set default price display
+                const defaultPriceSpan = newRow.querySelector('.default-price');
+                if (defaultPriceSpan) defaultPriceSpan.textContent = '$' + Number(service.rate_per_1000 || 0).toFixed(2);
+
+                // Set default placeholders from service data
+                const rateInput = newRow.querySelector('.rate-value-input');
+                if (rateInput) rateInput.placeholder = '$' + Number(service.rate_per_1000 || 0).toFixed(2);
+                const minInput = newRow.querySelector('input[name*="min_quantity"]');
+                if (minInput) {
+                    minInput.placeholder = Number(service.min_quantity || 0).toLocaleString();
+                    minInput.title = '{{ __('Default') }}: ' + Number(service.min_quantity || 0).toLocaleString();
+                }
+                const maxInput = newRow.querySelector('input[name*="max_quantity"]');
+                if (maxInput) {
+                    const maxVal = service.max_quantity != null ? Number(service.max_quantity).toLocaleString() : '{{ __('No limit') }}';
+                    maxInput.placeholder = maxVal;
+                    maxInput.title = '{{ __('Default') }}: ' + maxVal;
+                }
+
                 // Update remove button
                 const removeButton = newRow.querySelector('button[onclick*="SERVICE_ID"]');
                 if (removeButton) {
@@ -2454,6 +2495,10 @@
                 const removeInput = row.querySelector('.limit-remove-input');
                 if (removeInput) {
                     removeInput.value = '1';
+                }
+                const rateRemoveInput = row.querySelector('.rate-remove-input');
+                if (rateRemoveInput) {
+                    rateRemoveInput.value = '1';
                 }
                 row.style.display = 'none';
                 const checkbox = row.querySelector('.limit-checkbox');
@@ -2617,7 +2662,10 @@
                             id: service.id,
                             name: service.name,
                             category_id: category.id,
-                            category_name: category.name
+                            category_name: category.name,
+                            min_quantity: service.min_quantity ?? 0,
+                            max_quantity: service.max_quantity ?? null,
+                            rate_per_1000: service.rate_per_1000 ?? 0,
                         };
                     });
                 });
@@ -2661,6 +2709,25 @@
                 if (categoryNameSpan) categoryNameSpan.textContent = service.category_name;
                 if (serviceNameSpan) serviceNameSpan.textContent = service.name;
 
+                // Set default price display
+                const defaultPriceSpan = newRow.querySelector('.default-price');
+                if (defaultPriceSpan) defaultPriceSpan.textContent = '$' + Number(service.rate_per_1000 || 0).toFixed(2);
+
+                // Set default placeholders from service data
+                const rateInput = newRow.querySelector('.rate-value-input');
+                if (rateInput) rateInput.placeholder = '$' + Number(service.rate_per_1000 || 0).toFixed(2);
+                const minInput = newRow.querySelector('input[name*="min_quantity"]');
+                if (minInput) {
+                    minInput.placeholder = Number(service.min_quantity || 0).toLocaleString();
+                    minInput.title = '{{ __('Default') }}: ' + Number(service.min_quantity || 0).toLocaleString();
+                }
+                const maxInput = newRow.querySelector('input[name*="max_quantity"]');
+                if (maxInput) {
+                    const maxVal = service.max_quantity != null ? Number(service.max_quantity).toLocaleString() : '{{ __('No limit') }}';
+                    maxInput.placeholder = maxVal;
+                    maxInput.title = '{{ __('Default') }}: ' + maxVal;
+                }
+
                 // Update remove button
                 const removeButton = newRow.querySelector('button[onclick*="SERVICE_ID"]');
                 if (removeButton) {
@@ -2686,6 +2753,10 @@
                 const removeInput = row.querySelector('.limit-remove-input');
                 if (removeInput) {
                     removeInput.value = '1';
+                }
+                const rateRemoveInput = row.querySelector('.rate-remove-input');
+                if (rateRemoveInput) {
+                    rateRemoveInput.value = '1';
                 }
                 row.style.display = 'none';
                 const checkbox = row.querySelector('.limit-checkbox');

@@ -98,6 +98,35 @@
             background: var(--card2) !important;
             border-color: var(--border) !important;
         }
+        .co-sort-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: inherit;
+            font: inherit;
+            text-transform: inherit;
+            letter-spacing: inherit;
+            padding: 0;
+        }
+        .co-sort-btn:hover .co-sort-icon {
+            opacity: 1;
+            color: var(--purple-light) !important;
+        }
+        .co-sort-icon {
+            opacity: 0.4;
+            transition: opacity 0.15s, color 0.15s;
+            color: var(--text3);
+        }
+        .co-sort-icon.co-sort-active {
+            opacity: 1;
+            color: var(--purple-light) !important;
+        }
+        [data-theme="light"] .co-sort-icon.co-sort-active {
+            color: var(--purple-dark) !important;
+        }
+        [data-theme="light"] .co-sort-btn:hover .co-sort-icon {
+            color: var(--purple-dark) !important;
+        }
         .client-orders-table-wrap .co-actions-btn-icon {
             width: 40px;
             height: 40px;
@@ -1800,6 +1829,13 @@
                         alpineData.sortDir = url.searchParams.get('sort_dir') || alpineData.sortDir;
                     }
 
+                    if (typeof updateClientSortIcons === 'function') {
+                        updateClientSortIcons(
+                            url.searchParams.get('sort_by') || 'created_at',
+                            url.searchParams.get('sort_dir') || 'desc'
+                        );
+                    }
+
                     const bulkWrap = document.querySelector('.co-bulk-wrap');
                     const bulkData = bulkWrap && bulkWrap.__x ? bulkWrap.__x.$data : null;
                     if (bulkData && typeof bulkData.syncPageCheckboxes === 'function') {
@@ -1810,6 +1846,38 @@
                     window.location.href = url.toString();
                 });
         };
+
+        window.clientOrderSort = function(column) {
+            const live = document.getElementById('client-orders-live-region');
+            const alpineData = live?.__x?.$data;
+            const currentSortBy = alpineData?.sortBy || new URL(window.location.href).searchParams.get('sort_by') || 'created_at';
+            const currentSortDir = alpineData?.sortDir || new URL(window.location.href).searchParams.get('sort_dir') || 'desc';
+            let newDir = 'desc';
+            if (currentSortBy === column) {
+                newDir = currentSortDir === 'desc' ? 'asc' : 'desc';
+            }
+            if (alpineData) {
+                alpineData.sortBy = column;
+                alpineData.sortDir = newDir;
+            }
+            window.fetchClientOrdersPage(1, column, newDir);
+        };
+
+        function updateClientSortIcons(sortBy, sortDir) {
+            document.querySelectorAll('#client-orders-table .co-sort-btn[data-column]').forEach(function(btn) {
+                var col = btn.getAttribute('data-column');
+                var svg = btn.querySelector('svg');
+                if (!svg) return;
+                var path = svg.querySelector('path');
+                if (col === sortBy) {
+                    svg.classList.add('co-sort-active');
+                    if (path) path.setAttribute('d', sortDir === 'asc' ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7');
+                } else {
+                    svg.classList.remove('co-sort-active');
+                    if (path) path.setAttribute('d', 'M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4');
+                }
+            });
+        }
 
         (function clientOrderStatusPolling() {
             const ofLabel = @json(__('of'));

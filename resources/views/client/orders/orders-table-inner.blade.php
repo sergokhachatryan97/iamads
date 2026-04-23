@@ -83,12 +83,32 @@
                     <span class="sr-only">{{ __('Select') }}</span>
                     <input type="checkbox" @change="toggleSelectAll($event.target.checked)" x-bind:checked="isAllSelected()" class="co-bulk-checkbox rounded border-[var(--border)] text-[var(--purple)] focus:ring-[var(--purple)]" />
                 </th>
-                <th scope="col" class="co-th px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">{{ __('Order') }}</th>
+                <th scope="col" class="co-th px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                    <button type="button" data-column="id" onclick="window.clientOrderSort('id')" class="co-sort-btn inline-flex items-center gap-1 group">
+                        {{ __('Order') }}
+                        <svg class="h-3.5 w-3.5 co-sort-icon {{ ($sortBy ?? 'created_at') === 'id' ? 'co-sort-active' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="{{ ($sortBy ?? 'created_at') === 'id' ? (($sortDir ?? 'desc') === 'asc' ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7') : 'M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4' }}" /></svg>
+                    </button>
+                </th>
                 <th scope="col" class="co-th px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">{{ __('Service') }}</th>
                 <th scope="col" class="co-th px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">{{ __('Start') }}</th>
-                <th scope="col" class="co-th px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">{{ __('Progress') }}</th>
-                <th scope="col" class="co-th px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">{{ __('Price') }}</th>
-                <th scope="col" class="co-th px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">{{ __('Date') }}</th>
+                <th scope="col" class="co-th px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                    <button type="button" data-column="quantity" onclick="window.clientOrderSort('quantity')" class="co-sort-btn inline-flex items-center gap-1 group">
+                        {{ __('Progress') }}
+                        <svg class="h-3.5 w-3.5 co-sort-icon {{ ($sortBy ?? 'created_at') === 'quantity' ? 'co-sort-active' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="{{ ($sortBy ?? 'created_at') === 'quantity' ? (($sortDir ?? 'desc') === 'asc' ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7') : 'M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4' }}" /></svg>
+                    </button>
+                </th>
+                <th scope="col" class="co-th px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                    <button type="button" data-column="charge" onclick="window.clientOrderSort('charge')" class="co-sort-btn inline-flex items-center gap-1 group">
+                        {{ __('Price') }}
+                        <svg class="h-3.5 w-3.5 co-sort-icon {{ ($sortBy ?? 'created_at') === 'charge' ? 'co-sort-active' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="{{ ($sortBy ?? 'created_at') === 'charge' ? (($sortDir ?? 'desc') === 'asc' ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7') : 'M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4' }}" /></svg>
+                    </button>
+                </th>
+                <th scope="col" class="co-th px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">
+                    <button type="button" data-column="created_at" onclick="window.clientOrderSort('created_at')" class="co-sort-btn inline-flex items-center gap-1 group">
+                        {{ __('Date') }}
+                        <svg class="h-3.5 w-3.5 co-sort-icon {{ ($sortBy ?? 'created_at') === 'created_at' ? 'co-sort-active' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="{{ ($sortBy ?? 'created_at') === 'created_at' ? (($sortDir ?? 'desc') === 'asc' ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7') : 'M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4' }}" /></svg>
+                    </button>
+                </th>
                 <th scope="col" class="co-th co-th-actions px-3 py-3 text-center text-xs font-medium uppercase tracking-wider">
                     <span class="sr-only">{{ __('Actions') }}</span>
                     <i class="fa-solid fa-ellipsis-vertical text-base opacity-80" aria-hidden="true"></i>
