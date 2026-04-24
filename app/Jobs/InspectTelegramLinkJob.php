@@ -124,6 +124,11 @@ class InspectTelegramLinkJob implements ShouldQueue
                     // message so it won't mark the order as INVALID_LINK/refund
                     // when the 5 attempts are exhausted — it will leave the
                     // order in VALIDATING for the stuck-order sweeper to retry.
+                    Log::debug('InspectTelegramLinkJob: temporary failure, will retry', [
+                        'order_id' => $this->orderId,
+                        'code' => $code,
+                        'attempt' => $this->attempts(),
+                    ]);
                     throw new \RuntimeException("TEMPORARY_INSPECTION_FAILURE: {$code} - {$message}");
                 }
             }
