@@ -121,12 +121,12 @@ class FailedTelegramTasksController extends Controller
             return collect();
         }
 
-        $rows = DB::table(DB::raw('(SELECT *, ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY updated_at DESC) as rn FROM telegram_tasks WHERE status = ? AND order_id IN (' . implode(',', array_map('intval', $orderIds)) . ') AND result IS NOT NULL) as ranked'))
-            ->where('rn', '<=', 3)
-            ->setBindings([TelegramTask::STATUS_FAILED])
-            ->get(['order_id', 'result', 'action', 'updated_at']);
+        $ids = implode(',', array_map('intval', $orderIds));
+        $status = TelegramTask::STATUS_FAILED;
 
-        return $rows->groupBy('order_id')->map(function ($items) {
+        $rows = DB::select("SELECT order_id, result, action, updated_at FROM (SELECT order_id, result, action, updated_at, ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY updated_at DESC) as rn FROM telegram_tasks WHERE status = ? AND order_id IN ({$ids}) AND result IS NOT NULL) as ranked WHERE rn <= 3", [$status]);
+
+        return collect($rows)->groupBy('order_id')->map(function ($items) {
             return $items->map(function ($item) {
                 $item->result = json_decode($item->result, true);
                 $item->updated_at = \Carbon\Carbon::parse($item->updated_at);
@@ -141,12 +141,12 @@ class FailedTelegramTasksController extends Controller
             return collect();
         }
 
-        $rows = DB::table(DB::raw('(SELECT *, ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY updated_at DESC) as rn FROM telegram_order_memberships WHERE state = ? AND order_id IN (' . implode(',', array_map('intval', $orderIds)) . ') AND last_error IS NOT NULL AND last_error != \'\') as ranked'))
-            ->where('rn', '<=', 3)
-            ->setBindings([TelegramOrderMembership::STATE_FAILED])
-            ->get(['order_id', 'last_error', 'account_phone', 'updated_at']);
+        $ids = implode(',', array_map('intval', $orderIds));
+        $state = TelegramOrderMembership::STATE_FAILED;
 
-        return $rows->groupBy('order_id')->map(function ($items) {
+        $rows = DB::select("SELECT order_id, last_error, account_phone, updated_at FROM (SELECT order_id, last_error, account_phone, updated_at, ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY updated_at DESC) as rn FROM telegram_order_memberships WHERE state = ? AND order_id IN ({$ids}) AND last_error IS NOT NULL AND last_error != '') as ranked WHERE rn <= 3", [$state]);
+
+        return collect($rows)->groupBy('order_id')->map(function ($items) {
             return $items->map(function ($item) {
                 $item->updated_at = \Carbon\Carbon::parse($item->updated_at);
                 return $item;
