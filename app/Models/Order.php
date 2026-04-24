@@ -149,13 +149,15 @@ class Order extends Model
     {
         $base = (int) ($this->quantity ?? 0);
 
-        // Check for client-level overflow override first
+        // Check for client-level overflow override first (use eager-loaded relation or cache)
         $clientOverflow = null;
         if ($this->client_id && $this->service_id) {
-            $clientLimit = ClientServiceLimit::query()
-                ->where('client_id', $this->client_id)
-                ->where('service_id', $this->service_id)
-                ->first();
+            $clientLimit = $this->relationLoaded('clientServiceLimit')
+                ? $this->clientServiceLimit
+                : ClientServiceLimit::query()
+                    ->where('client_id', $this->client_id)
+                    ->where('service_id', $this->service_id)
+                    ->first();
             if ($clientLimit && $clientLimit->overflow_percent !== null) {
                 $clientOverflow = (float) $clientLimit->overflow_percent;
             }
@@ -267,6 +269,12 @@ class Order extends Model
     public function service(): BelongsTo
     {
         return $this->belongsTo(Service::class);
+    }
+
+    public function clientServiceLimit(): HasOne
+    {
+        return $this->hasOne(ClientServiceLimit::class, 'service_id', 'service_id')
+            ->whereColumn('client_service_limits.client_id', 'orders.client_id');
     }
 
     /**
