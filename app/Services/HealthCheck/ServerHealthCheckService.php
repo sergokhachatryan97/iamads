@@ -507,9 +507,31 @@ class ServerHealthCheckService
 
     protected function isNginxRunning(): bool
     {
-        $output = @shell_exec('pgrep -c nginx 2>/dev/null');
+        // Method 1: check if nginx pid file exists and process is alive
+        $pidFiles = ['/run/nginx.pid', '/var/run/nginx.pid', '/tmp/nginx.pid'];
+        foreach ($pidFiles as $pidFile) {
+            $pid = @file_get_contents($pidFile);
+            if ($pid !== false && (int) trim($pid) > 0) {
+                // Verify process is actually alive via /proc
+                if (is_dir('/proc/' . (int) trim($pid))) {
+                    return true;
+                }
+            }
+        }
 
-        return $output !== null && (int) trim($output) > 0;
+        // Method 2: check if port 80 is listening (works regardless of user permissions)
+        $output = @shell_exec('ss -tln sport = :80 2>/dev/null');
+        if ($output !== null && str_contains($output, ':80')) {
+            return true;
+        }
+
+        // Method 3: pgrep (may not work across users on some systems)
+        $output = @shell_exec('pgrep -c nginx 2>/dev/null');
+        if ($output !== null && (int) trim($output) > 0) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
