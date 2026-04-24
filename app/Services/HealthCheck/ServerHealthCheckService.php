@@ -21,6 +21,7 @@ class ServerHealthCheckService
             'memory' => $this->checkMemory(),
             'disk' => $this->checkDisk(),
             'queue' => $this->checkQueue(),
+            'nginx' => $this->checkNginx(),
         ];
 
         foreach ($results as $name => $result) {
@@ -372,6 +373,153 @@ class ServerHealthCheckService
         } catch (\Throwable $e) {
             return ['status' => 'unknown', 'message' => 'queue size check failed: '.$e->getMessage()];
         }
+    }
+
+    protected function checkNginx(): array
+    {
+        // 1) Read worker_connections from nginx config
+        $maxConnections = $this->readNginxWorkerConnections();
+        $workerProcesses = $this->readNginxWorkerProcesses();
+
+        // Total capacity = workers × connections_per_worker
+        $totalCapacity = $maxConnections * $workerProcesses;
+
+        if ($totalCapacity <= 0) {
+            return ['status' => 'unknown', 'message' => 'could not determine nginx capacity'];
+        }
+
+        // 2) Count current TCP connections via /proc/net/sockstat (no stub_status needed)
+        $activeConnections = $this->countTcpConnections();
+
+        if ($activeConnections === null) {
+            // Fallback: try nginx stub_status on localhost
+            $activeConnections = $this->readNginxStubStatus();
+        }
+
+        if ($activeConnections === null) {
+            return ['status' => 'unknown', 'message' => 'could not read connection count'];
+        }
+
+        $usagePercent = ($activeConnections / $totalCapacity) * 100;
+        $threshold = (float) config('health.thresholds.nginx_connections_percent', 80);
+
+        // 3) Check if nginx process is running
+        $nginxRunning = $this->isNginxRunning();
+        if (! $nginxRunning) {
+            return [
+                'status' => 'bad',
+                'message' => "\xF0\x9F\x9A\xA8 Nginx is NOT running!",
+            ];
+        }
+
+        if ($usagePercent > $threshold) {
+            return [
+                'status' => 'bad',
+                'message' => sprintf(
+                    "\xF0\x9F\x8C\x90 Nginx connections high: %d active / %d capacity (%.1f%%, threshold %.0f%%) | workers=%d x connections=%d",
+                    $activeConnections, $totalCapacity, $usagePercent, $threshold,
+                    $workerProcesses, $maxConnections
+                ),
+            ];
+        }
+
+        return [
+            'status' => 'ok',
+            'message' => sprintf(
+                'nginx ok: %d connections (%.1f%% of %d capacity)',
+                $activeConnections, $usagePercent, $totalCapacity
+            ),
+        ];
+    }
+
+    /**
+     * Parse worker_connections from nginx.conf.
+     */
+    protected function readNginxWorkerConnections(): int
+    {
+        $paths = ['/etc/nginx/nginx.conf', '/usr/local/nginx/conf/nginx.conf'];
+
+        foreach ($paths as $path) {
+            $content = @file_get_contents($path);
+            if ($content === false) {
+                continue;
+            }
+
+            if (preg_match('/worker_connections\s+(\d+)\s*;/', $content, $m)) {
+                return (int) $m[1];
+            }
+        }
+
+        return (int) config('health.thresholds.nginx_worker_connections_fallback', 8192);
+    }
+
+    /**
+     * Parse worker_processes from nginx.conf. "auto" resolves to CPU core count.
+     */
+    protected function readNginxWorkerProcesses(): int
+    {
+        $paths = ['/etc/nginx/nginx.conf', '/usr/local/nginx/conf/nginx.conf'];
+
+        foreach ($paths as $path) {
+            $content = @file_get_contents($path);
+            if ($content === false) {
+                continue;
+            }
+
+            if (preg_match('/worker_processes\s+(\S+)\s*;/', $content, $m)) {
+                $value = $m[1];
+                if ($value === 'auto') {
+                    return $this->cpuCores();
+                }
+
+                return max(1, (int) $value);
+            }
+        }
+
+        return $this->cpuCores();
+    }
+
+    /**
+     * Count established TCP connections from /proc/net/sockstat (Linux).
+     * This is instant and doesn't require any nginx module.
+     */
+    protected function countTcpConnections(): ?int
+    {
+        // /proc/net/sockstat has a line like: "TCP: inuse 245 orphan 0 tw 12 alloc 260 mem 30"
+        $sockstat = @file_get_contents('/proc/net/sockstat');
+        if ($sockstat === false) {
+            return null;
+        }
+
+        if (preg_match('/TCP:\s+inuse\s+(\d+)/', $sockstat, $m)) {
+            return (int) $m[1];
+        }
+
+        return null;
+    }
+
+    /**
+     * Fallback: read active connections from nginx stub_status on localhost.
+     * Requires stub_status to be configured (see setup instructions).
+     */
+    protected function readNginxStubStatus(): ?int
+    {
+        try {
+            $response = Http::timeout(3)->get('http://127.0.0.1/nginx_status');
+            if ($response->successful() && preg_match('/Active connections:\s*(\d+)/', $response->body(), $m)) {
+                return (int) $m[1];
+            }
+        } catch (\Throwable) {
+        }
+
+        return null;
+    }
+
+    protected function isNginxRunning(): bool
+    {
+        $output = @shell_exec('pgrep -c nginx 2>/dev/null');
+
+        return $output !== null && (int) trim($output) > 0;
     }
 
     protected function alertWithCooldown(string $metric, string $message): void

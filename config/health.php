@@ -44,6 +44,13 @@ return [
 
         // Maximum queue backlog before alerting.
         'queue_size_max' => env('HEALTH_QUEUE_SIZE_MAX', 5000),
+
+        // Nginx: alert when active connections exceed this % of total capacity
+        // (worker_processes × worker_connections). Default 80%.
+        'nginx_connections_percent' => env('HEALTH_NGINX_CONNECTIONS_PERCENT', 80),
+
+        // Fallback worker_connections value if nginx.conf can't be parsed.
+        'nginx_worker_connections_fallback' => env('HEALTH_NGINX_WORKER_CONNECTIONS', 8192),
     ],
 
     /*
