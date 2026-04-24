@@ -158,19 +158,21 @@ class FailedTelegramTasksController extends Controller
     {
         $this->authorizeSuperAdmin();
 
-        $deleted = DB::transaction(function () {
+        $finishedStatuses = [Order::STATUS_COMPLETED, Order::STATUS_PARTIAL];
+
+        $deleted = DB::transaction(function () use ($finishedStatuses) {
             $tasks = TelegramTask::where('status', TelegramTask::STATUS_FAILED)
-                ->whereIn('order_id', Order::where('status', 'completed')->select('id'))
+                ->whereIn('order_id', Order::whereIn('status', $finishedStatuses)->select('id'))
                 ->delete();
 
             $memberships = TelegramOrderMembership::where('state', TelegramOrderMembership::STATE_FAILED)
-                ->whereIn('order_id', Order::where('status', 'completed')->select('id'))
+                ->whereIn('order_id', Order::whereIn('status', $finishedStatuses)->select('id'))
                 ->delete();
 
             return $tasks + $memberships;
         });
 
-        return back()->with('success', __(':count failed records for completed orders deleted.', ['count' => $deleted]));
+        return back()->with('success', __(':count failed records for completed/partial orders deleted.', ['count' => $deleted]));
     }
 
     public function deleteByOrder(Request $request): RedirectResponse
