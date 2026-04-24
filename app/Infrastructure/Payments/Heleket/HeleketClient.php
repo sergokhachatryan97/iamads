@@ -33,7 +33,7 @@ final class HeleketClient
         $encoded = base64_encode($jsonBody);
         $sign = md5($encoded . $this->paymentKey);
 
-        $response = Http::withHeaders([
+        $response = Http::connectTimeout(5)->timeout(15)->withHeaders([
             'merchant' => $this->merchant,
             'sign' => $sign,
             'Content-Type' => 'application/json',

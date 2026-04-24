@@ -42,7 +42,7 @@ final class HeleketTestWebhookClient
         $encoded = base64_encode($jsonBody);
         $sign = md5($encoded . $this->paymentKey);
 
-        $response = Http::withHeaders([
+        $response = Http::connectTimeout(5)->timeout(15)->withHeaders([
             'Content-Type' => 'application/json',
             'Accept' => 'application/json',
             'merchant' => $this->merchant,

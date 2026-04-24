@@ -222,6 +222,7 @@ class ProviderClient
             $endpoint = rtrim($this->baseUrl, '/') . '/telegram/execute-quota-step';
 
             $response = Http::withHeaders($this->getHeaders())
+                ->connectTimeout(5)
                 ->timeout(30)
                 ->post($endpoint, $payload);
 

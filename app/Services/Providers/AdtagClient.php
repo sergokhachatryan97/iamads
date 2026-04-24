@@ -36,7 +36,7 @@ class AdtagClient
             'key' => $this->apiKey,
         ]);
 
-        $response = Http::timeout($this->timeout)
+        $response = Http::connectTimeout(5)->timeout($this->timeout)
             ->acceptJson()
             ->get($url);
 

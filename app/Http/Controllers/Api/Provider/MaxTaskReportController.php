@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\Max\MaxTaskService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class MaxTaskReportController extends Controller
 {
@@ -20,16 +21,20 @@ class MaxTaskReportController extends Controller
             'account_identity' => ['required', 'string'],
         ]);
 
-        $result = $this->taskService->reportTaskResult(
-            $validated['order_id'],
-            ['state' => 'done', 'ok' => true]
-        );
+        try {
+            $result = $this->taskService->reportTaskResult(
+                $validated['order_id'],
+                ['state' => 'done', 'ok' => true]
+            );
 
-        if (! ($result['ok'] ?? false)) {
-            return response()->json(['ok' => false, 'error' => $result['error'] ?? 'Failed'], 400);
+            if (! ($result['ok'] ?? false)) {
+                return response()->json(['ok' => false, 'error' => $result['error'] ?? 'Failed'], 400);
+            }
+
+            return response()->json(['ok' => true]);
+        } finally {
+            DB::disconnect();
         }
-
-        return response()->json(['ok' => true]);
     }
 
     public function ignore(Request $request): JsonResponse
@@ -40,12 +45,16 @@ class MaxTaskReportController extends Controller
             'error' => ['string', 'nullable'],
         ]);
 
-        $result = $this->taskService->markIgnored($validated['order_id'], $validated['error'] ?? null);
+        try {
+            $result = $this->taskService->markIgnored($validated['order_id'], $validated['error'] ?? null);
 
-        if (! ($result['ok'] ?? false)) {
-            return response()->json(['ok' => false, 'error' => $result['error'] ?? 'Failed'], 400);
+            if (! ($result['ok'] ?? false)) {
+                return response()->json(['ok' => false, 'error' => $result['error'] ?? 'Failed'], 400);
+            }
+
+            return response()->json(['ok' => true]);
+        } finally {
+            DB::disconnect();
         }
-
-        return response()->json(['ok' => true]);
     }
 }
