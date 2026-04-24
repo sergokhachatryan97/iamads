@@ -377,7 +377,15 @@ class ServerHealthCheckService
 
     protected function checkNginx(): array
     {
-        // 1) Read worker_connections from nginx config
+        // 1) Check if nginx process is running FIRST — most critical check
+        if (! $this->isNginxRunning()) {
+            return [
+                'status' => 'bad',
+                'message' => "\xF0\x9F\x9A\xA8 Nginx is NOT running!",
+            ];
+        }
+
+        // 2) Read worker_connections from nginx config
         $maxConnections = $this->readNginxWorkerConnections();
         $workerProcesses = $this->readNginxWorkerProcesses();
 
@@ -385,35 +393,20 @@ class ServerHealthCheckService
         $totalCapacity = $maxConnections * $workerProcesses;
 
         if ($totalCapacity <= 0) {
-            return ['status' => 'unknown', 'message' => 'could not determine nginx capacity'];
+            return ['status' => 'ok', 'message' => 'nginx running, could not determine capacity'];
         }
 
-        // 2) Count current TCP connections via /proc/net/sockstat (no stub_status needed)
-        $activeConnections = $this->countTcpConnections();
+        // 3) Count current nginx connections
+        $activeConnections = $this->countNginxConnections();
 
         if ($activeConnections === null) {
-            // Fallback: try nginx stub_status on localhost
-            $activeConnections = $this->readNginxStubStatus();
-        }
-
-        if ($activeConnections === null) {
-            return ['status' => 'unknown', 'message' => 'could not read connection count'];
+            return ['status' => 'ok', 'message' => 'nginx running, could not read connection count'];
         }
 
         $usagePercent = ($activeConnections / $totalCapacity) * 100;
         $threshold = (float) config('health.thresholds.nginx_connections_percent', 80);
 
-        // 3) Check if nginx process is running
-        $nginxRunning = $this->isNginxRunning();
-        if (! $nginxRunning) {
-            return [
-                'status' => 'bad',
-                'message' => "\xF0\x9F\x9A\xA8 Nginx is NOT running!",
-            ];
-        }
-
         if ($usagePercent > $threshold) {
-            // Include diagnostics so you know WHO is eating connections
             $diag = $this->getConnectionDiagnostics();
 
             return [
@@ -483,36 +476,30 @@ class ServerHealthCheckService
     }
 
     /**
-     * Count established TCP connections from /proc/net/sockstat (Linux).
-     * This is instant and doesn't require any nginx module.
+     * Count nginx connections specifically — connections to ports 80 and 443.
+     * Uses `ss` to count only HTTP/HTTPS connections, not MySQL/Redis/SSH.
      */
-    protected function countTcpConnections(): ?int
+    protected function countNginxConnections(): ?int
     {
-        // /proc/net/sockstat has a line like: "TCP: inuse 245 orphan 0 tw 12 alloc 260 mem 30"
-        $sockstat = @file_get_contents('/proc/net/sockstat');
-        if ($sockstat === false) {
-            return null;
+        // Count established connections to ports 80 and 443 (nginx)
+        $output = @shell_exec("ss -tn state established '( sport = :80 or sport = :443 )' 2>/dev/null | tail -n +2 | wc -l");
+        if ($output !== null && trim($output) !== '') {
+            return (int) trim($output);
         }
 
-        if (preg_match('/TCP:\s+inuse\s+(\d+)/', $sockstat, $m)) {
-            return (int) $m[1];
-        }
-
-        return null;
-    }
-
-    /**
-     * Fallback: read active connections from nginx stub_status on localhost.
-     * Requires stub_status to be configured (see setup instructions).
-     */
-    protected function readNginxStubStatus(): ?int
-    {
+        // Fallback: try nginx stub_status
         try {
             $response = Http::timeout(3)->get('http://127.0.0.1/nginx_status');
             if ($response->successful() && preg_match('/Active connections:\s*(\d+)/', $response->body(), $m)) {
                 return (int) $m[1];
             }
         } catch (\Throwable) {
+        }
+
+        // Last fallback: /proc/net/sockstat (all TCP — less accurate but better than nothing)
+        $sockstat = @file_get_contents('/proc/net/sockstat');
+        if ($sockstat !== false && preg_match('/TCP:\s+inuse\s+(\d+)/', $sockstat, $m)) {
+            return (int) $m[1];
         }
 
         return null;
