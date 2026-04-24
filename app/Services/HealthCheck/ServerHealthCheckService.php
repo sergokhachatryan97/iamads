@@ -413,12 +413,15 @@ class ServerHealthCheckService
         }
 
         if ($usagePercent > $threshold) {
+            // Include diagnostics so you know WHO is eating connections
+            $diag = $this->getConnectionDiagnostics();
+
             return [
                 'status' => 'bad',
                 'message' => sprintf(
-                    "\xF0\x9F\x8C\x90 Nginx connections high: %d active / %d capacity (%.1f%%, threshold %.0f%%) | workers=%d x connections=%d",
+                    "\xF0\x9F\x8C\x90 Nginx connections high: %d / %d (%.1f%%, threshold %.0f%%)\nworkers=%d x conn=%d\n%s",
                     $activeConnections, $totalCapacity, $usagePercent, $threshold,
-                    $workerProcesses, $maxConnections
+                    $workerProcesses, $maxConnections, $diag
                 ),
             ];
         }
@@ -520,6 +523,127 @@ class ServerHealthCheckService
         $output = @shell_exec('pgrep -c nginx 2>/dev/null');
 
         return $output !== null && (int) trim($output) > 0;
+    }
+
+    /**
+     * Collect connection diagnostics: top IPs, connection states, top ports.
+     * Included in the alert so you immediately know WHO is eating connections.
+     */
+    protected function getConnectionDiagnostics(): string
+    {
+        $parts = [];
+
+        // Connection states (ESTABLISHED, TIME_WAIT, etc.)
+        $states = $this->getConnectionStates();
+        if (! empty($states)) {
+            $stateStr = implode(', ', array_map(
+                fn ($count, $state) => "{$state}={$count}",
+                $states, array_keys($states)
+            ));
+            $parts[] = "States: {$stateStr}";
+        }
+
+        // Top 5 IPs by connection count
+        $topIps = $this->getTopConnectionIps(5);
+        if (! empty($topIps)) {
+            $ipStr = implode(', ', array_map(
+                fn ($count, $ip) => "{$ip}({$count})",
+                $topIps, array_keys($topIps)
+            ));
+            $parts[] = "Top IPs: {$ipStr}";
+        }
+
+        // Top ports
+        $topPorts = $this->getTopConnectionPorts(5);
+        if (! empty($topPorts)) {
+            $portStr = implode(', ', array_map(
+                fn ($count, $port) => ":{$port}({$count})",
+                $topPorts, array_keys($topPorts)
+            ));
+            $parts[] = "Ports: {$portStr}";
+        }
+
+        return implode("\n", $parts);
+    }
+
+    /**
+     * Count connections by TCP state from /proc/net/tcp.
+     */
+    protected function getConnectionStates(): array
+    {
+        // Use `ss` for reliable state counts
+        $output = @shell_exec('ss -tan state established 2>/dev/null | wc -l');
+        $established = $output !== null ? max(0, (int) trim($output) - 1) : 0;
+
+        $output = @shell_exec('ss -tan state time-wait 2>/dev/null | wc -l');
+        $timeWait = $output !== null ? max(0, (int) trim($output) - 1) : 0;
+
+        $output = @shell_exec('ss -tan state close-wait 2>/dev/null | wc -l');
+        $closeWait = $output !== null ? max(0, (int) trim($output) - 1) : 0;
+
+        $output = @shell_exec('ss -tan state syn-recv 2>/dev/null | wc -l');
+        $synRecv = $output !== null ? max(0, (int) trim($output) - 1) : 0;
+
+        $states = [];
+        if ($established > 0) $states['ESTAB'] = $established;
+        if ($timeWait > 0) $states['TIME_WAIT'] = $timeWait;
+        if ($closeWait > 0) $states['CLOSE_WAIT'] = $closeWait;
+        if ($synRecv > 0) $states['SYN_RECV'] = $synRecv;
+
+        arsort($states);
+
+        return $states;
+    }
+
+    /**
+     * Top N remote IPs by number of established connections.
+     */
+    protected function getTopConnectionIps(int $limit): array
+    {
+        $output = @shell_exec("ss -tn state established 2>/dev/null | awk 'NR>1{print \$5}' | cut -d: -f1 | sort | uniq -c | sort -rn | head -{$limit}");
+        if ($output === null || trim($output) === '') {
+            return [];
+        }
+
+        $ips = [];
+        foreach (explode("\n", trim($output)) as $line) {
+            $line = trim($line);
+            if (preg_match('/^\s*(\d+)\s+(.+)$/', $line, $m)) {
+                $ips[$m[2]] = (int) $m[1];
+            }
+        }
+
+        return $ips;
+    }
+
+    /**
+     * Top N local ports by connection count (shows which services are busy).
+     */
+    protected function getTopConnectionPorts(int $limit): array
+    {
+        $output = @shell_exec("ss -tn state established 2>/dev/null | awk 'NR>1{print \$4}' | grep -oP ':\\K\\d+$' | sort | uniq -c | sort -rn | head -{$limit}");
+        if ($output === null || trim($output) === '') {
+            return [];
+        }
+
+        $ports = [];
+        foreach (explode("\n", trim($output)) as $line) {
+            $line = trim($line);
+            if (preg_match('/^\s*(\d+)\s+(\d+)$/', $line, $m)) {
+                $portLabel = match ($m[2]) {
+                    '80' => '80/http',
+                    '443' => '443/https',
+                    '3306' => '3306/mysql',
+                    '6379' => '6379/redis',
+                    '22' => '22/ssh',
+                    '8083' => '8083/panel',
+                    default => $m[2],
+                };
+                $ports[$portLabel] = (int) $m[1];
+            }
+        }
+
+        return $ports;
     }
 
     protected function alertWithCooldown(string $metric, string $message): void
