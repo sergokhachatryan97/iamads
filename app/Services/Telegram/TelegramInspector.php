@@ -64,13 +64,6 @@ class TelegramInspector
             }
 
             $telegramLinkInspector = $this->telegramLinkInspector->inspect($link);
-            if (isset($telegramLinkInspector['status']) && $telegramLinkInspector['status'] == 'ambiguous') {
-                return $this->fail(
-                    $result,
-                    'RESOLVE_FAILED',
-                    'Bot does not exist'
-                );
-            }
 
             if (isset($telegramLinkInspector['status']) && $telegramLinkInspector['status'] == 'ok') {
                 $result['ok'] = true;
@@ -125,6 +118,14 @@ class TelegramInspector
                             } elseif ($t === 'user') {
                                 $type = 'user';
                             }
+                        }
+                    }else{
+                        if (isset($telegramLinkInspector['status']) && $telegramLinkInspector['status'] == 'ambiguous') {
+                            return $this->fail(
+                                $result,
+                                'RESOLVE_FAILED',
+                                'Bot does not exist'
+                            );
                         }
                     }
                 } catch (\Throwable $e) {
