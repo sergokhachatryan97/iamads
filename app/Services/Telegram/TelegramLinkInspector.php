@@ -24,7 +24,32 @@ class TelegramLinkInspector
             ])
             ->get($url);
 
-        return $this->parser->parse($url, $response->body());
+        $result = $this->parser->parse($url, $response->body());
+
+        // Regular t.me page doesn't include view count for posts.
+        // Fetch the embed widget which has: <span class="tgme_widget_message_views">5.8K</span>
+        if ($result['link_kind'] === 'post' && $result['post']['views'] === null) {
+            try {
+                $embedUrl = $url . (str_contains($url, '?') ? '&' : '?') . 'embed=1&mode=tme';
+                $embedResponse = Http::timeout(10)
+                    ->withHeaders([
+                        'User-Agent' => 'Mozilla/5.0 TelegramLinkInspector/1.0',
+                        'Accept-Language' => 'en-US,en;q=0.9',
+                    ])
+                    ->get($embedUrl);
+
+                if ($embedResponse->successful()) {
+                    $embedHtml = $embedResponse->body();
+                    $views = $this->parser->extractViewsFromEmbed($embedHtml);
+                    if ($views !== null) {
+                        $result['post']['views'] = $views;
+                    }
+                }
+            } catch (\Throwable) {
+            }
+        }
+
+        return $result;
     }
 
     protected function normalizeTelegramInputToUrl(string $input): ?string

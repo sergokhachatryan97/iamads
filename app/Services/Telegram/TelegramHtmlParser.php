@@ -713,11 +713,25 @@ class TelegramHtmlParser
 
     protected function extractViews(string $html): ?int
     {
+        // Embed widget: <span class="tgme_widget_message_views">5.8K</span>
+        if (preg_match('/tgme_widget_message_views[^>]*>\s*([\d.,]+\s*[KMB]?)\s*</ui', $html, $m)) {
+            return $this->parseHumanInt($m[1]);
+        }
+
+        // Regular page fallback: "X views"
         if (preg_match('/([\d.,]+\s*[KMB]?)\s+views\b/ui', $html, $m)) {
             return $this->parseHumanInt($m[1]);
         }
 
         return null;
+    }
+
+    /**
+     * Extract view count from embed widget HTML.
+     */
+    public function extractViewsFromEmbed(string $html): ?int
+    {
+        return $this->extractViews($html);
     }
 
     protected function extractCommentsCount(string $html): ?int

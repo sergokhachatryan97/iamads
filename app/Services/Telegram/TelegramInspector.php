@@ -180,6 +180,24 @@ class TelegramInspector
                     $result['member_count'] = $info['views'] ?? null;
 
                     return $result;
+                } else {
+                    $telegramLinkInspector = $this->telegramLinkInspector->inspect($link);
+                    if (isset($telegramLinkInspector['status']) && ($telegramLinkInspector['status'] === 'ok' || $telegramLinkInspector['exists'])) {
+
+                        $result['ok'] = true;
+                        $result['chat_type'] = 'channel';
+                        $result['is_channel'] = true;
+                        $result['is_poll'] = $telegramLinkInspector['post']['poll']['is_poll'] ?? false;
+                        $result['member_count'] = $telegramLinkInspector['post']['views'] ?? null;
+                        $result['title'] = $telegramLinkInspector['title'] ?? null;
+
+
+                        $result['resolved'] = [
+                            'source' => 'telegramLinkInspector',
+                            'raw' => $telegramLinkInspector,
+                        ];
+                        return $result;
+                    }
                 }
                 return $this->fail(
                     $result,
