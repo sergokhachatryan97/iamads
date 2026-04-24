@@ -934,6 +934,7 @@
                                         </div>
                                         <div class="col-span-2 min-w-[150px]">
                                             <span class="text-xs sm:text-sm font-medium text-gray-900 service-name break-words"></span>
+                                            <span class="block text-xs text-gray-400 service-id"></span>
                                         </div>
                                         <div class="col-span-1 default-price-cell min-w-[90px]">
                                             <span class="text-xs sm:text-sm font-semibold text-gray-700 default-price-value whitespace-nowrap"></span>
@@ -1291,47 +1292,33 @@
                             </div>
 
                             <!-- Service Overrides List -->
-                            <div id="service-limits-list" class="border border-gray-300 rounded-lg relative bg-white" style="overflow:visible;">
+                            <div id="service-limits-list" class="border border-gray-200 rounded-lg relative bg-white" style="overflow:visible;">
                                 <div class="overflow-x-auto">
-                                    <div class="min-w-[900px]">
-                                        <!-- Table Header -->
-                                        <div class="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
-                                            <div class="grid grid-cols-13 gap-2 sm:gap-3 md:gap-4 px-3 sm:px-4 md:px-6 py-3" style="grid-template-columns: repeat(13, minmax(0, 1fr));">
-                                                <div class="col-span-1 flex items-center gap-1 sm:gap-2 min-w-[60px]">
-                                                    <input
-                                                        type="checkbox"
-                                                        id="select-all-limits"
-                                                        class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
-                                                        onchange="toggleSelectAllLimits(this.checked)"
-                                                    >
-                                                    <button
-                                                        type="button"
-                                                        id="remove-selected-limits"
-                                                        onclick="removeSelectedLimits()"
-                                                        class="px-1.5 sm:px-2 py-1 text-xs font-medium text-white bg-red-600 border border-transparent rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 hidden transition-opacity"
-                                                        style="display: none;"
-                                                    >
-                                                        <svg class="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                                                        </svg>
-                                                    </button>
-                                                </div>
-                                                <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[100px]">{{ __('Category') }}</div>
-                                                <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[120px]">{{ __('Service') }}</div>
-                                                <div class="col-span-1 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[70px]">{{ __('Def. Price') }}</div>
-                                                <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[120px]">{{ __('Custom Rate') }}</div>
-                                                <div class="col-span-1 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[80px]">{{ __('Min') }}</div>
-                                                <div class="col-span-1 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[80px]">{{ __('Max') }}</div>
-                                                <div class="col-span-2 text-xs font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[90px]">{{ __('Overflow %') }}</div>
-                                                <div class="col-span-1 text-xs font-semibold text-gray-700 uppercase tracking-wider text-center whitespace-nowrap min-w-[50px]">{{ __('Action') }}</div>
-                                            </div>
-                                        </div>
-
-                                        <!-- Table Body -->
-                                        <div id="service-limits-rows" class="divide-y divide-gray-200">
+                                    <table class="min-w-full divide-y divide-gray-200">
+                                        <thead class="bg-gray-50 sticky top-0 z-10">
+                                            <tr>
+                                                <th class="px-4 py-3 w-10">
+                                                    <div class="flex items-center gap-1">
+                                                        <input type="checkbox" id="select-all-limits" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" onchange="toggleSelectAllLimits(this.checked)">
+                                                        <button type="button" id="remove-selected-limits" onclick="removeSelectedLimits()" class="px-1.5 py-1 text-xs font-medium text-white bg-red-600 rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500" style="display:none;">
+                                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                                        </button>
+                                                    </div>
+                                                </th>
+                                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{{ __('Service ID') }}</th>
+                                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{{ __('Category') }}</th>
+                                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{{ __('Service') }}</th>
+                                                <th class="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">{{ __('Def. Price') }}</th>
+                                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{{ __('Custom Rate') }}</th>
+                                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{{ __('Min') }}</th>
+                                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{{ __('Max') }}</th>
+                                                <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{{ __('Overflow %') }}</th>
+                                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-16"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="service-limits-rows" class="bg-white divide-y divide-gray-100">
                                             @php
                                                 $clientRates = is_array($client->rates) ? $client->rates : [];
-                                                // Collect service IDs that have either a limit or a custom rate
                                                 $overrideServiceIds = collect(array_keys($clientRates))
                                                     ->map(fn($id) => (int) $id)
                                                     ->merge($serviceLimits->pluck('service_id'))
@@ -1341,200 +1328,81 @@
                                             @foreach($categories as $category)
                                                 @foreach($category->services as $service)
                                                     @php
-                                                        if (!$service->is_active || $service->trashed()) {
-                                                            continue;
-                                                        }
-                                                        if (!in_array($service->id, $overrideServiceIds)) {
-                                                            continue;
-                                                        }
+                                                        if (!$service->is_active || $service->trashed()) { continue; }
+                                                        if (!in_array($service->id, $overrideServiceIds)) { continue; }
                                                         $hasLimit = $serviceLimits->where('service_id', $service->id)->first();
                                                         $hasCustomRate = isset($clientRates[$service->id]);
                                                         $rateValue = $hasCustomRate ? ($clientRates[$service->id]['value'] ?? '') : '';
                                                     @endphp
-                                                    <div
-                                                        class="service-limit-row hover:bg-gray-50 transition-colors"
-                                                        data-service-id="{{ $service->id }}"
-                                                        data-category-id="{{ $category->id }}"
-                                                        data-category-name="{{ $category->name }}"
-                                                    >
+                                                    <tr class="service-limit-row hover:bg-gray-50 transition-colors" data-service-id="{{ $service->id }}" data-category-id="{{ $category->id }}" data-category-name="{{ $category->name }}">
                                                         <input type="hidden" name="service_limits[{{ $service->id }}][remove]" value="0" class="limit-remove-input">
                                                         <input type="hidden" name="rates[{{ $service->id }}][remove]" value="0" class="rate-remove-input">
-                                                        <div class="grid grid-cols-13 gap-2 sm:gap-3 md:gap-4 items-center px-3 sm:px-4 md:px-6 py-3 sm:py-4" style="grid-template-columns: repeat(13, minmax(0, 1fr));">
-                                                            <div class="col-span-1 flex items-center justify-start min-w-[60px]">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    class="limit-checkbox rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
-                                                                    onchange="updateRemoveSelectedLimitsButton()"
-                                                                >
-                                                            </div>
-                                                            <div class="col-span-2 min-w-[100px]">
-                                                                <span class="text-xs sm:text-sm font-medium text-gray-900 category-name whitespace-nowrap">{{ $category->name }}</span>
-                                                            </div>
-                                                            <div class="col-span-2 min-w-[120px]">
-                                                                <span class="text-xs sm:text-sm font-medium text-gray-900 service-name break-words">{{ $service->name }}</span>
-                                                            </div>
-                                                            <div class="col-span-1 min-w-[70px]">
-                                                                <span class="text-xs text-gray-500 font-medium default-price">${{ number_format($service->rate_per_1000 ?? 0, 2) }}</span>
-                                                            </div>
-                                                            <div class="col-span-2 min-w-[120px]">
-                                                                <div class="flex gap-1 items-center">
-                                                                    <input
-                                                                        type="number"
-                                                                        name="rates[{{ $service->id }}][value]"
-                                                                        value="{{ old("rates.{$service->id}.value", $rateValue) }}"
-                                                                        min="0"
-                                                                        step="0.0001"
-                                                                        class="rate-value-input w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                                                        placeholder="${{ number_format($service->rate_per_1000 ?? 0, 2) }}"
-                                                                    >
-                                                                    <input type="hidden" name="rates[{{ $service->id }}][type]" value="fixed">
-                                                                    <input type="hidden" name="rates[{{ $service->id }}][enabled]" value="1">
-                                                                </div>
-                                                            </div>
-                                                            <div class="col-span-1 min-w-[80px]">
-                                                                <input
-                                                                    type="number"
-                                                                    name="service_limits[{{ $service->id }}][min_quantity]"
-                                                                    value="{{ old("service_limits.{$service->id}.min_quantity", $hasLimit->min_quantity ?? '') }}"
-                                                                    min="0"
-                                                                    step="1"
-                                                                    class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                                                    placeholder="{{ number_format($service->min_quantity ?? 0) }}"
-                                                                    title="{{ __('Default') }}: {{ number_format($service->min_quantity ?? 0) }}"
-                                                                >
-                                                            </div>
-                                                            <div class="col-span-1 min-w-[80px]">
-                                                                <input
-                                                                    type="number"
-                                                                    name="service_limits[{{ $service->id }}][max_quantity]"
-                                                                    value="{{ old("service_limits.{$service->id}.max_quantity", $hasLimit->max_quantity ?? '') }}"
-                                                                    min="0"
-                                                                    step="1"
-                                                                    class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                                                    placeholder="{{ $service->max_quantity ? number_format($service->max_quantity) : __('No limit') }}"
-                                                                    title="{{ __('Default') }}: {{ $service->max_quantity ? number_format($service->max_quantity) : __('No limit') }}"
-                                                                >
-                                                            </div>
-                                                            <div class="col-span-2 min-w-[90px]">
-                                                                <input
-                                                                    type="number"
-                                                                    name="service_limits[{{ $service->id }}][overflow_percent]"
-                                                                    value="{{ old("service_limits.{$service->id}.overflow_percent", $hasLimit->overflow_percent ?? '') }}"
-                                                                    min="0"
-                                                                    step="0.01"
-                                                                    class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                                                    placeholder="{{ __('Default') }}"
-                                                                >
-                                                            </div>
-                                                            <div class="col-span-1 flex items-center justify-center min-w-[60px]">
-                                                                <button
-                                                                    type="button"
-                                                                    onclick="removeServiceLimit({{ $service->id }})"
-                                                                    class="text-red-600 hover:text-red-800 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 rounded p-1 sm:p-1.5 transition-colors"
-                                                                    title="{{ __('Remove') }}"
-                                                                >
-                                                                    <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                                                    </svg>
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    </div>
+                                                        <td class="px-4 py-3">
+                                                            <input type="checkbox" class="limit-checkbox rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" onchange="updateRemoveSelectedLimitsButton()">
+                                                        </td>
+                                                        <td class="px-4 py-3 text-sm text-gray-500 service-id">{{ $service->id }}</td>
+                                                        <td class="px-4 py-3 text-sm font-medium text-gray-900 category-name whitespace-nowrap">{{ $category->name }}</td>
+                                                        <td class="px-4 py-3 text-sm font-medium text-gray-900 service-name">{{ $service->name }}</td>
+                                                        <td class="px-4 py-3 text-sm text-gray-500 text-right default-price whitespace-nowrap">${{ number_format($service->rate_per_1000 ?? 0, 2) }}</td>
+                                                        <td class="px-4 py-3">
+                                                            <input type="number" name="rates[{{ $service->id }}][value]" value="{{ old("rates.{$service->id}.value", $rateValue) }}" min="0" step="0.0001" class="rate-value-input w-full max-w-[120px] px-2 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="${{ number_format($service->rate_per_1000 ?? 0, 2) }}">
+                                                            <input type="hidden" name="rates[{{ $service->id }}][type]" value="fixed">
+                                                            <input type="hidden" name="rates[{{ $service->id }}][enabled]" value="1">
+                                                        </td>
+                                                        <td class="px-4 py-3">
+                                                            <input type="number" name="service_limits[{{ $service->id }}][min_quantity]" value="{{ old("service_limits.{$service->id}.min_quantity", $hasLimit->min_quantity ?? '') }}" min="0" step="1" class="w-full max-w-[90px] px-2 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="{{ number_format($service->min_quantity ?? 0) }}" title="{{ __('Default') }}: {{ number_format($service->min_quantity ?? 0) }}">
+                                                        </td>
+                                                        <td class="px-4 py-3">
+                                                            <input type="number" name="service_limits[{{ $service->id }}][max_quantity]" value="{{ old("service_limits.{$service->id}.max_quantity", $hasLimit->max_quantity ?? '') }}" min="0" step="1" class="w-full max-w-[90px] px-2 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="{{ $service->max_quantity ? number_format($service->max_quantity) : __('No limit') }}" title="{{ __('Default') }}: {{ $service->max_quantity ? number_format($service->max_quantity) : __('No limit') }}">
+                                                        </td>
+                                                        <td class="px-4 py-3">
+                                                            <input type="number" name="service_limits[{{ $service->id }}][overflow_percent]" value="{{ old("service_limits.{$service->id}.overflow_percent", $hasLimit->overflow_percent ?? '') }}" min="0" step="0.01" class="w-full max-w-[100px] px-2 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="{{ __('Default') }}">
+                                                        </td>
+                                                        <td class="px-4 py-3 text-center">
+                                                            <button type="button" onclick="removeServiceLimit({{ $service->id }})" class="text-red-500 hover:text-red-700 hover:bg-red-50 rounded p-1.5 transition-colors" title="{{ __('Remove') }}">
+                                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                            </button>
+                                                        </td>
+                                                    </tr>
                                                 @endforeach
                                             @endforeach
-                                        </div>
-                                    </div>
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
 
                             <!-- Hidden template for new rows -->
                             <template id="service-limit-template">
-                                <div
-                                    class="service-limit-row hover:bg-gray-50 transition-colors"
-                                    data-service-id=""
-                                    data-category-id=""
-                                    data-category-name=""
-                                    data-template-service-id="SERVICE_ID"
-                                >
+                                <tr class="service-limit-row hover:bg-gray-50 transition-colors" data-service-id="" data-category-id="" data-category-name="" data-template-service-id="SERVICE_ID">
                                     <input type="hidden" name="service_limits[SERVICE_ID][remove]" value="0" class="limit-remove-input">
                                     <input type="hidden" name="rates[SERVICE_ID][remove]" value="0" class="rate-remove-input">
-                                    <div class="grid grid-cols-13 gap-2 sm:gap-3 md:gap-4 items-center px-3 sm:px-4 md:px-6 py-3 sm:py-4" style="grid-template-columns: repeat(13, minmax(0, 1fr));">
-                                        <div class="col-span-1 flex items-center justify-start min-w-[60px]">
-                                            <input
-                                                type="checkbox"
-                                                class="limit-checkbox rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
-                                                onchange="updateRemoveSelectedLimitsButton()"
-                                            >
-                                        </div>
-                                        <div class="col-span-2 min-w-[100px]">
-                                            <span class="text-xs sm:text-sm font-medium text-gray-900 category-name whitespace-nowrap"></span>
-                                        </div>
-                                        <div class="col-span-2 min-w-[120px]">
-                                            <span class="text-xs sm:text-sm font-medium text-gray-900 service-name break-words"></span>
-                                        </div>
-                                        <div class="col-span-1 min-w-[70px]">
-                                            <span class="text-xs text-gray-500 font-medium default-price"></span>
-                                        </div>
-                                        <div class="col-span-2 min-w-[120px]">
-                                            <input
-                                                type="number"
-                                                name="rates[SERVICE_ID][value]"
-                                                value=""
-                                                min="0"
-                                                step="0.0001"
-                                                class="rate-value-input w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                                placeholder=""
-                                            >
-                                            <input type="hidden" name="rates[SERVICE_ID][type]" value="fixed">
-                                            <input type="hidden" name="rates[SERVICE_ID][enabled]" value="1">
-                                        </div>
-                                        <div class="col-span-1 min-w-[80px]">
-                                            <input
-                                                type="number"
-                                                name="service_limits[SERVICE_ID][min_quantity]"
-                                                value=""
-                                                min="0"
-                                                step="1"
-                                                class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                                placeholder="{{ __('Def') }}"
-                                            >
-                                        </div>
-                                        <div class="col-span-1 min-w-[80px]">
-                                            <input
-                                                type="number"
-                                                name="service_limits[SERVICE_ID][max_quantity]"
-                                                value=""
-                                                min="0"
-                                                step="1"
-                                                class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                                placeholder="{{ __('Def') }}"
-                                            >
-                                        </div>
-                                        <div class="col-span-2 min-w-[90px]">
-                                            <input
-                                                type="number"
-                                                name="service_limits[SERVICE_ID][overflow_percent]"
-                                                value=""
-                                                min="0"
-                                                step="0.01"
-                                                class="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                                placeholder="{{ __('Default') }}"
-                                            >
-                                        </div>
-                                        <div class="col-span-1 flex items-center justify-center min-w-[60px]">
-                                            <button
-                                                type="button"
-                                                onclick="removeServiceLimit('SERVICE_ID')"
-                                                class="text-red-600 hover:text-red-800 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 rounded p-1 sm:p-1.5 transition-colors"
-                                                title="{{ __('Remove') }}"
-                                            >
-                                                <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                                </svg>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
+                                    <td class="px-4 py-3">
+                                        <input type="checkbox" class="limit-checkbox rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" onchange="updateRemoveSelectedLimitsButton()">
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-gray-500 service-id"></td>
+                                    <td class="px-4 py-3 text-sm font-medium text-gray-900 category-name whitespace-nowrap"></td>
+                                    <td class="px-4 py-3 text-sm font-medium text-gray-900 service-name"></td>
+                                    <td class="px-4 py-3 text-sm text-gray-500 text-right default-price whitespace-nowrap"></td>
+                                    <td class="px-4 py-3">
+                                        <input type="number" name="rates[SERVICE_ID][value]" value="" min="0" step="0.0001" class="rate-value-input w-full max-w-[120px] px-2 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="">
+                                        <input type="hidden" name="rates[SERVICE_ID][type]" value="fixed">
+                                        <input type="hidden" name="rates[SERVICE_ID][enabled]" value="1">
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <input type="number" name="service_limits[SERVICE_ID][min_quantity]" value="" min="0" step="1" class="w-full max-w-[90px] px-2 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="{{ __('Def') }}">
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <input type="number" name="service_limits[SERVICE_ID][max_quantity]" value="" min="0" step="1" class="w-full max-w-[90px] px-2 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="{{ __('Def') }}">
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <input type="number" name="service_limits[SERVICE_ID][overflow_percent]" value="" min="0" step="0.01" class="w-full max-w-[100px] px-2 py-1.5 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="{{ __('Default') }}">
+                                    </td>
+                                    <td class="px-4 py-3 text-center">
+                                        <button type="button" onclick="removeServiceLimit('SERVICE_ID')" class="text-red-500 hover:text-red-700 hover:bg-red-50 rounded p-1.5 transition-colors" title="{{ __('Remove') }}">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                        </button>
+                                    </td>
+                                </tr>
                             </template>
                         </div>
 
@@ -2053,6 +1921,8 @@
                 } else {
                     console.warn('serviceNameSpan not found');
                 }
+                const serviceIdSpan = newRow.querySelector('.service-id');
+                if (serviceIdSpan) serviceIdSpan.textContent = service.id || '';
 
                 // Update default price - defensive check
                 const priceSpan = newRow.querySelector('.default-price-value');
@@ -2450,6 +2320,8 @@
                 const serviceNameSpan = newRow.querySelector('.service-name');
                 if (categoryNameSpan) categoryNameSpan.textContent = service.category_name;
                 if (serviceNameSpan) serviceNameSpan.textContent = service.name;
+                const serviceIdSpan = newRow.querySelector('.service-id');
+                if (serviceIdSpan) serviceIdSpan.textContent = service.id || '';
 
                 // Set default price display
                 const defaultPriceSpan = newRow.querySelector('.default-price');
@@ -2708,6 +2580,8 @@
                 const serviceNameSpan = newRow.querySelector('.service-name');
                 if (categoryNameSpan) categoryNameSpan.textContent = service.category_name;
                 if (serviceNameSpan) serviceNameSpan.textContent = service.name;
+                const serviceIdSpan = newRow.querySelector('.service-id');
+                if (serviceIdSpan) serviceIdSpan.textContent = service.id || '';
 
                 // Set default price display
                 const defaultPriceSpan = newRow.querySelector('.default-price');
