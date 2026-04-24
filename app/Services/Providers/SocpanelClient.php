@@ -24,7 +24,7 @@ class SocpanelClient
             $this->token = $token ?? (string)config('providers.socpanel.token');
         }
         $this->baseUrl = rtrim($baseUrl ?? config('providers.socpanel.base_url', 'https://socpanel.com/privateApi'), '/');
-        $this->timeout = $timeout ?? (int)config('providers.socpanel.timeout', 60);
+        $this->timeout = $timeout ?? (int)config('providers.socpanel.timeout', 15);
     }
 
     public function getOrders(
@@ -43,7 +43,7 @@ class SocpanelClient
             'token'      => $this->token,
         ];
 
-        $response = Http::timeout($this->timeout)
+        $response = Http::connectTimeout(5)->timeout($this->timeout)
             ->acceptJson()
             ->get($url, $query);
 
@@ -95,7 +95,7 @@ class SocpanelClient
             'offset' => max(0, $offset),
         ];
 
-        $response = Http::timeout($this->timeout)
+        $response = Http::connectTimeout(5)->timeout($this->timeout)
             ->acceptJson()
             ->asJson()
             ->post($url, $payload);
@@ -147,7 +147,7 @@ class SocpanelClient
             $query['completions'] = $completions;
         }
 
-        $response = Http::timeout($this->timeout)
+        $response = Http::connectTimeout(5)->timeout($this->timeout)
             ->acceptJson()
             ->get($url, $query);
 
@@ -195,7 +195,7 @@ class SocpanelClient
             'token'     => $this->token,
         ];
 
-        $response = Http::timeout($this->timeout)
+        $response = Http::connectTimeout(5)->timeout($this->timeout)
             ->acceptJson()
             ->withHeaders(['Content-Type' => 'application/json'])
             ->post($url, $payload);

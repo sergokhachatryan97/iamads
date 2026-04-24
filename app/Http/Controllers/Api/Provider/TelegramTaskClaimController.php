@@ -53,6 +53,31 @@ class TelegramTaskClaimController extends Controller
     }
 
     /**
+     * Run a closure with a Redis read timeout to prevent hangs
+     * from holding nginx connections indefinitely.
+     */
+    private function withRedisTimeout(int $seconds, callable $fn): void
+    {
+        $connection = Redis::connection();
+        $client = $connection->client();
+
+        // phpredis: set read timeout (seconds)
+        if ($client instanceof \Redis) {
+            $original = $client->getOption(\Redis::OPT_READ_TIMEOUT);
+            $client->setOption(\Redis::OPT_READ_TIMEOUT, $seconds);
+            try {
+                $fn();
+            } finally {
+                $client->setOption(\Redis::OPT_READ_TIMEOUT, $original ?: -1);
+            }
+            return;
+        }
+
+        // predis or fallback: just run it (timeout set in config)
+        $fn();
+    }
+
+    /**
      * Resolve scope from service_id by checking the service's template_key.
      * Cached per-request to avoid repeated DB lookups.
      */
@@ -94,17 +119,20 @@ class TelegramTaskClaimController extends Controller
         $phoneNoWorkKey = "tg:no_work:phone:{$phone}:{$scope}:{$serviceId}";
         $hourKey        = 'tg:claim_attempts:' . $serviceId . ':' . now()->format('Y-m-d-H');
         try {
-            [$_, $_, $noWork, $phoneNoWork] = Redis::pipeline(function ($pipe) use ($hourKey, $noWorkKey, $phoneNoWorkKey, $phone) {
-                $pipe->pfadd($hourKey, [$phone]);
-                $pipe->expire($hourKey, 7200);
-                $pipe->exists($noWorkKey);
-                $pipe->exists($phoneNoWorkKey);
+            $redisResult = null;
+            $this->withRedisTimeout(3, function () use (&$redisResult, $hourKey, $noWorkKey, $phoneNoWorkKey, $phone) {
+                $redisResult = Redis::pipeline(function ($pipe) use ($hourKey, $noWorkKey, $phoneNoWorkKey, $phone) {
+                    $pipe->pfadd($hourKey, [$phone]);
+                    $pipe->expire($hourKey, 7200);
+                    $pipe->exists($noWorkKey);
+                    $pipe->exists($phoneNoWorkKey);
+                });
             });
-            if ($noWork || $phoneNoWork) {
+            if ($redisResult && ($redisResult[2] || $redisResult[3])) {
                 return self::emptyResponse();
             }
         } catch (\Throwable) {
-            // Redis down — proceed normally.
+            // Redis down or timeout — proceed normally.
         }
 
         try {
