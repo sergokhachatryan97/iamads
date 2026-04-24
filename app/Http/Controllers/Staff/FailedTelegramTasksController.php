@@ -46,20 +46,9 @@ class FailedTelegramTasksController extends Controller
             $grouped = $query->orderByDesc('last_failed_at')->paginate(30)->withQueryString();
 
             $orderIds = $grouped->pluck('order_id')->toArray();
-            $orders = Order::with('service')->whereIn('id', $orderIds)->get()->keyBy('id');
+            $orders = Order::with('service:id,name')->whereIn('id', $orderIds)->get(['id', 'service_id', 'status'])->keyBy('id');
 
-            // Load recent errors per order (last 3)
-            $errors = collect();
-            if (!empty($orderIds)) {
-                $errors = TelegramOrderMembership::where('state', TelegramOrderMembership::STATE_FAILED)
-                    ->whereIn('order_id', $orderIds)
-                    ->whereNotNull('last_error')
-                    ->where('last_error', '!=', '')
-                    ->orderByDesc('updated_at')
-                    ->get(['order_id', 'last_error', 'account_phone', 'updated_at'])
-                    ->groupBy('order_id')
-                    ->map(fn($items) => $items->take(3));
-            }
+            $errors = $this->loadRecentMembershipErrors($orderIds);
         } else {
             $query = TelegramTask::query()
                 ->select('order_id', DB::raw('COUNT(*) as failed_count'), DB::raw('MAX(updated_at) as last_failed_at'))
@@ -76,30 +65,30 @@ class FailedTelegramTasksController extends Controller
             $grouped = $query->orderByDesc('last_failed_at')->paginate(30)->withQueryString();
 
             $orderIds = $grouped->pluck('order_id')->toArray();
-            $orders = Order::with('service')->whereIn('id', $orderIds)->get()->keyBy('id');
+            $orders = Order::with('service:id,name')->whereIn('id', $orderIds)->get(['id', 'service_id', 'status'])->keyBy('id');
 
-            // Load recent errors per order (last 3)
-            $errors = collect();
-            if (!empty($orderIds)) {
-                $errors = TelegramTask::where('status', TelegramTask::STATUS_FAILED)
-                    ->whereIn('order_id', $orderIds)
-                    ->whereNotNull('result')
-                    ->orderByDesc('updated_at')
-                    ->get(['order_id', 'result', 'action', 'updated_at'])
-                    ->groupBy('order_id')
-                    ->map(fn($items) => $items->take(3));
-            }
+            $errors = $this->loadRecentTaskErrors($orderIds);
         }
 
-        $taskCount = TelegramTask::where('status', TelegramTask::STATUS_FAILED)->count();
-        $membershipCount = TelegramOrderMembership::where('state', TelegramOrderMembership::STATE_FAILED)->count();
-        $taskOrderCount = TelegramTask::where('status', TelegramTask::STATUS_FAILED)->distinct('order_id')->count('order_id');
-        $membershipOrderCount = TelegramOrderMembership::where('state', TelegramOrderMembership::STATE_FAILED)->distinct('order_id')->count('order_id');
+        // Combined counts in 2 queries instead of 4
+        $taskCounts = DB::table('telegram_tasks')
+            ->where('status', TelegramTask::STATUS_FAILED)
+            ->selectRaw('COUNT(*) as total, COUNT(DISTINCT order_id) as order_count')
+            ->first();
+        $membershipCounts = DB::table('telegram_order_memberships')
+            ->where('state', TelegramOrderMembership::STATE_FAILED)
+            ->selectRaw('COUNT(*) as total, COUNT(DISTINCT order_id) as order_count')
+            ->first();
+
+        $taskCount = (int) $taskCounts->total;
+        $taskOrderCount = (int) $taskCounts->order_count;
+        $membershipCount = (int) $membershipCounts->total;
+        $membershipOrderCount = (int) $membershipCounts->order_count;
 
         // Error summary — group by error type
         if ($tab === 'memberships') {
-            // Group by last_error text
-            $errorSummary = TelegramOrderMembership::where('state', TelegramOrderMembership::STATE_FAILED)
+            $errorSummary = DB::table('telegram_order_memberships')
+                ->where('state', TelegramOrderMembership::STATE_FAILED)
                 ->whereNotNull('last_error')
                 ->where('last_error', '!=', '')
                 ->select('last_error as error_key', DB::raw('COUNT(*) as error_count'), DB::raw('COUNT(DISTINCT order_id) as order_count'))
@@ -108,8 +97,8 @@ class FailedTelegramTasksController extends Controller
                 ->limit(30)
                 ->get();
         } else {
-            // Group by action type
-            $errorSummary = TelegramTask::where('status', TelegramTask::STATUS_FAILED)
+            $errorSummary = DB::table('telegram_tasks')
+                ->where('status', TelegramTask::STATUS_FAILED)
                 ->select('action as error_key', DB::raw('COUNT(*) as error_count'), DB::raw('COUNT(DISTINCT order_id) as order_count'))
                 ->groupBy('action')
                 ->orderByDesc('error_count')
@@ -124,6 +113,45 @@ class FailedTelegramTasksController extends Controller
             'filterOrderId', 'filterStatus',
             'errorSummary'
         ));
+    }
+
+    private function loadRecentTaskErrors(array $orderIds): \Illuminate\Support\Collection
+    {
+        if (empty($orderIds)) {
+            return collect();
+        }
+
+        $rows = DB::table(DB::raw('(SELECT *, ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY updated_at DESC) as rn FROM telegram_tasks WHERE status = ? AND order_id IN (' . implode(',', array_map('intval', $orderIds)) . ') AND result IS NOT NULL) as ranked'))
+            ->where('rn', '<=', 3)
+            ->setBindings([TelegramTask::STATUS_FAILED])
+            ->get(['order_id', 'result', 'action', 'updated_at']);
+
+        return $rows->groupBy('order_id')->map(function ($items) {
+            return $items->map(function ($item) {
+                $item->result = json_decode($item->result, true);
+                $item->updated_at = \Carbon\Carbon::parse($item->updated_at);
+                return $item;
+            });
+        });
+    }
+
+    private function loadRecentMembershipErrors(array $orderIds): \Illuminate\Support\Collection
+    {
+        if (empty($orderIds)) {
+            return collect();
+        }
+
+        $rows = DB::table(DB::raw('(SELECT *, ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY updated_at DESC) as rn FROM telegram_order_memberships WHERE state = ? AND order_id IN (' . implode(',', array_map('intval', $orderIds)) . ') AND last_error IS NOT NULL AND last_error != \'\') as ranked'))
+            ->where('rn', '<=', 3)
+            ->setBindings([TelegramOrderMembership::STATE_FAILED])
+            ->get(['order_id', 'last_error', 'account_phone', 'updated_at']);
+
+        return $rows->groupBy('order_id')->map(function ($items) {
+            return $items->map(function ($item) {
+                $item->updated_at = \Carbon\Carbon::parse($item->updated_at);
+                return $item;
+            });
+        });
     }
 
     public function deleteCompletedOrderTasks(): RedirectResponse
