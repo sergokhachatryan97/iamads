@@ -919,9 +919,9 @@ class OrderService implements OrderServiceInterface
             ]);
         }
 
-        if (! in_array($order->status, [Order::STATUS_AWAITING, Order::STATUS_PENDING, Order::STATUS_PROCESSING], true)) {
+        if (! in_array($order->status, [Order::STATUS_VALIDATING, Order::STATUS_AWAITING, Order::STATUS_PENDING, Order::STATUS_PROCESSING], true)) {
             throw ValidationException::withMessages([
-                'order' => 'This order cannot be canceled. Only awaiting or pending orders can be fully canceled.',
+                'order' => 'This order cannot be canceled. Only validating, awaiting or pending orders can be fully canceled.',
             ]);
         }
 

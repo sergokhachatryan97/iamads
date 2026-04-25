@@ -347,21 +347,18 @@ class OrderController extends Controller
             abort(403, 'You do not have permission to cancel this order.');
         }
 
+        $backUrl = $this->buildOrdersIndexBackUrl();
+
         try {
             $this->orderService->cancelFull($order, $order->client);
             \App\Models\StaffActivityLog::log('cancel', "Canceled order #{$order->id} (full refund, client #{$order->client_id})", $order);
 
-            return redirect()
-                ->route('staff.orders.index')
+            return redirect($backUrl)
                 ->with('success', 'Order canceled successfully. Refund has been processed.');
         } catch (ValidationException $e) {
-            return redirect()
-                ->route('staff.orders.index')
-                ->withErrors($e->errors());
+            return redirect($backUrl)->withErrors($e->errors());
         } catch (\Exception $e) {
-            return redirect()
-                ->route('staff.orders.index')
-                ->with('error', $e->getMessage());
+            return redirect($backUrl)->with('error', $e->getMessage());
         }
     }
 
@@ -377,21 +374,18 @@ class OrderController extends Controller
             abort(403, 'You do not have permission to cancel this order.');
         }
 
+        $backUrl = $this->buildOrdersIndexBackUrl();
+
         try {
             $this->orderService->cancelPartial($order, $order->client);
             \App\Models\StaffActivityLog::log('cancel', "Partially canceled order #{$order->id} (client #{$order->client_id})", $order);
 
-            return redirect()
-                ->route('staff.orders.index')
+            return redirect($backUrl)
                 ->with('success', 'Order partially canceled. Refund for undelivered quantity has been processed.');
         } catch (ValidationException $e) {
-            return redirect()
-                ->route('staff.orders.index')
-                ->withErrors($e->errors());
+            return redirect($backUrl)->withErrors($e->errors());
         } catch (\Exception $e) {
-            return redirect()
-                ->route('staff.orders.index')
-                ->with('error', $e->getMessage());
+            return redirect($backUrl)->with('error', $e->getMessage());
         }
     }
 
@@ -459,6 +453,7 @@ class OrderController extends Controller
         if ($action === 'cancel') {
             // Full cancel: awaiting, pending, processing
             $query->whereIn('status', [
+                Order::STATUS_VALIDATING,
                 Order::STATUS_AWAITING,
                 Order::STATUS_PENDING,
                 Order::STATUS_PROCESSING,
@@ -489,9 +484,14 @@ class OrderController extends Controller
         $canAccessAll = $user->canAccessAllClients();
         $action = $request->input('action');
         $selectAll = $request->boolean('select_all');
-        $selectedIds = $request->input('selected_ids', []);
-        $excludedIds = $request->input('excluded_ids', []);
-        $filters = $request->input('filters', []);
+
+        $selectedIdsRaw = $request->input('selected_ids', '[]');
+        $excludedIdsRaw = $request->input('excluded_ids', '[]');
+        $filtersRaw = $request->input('filters', '{}');
+
+        $selectedIds = is_array($selectedIdsRaw) ? $selectedIdsRaw : (json_decode($selectedIdsRaw, true) ?? []);
+        $excludedIds = is_array($excludedIdsRaw) ? $excludedIdsRaw : (json_decode($excludedIdsRaw, true) ?? []);
+        $filters = is_array($filtersRaw) ? $filtersRaw : (json_decode($filtersRaw, true) ?? []);
 
         // Build query based on selection mode
         $query = OrderQueryBuilder::buildBulkQuery(
@@ -537,8 +537,8 @@ class OrderController extends Controller
 
                     // Execute action
                     if ($action === 'cancel_full') {
-                        // Full cancel: awaiting, pending, processing
-                        if (!in_array($order->status, [Order::STATUS_AWAITING, Order::STATUS_PENDING, Order::STATUS_PROCESSING], true)) {
+                        // Full cancel: validating, awaiting, pending, processing
+                        if (!in_array($order->status, [Order::STATUS_VALIDATING, Order::STATUS_AWAITING, Order::STATUS_PENDING, Order::STATUS_PROCESSING], true)) {
                             $failures[] = [
                                 'order_id' => $order->id,
                                 'reason' => "Cannot be fully canceled (status: {$order->status}).",
@@ -609,7 +609,7 @@ class OrderController extends Controller
             $message = 'No orders matched your selection criteria.';
         }
 
-        $redirect = redirect()->route('staff.orders.index');
+        $redirect = redirect($this->buildOrdersIndexBackUrl());
 
         if ($succeededCount > 0) {
             $redirect->with('success', $message);
@@ -718,5 +718,24 @@ class OrderController extends Controller
         }
 
         return response()->json(['statuses' => $statuses]);
+    }
+
+    /**
+     * Build the orders index URL preserving current filters, sorting and pagination from the referer.
+     */
+    private function buildOrdersIndexBackUrl(): string
+    {
+        $referer = request()->headers->get('referer', '');
+        $parsed = parse_url($referer);
+        $refererPath = $parsed['path'] ?? '';
+
+        // Only preserve query string if referer is the orders index page
+        if (str_contains($refererPath, '/staff/orders') && !str_contains($refererPath, '/staff/orders/create')) {
+            $query = $parsed['query'] ?? '';
+            $base = route('staff.orders.index');
+            return $query ? $base . '?' . $query : $base;
+        }
+
+        return route('staff.orders.index');
     }
 }

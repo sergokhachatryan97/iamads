@@ -88,6 +88,21 @@ class OrderQueryBuilder
             $query->where('source', $filters['source']);
         }
 
+        // Order purpose filter
+        if (!empty($filters['order_purpose'])) {
+            $query->where('order_purpose', $filters['order_purpose']);
+        }
+
+        // Client filter
+        if (!empty($filters['client_id'])) {
+            $query->where('client_id', $filters['client_id']);
+        }
+
+        // Created by (staff) filter
+        if (!empty($filters['created_by'])) {
+            $query->where('created_by', $filters['created_by']);
+        }
+
         // Date range filters
         if (!empty($filters['date_from'])) {
             $query->whereDate('created_at', '>=', $filters['date_from']);
