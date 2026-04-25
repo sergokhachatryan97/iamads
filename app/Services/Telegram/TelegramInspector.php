@@ -119,7 +119,28 @@ class TelegramInspector
                                 $type = 'user';
                             }
                         }
-                    }else{
+                    } else {
+                        $mtCode = strtoupper((string) ($mt['error_code'] ?? ''));
+                        $mtInfraErrors = [
+                            'NO_AVAILABLE_ACCOUNTS',
+                            'MTPROTO_DEADLINE_EXCEEDED',
+                            'MTPROTO_THROTTLE_SLOT_UNAVAILABLE',
+                            'WORKER_SHUTDOWN',
+                            'STREAM_CLOSED',
+                            'MT_CALL_FAILED',
+                        ];
+
+                        if (in_array($mtCode, $mtInfraErrors, true)) {
+                            // MTProto failed due to infrastructure overload, not because bot doesn't exist.
+                            // Return temporary error so the job retries instead of permanently killing the order.
+                            return $this->fail(
+                                $result,
+                                'RESOLVE_TEMPORARY_UNAVAILABLE',
+                                'Unable to resolve bot due to temporary infrastructure issue',
+                                ['mtproto' => $mt]
+                            );
+                        }
+
                         if (isset($telegramLinkInspector['status']) && $telegramLinkInspector['status'] == 'ambiguous') {
                             return $this->fail(
                                 $result,
