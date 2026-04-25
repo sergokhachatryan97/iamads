@@ -32,7 +32,7 @@ class PaymentController extends Controller
             ->orderByDesc('created_at');
 
         $currentUser = Auth::guard('staff')->user();
-        if ($currentUser && !$currentUser->hasRole('super_admin')) {
+        if ($currentUser && !$currentUser->canAccessAllClients()) {
             $query->whereHas('client', fn ($q) => $q->where('staff_id', $currentUser->id));
         }
 
@@ -61,7 +61,7 @@ class PaymentController extends Controller
     public function updateStatus(Request $request, Payment $payment): RedirectResponse
     {
         $currentUser = Auth::guard('staff')->user();
-        if ($currentUser && !$currentUser->hasRole('super_admin')) {
+        if ($currentUser && !$currentUser->canAccessAllClients()) {
             $client = $payment->client;
             if (!$client || $client->staff_id !== $currentUser->id) {
                 return redirect()->back()

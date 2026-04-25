@@ -109,6 +109,14 @@ class User extends Authenticatable implements MustVerifyEmail
         return url('/r/' . $this->ensureReferralCode());
     }
 
+    /**
+     * Whether this user can access all clients and orders (not limited to assigned ones).
+     */
+    public function canAccessAllClients(): bool
+    {
+        return $this->hasRole('super_admin') || $this->hasPermissionTo('clients.access-all', 'staff');
+    }
+
     public function getAvatarUrlAttribute(): string
     {
         if ($this->avatar) {

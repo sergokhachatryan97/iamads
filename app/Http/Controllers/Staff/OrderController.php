@@ -39,10 +39,10 @@ class OrderController extends Controller
             ->get();
 
         $user = Auth::guard('staff')->user();
-        $isSuperAdmin = $user->hasRole('super_admin');
+        $canAccessAll = $user->canAccessAllClients();
 
         $clientsQuery = Client::query()->where('status', 'active')->orderBy('name');
-        if (!$isSuperAdmin) {
+        if (!$canAccessAll) {
             $clientsQuery->where('staff_id', $user->id);
         }
         $clients = $clientsQuery->select(['id', 'name', 'email', 'balance'])->get();
@@ -95,7 +95,7 @@ class OrderController extends Controller
 
             // Non-super_admin can only create orders for their own or unassigned clients
             $user = Auth::guard('staff')->user();
-            if (!$user->hasRole('super_admin') && $client->staff_id !== null && $client->staff_id !== $user->id) {
+            if (!$user->canAccessAllClients() && $client->staff_id !== null && $client->staff_id !== $user->id) {
                 return redirect()->back()->withInput()
                     ->withErrors(['client_id' => 'You can only create orders for your own assigned clients.']);
             }
@@ -146,13 +146,13 @@ class OrderController extends Controller
     public function index(Request $request): View
     {
         $user = Auth::guard('staff')->user();
-        $isSuperAdmin = $user->hasRole('super_admin');
+        $canAccessAll = $user->canAccessAllClients();
 
         $query = Order::with(['service', 'client', 'category', 'subscription', 'creator']);
 
-        // Filter by staff member (unless super admin)
+        // Filter by staff member (unless super admin or support)
         // Show orders from assigned clients OR orders created by this staff member
-        if (!$isSuperAdmin) {
+        if (!$canAccessAll) {
             $query->where(function ($q) use ($user) {
                 $q->whereHas('client', function ($sub) use ($user) {
                     $sub->where('staff_id', $user->id);
@@ -199,13 +199,13 @@ class OrderController extends Controller
             $query->where('order_purpose', $request->order_purpose);
         }
 
-        // Client filter (super admin only)
-        if ($isSuperAdmin && $request->filled('client_id')) {
+        // Client filter (users who can access all clients)
+        if ($canAccessAll && $request->filled('client_id')) {
             $query->where('client_id', $request->client_id);
         }
 
-        // Manager (created_by) filter (super admin only)
-        if ($isSuperAdmin && $request->filled('created_by')) {
+        // Manager (created_by) filter (users who can access all clients)
+        if ($canAccessAll && $request->filled('created_by')) {
             $query->where('created_by', $request->created_by);
         }
 
@@ -240,7 +240,7 @@ class OrderController extends Controller
 
         // Per-status counts (filtered by staff and other filters, but not by status)
         $countBase = Order::query();
-        if (!$isSuperAdmin) {
+        if (!$canAccessAll) {
             $countBase->where(function ($q) use ($user) {
                 $q->whereHas('client', function ($sub) use ($user) {
                     $sub->where('staff_id', $user->id);
@@ -273,10 +273,10 @@ class OrderController extends Controller
         if ($request->filled('order_purpose')) {
             $countBase->where('order_purpose', $request->order_purpose);
         }
-        if ($isSuperAdmin && $request->filled('client_id')) {
+        if ($canAccessAll && $request->filled('client_id')) {
             $countBase->where('client_id', $request->client_id);
         }
-        if ($isSuperAdmin && $request->filled('created_by')) {
+        if ($canAccessAll && $request->filled('created_by')) {
             $countBase->where('created_by', $request->created_by);
         }
         if ($request->filled('date_from')) {
@@ -319,7 +319,7 @@ class OrderController extends Controller
             'currentStatus' => ($request->filled('status') && $request->status !== 'all') ? $request->status : 'all',
             'sortBy' => $sortBy,
             'sortDir' => $sortDir,
-            'isSuperAdmin' => $isSuperAdmin,
+            'isSuperAdmin' => $canAccessAll,
             'categories' => $categories,
             'services' => $services,
             'filterCategoryId' => $request->get('category_id'),
@@ -330,8 +330,8 @@ class OrderController extends Controller
             'filterPurpose' => $request->get('order_purpose'),
             'filterClientId' => $request->get('client_id'),
             'filterCreatedBy' => $request->get('created_by'),
-            'allClients' => $isSuperAdmin ? Client::query()->where('status', 'active')->orderBy('name')->select(['id', 'name', 'email'])->limit(500)->get() : collect(),
-            'allStaff' => $isSuperAdmin ? \App\Models\User::query()->orderBy('name')->select(['id', 'name'])->get() : collect(),
+            'allClients' => $canAccessAll ? Client::query()->where('status', 'active')->orderBy('name')->select(['id', 'name', 'email'])->limit(500)->get() : collect(),
+            'allStaff' => $canAccessAll ? \App\Models\User::query()->orderBy('name')->select(['id', 'name'])->get() : collect(),
         ]);
     }
 
@@ -341,10 +341,9 @@ class OrderController extends Controller
     public function cancelFull(Order $order): RedirectResponse
     {
         $user = Auth::guard('staff')->user();
-        $isSuperAdmin = $user->hasRole('super_admin');
 
         // Check if staff member has access to this order's client
-        if (!$isSuperAdmin && $order->client->staff_id !== $user->id) {
+        if (!$user->canAccessAllClients() && $order->client->staff_id !== $user->id) {
             abort(403, 'You do not have permission to cancel this order.');
         }
 
@@ -372,10 +371,9 @@ class OrderController extends Controller
     public function cancelPartial(Order $order): RedirectResponse
     {
         $user = Auth::guard('staff')->user();
-        $isSuperAdmin = $user->hasRole('super_admin');
 
         // Check if staff member has access to this order's client
-        if (!$isSuperAdmin && $order->client->staff_id !== $user->id) {
+        if (!$user->canAccessAllClients() && $order->client->staff_id !== $user->id) {
             abort(403, 'You do not have permission to cancel this order.');
         }
 
@@ -403,7 +401,7 @@ class OrderController extends Controller
     public function getEligibleIds(Request $request): JsonResponse
     {
         $user = Auth::guard('staff')->user();
-        $isSuperAdmin = $user->hasRole('super_admin');
+        $canAccessAll = $user->canAccessAllClients();
         $action = $request->get('action', 'cancel'); // 'cancel' or 'cancel-partial'
 
         $query = Order::query()
@@ -412,8 +410,8 @@ class OrderController extends Controller
                 $q->where('user_can_cancel', true);
             });
 
-        // Filter by staff member (unless super admin)
-        if (!$isSuperAdmin) {
+        // Filter by staff member (unless super admin or support)
+        if (!$canAccessAll) {
             $query->where(function ($q) use ($user) {
                 $q->whereHas('client', function ($sub) use ($user) {
                     $sub->where('staff_id', $user->id);
@@ -488,7 +486,7 @@ class OrderController extends Controller
     public function bulkAction(BulkOrderActionRequest $request): RedirectResponse
     {
         $user = Auth::guard('staff')->user();
-        $isSuperAdmin = $user->hasRole('super_admin');
+        $canAccessAll = $user->canAccessAllClients();
         $action = $request->input('action');
         $selectAll = $request->boolean('select_all');
         $selectedIds = $request->input('selected_ids', []);
@@ -501,7 +499,7 @@ class OrderController extends Controller
             $selectedIds,
             $excludedIds,
             $filters,
-            $isSuperAdmin,
+            $canAccessAll,
             $user->id
         );
 
@@ -647,7 +645,7 @@ class OrderController extends Controller
 
         // Check staff access
         $user = Auth::guard('staff')->user();
-        if (!$user->hasRole('super_admin') && $client->staff_id !== $user->id) {
+        if (!$user->canAccessAllClients() && $client->staff_id !== $user->id) {
             return response()->json(['rates' => []]);
         }
 
@@ -668,7 +666,7 @@ class OrderController extends Controller
     public function getStatuses(Request $request): JsonResponse
     {
         $user = Auth::guard('staff')->user();
-        $isSuperAdmin = $user->hasRole('super_admin');
+        $canAccessAll = $user->canAccessAllClients();
 
         // Handle both GET (query params) and POST (body) requests
         $orderIds = $request->input('order_ids', []);
@@ -693,8 +691,8 @@ class OrderController extends Controller
             ->whereIn('id', $orderIds)
             ->select(['id', 'status', 'delivered', 'quantity', 'remains']);
 
-        // Filter by staff member (unless super admin)
-        if (!$isSuperAdmin) {
+        // Filter by staff member (unless super admin or support)
+        if (!$canAccessAll) {
             $query->where(function ($q) use ($user) {
                 $q->whereHas('client', function ($sub) use ($user) {
                     $sub->where('staff_id', $user->id);

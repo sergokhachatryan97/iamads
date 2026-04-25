@@ -2,7 +2,7 @@
     $currentSort = request('sort', 'created_at');
     $currentDir = request('dir', 'desc');
     $staffUser = auth()->guard('staff')->user();
-    $isSuperAdmin = $staffUser && $staffUser->hasRole('super_admin');
+    $isSuperAdmin = $staffUser && $staffUser->canAccessAllClients();
 @endphp
 
 @if($clients->count() > 0)
@@ -338,7 +338,7 @@
                                             @click.stop
                                         >
                                             @staffcan('clients.edit')
-                                                @if($staffUser->hasRole('super_admin') || $client->staff_id === $staffUser->id)
+                                                @if($staffUser->canAccessAllClients() || $client->staff_id === $staffUser->id)
                                                 <a href="{{ route('staff.clients.edit', $client) }}" @click.stop class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                                     {{ __('Edit') }}
                                                 </a>

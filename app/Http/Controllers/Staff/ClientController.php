@@ -42,7 +42,7 @@ class ClientController extends Controller
 
         // Calculate totals (filtered by staff assignment for non-super_admin)
         $totalsQuery = Client::query();
-        if ($currentUser && !$currentUser->hasRole('super_admin')) {
+        if ($currentUser && !$currentUser->canAccessAllClients()) {
             $totalsQuery->where(function ($q) use ($currentUser) {
                 $q->where('staff_id', $currentUser->id)
                   ->orWhereNull('staff_id');
@@ -94,7 +94,7 @@ class ClientController extends Controller
     {
         $currentUser = Auth::guard('staff')->user();
 
-        if ($currentUser && !$currentUser->hasRole('super_admin') && $client->staff_id !== $currentUser->id) {
+        if ($currentUser && !$currentUser->canAccessAllClients() && $client->staff_id !== $currentUser->id) {
             return redirect()->back()
                 ->withErrors(['error' => 'You do not have permission to change this client\'s password.']);
         }
@@ -120,8 +120,8 @@ class ClientController extends Controller
     {
         $currentUser = Auth::guard('staff')->user();
 
-        // Permission check: non-super_admin can only suspend their own assigned clients
-        if ($currentUser && !$currentUser->hasRole('super_admin') && $client->staff_id !== $currentUser->id) {
+        // Permission check: restricted staff can only suspend their own assigned clients
+        if ($currentUser && !$currentUser->canAccessAllClients() && $client->staff_id !== $currentUser->id) {
             return redirect()->back()
                 ->withErrors(['error' => 'You do not have permission to suspend this client.']);
         }
@@ -149,8 +149,8 @@ class ClientController extends Controller
     {
         $currentUser = Auth::guard('staff')->user();
 
-        // Permission check: non-super_admin can only activate their own assigned clients
-        if ($currentUser && !$currentUser->hasRole('super_admin') && $client->staff_id !== $currentUser->id) {
+        // Permission check: restricted staff can only activate their own assigned clients
+        if ($currentUser && !$currentUser->canAccessAllClients() && $client->staff_id !== $currentUser->id) {
             return redirect()->back()
                 ->withErrors(['error' => 'You do not have permission to activate this client.']);
         }
@@ -175,7 +175,7 @@ class ClientController extends Controller
     {
         $currentUser = Auth::guard('staff')->user();
 
-        if ($currentUser && !$currentUser->hasRole('super_admin') && $client->staff_id !== $currentUser->id) {
+        if ($currentUser && !$currentUser->canAccessAllClients() && $client->staff_id !== $currentUser->id) {
             return redirect()->back()
                 ->withErrors(['error' => 'You do not have permission to add balance for this client.']);
         }
@@ -224,7 +224,7 @@ class ClientController extends Controller
     {
         $currentUser = Auth::guard('staff')->user();
 
-        if ($currentUser && ! $currentUser->hasRole('super_admin') && $client->staff_id !== $currentUser->id) {
+        if ($currentUser && !$currentUser->canAccessAllClients() && $client->staff_id !== $currentUser->id) {
             return redirect()->back()
                 ->withErrors(['error' => 'You do not have permission to adjust balance for this client.']);
         }
@@ -295,8 +295,8 @@ class ClientController extends Controller
         $currentUser = Auth::guard('staff')->user();
         $clientIds = $request->input('client_ids');
 
-        // Permission check: non-super_admin can only suspend their own assigned clients
-        if ($currentUser && !$currentUser->hasRole('super_admin')) {
+        // Permission check: restricted staff can only suspend their own assigned clients
+        if ($currentUser && !$currentUser->canAccessAllClients()) {
             // Verify all clients belong to this staff member
             $unauthorizedClients = Client::whereIn('id', $clientIds)
                 ->where('staff_id', '!=', $currentUser->id)
@@ -333,8 +333,8 @@ class ClientController extends Controller
         $currentUser = Auth::guard('staff')->user();
         $clientIds = $request->input('client_ids');
 
-        // Permission check: non-super_admin can only activate their own assigned clients
-        if ($currentUser && !$currentUser->hasRole('super_admin')) {
+        // Permission check: restricted staff can only activate their own assigned clients
+        if ($currentUser && !$currentUser->canAccessAllClients()) {
             // Verify all clients belong to this staff member
             $unauthorizedClients = Client::whereIn('id', $clientIds)
                 ->where('staff_id', '!=', $currentUser->id)
@@ -397,8 +397,8 @@ class ClientController extends Controller
     {
         $currentUser = Auth::guard('staff')->user();
 
-        // Permission check: non-super_admin can only edit their own assigned clients
-        if ($currentUser && !$currentUser->hasRole('super_admin') && $client->staff_id !== $currentUser->id) {
+        // Permission check: restricted staff can only edit their own assigned clients
+        if ($currentUser && !$currentUser->canAccessAllClients() && $client->staff_id !== $currentUser->id) {
             abort(403, 'You do not have permission to edit this client.');
         }
 
@@ -663,7 +663,7 @@ class ClientController extends Controller
     {
         $currentUser = Auth::guard('staff')->user();
 
-        if ($currentUser && !$currentUser->hasRole('super_admin') && $client->staff_id !== $currentUser->id) {
+        if ($currentUser && !$currentUser->canAccessAllClients() && $client->staff_id !== $currentUser->id) {
             abort(403, 'You do not have permission to update this client.');
         }
 

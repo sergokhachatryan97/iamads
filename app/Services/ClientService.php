@@ -37,8 +37,8 @@ class ClientService implements ClientServiceInterface
      */
     public function getAllStaff(?\App\Models\User $user = null): Collection
     {
-        // Only super_admin sees all staff. Others see only themselves.
-        if ($user && !$user->hasRole('super_admin')) {
+        // Only super_admin/support sees all staff. Others see only themselves.
+        if ($user && !$user->canAccessAllClients()) {
             return User::where('id', $user->id)->get();
         }
         
@@ -55,8 +55,8 @@ class ClientService implements ClientServiceInterface
      */
     public function deleteClient(Client $client, ?\App\Models\User $user = null): bool
     {
-        // Permission check: non-super_admin can only delete their own clients
-        if ($user && !$user->hasRole('super_admin') && $client->staff_id !== $user->id) {
+        // Permission check: restricted staff can only delete their own clients
+        if ($user && !$user->canAccessAllClients() && $client->staff_id !== $user->id) {
             throw new \Exception('You do not have permission to delete this client.');
         }
 
