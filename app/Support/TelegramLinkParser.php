@@ -116,6 +116,9 @@ final class TelegramLinkParser
             return 'https://' . strtolower($m[1]) . '/' . ltrim($m[2], '/');
         }
 
+        // Strip ?single from post links (e.g. https://t.me/channel/123?single → https://t.me/channel/123)
+        $raw = preg_replace('#^(https?://(t\.me|telegram\.me)/[a-zA-Z0-9_]+/\d+)\?single$#i', '$1', $raw);
+
         return $raw;
     }
 

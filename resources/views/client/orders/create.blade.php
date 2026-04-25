@@ -1391,16 +1391,15 @@
                                         {{ __('Links & Quantities') }} <span class="text-red-400">*</span>
                                     </span>
                                     <div class="flex items-center gap-2">
-                                        <div class="flex flex-col items-end">
-                                            <button
-                                                type="button"
-                                                @click="$refs.clientFileInput.click()"
-                                                class="new-order-add-btn">
-                                                <i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i>
-                                                <span>{{ __('Upload File') }}</span>
-                                            </button>
-                                            <span class="text-[10px] text-gray-400 mt-0.5">.txt, .csv — {{ __('one link per line') }}</span>
-                                        </div>
+                                        <button
+                                            type="button"
+                                            @click="$refs.clientFileInput.click()"
+                                            class="new-order-add-btn"
+                                            title=".txt, .csv — {{ __('one link per line') }}">
+                                            <i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i>
+                                            <span>{{ __('Upload File') }}</span>
+                                            <span class="text-[10px] opacity-60">.txt .csv</span>
+                                        </button>
                                         <input type="file" accept=".txt,.csv" x-ref="clientFileInput" class="hidden" @change="
                                             const file = $event.target.files[0];
                                             if (!file) return;

@@ -14,6 +14,10 @@ final class OrderLinkNormalizer
     public static function normalize(string $link, string $linkDriver = 'generic'): string
     {
         $link = trim($link);
+
+        // Strip ?single from Telegram post links so the order saves a clean URL
+        $link = preg_replace('#^(https?://(t\.me|telegram\.me)/[a-zA-Z0-9_]+/\d+)\?single$#i', '$1', $link);
+
         if ($link === '' || preg_match('#^https?://#i', $link)) {
             return $link;
         }
