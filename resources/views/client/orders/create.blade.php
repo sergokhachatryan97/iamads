@@ -1389,27 +1389,56 @@
                                     <span class="new-order-section-title">
                                         <i class="fa-solid fa-link" aria-hidden="true"></i>
                                         {{ __('Links & Quantities') }} <span class="text-red-400">*</span>
-{{--                                        <span class="new-order-link-hint" x-show="linkTypeLabel()" x-cloak>--}}
-{{--                                            <i class="fa-solid fa-circle-info" aria-hidden="true"></i>--}}
-{{--                                            <span x-text="linkTypeLabel() + ' ' + '{{ __('link') }}'"></span>--}}
-{{--                                        </span>--}}
                                     </span>
-                                    <button
-                                        type="button"
-                                        @click="addTargetRow"
-                                        class="new-order-add-btn"
-                                        title="{{ __('Add Link') }}">
-                                        <span class="plus" aria-hidden="true">+</span>
-                                        <span>{{ __('Add Link') }}</span>
+                                    <div class="flex items-center gap-2">
+                                        <div class="flex flex-col items-end">
+                                            <button
+                                                type="button"
+                                                @click="$refs.clientFileInput.click()"
+                                                class="new-order-add-btn">
+                                                <i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i>
+                                                <span>{{ __('Upload File') }}</span>
+                                            </button>
+                                            <span class="text-[10px] text-gray-400 mt-0.5">.txt, .csv — {{ __('one link per line') }}</span>
+                                        </div>
+                                        <input type="file" accept=".txt,.csv" x-ref="clientFileInput" class="hidden" @change="
+                                            const file = $event.target.files[0];
+                                            if (!file) return;
+                                            const reader = new FileReader();
+                                            reader.onload = (e) => {
+                                                const lines = e.target.result.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+                                                if (lines.length === 0) return;
+                                                const qty = targets[0]?.quantity || selectedService?.min_quantity || 1000;
+                                                targets.splice(0, targets.length, ...lines.map(link => ({ link, quantity: qty, linkValid: true })));
+                                                fileLinksCount = lines.length;
+                                            };
+                                            reader.readAsText(file);
+                                            $event.target.value = '';
+                                        ">
+                                        <button
+                                            type="button"
+                                            @click="addTargetRow"
+                                            class="new-order-add-btn"
+                                            title="{{ __('Add Link') }}">
+                                            <span class="plus" aria-hidden="true">+</span>
+                                            <span>{{ __('Add Link') }}</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- File upload info bar -->
+                                <div x-show="fileLinksCount > 0" x-cloak class="mb-3 flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                                    <p class="text-sm text-green-700 font-medium">
+                                        <i class="fa-solid fa-circle-check mr-1" aria-hidden="true"></i>
+                                        <span x-text="fileLinksCount"></span> {{ __('link(s) loaded from file') }}
+                                    </p>
+                                    <button type="button" @click="fileLinksCount = 0; targets.splice(0, targets.length, { link: '', quantity: selectedService?.min_quantity || 1000, linkValid: true });"
+                                        class="text-xs text-red-500 hover:text-red-700 font-medium whitespace-nowrap" title="{{ __('Clear') }}">
+                                        <i class="fa-solid fa-xmark" aria-hidden="true"></i> {{ __('Clear') }}
                                     </button>
                                 </div>
 
-{{--                                <p class="new-order-link-accepted" x-show="linkAcceptedHint()" x-cloak>--}}
-{{--                                    <i class="fa-solid fa-circle-check" aria-hidden="true"></i>--}}
-{{--                                    <span x-text="linkAcceptedHint()"></span>--}}
-{{--                                </p>--}}
-
-                                <div class="space-y-3">
+                                <div class="space-y-3" :class="fileLinksCount > 0 ? 'max-h-72 overflow-y-auto pr-1' : ''">
                                     <template x-for="(target, index) in targets" :key="index">
                                         <div class="flex gap-3 items-start"
                                              :class="getTargetError(index, 'link') || getTargetError(index, 'quantity') ? 'p-3 rounded-md border-2 border-red-300 bg-red-50' : ''">
@@ -2052,6 +2081,7 @@
                 selectedService: null,
                 serviceSearch: '',
                 targets: @js(old('targets') ?: [['link' => '', 'quantity' => 1000]]),
+                fileLinksCount: 0,
                 loading: false,
                 submitting: false,
                 // Custom comments

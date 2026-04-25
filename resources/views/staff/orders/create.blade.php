@@ -207,9 +207,56 @@
                         </div>
 
                         <!-- Links + Quantity (multi-row) -->
-                        <div class="mb-6">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ __('Links') }} <span class="text-red-500">*</span></label>
-                            <div class="space-y-3">
+                        <div class="mb-6" x-data="{
+                            fileLinksCount: 0,
+                            handleFile(event) {
+                                const file = event.target.files[0];
+                                if (!file) return;
+                                const reader = new FileReader();
+                                reader.onload = (e) => {
+                                    const lines = e.target.result.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+                                    if (lines.length === 0) return;
+                                    const qty = targets[0]?.quantity || selectedService?.min_quantity || 1000;
+                                    targets.splice(0, targets.length, ...lines.map(link => ({ link, quantity: qty })));
+                                    this.fileLinksCount = lines.length;
+                                };
+                                reader.readAsText(file);
+                                event.target.value = '';
+                            }
+                        }">
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="block text-sm font-medium text-gray-700">{{ __('Links') }} <span class="text-red-500">*</span></label>
+                                <div class="flex items-center gap-2">
+                                    <input type="file" accept=".txt,.csv" @change="handleFile($event)" class="hidden" x-ref="fileInput">
+                                    <div class="flex flex-col items-end">
+                                        <button type="button" @click="$refs.fileInput.click()"
+                                            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-md transition-colors">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                                            {{ __('Upload File') }}
+                                        </button>
+                                        <span class="text-[10px] text-gray-400 mt-0.5">.txt, .csv — {{ __('one link per line') }}</span>
+                                    </div>
+                                    <button type="button" @click="addTarget()"
+                                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-md transition-colors">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                        {{ __('Add Link') }}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- File upload info bar -->
+                            <div x-show="fileLinksCount > 0" x-cloak class="mb-3 flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded-lg">
+                                <p class="text-sm text-green-700 font-medium">
+                                    <span x-text="fileLinksCount"></span> {{ __('link(s) loaded from file') }}
+                                </p>
+                                <button type="button" @click="fileLinksCount = 0; targets.splice(0, targets.length, { link: '', quantity: selectedService?.min_quantity || 1000 });"
+                                    class="text-xs text-red-500 hover:text-red-700 font-medium" title="{{ __('Clear') }}">
+                                    <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                    {{ __('Clear') }}
+                                </button>
+                            </div>
+
+                            <div class="space-y-3" :class="fileLinksCount > 0 ? 'max-h-60 overflow-y-auto pr-1' : ''">
                                 <template x-for="(target, index) in targets" :key="index">
                                     <div class="flex items-start gap-2">
                                         <div class="flex-1">
@@ -224,19 +271,14 @@
                                                 placeholder="{{ __('Qty') }}"
                                                 class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:ring-indigo-500 focus:border-indigo-500">
                                         </div>
-                                        <button type="button" @click="removeTarget(index)" x-show="targets.length > 1"
+                                        <button type="button" @click="removeTarget(index); fileLinksCount = Math.max(0, fileLinksCount - 1);" x-show="targets.length > 1"
                                             class="mt-1 p-1.5 text-gray-400 hover:text-red-500 transition-colors" title="{{ __('Remove') }}">
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                                         </button>
                                     </div>
                                 </template>
                             </div>
-                            <button type="button" @click="addTarget()"
-                                class="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-md transition-colors">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                                {{ __('Add Link') }}
-                            </button>
-                            <p class="mt-1 text-xs text-gray-500" x-show="selectedService">
+                            <p class="mt-2 text-xs text-gray-500" x-show="selectedService">
                                 {{ __('Min') }}: <span x-text="selectedService?.min_quantity"></span> |
                                 {{ __('Max') }}: <span x-text="selectedService?.max_quantity"></span>
                             </p>
