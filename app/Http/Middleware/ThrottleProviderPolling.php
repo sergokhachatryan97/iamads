@@ -8,19 +8,21 @@ use Illuminate\Support\Facades\Redis;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Rate-limits provider polling endpoints by account_identity.
+ * Rate-limits provider /getOrder polling by provider + account + service.
  *
- * When the same account polls faster than the allowed interval, the request
- * is short-circuited with a lightweight empty-tasks JSON response — no DB
+ * Key: provider:account_identity:service_id (when service_id is present)
+ *      provider:account_identity            (when service_id is absent, e.g. YouTube/App)
+ *
+ * This prevents the same account from hammering the same service endpoint,
+ * but does NOT block the same account from claiming tasks for other services.
+ *
+ * When throttled, returns a lightweight empty-tasks JSON response — no DB
  * queries, no claim logic, no PHP-FPM process time wasted.
- *
- * This is the single most effective application-level protection against
- * burst traffic overwhelming nginx worker_connections and PHP-FPM children.
  */
 class ThrottleProviderPolling
 {
     /**
-     * Minimum seconds between polls for the same account_identity.
+     * Minimum seconds between polls for the same account+service combo.
      * Configurable via PROVIDER_POLL_INTERVAL_SECONDS env var.
      */
     private function intervalSeconds(): int
@@ -36,12 +38,23 @@ class ThrottleProviderPolling
             return $next($request);
         }
 
-        $key = 'tg:poll_throttle:'.md5($account);
+        // Derive provider from route prefix: /provider/telegram/... → telegram
+        $provider = $request->segment(2) ?? 'unknown';
+
+        // Include service_id when present (Telegram, Max send it; YouTube, App don't)
+        $serviceId = $request->input('service_id');
+
+        $keyParts = "poll:{$provider}:{$account}";
+        if ($serviceId !== null && $serviceId !== '') {
+            $keyParts .= ":{$serviceId}";
+        }
+
+        $key = 'throttle:' . md5($keyParts);
         $interval = $this->intervalSeconds();
 
         try {
-            // SET NX with TTL — if the key already exists, this account polled
-            // within the interval and we return an empty response immediately.
+            // SET NX with TTL — if the key already exists, this account+service
+            // polled within the interval and we return empty response immediately.
             $acquired = Redis::set($key, 1, 'EX', $interval, 'NX');
 
             if (! $acquired) {

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Client;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
@@ -16,8 +17,6 @@ class DashboardController extends Controller
 
         $base = Order::query()->where('client_id', $clientId);
 
-        $totalOrders = (clone $base)->count();
-
         $activeStatuses = [
             Order::STATUS_VALIDATING,
             Order::STATUS_AWAITING,
@@ -28,17 +27,36 @@ class DashboardController extends Controller
             Order::STATUS_PARTIAL,
         ];
 
-        $activeOrdersCount = (clone $base)->whereIn('status', $activeStatuses)->count();
-
+        // Single query for total, active, this month, prev month counts + spending
         $startOfMonth = now()->startOfMonth();
         $endOfMonth = now()->endOfMonth();
-        $ordersThisMonth = (clone $base)->whereBetween('created_at', [$startOfMonth, $endOfMonth])->count();
-        $spentThisMonth = (float) (clone $base)->whereBetween('created_at', [$startOfMonth, $endOfMonth])->sum('charge');
-
         $prevStart = now()->subMonth()->startOfMonth();
         $prevEnd = now()->subMonth()->endOfMonth();
-        $ordersPrevMonth = (clone $base)->whereBetween('created_at', [$prevStart, $prevEnd])->count();
-        $spentPrevMonth = (float) (clone $base)->whereBetween('created_at', [$prevStart, $prevEnd])->sum('charge');
+
+        $stats = DB::table('orders')
+            ->where('client_id', $clientId)
+            ->selectRaw('
+                COUNT(*) as total_orders,
+                SUM(CASE WHEN status IN (?,?,?,?,?,?,?) THEN 1 ELSE 0 END) as active_orders,
+                SUM(CASE WHEN created_at BETWEEN ? AND ? THEN 1 ELSE 0 END) as orders_this_month,
+                SUM(CASE WHEN created_at BETWEEN ? AND ? THEN CAST(charge AS DECIMAL(20,4)) ELSE 0 END) as spent_this_month,
+                SUM(CASE WHEN created_at BETWEEN ? AND ? THEN 1 ELSE 0 END) as orders_prev_month,
+                SUM(CASE WHEN created_at BETWEEN ? AND ? THEN CAST(charge AS DECIMAL(20,4)) ELSE 0 END) as spent_prev_month
+            ', [
+                ...$activeStatuses,
+                $startOfMonth, $endOfMonth,
+                $startOfMonth, $endOfMonth,
+                $prevStart, $prevEnd,
+                $prevStart, $prevEnd,
+            ])
+            ->first();
+
+        $totalOrders = (int) $stats->total_orders;
+        $activeOrdersCount = (int) $stats->active_orders;
+        $ordersThisMonth = (int) $stats->orders_this_month;
+        $spentThisMonth = (float) $stats->spent_this_month;
+        $ordersPrevMonth = (int) $stats->orders_prev_month;
+        $spentPrevMonth = (float) $stats->spent_prev_month;
 
         $ordersTrendPct = $this->percentChange($ordersPrevMonth, $ordersThisMonth);
         $spentTrendPct = $this->percentChange($spentPrevMonth, $spentThisMonth);
@@ -59,15 +77,26 @@ class DashboardController extends Controller
             ->limit(8)
             ->get();
 
+        // Single query for 6-month chart (was 6 separate queries)
+        $sixMonthsAgo = now()->subMonths(5)->startOfMonth();
+        $monthExpr = DB::connection()->getDriverName() === 'sqlite'
+            ? "strftime('%Y-%m', created_at)"
+            : "DATE_FORMAT(created_at, '%Y-%m')";
+
+        $monthlyCounts = DB::table('orders')
+            ->where('client_id', $clientId)
+            ->where('created_at', '>=', $sixMonthsAgo)
+            ->selectRaw("{$monthExpr} as month, COUNT(*) as cnt")
+            ->groupByRaw($monthExpr)
+            ->pluck('cnt', 'month');
+
         $chartMonths = [];
         for ($i = 5; $i >= 0; $i--) {
             $d = now()->subMonths($i);
+            $key = $d->format('Y-m');
             $chartMonths[] = [
                 'label' => $d->format('M'),
-                'count' => (clone $base)
-                    ->whereYear('created_at', $d->year)
-                    ->whereMonth('created_at', $d->month)
-                    ->count(),
+                'count' => (int) ($monthlyCounts[$key] ?? 0),
             ];
         }
         $chartMax = max(1, ...array_column($chartMonths, 'count'));

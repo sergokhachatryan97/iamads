@@ -40,11 +40,6 @@
                             {{ __('Orders') }}
                         </x-nav-link>
                     @endstaffcan
-                    @staffcan('telegram-stats.view')
-                        <x-nav-link :href="route('staff.telegram-stats.index')" :active="request()->routeIs('staff.telegram-stats.*')">
-                            {{ __('Telegram Stats') }}
-                        </x-nav-link>
-                    @endstaffcan
                     @staffcan('clients.view')
                         <x-nav-link :href="route('staff.clients.index')" :active="request()->routeIs('staff.clients.*')">
                             {{ __('Users') }}
@@ -167,11 +162,6 @@
             @staffcan('orders.stats')
                 <x-responsive-nav-link :href="route('staff.order-stats.index')" :active="request()->routeIs('staff.order-stats.*')">
                     {{ __('Order Stats') }}
-                </x-responsive-nav-link>
-            @endstaffcan
-            @staffcan('telegram-stats.view')
-                <x-responsive-nav-link :href="route('staff.telegram-stats.index')" :active="request()->routeIs('staff.telegram-stats.*')">
-                    {{ __('Telegram Stats') }}
                 </x-responsive-nav-link>
             @endstaffcan
             @staffcan('clients.view')

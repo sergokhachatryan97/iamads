@@ -146,7 +146,7 @@ return [
         | after confirming load/core stays < 1.5 for 24h.
         |
         |   tg-inspect        : 2 (MTProto, heaviest)
-        |   tg-panel-inspect  : 1 (low-volume panel inspections)
+        |   tg-panel-inspect  : 3 (panel inspections, auto-scales for bulk uploads)
         |   link-inspect      : 1 (yt + app, merged, event-driven)
         |   tg-double-check   : 1 (slow, every 10min)
         |   max-inspect       : 1 (low-volume)
@@ -167,20 +167,23 @@ return [
                 'tries' => 2,
                 'timeout' => 900,
                 'memory' => 512,
+                'maxJobs' => 500,            // recycle worker to free leaked memory
             ],
 
             'tg-panel-inspect' => [
                 'connection' => 'redis',
                 'queue' => ['tg-panel-inspect'],
-                'balance' => 'simple',       // was auto
+                'balance' => 'auto',
+                'autoScalingStrategy' => 'time',
                 'minProcesses' => 1,
-                'maxProcesses' => 1,         // was 2; low-volume, 1 worker suffices
+                'maxProcesses' => 3,
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 15,
                 'sleep' => 5,
                 'tries' => 2,
                 'timeout' => 900,
                 'memory' => 512,
+                'maxJobs' => 500,
             ],
 
             // Merged yt-inspect + app-inspect: identical profiles, low-volume.
@@ -195,6 +198,7 @@ return [
                 'tries' => 3,
                 'timeout' => 60,
                 'memory' => 128,
+                'maxJobs' => 1000,
             ],
 
             'tg-double-check' => [
@@ -207,6 +211,7 @@ return [
                 'tries' => 2,
                 'timeout' => 900,
                 'memory' => 512,
+                'maxJobs' => 500,
             ],
 
             'max-inspect' => [
@@ -219,6 +224,7 @@ return [
                 'tries' => 1,
                 'timeout' => 120,
                 'memory' => 128,
+                'maxJobs' => 1000,
             ],
 
             'main' => [
@@ -233,6 +239,7 @@ return [
                 'tries' => 3,
                 'timeout' => 300,
                 'memory' => 256,
+                'maxJobs' => 1000,
             ],
         ],
 

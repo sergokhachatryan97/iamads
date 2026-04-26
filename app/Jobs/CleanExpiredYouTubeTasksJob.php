@@ -40,6 +40,7 @@ class CleanExpiredYouTubeTasksJob implements ShouldQueue
         $expiredIds = YouTubeTask::query()
             ->where('status', YouTubeTask::STATUS_LEASED)
             ->where('created_at', '<', $cutoff)
+            ->limit(5000)
             ->pluck('id');
 
         $failedCount = 0;

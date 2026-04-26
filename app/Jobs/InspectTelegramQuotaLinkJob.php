@@ -17,6 +17,7 @@ class InspectTelegramQuotaLinkJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    public int $timeout = 90;
     public int $tries = 5;
     public array $backoff = [10, 30, 60, 120, 300];
 

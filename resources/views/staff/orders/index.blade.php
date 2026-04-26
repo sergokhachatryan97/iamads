@@ -682,7 +682,7 @@
                                         $service = $order->service;
                                         $canCancel = $service && $service->user_can_cancel;
                                         // Full cancel eligible: awaiting, pending, processing
-                                        $isAwaitingOrPending = in_array($order->status, [\App\Models\Order::STATUS_AWAITING, \App\Models\Order::STATUS_PENDING, \App\Models\Order::STATUS_PROCESSING], true);
+                                        $isAwaitingOrPending = in_array($order->status, [\App\Models\Order::STATUS_VALIDATING, \App\Models\Order::STATUS_AWAITING, \App\Models\Order::STATUS_PENDING, \App\Models\Order::STATUS_PROCESSING], true);
                                         // Partial cancel eligible: in_progress, processing
                                         $isInProgressOrProcessing = in_array($order->status, [\App\Models\Order::STATUS_IN_PROGRESS, \App\Models\Order::STATUS_PROCESSING], true);
                                     @endphp
@@ -864,7 +864,7 @@
                                                 $service = $order->service;
                                                 $canCancel = $service && $service->user_can_cancel;
                                                 // Full cancel eligible: awaiting, pending, processing
-                                                $isAwaitingOrPending = in_array($order->status, [\App\Models\Order::STATUS_AWAITING, \App\Models\Order::STATUS_PENDING, \App\Models\Order::STATUS_PROCESSING], true);
+                                                $isAwaitingOrPending = in_array($order->status, [\App\Models\Order::STATUS_VALIDATING, \App\Models\Order::STATUS_AWAITING, \App\Models\Order::STATUS_PENDING, \App\Models\Order::STATUS_PROCESSING], true);
                                                 // Partial cancel eligible: in_progress, processing
                                                 $isInProgressOrProcessing = in_array($order->status, [\App\Models\Order::STATUS_IN_PROGRESS, \App\Models\Order::STATUS_PROCESSING], true);
                                             @endphp
@@ -993,7 +993,7 @@
                                 @php
                                     $service = $order->service;
                                     $canCancel = $service && $service->user_can_cancel;
-                                    $isAwaitingOrPending = in_array($order->status, [\App\Models\Order::STATUS_AWAITING, \App\Models\Order::STATUS_PENDING, \App\Models\Order::STATUS_PROCESSING], true);
+                                    $isAwaitingOrPending = in_array($order->status, [\App\Models\Order::STATUS_VALIDATING, \App\Models\Order::STATUS_AWAITING, \App\Models\Order::STATUS_PENDING, \App\Models\Order::STATUS_PROCESSING], true);
                                     $isInProgressOrProcessing = in_array($order->status, [\App\Models\Order::STATUS_IN_PROGRESS, \App\Models\Order::STATUS_PROCESSING], true);
                                 @endphp
                                 @if($canCancel && ($isAwaitingOrPending || $isInProgressOrProcessing))
@@ -1017,7 +1017,7 @@
                         @php
                             $service = $order->service;
                             $canCancel = $service && $service->user_can_cancel;
-                            $isAwaitingOrPending = in_array($order->status, [\App\Models\Order::STATUS_AWAITING, \App\Models\Order::STATUS_PENDING, \App\Models\Order::STATUS_PROCESSING], true);
+                            $isAwaitingOrPending = in_array($order->status, [\App\Models\Order::STATUS_VALIDATING, \App\Models\Order::STATUS_AWAITING, \App\Models\Order::STATUS_PENDING, \App\Models\Order::STATUS_PROCESSING], true);
                             $isInProgressOrProcessing = in_array($order->status, [\App\Models\Order::STATUS_IN_PROGRESS, \App\Models\Order::STATUS_PROCESSING], true);
                         @endphp
                         @if($canCancel && $isAwaitingOrPending)
@@ -1444,14 +1444,15 @@
                 // "Select all matching filters" button (բոլոր էջերը՝ state-ով)
                 selectAllMatching() {
                     this.selectAll = true;
-                    this.selectedIds.clear();
-                    this.excludedIds.clear();
-                    this.selectedIds = Object.values(this.orderIds);
+                    this.selectedIds = new Set();
+                    this.excludedIds = new Set();
+
+                    this.syncPageCheckboxes();
                 },
 
                 clearSelection() {
-                    this.selectedIds.clear();
-                    this.excludedIds.clear();
+                    this.selectedIds = new Set();
+                    this.excludedIds = new Set();
                     this.selectAll = false;
 
                     this.syncPageCheckboxes();
@@ -1466,7 +1467,9 @@
                         category_id: urlParams.get('category_id') || '',
                         date_from: urlParams.get('date_from') || '',
                         date_to: urlParams.get('date_to') || '',
-                        search: urlParams.get('search') || '',
+                        order_purpose: urlParams.get('order_purpose') || '',
+                        client_id: urlParams.get('client_id') || '',
+                        created_by: urlParams.get('created_by') || '',
                     };
                 },
 

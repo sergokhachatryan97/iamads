@@ -28,6 +28,7 @@ use App\Http\Controllers\Staff\PaymentController;
 use App\Http\Controllers\Staff\ProviderOrderStatsController;
 use App\Http\Controllers\Staff\ServiceController;
 use App\Http\Controllers\Staff\SocpanelModerationController;
+use App\Http\Controllers\Staff\StaffDashboardController;
 use App\Http\Controllers\Staff\SubscriptionPlanController;
 use App\Http\Controllers\Staff\TelegramStatsController;
 use App\Http\Controllers\Staff\UserController;
@@ -149,11 +150,7 @@ Route::prefix('staff')->middleware([UseStaffSession::class, 'signed', 'throttle:
 // Staff Dashboard and Protected Routes
 // Block clients from accessing staff routes
 Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSession::class, BlockClientFromStaffRoutes::class])->group(function () {
-    Route::get('dashboard', function () {
-        return view('dashboard', [
-            'partialOrdersStats' => \Illuminate\Support\Facades\Cache::get('stats:partial_orders'),
-        ]);
-    })->name('staff.dashboard');
+    Route::get('dashboard', [StaffDashboardController::class, 'index'])->name('staff.dashboard');
 
     Route::get('profile', [ProfileController::class, 'edit'])->name('staff.profile.edit');
     Route::patch('profile', [ProfileController::class, 'update'])->name('staff.profile.update');
@@ -198,7 +195,7 @@ Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSess
         Route::get('provider-order-stats/export', [ProviderOrderStatsController::class, 'exportCsv'])->name('staff.provider-order-stats.export')->middleware('staff.permission:provider-order-stats.export');
     });
     Route::get('activity-logs', [\App\Http\Controllers\Staff\ActivityLogController::class, 'index'])->name('staff.activity-logs.index')->middleware('staff.permission:activity-logs.view');
-    Route::get('telegram-stats', [TelegramStatsController::class, 'index'])->name('staff.telegram-stats.index')->middleware('staff.permission:telegram-stats.view');
+    Route::get('telegram-stats', fn () => redirect()->route('staff.dashboard', ['network' => 'telegram']))->name('staff.telegram-stats.index')->middleware('staff.permission:telegram-stats.view');
 
     // Clients Management
     Route::middleware('staff.permission:clients.view')->group(function () {

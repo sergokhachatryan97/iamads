@@ -25,6 +25,7 @@ class DispatchTelegramAccountActionJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    public int $timeout = 120;
     public int $tries = 3;
     public array $backoff = [10, 30, 60];
 

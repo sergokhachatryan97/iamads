@@ -25,6 +25,7 @@ class ProcessTelegramUnsubscribeTasksJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    public int $timeout = 300;
     public int $tries = 1; // Single attempt per run
 
     public function handle(

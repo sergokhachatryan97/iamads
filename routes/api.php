@@ -87,6 +87,7 @@ Route::middleware(['auth.provider'])->prefix('provider/youtube')->group(function
     Route::get('/orders-list', [YouTubeAwaitingOrdersController::class, 'index'])
         ->name('provider.youtube.awaiting-orders');
     Route::get('/getOrder', [YouTubeTaskClaimController::class, 'claim'])
+        ->middleware('throttle.provider_poll')
         ->name('provider.youtube.tasks.getOrder');
     Route::get('/check', [YouTubeTaskReportController::class, 'check'])
         ->name('provider.youtube.tasks.check');
@@ -99,6 +100,7 @@ Route::middleware(['auth.provider'])->prefix('provider/app')->group(function () 
     Route::get('/orders-list', [AppAwaitingOrdersController::class, 'index'])
         ->name('provider.app.awaiting-orders');
     Route::get('/getOrder', [AppTaskClaimController::class, 'claim'])
+        ->middleware('throttle.provider_poll')
         ->name('provider.app.tasks.getOrder');
     Route::get('/check', [AppTaskReportController::class, 'check'])
         ->name('provider.app.tasks.check');
@@ -109,6 +111,7 @@ Route::middleware(['auth.provider'])->prefix('provider/app')->group(function () 
 // Max Messenger performer (getOrder, check, ignore)
 Route::middleware(['auth.provider'])->prefix('provider/max')->group(function () {
     Route::get('/getOrder', [\App\Http\Controllers\Api\Provider\MaxTaskClaimController::class, 'claim'])
+        ->middleware('throttle.provider_poll')
         ->name('provider.max.tasks.getOrder');
     Route::get('/check', [\App\Http\Controllers\Api\Provider\MaxTaskReportController::class, 'check'])
         ->name('provider.max.tasks.check');

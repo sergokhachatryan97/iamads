@@ -21,6 +21,7 @@ class ProcessUnsubscribeTaskJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    public int $timeout = 120;
     public int $tries = 3;
 
     public array $backoff = [60, 300, 900]; // 1 min, 5 min, 15 min
