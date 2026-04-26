@@ -890,9 +890,6 @@
                                 'star_rating' => __('Star Rating'),
                                 'category_id' => __('Category'),
                                 'service_id' => __('Service'),
-                                'dripfeed_quantity' => __('Dripfeed Quantity'),
-                                'dripfeed_interval' => __('Dripfeed Interval'),
-                                'dripfeed_interval_unit' => __('Dripfeed Interval Unit'),
                                 'speed_tier' => __('Speed Tier'),
                             ];
                             $formatErrorKey = function ($key) use ($errorLabels) {
@@ -1525,104 +1522,6 @@
                                 @enderror
                             </div>
                             </template>
-                            <!-- Dripfeed Toggle Switch (only when service has dripfeed enabled) -->
-                            <div class="mb-6" x-show="selectedService?.dripfeed_enabled === true">
-                                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-md border border-gray-200 mb-4">
-                                    <div>
-                                        <label class="text-sm font-medium text-gray-900">{{ __('Enable Dripfeed') }}</label>
-                                        <p class="text-xs text-gray-500 mt-1">{{ __('Configure dripfeed settings to deliver orders gradually over time') }}</p>
-                                    </div>
-                                    <label class="relative inline-flex items-center cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            x-model="dripfeedEnabled"
-                                            class="sr-only peer"
-                                        >
-                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                                    </label>
-                                </div>
-                                <!-- Hidden input to ensure value is always submitted -->
-                                <input type="hidden" name="dripfeed_enabled" :value="dripfeedEnabled ? '1' : '0'">
-                            </div>
-
-                            <!-- Dripfeed Fields (only when service has dripfeed enabled AND toggle is ON) -->
-                            <div class="mb-6" x-show="selectedService?.dripfeed_enabled === true && dripfeedEnabled === true">
-                                <div class="p-4 bg-blue-50 rounded-md border border-blue-200 mb-4">
-                                    <h3 class="text-sm font-medium text-blue-900 mb-3">{{ __('Dripfeed Settings') }}</h3>
-
-                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <!-- Dripfeed Quantity -->
-                                        <div>
-                                            <label for="dripfeed_quantity" class="block text-sm font-medium text-gray-700 mb-1">
-                                                {{ __('Quantity per Step') }} <span class="text-red-500">*</span>
-                                            </label>
-                                            <input
-                                                type="number"
-                                                id="dripfeed_quantity"
-                                                name="dripfeed_quantity"
-                                                x-model.number="dripfeedQuantity"
-                                                :min="1"
-                                                :max="getTotalQuantity()"
-                                                :required="dripfeedEnabled"
-                                                @input="validateDripfeedQuantity"
-                                                :class="dripfeedQuantityError ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'"
-                                                class="block w-full rounded-md shadow-sm sm:text-sm">
-                                            <p class="mt-1 text-xs text-gray-500">
-                                                {{ __('Amount to deliver per drip step') }}
-                                                <span x-show="getTotalQuantity() > 0">
-                                                    ({{ __('Max') }}: <span x-text="getTotalQuantity()"></span>)
-                                                </span>
-                                            </p>
-                                            <p x-show="dripfeedQuantityError" class="mt-1 text-sm text-red-600" x-text="dripfeedQuantityError"></p>
-                                            @error('dripfeed_quantity')
-                                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                                            @enderror
-                                        </div>
-
-                                        <!-- Dripfeed Interval -->
-                                        <div>
-                                            <label for="dripfeed_interval" class="block text-sm font-medium text-gray-700 mb-1">
-                                                {{ __('Interval') }} <span class="text-red-500">*</span>
-                                            </label>
-                                            <input
-                                                type="number"
-                                                id="dripfeed_interval"
-                                                name="dripfeed_interval"
-                                                x-model.number="dripfeedInterval"
-                                                min="1"
-                                                :required="dripfeedEnabled"
-                                                class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                                            <p class="mt-1 text-xs text-gray-500">
-                                                {{ __('Interval value') }}
-                                            </p>
-                                            @error('dripfeed_interval')
-                                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                                            @enderror
-                                        </div>
-
-                                        <!-- Dripfeed Interval Unit -->
-                                        <div>
-                                            <label for="dripfeed_interval_unit" class="block text-sm font-medium text-gray-700 mb-1">
-                                                {{ __('Interval Unit') }} <span class="text-red-500">*</span>
-                                            </label>
-                                            <select
-                                                id="dripfeed_interval_unit"
-                                                name="dripfeed_interval_unit"
-                                                x-model="dripfeedIntervalUnit"
-                                                :required="dripfeedEnabled"
-                                                class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
-                                                <option value="">{{ __('Select unit') }}</option>
-                                                <option value="minutes">{{ __('Minutes') }}</option>
-                                                <option value="hours">{{ __('Hours') }}</option>
-                                                <option value="days">{{ __('Days') }}</option>
-                                            </select>
-                                            @error('dripfeed_interval_unit')
-                                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                                            @enderror
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
 
                             <div class="mb-6" x-show="selectedService?.speed_limit_enabled === true" x-cloak>
                                 <input type="hidden" name="speed_tier" :value="speedTier">
@@ -2091,12 +1990,6 @@
                 commentsTotalCharge: 0,
                 chargePerComment: 0,
                 commentsCountError: '',
-                // Dripfeed
-                dripfeedEnabled: {{ old('dripfeed_enabled', 'false') === 'true' ? 'true' : 'false' }},
-                dripfeedQuantity: @json(old('dripfeed_quantity')),
-                dripfeedInterval: @json(old('dripfeed_interval')),
-                dripfeedIntervalUnit: @json(old('dripfeed_interval_unit')),
-                dripfeedQuantityError: '',
                 // Speed Tier (default 'fast' when service has speed enabled, set in updateServiceInfo)
                 speedTier: '{{ old('speed_tier', 'fast') }}',
                 // YouTube combo custom comment / App custom review
@@ -2441,14 +2334,6 @@
                             });
                         }
                     }
-                    // Reset dripfeed fields if service doesn't have dripfeed enabled
-                    if (this.selectedService && !this.selectedService.dripfeed_enabled) {
-                        this.dripfeedEnabled = false;
-                        this.dripfeedQuantity = null;
-                        this.dripfeedInterval = null;
-                        this.dripfeedIntervalUnit = '';
-                        this.dripfeedQuantityError = '';
-                    }
                     if (this.selectedService) {
                         if (!this.selectedService.speed_limit_enabled) {
                             this.speedTier = 'normal';
@@ -2537,16 +2422,6 @@
                 //     return this.commentsTotalCharge
                 // },
 
-                validateDripfeedQuantity() {
-                    this.dripfeedQuantityError = '';
-                    if (!this.dripfeedEnabled || !this.dripfeedQuantity) {
-                        return;
-                    }
-                    const totalQty = this.getTotalQuantity();
-                    if (totalQty > 0 && this.dripfeedQuantity > totalQty) {
-                        this.dripfeedQuantityError = '{{ __('Quantity per step cannot be greater than total order quantity') }}';
-                    }
-                },
 
                 addTargetRow() {
                     let defaultQty = 1000;
@@ -2713,14 +2588,6 @@
                         }
                     }
 
-                    // Validate dripfeed quantity before submit
-                    if (this.dripfeedEnabled) {
-                        this.validateDripfeedQuantity();
-                        if (this.dripfeedQuantityError) {
-                            this.submitting = false;
-                            return;
-                        }
-                    }
                     // Validate invite_subscribers 2-link mode
                     if (this.selectedService?.template_key === 'invite_subscribers_from_other_channel') {
                         if (!this.inviteSourceLinkValid || !this.inviteTargetLinkValid || !this.inviteSourceLink?.trim() || !this.inviteTargetLink?.trim()) {
