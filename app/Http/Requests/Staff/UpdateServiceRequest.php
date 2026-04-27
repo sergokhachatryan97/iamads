@@ -31,6 +31,8 @@ class UpdateServiceRequest extends FormRequest
             'icon' => ['nullable', 'string'],
             'category_id' => ['required', 'integer', Rule::exists(Category::class, 'id')],
             'mode' => ['required', 'string', 'in:manual,provider'],
+            'provider' => ['nullable', 'required_if:mode,provider', 'string', 'max:50'],
+            'provider_service_id' => ['nullable', 'required_if:mode,provider', 'integer', 'min:1'],
             'service_type' => ['nullable', 'string'],
             'target_type' => ['nullable', 'string', Rule::in(['bot', 'channel', 'group', 'youtube', 'app'])],
             'template_key' => ['nullable', 'string', Rule::in(array_merge(
@@ -139,6 +141,8 @@ class UpdateServiceRequest extends FormRequest
             'deny_duplicates_days.required_if' => 'Deny duplicates days is required when Deny link duplicates is enabled.',
             'count_type.required_if' => 'Count type is required when Start count parsing is enabled.',
             'increment.min' => 'Increment must be at least 0.',
+            'provider.required_if' => 'External provider is required when mode is Provider.',
+            'provider_service_id.required_if' => 'Provider Service ID is required when mode is Provider.',
         ];
     }
 }

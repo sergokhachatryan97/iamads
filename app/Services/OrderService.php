@@ -237,7 +237,7 @@ class OrderService implements OrderServiceInterface
                     'delivered' => 0,
                     'remains' => Order::computeTargetQuantity($row['quantity'], $service, $clientOverflowPercent),
                     'status' => Order::STATUS_VALIDATING,
-                    'mode' => 'manual',
+                    'mode' => $service->isExternalProvider() ? Service::MODE_PROVIDER : Service::MODE_MANUAL,
                 ];
 
                 // Merge provider_payload
@@ -417,7 +417,7 @@ class OrderService implements OrderServiceInterface
                 'delivered' => 0,
                 'remains' => Order::computeTargetQuantity($quantity, $service, $apiClientOverflowPercent),
                 'status' => Order::STATUS_VALIDATING,
-                'mode' => Service::MODE_MANUAL,
+                'mode' => $service->isExternalProvider() ? Service::MODE_PROVIDER : Service::MODE_MANUAL,
                 'provider_payload' => $providerPayload,
                 'execution_phase' => Order::EXECUTION_PHASE_RUNNING,
             ]);
@@ -533,7 +533,7 @@ class OrderService implements OrderServiceInterface
                 'delivered' => 0,
                 'remains' => Order::computeTargetQuantity($commentCount, $service, $ccClientOverflowPercent),
                 'status' => Order::STATUS_VALIDATING,
-                'mode' => 'manual',
+                'mode' => $service->isExternalProvider() ? Service::MODE_PROVIDER : Service::MODE_MANUAL,
             ]);
 
             // 11) Transaction history
@@ -766,7 +766,7 @@ class OrderService implements OrderServiceInterface
                     'delivered' => 0,
                     'remains' => $row['target_quantity'],
                     'status' => Order::STATUS_VALIDATING,
-                    'mode' => 'manual',
+                    'mode' => $service->isExternalProvider() ? Service::MODE_PROVIDER : Service::MODE_MANUAL,
                     'provider_payload' => $providerPayload,
                 ];
                 $orders[] = Order::create($orderPayload);

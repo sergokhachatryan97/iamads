@@ -230,7 +230,7 @@ class ServiceController extends Controller
     public function updateMode(Request $request, Service $service): RedirectResponse
     {
         $request->validate([
-            'mode' => ['required', 'string', 'in:manual,auto'],
+            'mode' => ['required', 'string', 'in:manual,provider'],
         ]);
 
         $this->serviceService->updateService($service, ['mode' => $request->input('mode')]);
@@ -351,9 +351,14 @@ class ServiceController extends Controller
             'defaultMode' => Service::MODE_DEFAULT,
 
             'modeOptions' => [
-                'manual' => 'Manual',
-                //                'provider' => 'Provider',
+                'manual' => 'Manual (Internal Performers)',
+                'provider' => 'Provider (External SMM Panel)',
             ],
+
+            'providerOptions' => \App\Models\ExternalProvider::active()
+                ->orderBy('name')
+                ->pluck('name', 'code')
+                ->all(),
 
             'serviceTypeOptions' => [
                 'default' => 'Default',

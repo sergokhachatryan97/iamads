@@ -371,6 +371,7 @@ class YouTubeTaskClaimService
                 'services.overflow_percent'
             )
             ->whereIn('orders.status', [Order::STATUS_AWAITING, Order::STATUS_IN_PROGRESS, Order::STATUS_PENDING])
+            ->where('orders.mode', 'manual')
             ->where('orders.remains', '>', 0)
             ->where('orders.category_id', $categoryId)
             ->get()

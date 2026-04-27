@@ -339,6 +339,7 @@ class PreassignTelegramTasksJob implements ShouldQueue
             $serviceIds = \App\Models\Service::query()
                 ->where('category_id', $categoryId)
                 ->where('is_active', true)
+                ->where('mode', \App\Models\Service::MODE_MANUAL)
                 ->tap(fn($q) => TelegramPremiumTemplateScope::applyServiceTemplateScope($q, $this->scope))
                 ->when($systemManagedKeys, fn($q) => $q->whereNotIn('template_key', $systemManagedKeys))
                 ->pluck('id')

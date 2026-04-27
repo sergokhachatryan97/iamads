@@ -216,16 +216,24 @@ class Service extends Model
     }
 
     /**
+     * Check if this service should be fulfilled by an external SMM provider panel.
+     */
+    public function isExternalProvider(): bool
+    {
+        return $this->mode === self::MODE_PROVIDER
+            && ! empty($this->provider)
+            && ! empty($this->provider_service_id);
+    }
+
+    /**
      * Determine executor for task execution: local MadelineProto vs remote provider pull.
-     * manual => local_mtproto, provider => remote_provider. Default remote_provider.
+     * manual => local_mtproto, provider => remote_provider.
      *
      * @return string 'local_mtproto'|'remote_provider'
      */
     public function executor(): string
     {
-        $mode = (string) ($this->mode ?? self::MODE_PROVIDER);
-
-        return $mode === self::MODE_PROVIDER ? 'local_mtproto' : 'remote_provider';
+        return $this->isExternalProvider() ? 'remote_provider' : 'local_mtproto';
     }
 
     /**

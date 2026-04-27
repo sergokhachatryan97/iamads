@@ -65,6 +65,7 @@ class TelegramTaskService
                 Order::STATUS_IN_PROGRESS,
                 Order::STATUS_PENDING,
             ])
+            ->where('mode', 'manual')
             ->where('remains', '>', 0)
             ->whereHas('service', function ($q) use ($systemManagedKeys) {
                 if ($systemManagedKeys !== []) {

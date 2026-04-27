@@ -83,6 +83,12 @@ class ServiceService implements ServiceServiceInterface
             }
         }
 
+        // Clear provider fields when mode is manual
+        if (($data['mode'] ?? 'manual') === 'manual') {
+            $data['provider'] = null;
+            $data['provider_service_id'] = null;
+        }
+
         // Enforce mutual exclusivity of speed_limit_enabled and dripfeed_enabled
         if (! empty($data['speed_limit_enabled']) && ! empty($data['dripfeed_enabled'])) {
             // If both are set, prioritize speed_limit_enabled
@@ -190,6 +196,12 @@ class ServiceService implements ServiceServiceInterface
                         ?? (str_starts_with($data['template_key'], 'max_') ? 'max' : null);
                 }
             }
+        }
+
+        // Clear provider fields when mode is manual
+        if (($data['mode'] ?? $service->mode) === 'manual') {
+            $data['provider'] = null;
+            $data['provider_service_id'] = null;
         }
 
         // Enforce mutual exclusivity of speed_limit_enabled and dripfeed_enabled

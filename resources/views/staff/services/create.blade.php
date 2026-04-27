@@ -553,13 +553,61 @@
 {{--                                    </div>--}}
 {{--                                </div>--}}
 
-                                <div x-show="mode === 'provider'" x-cloak class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                                    <p class="text-xs text-blue-800 flex items-start gap-2">
-                                        <svg class="w-4 h-4 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
-                                        </svg>
-                                        <span>{{ __('Provider mode settings will be fetched from the provider API.') }}</span>
-                                    </p>
+                                <div x-show="mode === 'provider'" x-cloak class="mt-4 pt-4 border-t border-gray-200">
+                                    <p class="text-xs font-medium text-gray-600 mb-3">{{ __('External Provider Settings') }}</p>
+
+                                    <div class="p-3 bg-blue-50 border border-blue-200 rounded-md mb-4">
+                                        <p class="text-xs text-blue-800 flex items-start gap-2">
+                                            <svg class="w-4 h-4 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                                            </svg>
+                                            <span>{{ __('Orders for this service will be sent to the selected external SMM panel via v2 API.') }}</span>
+                                        </p>
+                                    </div>
+
+                                    <div class="space-y-4">
+                                        {{-- Provider select --}}
+                                        <div>
+                                            <label for="provider" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                                {{ __('External Provider') }} <span class="text-red-500">*</span>
+                                            </label>
+                                            <select
+                                                name="provider"
+                                                id="provider"
+                                                class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                            >
+                                                <option value="">{{ __('Select provider...') }}</option>
+                                                @foreach($providerOptions as $code => $label)
+                                                    <option value="{{ $code }}" {{ old('provider', $service->provider ?? '') === $code ? 'selected' : '' }}>
+                                                        {{ $label }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                            @error('provider')
+                                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                            @enderror
+                                        </div>
+
+                                        {{-- Provider Service ID --}}
+                                        <div>
+                                            <label for="provider_service_id" class="block text-sm font-medium text-gray-700 mb-1.5">
+                                                {{ __('Provider Service ID') }} <span class="text-red-500">*</span>
+                                            </label>
+                                            <input
+                                                type="number"
+                                                name="provider_service_id"
+                                                id="provider_service_id"
+                                                value="{{ old('provider_service_id', $service->provider_service_id ?? '') }}"
+                                                min="1"
+                                                placeholder="{{ __('e.g. 1234') }}"
+                                                class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                            >
+                                            @error('provider_service_id')
+                                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                                            @enderror
+                                            <p class="mt-1 text-xs text-gray-500">{{ __('The service ID on the external panel (find it in their service list)') }}</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 

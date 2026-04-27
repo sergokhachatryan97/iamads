@@ -6,22 +6,33 @@ use App\Jobs\InspectAppLinkJob;
 use App\Jobs\InspectMaxLinkJob;
 use App\Jobs\InspectTelegramLinkJob;
 use App\Jobs\InspectYouTubeLinkJob;
+use App\Jobs\SendOrderToExternalProviderJob;
 use App\Models\Order;
 
 /**
  * Dispatches the appropriate link-inspection job for an order based on the
- * category's link_driver.
+ * category's link_driver. External-provider services skip inspection and
+ * are sent directly to the remote SMM panel.
  */
 class OrderInspectionDispatcher
 {
     /**
-     * Dispatch inspection for an order. Telegram → InspectTelegramLinkJob;
-     * YouTube → InspectYouTubeLinkJob; app → InspectAppLinkJob.
-     * Other drivers are no-op until implemented.
+     * Dispatch inspection for an order. External provider services are routed
+     * to SendOrderToExternalProviderJob; internal services go through the
+     * driver-specific link inspection pipeline.
      */
     public function dispatch(Order $order): void
     {
         $order->loadMissing(['service.category']);
+
+        // External provider services skip link inspection — the remote panel validates links.
+        if ($order->service?->isExternalProvider()) {
+            SendOrderToExternalProviderJob::dispatch($order->id)
+                ->onQueue('external-provider')
+                ->afterCommit();
+
+            return;
+        }
 
         $driver = $order->service?->category?->link_driver ?? 'generic';
 

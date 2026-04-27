@@ -15,6 +15,7 @@ use App\Http\Controllers\FastOrderSessionController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Settings\ExternalProviderController;
 use App\Http\Controllers\Settings\RoleController;
 use App\Http\Controllers\Settings\SettingsController;
 use App\Http\Controllers\Staff\Auth\StaffAuthenticatedSessionController;
@@ -175,6 +176,18 @@ Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSess
         Route::post('settings/invitations', [InvitationController::class, 'store'])->name('staff.settings.invitations.store');
         Route::get('settings/invitations/{invitation}', [InvitationController::class, 'show'])->name('staff.settings.invitations.show');
         Route::post('settings/invitations/{invitation}/send-email', [InvitationController::class, 'sendEmail'])->name('staff.settings.invitations.send-email');
+    });
+
+    // External Providers (super_admin only — bypasses middleware via Gate::before)
+    Route::prefix('settings/external-providers')->group(function () {
+        Route::get('/', [ExternalProviderController::class, 'index'])->name('staff.settings.external-providers.index');
+        Route::get('create', [ExternalProviderController::class, 'create'])->name('staff.settings.external-providers.create');
+        Route::post('/', [ExternalProviderController::class, 'store'])->name('staff.settings.external-providers.store');
+        Route::get('{external_provider}/edit', [ExternalProviderController::class, 'edit'])->name('staff.settings.external-providers.edit');
+        Route::put('{external_provider}', [ExternalProviderController::class, 'update'])->name('staff.settings.external-providers.update');
+        Route::post('{external_provider}/toggle', [ExternalProviderController::class, 'toggle'])->name('staff.settings.external-providers.toggle');
+        Route::get('{external_provider}/test', [ExternalProviderController::class, 'testConnection'])->name('staff.settings.external-providers.test');
+        Route::delete('{external_provider}', [ExternalProviderController::class, 'destroy'])->name('staff.settings.external-providers.destroy');
     });
 
     // Users Management

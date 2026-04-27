@@ -136,6 +136,12 @@ return Application::configure(basePath: dirname(__DIR__))
         //            ->withoutOverlapping(15)
         //            ->onOneServer();
 
+        // Sync external provider order statuses — every 3 min @ :01
+        $schedule->job(new \App\Jobs\SyncExternalOrderStatusJob)
+            ->cron('1-59/3 * * * *')
+            ->withoutOverlapping(5)
+            ->onOneServer();
+
         // Sync Adtag provider services into local services table
         //        $schedule->job(new \App\Jobs\AdtagSyncServicesJob())
         //            ->hourly()

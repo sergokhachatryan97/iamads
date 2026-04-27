@@ -297,6 +297,7 @@ class TelegramTaskClaimService
             ->with('service')
             ->whereIn('status', [Order::STATUS_AWAITING, Order::STATUS_IN_PROGRESS])
             ->where('execution_phase', Order::EXECUTION_PHASE_RUNNING)
+            ->where('mode', 'manual')
             ->where('remains', '>', 0)
             ->where('category_id', $categoryId)
             ->whereHas('service', fn ($sq) => $sq->whereIn('template_key', $systemManagedKeys));
@@ -628,6 +629,7 @@ class TelegramTaskClaimService
             return DB::table('orders')
                 ->select('id', 'remains', 'dripfeed_enabled', 'dripfeed_next_run_at', 'provider_payload')
                 ->whereIn('status', [Order::STATUS_AWAITING, Order::STATUS_IN_PROGRESS, Order::STATUS_PROCESSING])
+                ->where('mode', 'manual')
                 ->where('remains', '>', 0)
                 ->where('category_id', $categoryId)
                 ->whereIn('service_id', $serviceIds)
@@ -1228,6 +1230,7 @@ LUA;
         $order = Order::query()
             ->where('id', $task->order_id)
             ->where('remains', '>', 0)
+            ->where('mode', 'manual')
             ->whereIn('status', [Order::STATUS_AWAITING, Order::STATUS_IN_PROGRESS, Order::STATUS_PROCESSING])
             ->first();
 

@@ -126,6 +126,7 @@ class AppTaskClaimService
             return DB::table('orders')
                 ->select('id', 'remains', 'dripfeed_enabled', 'dripfeed_next_run_at', 'provider_payload')
                 ->whereIn('status', [Order::STATUS_AWAITING, Order::STATUS_IN_PROGRESS, Order::STATUS_PENDING])
+                ->where('mode', 'manual')
                 ->where('remains', '>', 0)
                 ->where('category_id', $categoryId)
                 ->get()

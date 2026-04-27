@@ -48,6 +48,17 @@
                                 @endstaffcan
                                 @if(Auth::guard('staff')->user()?->hasRole('super_admin'))
                                 <li>
+                                    <a href="{{ route('staff.settings.external-providers.index') }}"
+                                       class="flex items-center px-4 py-3 rounded-md text-sm font-medium transition {{ request()->routeIs('staff.settings.external-providers.*') ? 'bg-indigo-50 text-indigo-700 border-l-4 border-indigo-600' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900' }}">
+                                        <svg class="mr-3 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                        </svg>
+                                        {{ __('External Providers') }}
+                                    </a>
+                                </li>
+                                @endif
+                                @if(Auth::guard('staff')->user()?->hasRole('super_admin'))
+                                <li>
                                     <a href="{{ route('staff.promo-codes.index') }}"
                                        class="flex items-center px-4 py-3 rounded-md text-sm font-medium transition {{ request()->routeIs('staff.promo-codes.*') ? 'bg-indigo-50 text-indigo-700 border-l-4 border-indigo-600' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900' }}">
                                         <svg class="mr-3 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
