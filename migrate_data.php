@@ -8,11 +8,11 @@ use Illuminate\Support\Facades\Schema;
 
 config(['database.connections.old_mysql' => [
     'driver' => 'mysql',
-    'host' => env('MYSQL_HOST', '127.0.0.1'),
-    'port' => env('MYSQL_PORT', '3306'),
-    'database' => env('MYSQL_DATABASE'),
-    'username' => env('MYSQL_USERNAME'),
-    'password' => env('MYSQL_PASSWORD'),
+    'host' => '127.0.0.1',
+    'port' => '3306',
+    'database' => 'temp_import',
+    'username' => 'pgloader',
+    'password' => 'pgloader123',
 ]]);
 
 $tables = DB::connection('old_mysql')->select('SHOW TABLES');
