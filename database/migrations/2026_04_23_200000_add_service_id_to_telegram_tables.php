@@ -26,13 +26,8 @@ return new class extends Migration
         }
 
         // Backfill from orders
-        if (DB::connection()->getDriverName() === 'sqlite') {
-            DB::statement('UPDATE telegram_order_memberships SET service_id = (SELECT service_id FROM orders WHERE orders.id = telegram_order_memberships.order_id) WHERE service_id IS NULL');
-            DB::statement('UPDATE telegram_tasks SET service_id = (SELECT service_id FROM orders WHERE orders.id = telegram_tasks.order_id) WHERE service_id IS NULL');
-        } else {
-            DB::statement('UPDATE telegram_order_memberships m JOIN orders o ON o.id = m.order_id SET m.service_id = o.service_id WHERE m.service_id IS NULL');
-            DB::statement('UPDATE telegram_tasks t JOIN orders o ON o.id = t.order_id SET t.service_id = o.service_id WHERE t.service_id IS NULL');
-        }
+        DB::statement('UPDATE telegram_order_memberships SET service_id = (SELECT service_id FROM orders WHERE orders.id = telegram_order_memberships.order_id) WHERE service_id IS NULL');
+        DB::statement('UPDATE telegram_tasks SET service_id = (SELECT service_id FROM orders WHERE orders.id = telegram_tasks.order_id) WHERE service_id IS NULL');
 
         Schema::table('telegram_order_memberships', function (Blueprint $table) {
             $table->index(['service_id', 'state', 'subscribed_at'], 'idx_tg_memberships_svc_state_sub');
