@@ -60,6 +60,14 @@ return new class extends Migration
             return (bool) $row;
         }
 
+        if ($driver === 'pgsql') {
+            $row = DB::selectOne(
+                "SELECT 1 FROM pg_indexes WHERE tablename = ? AND indexname = ? LIMIT 1",
+                [$table, $indexName]
+            );
+            return (bool) $row;
+        }
+
         // fallback: assume not exists
         return false;
     }
