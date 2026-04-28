@@ -29,32 +29,41 @@ foreach ($tables as $tableObj) {
 
     $pgColumns = Schema::getColumnListing($table);
     $mysqlColumns = DB::connection('old_mysql')->getSchemaBuilder()->getColumnListing($table);
-    $commonColumns = array_intersect($pgColumns, $mysqlColumns);
+    $commonColumns = array_values(array_intersect($pgColumns, $mysqlColumns));
 
     if (empty($commonColumns)) {
         echo "SKIP $table (no common columns)\n";
         continue;
     }
 
-    $count = DB::connection('old_mysql')->table($table)->count();
-    echo "=== $table ($count rows) ===\n";
+    $pgCount = DB::table($table)->count();
+    $mysqlCount = DB::connection('old_mysql')->table($table)->count();
 
-    if ($count == 0) {
+    if ($pgCount > 0 && $pgCount >= $mysqlCount * 0.9) {
+        echo "SKIP $table (already has $pgCount rows)\n";
+        continue;
+    }
+
+    echo "=== $table ($mysqlCount rows) ===\n";
+
+    if ($mysqlCount == 0) {
         echo "  SKIP (empty)\n";
         continue;
     }
 
     DB::table($table)->truncate();
 
-    $chunkSize = 500;
+    $chunkSize = 5000;
     $imported = 0;
-    $colsList = array_values($commonColumns);
 
-    DB::connection('old_mysql')->table($table)->select($colsList)->orderBy(DB::raw('1'))->chunk($chunkSize, function ($rows) use ($table, &$imported) {
+    DB::connection('old_mysql')->table($table)->select($commonColumns)->orderBy(DB::raw('1'))->chunk($chunkSize, function ($rows) use ($table, &$imported, $chunkSize) {
         $batch = $rows->map(fn($r) => (array)$r)->toArray();
         try {
-            DB::table($table)->insert($batch);
-            $imported += count($batch);
+            // Insert in sub-batches to avoid memory issues
+            foreach (array_chunk($batch, 1000) as $subBatch) {
+                DB::table($table)->insert($subBatch);
+                $imported += count($subBatch);
+            }
         } catch (\Exception $e) {
             foreach ($batch as $row) {
                 try {
@@ -65,7 +74,7 @@ foreach ($tables as $tableObj) {
                 }
             }
         }
-        if ($imported % 5000 < 500) {
+        if ($imported % 50000 < $chunkSize) {
             echo "  ... $imported rows\n";
         }
     });
