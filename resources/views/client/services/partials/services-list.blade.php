@@ -127,11 +127,11 @@
                                     <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-900 font-medium">
                                         @if($hasCustomRate && $customRate != 0 && $defaultRate != $customRate)
                                             <div class="flex flex-col">
-                                                <span class="text-gray-500 line-through text-xs">${{ number_format($defaultRate, 2) }}</span>
-                                                <span class="text-indigo-600 font-semibold">${{ number_format($customRate, 2) }}</span>
+                                                <span class="text-gray-500 line-through text-xs">${{ $defaultRate }}</span>
+                                                <span class="text-indigo-600 font-semibold">${{ $customRate, 4 }}</span>
                                             </div>
                                         @else
-                                            <span>${{ number_format($customRate, 2) }}</span>
+                                            <span>${{ $customRate }}</span>
                                         @endif
                                     </td>
                                     <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-500">{{ number_format($service->min_quantity ?? $service->min_order ?? 1) }}</td>
