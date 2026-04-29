@@ -19,6 +19,78 @@ class TelegramInspector
      */
     public function inspect(string $link, ?array $templateKey = [], bool $forB2c = false, ?int $serviceId = null): array
     {
+        // ──────────────────────────────────────────────────
+        // PRIORITY 1: Go Inspector (MTProto bot + user pool + HTML)
+        // ──────────────────────────────────────────────────
+        $goResult = $this->tryGoInspector($link);
+
+        if ($goResult !== null) {
+            // Go returned temporary error → let PHP fallback handle it
+            if (($goResult['temporary'] ?? false) === true) {
+                // Fall through to existing PHP logic below
+            }
+            // Go returned ok=true → use it
+            elseif (($goResult['ok'] ?? false) === true) {
+                $parsed = TelegramLinkParser::parse($link);
+
+                // Validate template key
+                if (count($templateKey) > 0 && ! in_array($parsed['kind'], $templateKey, true)) {
+                    return $this->fail([
+                        'ok' => false, 'parsed' => $parsed, 'chat_type' => null,
+                        'title' => null, 'member_count' => null, 'is_paid_join' => false,
+                        'error_code' => null, 'error' => null, 'resolved' => null,
+                        'audience_type' => null, 'is_channel' => false, 'is_group' => false, 'is_boost' => false,
+                    ], 'INVALID_FORMAT', 'Invalid Telegram link format');
+                }
+
+                // Paid messages → fail
+                if (! empty($goResult['is_paid_messages'])) {
+                    return $this->fail([
+                        'ok' => false, 'parsed' => $parsed, 'chat_type' => $goResult['chat_type'] ?? null,
+                        'title' => $goResult['title'] ?? null, 'member_count' => $goResult['member_count'] ?? null,
+                        'is_paid_join' => false, 'error_code' => null, 'error' => null, 'resolved' => null,
+                        'audience_type' => $goResult['audience_type'] ?? null,
+                        'is_channel' => $goResult['is_channel'] ?? false,
+                        'is_group' => $goResult['is_group'] ?? false, 'is_boost' => false,
+                    ], 'PAID_MESSAGES', 'This Telegram channel/supergroup requires paid messages (Stars). Paid messages are not supported.');
+                }
+
+                return [
+                    'ok' => true,
+                    'parsed' => $parsed,
+                    'chat_type' => $goResult['chat_type'] ?? null,
+                    'title' => $goResult['title'] ?? null,
+                    'member_count' => $goResult['member_count'] ?? null,
+                    'is_paid_join' => $goResult['is_paid_join'] ?? false,
+                    'is_poll' => $goResult['is_poll'] ?? false,
+                    'error_code' => null,
+                    'error' => null,
+                    'resolved' => [
+                        'source' => $goResult['source'] ?? 'go',
+                        'raw' => $goResult,
+                    ],
+                    'audience_type' => $goResult['audience_type'] ?? null,
+                    'is_channel' => $goResult['is_channel'] ?? false,
+                    'is_group' => $goResult['is_group'] ?? false,
+                    'is_boost' => $goResult['is_boost'] ?? false,
+                ];
+            }
+            // Go returned ok=false, temporary=false → definitive failure
+            elseif (($goResult['ok'] ?? false) === false && ($goResult['temporary'] ?? false) === false && ! empty($goResult['error_code'])) {
+                $parsed = TelegramLinkParser::parse($link);
+                return $this->fail([
+                    'ok' => false, 'parsed' => $parsed, 'chat_type' => null,
+                    'title' => null, 'member_count' => null, 'is_paid_join' => false,
+                    'error_code' => null, 'error' => null, 'resolved' => ['source' => 'go', 'raw' => $goResult],
+                    'audience_type' => null, 'is_channel' => false, 'is_group' => false, 'is_boost' => false,
+                ], $goResult['error_code'], $goResult['error_message'] ?? 'Go inspector failed');
+            }
+        }
+
+        // ──────────────────────────────────────────────────
+        // FALLBACK: HTML parser → MadelineProto (existing PHP logic)
+        // ──────────────────────────────────────────────────
+
         $parsed = TelegramLinkParser::parse($link);
 
         $telegramLinkInspector = [];
@@ -824,5 +896,43 @@ class TelegramInspector
             'is_channel' => false,
             'is_group' => true,
         ];
+    }
+
+    /**
+     * Try Go Inspector service (MTProto bot + user pool + HTML).
+     * Returns null only if Go service itself is unreachable.
+     * Returns array with ok/temporary/error_code for all other cases.
+     */
+    private function tryGoInspector(string $link): ?array
+    {
+        $baseUrl = config('services.telegram_inspector.url', 'http://127.0.0.1:8090');
+        $timeout = config('services.telegram_inspector.timeout', 5);
+
+        try {
+            $response = \Illuminate\Support\Facades\Http::timeout($timeout)
+                ->post($baseUrl . '/inspect', [
+                    'link' => $link,
+                ]);
+
+            \Illuminate\Support\Facades\Log::info('Go TelegramInspector response', [
+                'link' => $link,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                if (is_array($data)) {
+                    return $data;
+                }
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::info('Go TelegramInspector unavailable', [
+                'error' => $e->getMessage(),
+                'link' => $link,
+            ]);
+        }
+
+        return null;
     }
 }

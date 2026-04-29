@@ -132,4 +132,9 @@ return [
             'story_react' => (int) env('PROVIDER_RPS_STORY', 20),
         ],
     ],
+
+    'telegram_inspector' => [
+        'url' => env('TG_INSPECTOR_URL', 'http://127.0.0.1:8090'),
+        'timeout' => (int) env('TG_INSPECTOR_TIMEOUT', 5),
+    ],
 ];
