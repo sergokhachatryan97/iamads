@@ -641,6 +641,16 @@ class TelegramTaskService
             return;
         }
 
+        if ($driver === 'pgsql') {
+            if ($allowNull) {
+                $q->whereRaw("(payload->>'executor' IS NULL OR payload->>'executor' = ?)", [$executor]);
+            } else {
+                $q->whereRaw("payload->>'executor' = ?", [$executor]);
+            }
+
+            return;
+        }
+
         // mysql / mariadb
         if ($allowNull) {
             $q->whereRaw("(JSON_EXTRACT(payload, '$.executor') IS NULL OR JSON_UNQUOTE(JSON_EXTRACT(payload, '$.executor')) = ?)", [$executor]);

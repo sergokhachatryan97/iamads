@@ -24,9 +24,12 @@ class TelegramStatsController extends Controller
 
     private function yearMonthExpr(string $column): string
     {
-        return DB::connection()->getDriverName() === 'sqlite'
-            ? "strftime('%Y-%m', {$column})"
-            : "DATE_FORMAT({$column}, '%Y-%m')";
+        $driver = DB::connection()->getDriverName();
+        return match ($driver) {
+            'sqlite' => "strftime('%Y-%m', {$column})",
+            'pgsql'  => "TO_CHAR({$column}, 'YYYY-MM')",
+            default  => "DATE_FORMAT({$column}, '%Y-%m')",
+        };
     }
 
     public function index(Request $request): View

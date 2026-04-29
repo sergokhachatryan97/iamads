@@ -75,7 +75,7 @@ class OrderController extends Controller
             if (is_numeric($orderId)) {
                 $query->where('id', (int) $orderId);
             } else {
-                $query->whereRaw('CAST(id AS CHAR) LIKE ?', ['%'.addcslashes($orderId, '%_\\').'%']);
+                $query->whereRaw('CAST(id AS TEXT) LIKE ?', ['%'.addcslashes($orderId, '%_\\').'%']);
             }
         }
 
@@ -133,7 +133,7 @@ class OrderController extends Controller
             if (is_numeric($orderId)) {
                 $countQuery->where('id', (int) $orderId);
             } else {
-                $countQuery->whereRaw('CAST(id AS CHAR) LIKE ?', ['%'.addcslashes($orderId, '%_\\').'%']);
+                $countQuery->whereRaw('CAST(id AS TEXT) LIKE ?', ['%'.addcslashes($orderId, '%_\\').'%']);
             }
         }
         if ($request->filled('date_from')) {

@@ -79,9 +79,12 @@ class DashboardController extends Controller
 
         // Single query for 6-month chart (was 6 separate queries)
         $sixMonthsAgo = now()->subMonths(5)->startOfMonth();
-        $monthExpr = DB::connection()->getDriverName() === 'sqlite'
-            ? "strftime('%Y-%m', created_at)"
-            : "DATE_FORMAT(created_at, '%Y-%m')";
+        $driver = DB::connection()->getDriverName();
+        $monthExpr = match ($driver) {
+            'sqlite' => "strftime('%Y-%m', created_at)",
+            'pgsql'  => "TO_CHAR(created_at, 'YYYY-MM')",
+            default  => "DATE_FORMAT(created_at, '%Y-%m')",
+        };
 
         $monthlyCounts = DB::table('orders')
             ->where('client_id', $clientId)

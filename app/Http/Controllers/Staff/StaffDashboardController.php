@@ -114,7 +114,7 @@ class StaffDashboardController extends Controller
                 ->where('p.status', 'paid')
                 ->whereNotNull('p.paid_at')
                 ->whereBetween('p.paid_at', [$rangeStart, $rangeEnd])
-                ->selectRaw("{$paymentsGroupExpr} as period, SUM(p.amount) as total_amount")
+                ->selectRaw("{$paymentsGroupExpr} as period, SUM(CAST(p.amount AS NUMERIC)) as total_amount")
                 ->groupByRaw($paymentsGroupExpr)
                 ->pluck('total_amount', 'period');
 
@@ -409,7 +409,7 @@ class StaffDashboardController extends Controller
             ->whereNotNull('p.paid_at')
             ->whereBetween('p.paid_at', [$rangeStart, $rangeEnd])
             ->whereIn('c.staff_id', $staffIds)
-            ->selectRaw('c.staff_id, SUM(p.amount) as total_payments')
+            ->selectRaw('c.staff_id, SUM(CAST(p.amount AS NUMERIC)) as total_payments')
             ->groupBy('c.staff_id')
             ->pluck('total_payments', 'staff_id');
 
@@ -640,8 +640,11 @@ class StaffDashboardController extends Controller
 
     private function yearMonthExpr(string $column): string
     {
-        return DB::connection()->getDriverName() === 'sqlite'
-            ? "strftime('%Y-%m', {$column})"
-            : "DATE_FORMAT({$column}, '%Y-%m')";
+        $driver = DB::connection()->getDriverName();
+        return match ($driver) {
+            'sqlite' => "strftime('%Y-%m', {$column})",
+            'pgsql'  => "TO_CHAR({$column}, 'YYYY-MM')",
+            default  => "DATE_FORMAT({$column}, '%Y-%m')",
+        };
     }
 }

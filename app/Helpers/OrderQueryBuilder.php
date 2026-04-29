@@ -75,7 +75,7 @@ class OrderQueryBuilder
             if (is_numeric($orderId)) {
                 $query->where('id', (int) $orderId);
             } else {
-                $query->whereRaw('CAST(id AS CHAR) LIKE ?', ['%' . addcslashes($orderId, '%_\\') . '%']);
+                $query->whereRaw('CAST(id AS TEXT) LIKE ?', ['%' . addcslashes($orderId, '%_\\') . '%']);
             }
         }
 

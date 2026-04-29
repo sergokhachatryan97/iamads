@@ -452,6 +452,9 @@ class OrderStatsController extends Controller
         if ($driver === 'sqlite') {
             return $byHour ? "strftime('%Y-%m-%d %H:00', created_at)" : "date(created_at)";
         }
+        if ($driver === 'pgsql') {
+            return $byHour ? "TO_CHAR(created_at, 'YYYY-MM-DD HH24:00')" : "DATE(created_at)";
+        }
         return $byHour ? "DATE_FORMAT(created_at, '%Y-%m-%d %H:00')" : "DATE(created_at)";
     }
 
