@@ -2,6 +2,9 @@
 .DS_Store
 Thumbs.db
 
+# Go TelegramInspector (deployed separately)
+/TelegramInspector/
+
 .env
 .env.*
 auth.json
