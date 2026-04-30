@@ -47,14 +47,14 @@
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{{ __('ID') }}</th>
+                                    <x-table-sortable-header column="id" :label="__('ID')" :currentSortBy="$sortBy" :currentSortDir="$sortDir" class="px-4 py-2" />
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{{ __('Order ID') }}</th>
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{{ __('Client') }}</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{{ __('Provider') }}</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{{ __('Amount') }}</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{{ __('Status') }}</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{{ __('Paid At') }}</th>
-                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{{ __('Created') }}</th>
+                                    <x-table-sortable-header column="provider" :label="__('Provider')" :currentSortBy="$sortBy" :currentSortDir="$sortDir" class="px-4 py-2" />
+                                    <x-table-sortable-header column="amount" :label="__('Amount')" :currentSortBy="$sortBy" :currentSortDir="$sortDir" class="px-4 py-2" />
+                                    <x-table-sortable-header column="status" :label="__('Status')" :currentSortBy="$sortBy" :currentSortDir="$sortDir" class="px-4 py-2" />
+                                    <x-table-sortable-header column="paid_at" :label="__('Paid At')" :currentSortBy="$sortBy" :currentSortDir="$sortDir" class="px-4 py-2" />
+                                    <x-table-sortable-header column="created_at" :label="__('Created')" :currentSortBy="$sortBy" :currentSortDir="$sortDir" class="px-4 py-2" />
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{{ __('Actions') }}</th>
                                 </tr>
                             </thead>

@@ -47,20 +47,26 @@ Returns all active services available for ordering. Services are listed with IDs
   {
     "service": 1,
     "name": "YouTube Views",
-    "category": "YouTube",
     "type": "Default",
-    "rate": "1.20",
+    "category": "YouTube",
+    "rate": "1.2000",
     "min": "100",
-    "max": "10000"
+    "max": "10000",
+    "dripfeed": false,
+    "refill": false,
+    "cancel": true
   },
   {
     "service": 2,
     "name": "Telegram Members",
-    "category": "Telegram",
     "type": "Default",
-    "rate": "2.50",
+    "category": "Telegram",
+    "rate": "2.5000",
     "min": "50",
-    "max": "5000"
+    "max": "5000",
+    "dripfeed": true,
+    "refill": false,
+    "cancel": false
   }
 ]
 ```
@@ -69,11 +75,14 @@ Returns all active services available for ordering. Services are listed with IDs
 |----------|--------|--------------------------------------|
 | service  | int    | Service ID (use this in the add action) |
 | name     | string | Service name                         |
-| category | string | Category name                        |
 | type     | string | Always `"Default"`                   |
+| category | string | Category name                        |
 | rate     | string | Price per 1000 units in USD          |
 | min      | string | Minimum quantity                     |
 | max      | string | Maximum quantity (`"0"` = no limit)  |
+| dripfeed | bool   | Whether drip-feed is supported       |
+| refill   | bool   | Whether refill is supported          |
+| cancel   | bool   | Whether cancel is supported          |
 
 ---
 

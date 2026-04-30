@@ -42,11 +42,14 @@ class ProviderApiService
                 $services[] = [
                     'service' => (int) $service->id,
                     'name' => $service->name,
-                    'category' => $category->name,
                     'type' => $type,
-                    'rate' => number_format($rate, 2, '.', ''),
+                    'category' => $category->name,
+                    'rate' => number_format($rate, 4, '.', ''),
                     'min' => (string) ($service->min_quantity ?? 1),
                     'max' => $service->max_quantity !== null ? (string) $service->max_quantity : '0',
+                    'dripfeed' => $service->dripfeed_enabled,
+                    'refill' => $service->refill_enabled ?? false,
+                    'cancel' => $service->user_can_cancel ?? false,
                 ];
             }
         }

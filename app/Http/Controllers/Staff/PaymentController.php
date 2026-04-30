@@ -28,8 +28,7 @@ class PaymentController extends Controller
     public function index(Request $request): View
     {
         $query = Payment::query()
-            ->with('client:id,name,email')
-            ->orderByDesc('created_at');
+            ->with('client:id,name,email');
 
         $currentUser = Auth::guard('staff')->user();
         if ($currentUser && !$currentUser->canAccessAllClients()) {
@@ -46,12 +45,29 @@ class PaymentController extends Controller
             $query->where('provider', $request->provider);
         }
 
+        // Sorting
+        $sortBy = $request->get('sort_by', 'created_at');
+        $sortDir = $request->get('sort_dir', 'desc');
+
+        if (!in_array($sortDir, ['asc', 'desc'])) {
+            $sortDir = 'desc';
+        }
+
+        $allowedSortColumns = ['id', 'created_at', 'amount', 'status', 'paid_at', 'provider'];
+        if (!in_array($sortBy, $allowedSortColumns)) {
+            $sortBy = 'created_at';
+        }
+
+        $query->orderBy($sortBy, $sortDir);
+
         $payments = $query->paginate(25)->withQueryString();
         $statuses = array_map(fn (PaymentStatus $s) => $s->value, PaymentStatus::cases());
 
         return view('staff.payments.index', [
             'payments' => $payments,
             'statuses' => $statuses,
+            'sortBy' => $sortBy,
+            'sortDir' => $sortDir,
         ]);
     }
 
