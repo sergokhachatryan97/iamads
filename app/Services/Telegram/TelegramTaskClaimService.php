@@ -33,6 +33,9 @@ class TelegramTaskClaimService
 
     private const LEASE_TTL_SECONDS = 90;
 
+    /** Global cooldown per phone — after any successful claim, block for 1 hour. */
+    private const GLOBAL_COOLDOWN_SECONDS = 3600;
+
 
     private const PHONE_ACTIVE_SUBSCRIBED_CAP = 500;
 
@@ -103,6 +106,11 @@ class TelegramTaskClaimService
         $phone = TelegramAccountLinkState::normalizePhone($phone);
         $tasks = [];
 
+        // === GATE 0: Global per-phone cooldown (1 hour) ===
+        if ($this->isGlobalCooldownActive($phone)) {
+            return $tasks;
+        }
+
         // === GATE 1: Global concurrency semaphore ===
         // Reject if too many claims are in flight across all claim services
         // (Telegram + YouTube + App). Prevents max_user_connections.
@@ -135,6 +143,10 @@ class TelegramTaskClaimService
                     break;
                 }
                 $tasks[] = $taskDto;
+            }
+
+            if (! empty($tasks)) {
+                $this->setGlobalCooldown($phone);
             }
         } finally {
             try {
@@ -1030,6 +1042,23 @@ LUA;
         }
     }
 
+    private function isGlobalCooldownActive(string $phone): bool
+    {
+        try {
+            return (bool) Redis::exists("tg:phone:global_cooldown:{$phone}");
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    private function setGlobalCooldown(string $phone): void
+    {
+        try {
+            Redis::setex("tg:phone:global_cooldown:{$phone}", self::GLOBAL_COOLDOWN_SECONDS, 1);
+        } catch (\Throwable) {
+        }
+    }
+
     private function rollbackCapAndCooldown(string $phone, string $scope, string $action, int $cooldownSeconds): void
     {
         $this->rollbackPhoneDailyCap($phone, $scope, $action);
@@ -1129,6 +1158,11 @@ LUA;
     {
         $phone = TelegramAccountLinkState::normalizePhone($phone);
 
+        // Global per-phone cooldown (1 hour)
+        if ($this->isGlobalCooldownActive($phone)) {
+            return null;
+        }
+
         // Early gates BEFORE touching the queue — reject blocked phones without
         // consuming a queue slot. Uses 'subscribe' as the default action because
         // ~99% of tasks are subscribes; for the rare non-subscribe task the
@@ -1205,6 +1239,7 @@ LUA;
             }
 
             if ($result !== null) {
+                $this->setGlobalCooldown($phone);
                 return $result;
             }
             // Stale / race-lost — try next ID from queue
