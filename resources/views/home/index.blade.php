@@ -930,9 +930,9 @@ function updatePrice() {
     const svc = cat ? cat.services.find(s => s.id === state.serviceId) : null;
     const qty = parseInt(document.getElementById('orderQty').value) || 0;
     const total = svc ? (qty / 1000 * svc.pricePer1000) : 0;
-    document.getElementById('priceTotal').textContent = '$' + total.toFixed(2);
+    document.getElementById('priceTotal').textContent = '$' + total;
     document.getElementById('priceBreakdown').textContent = svc
-        ? HOME_I18N.priceBreakdown.replace(':price', '$' + svc.pricePer1000.toFixed(2)).replace(':qty', qty.toLocaleString())
+        ? HOME_I18N.priceBreakdown.replace(':price', '$' + svc.pricePer1000).replace(':qty', qty.toLocaleString())
         : '—';
     validate();
 }
