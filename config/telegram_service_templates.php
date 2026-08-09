@@ -31,7 +31,7 @@ return [
     ],
 
     'premium_live_time_subscribe_public_private_group_channel' => [
-        'label' => 'Premium: Live Time Public/Private Group/Channel Subscribe',
+        'label' => 'Premium: Life Time Public/Private Group/Channel Subscribe',
         'action' => 'subscribe',
         'policy_key' => 'default',
         'allowed_link_kinds' => ['public_username', 'invite'],
@@ -135,7 +135,7 @@ return [
     // SUBSCRIBE - PUBLIC CHANNEL (FAST)  -> policy_key=sub_public
     // ------------------------------------------------------------
     'channel_subscribe' => [
-        'label' => 'Channel Subscribe (Public/Private, Live time)',
+        'label' => 'Channel Subscribe (Public/Private, Life time)',
         'action' => 'subscribe',
         'policy_key' => 'default',
         'allowed_link_kinds' => ['public_username', 'invite'],
@@ -149,7 +149,7 @@ return [
     ],
 
     'channel_subscribe_private_public' => [
-        'label' => 'Subscribe Private, Public TG Channel Live Time',
+        'label' => 'Subscribe Private, Public TG Channel Life Time',
         'action' => 'subscribe',
         'policy_key' => 'default',
         'allowed_link_kinds' => ['public_username', 'invite'],
@@ -163,7 +163,7 @@ return [
     ],
 
     'real_channel_subscribe_from_search' => [
-        'label' => 'Real TG Channel Subscribe From Search Live Time',
+        'label' => 'Real TG Channel Subscribe From Search Life Time',
         'action' => 'subscribe',
         'policy_key' => 'default',
         'allowed_link_kinds' => ['public_username'],
