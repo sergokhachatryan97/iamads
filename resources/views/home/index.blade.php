@@ -48,8 +48,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="icon" type="image/png" href="{{ asset('images/adtag_fav.png') }}">
-    <link rel="apple-touch-icon" href="{{ asset('images/adtag_fav.png') }}">
+    <link rel="icon" type="image/png" href="{{ asset('images/new-logo.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('images/new-logo.png') }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <x-heleket-site-verification />
@@ -492,7 +492,7 @@
 <nav class="navbar">
     <div class="navbar-inner">
       <a href="/" class="logo">
-        <img src="{{ asset('images/adtag_fav.png') }}" alt="{{ config('app.name', 'SMM Tool') }}" class="logo-mark">
+        <img src="{{ asset('images/new-logo.png') }}" alt="{{ config('app.name', 'SMM Tool') }}" class="logo-mark">
         <span class="logo-slogan">Social Media Growth Tool</span>
       </a>
       <ul class="nav-links">
@@ -521,7 +521,7 @@
 <div class="mobile-menu" id="mobileMenu">
     <div class="mobile-menu-header">
         <a href="/" class="logo" style="text-decoration:none;">
-            <img src="{{ asset('images/adtag_fav.png') }}" alt="{{ config('app.name') }}" style="height:32px;width:auto;">
+            <img src="{{ asset('images/new-logo.png') }}" alt="{{ config('app.name') }}" style="height:32px;width:auto;">
         </a>
         <button class="mobile-menu-close" onclick="closeMobileMenu()"><i class="fa-solid fa-xmark"></i></button>
     </div>
@@ -704,7 +704,7 @@
       <div class="footer-grid">
         <div class="footer-brand">
           <a href="/" class="logo">
-            <img src="{{ asset('images/adtag_fav.png') }}" alt="{{ config('app.name', 'SMM Tool') }}" class="logo-mark" style="height:44px;width:auto">
+            <img src="{{ asset('images/new-logo.png') }}" alt="{{ config('app.name', 'SMM Tool') }}" class="logo-mark" style="height:44px;width:auto">
             <span class="logo-slogan">Social Media Growth Tool</span>
           </a>
           <p>{{ __('home.footer_brand_blurb') }}</p>

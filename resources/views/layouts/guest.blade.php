@@ -52,8 +52,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="icon" type="image/png" href="{{ asset('images/adtag_fav.png') }}">
-    <link rel="apple-touch-icon" href="{{ asset('images/adtag_fav.png') }}">
+    <link rel="icon" type="image/png" href="{{ asset('images/new-logo.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('images/new-logo.png') }}">
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
@@ -298,7 +298,7 @@
 
         @media (max-width: 768px) {
             .landing-logo-sub { display: none; }
-            .landing-logo-mark { height: 28px; }
+            .landing-logo-mark { height: 35px; }
             .landing-navbar { padding: 0 12px; }
             .landing-navbar-inner { height: 48px; gap: 8px; }
             .landing-nav-home { display: none; }
@@ -417,8 +417,8 @@
     <nav class="landing-navbar">
         <div class="landing-navbar-inner">
             <a href="{{ route('home') }}" class="landing-logo" style="display:flex;flex-direction:column;align-items:center;gap:4px;text-decoration:none;">
-                <img src="{{ asset('images/adtag_fav.png') }}" alt="{{ config('app.name', 'SMM Tool') }}" class="landing-logo-mark">
-                <span class="landing-logo-sub" style="font-size:10px;color:#8892a4;white-space:nowrap;">Social Media Growth Tool</span>
+                <img src="{{ asset('images/new-logo.png') }}" alt="{{ config('app.name', 'SMM Tool') }}" class="landing-logo-mark">
+{{--                <span class="landing-logo-sub" style="font-size:10px;color:#8892a4;white-space:nowrap;">Social Media Growth Tool</span>--}}
             </a>
             <div class="landing-navbar-spacer" aria-hidden="true"></div>
             <a href="{{ route('home') }}" class="landing-nav-home">{{ __('Back to home') }}</a>

@@ -76,8 +76,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="icon" type="image/png" href="{{ asset('images/adtag_fav.png') }}">
-    <link rel="apple-touch-icon" href="{{ asset('images/adtag_fav.png') }}">
+    <link rel="icon" type="image/png" href="{{ asset('images/new-logo.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('images/new-logo.png') }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>
         :root { --radius: 12px; --sidebar-w: 260px; }
@@ -771,7 +771,7 @@
         @unless($hideSidebar)
         <aside class="smm-dash-sidebar" :class="{ 'open': sidebarOpen }">
             <a href="{{ route('dashboard') }}" class="smm-dash-brand" @click="sidebarOpen = false">
-                <img src="{{ asset('images/adtag_fav.png') }}" alt="{{ config('app.name', 'SMM Tool') }}" class="smm-dash-brand-mark">
+                <img src="{{ asset('images/new-logo.png') }}" alt="{{ config('app.name', 'SMM Tool') }}" class="smm-dash-brand-mark">
                 <div class="smm-dash-brand-sub">Social Media Growth Tool</div>
             </a>
             <nav class="smm-dash-nav">

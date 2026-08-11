@@ -49,8 +49,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <link rel="icon" type="image/png" href="{{ asset('images/adtag_fav.png') }}">
-    <link rel="apple-touch-icon" href="{{ asset('images/adtag_fav.png') }}">
+    <link rel="icon" type="image/png" href="{{ asset('images/new-logo.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('images/new-logo.png') }}">
     <style>
         :root { --radius: 14px; }
         [data-theme="dark"] {
@@ -155,7 +155,7 @@
 <nav class="navbar">
     <div class="navbar-inner">
         <a href="{{ route('home') }}" class="logo" style="text-decoration:none;">
-            <img src="{{ asset('images/adtag_fav.png') }}" alt="{{ config('contact.company_name') }}" class="logo-mark">
+            <img src="{{ asset('images/new-logo.png') }}" alt="{{ config('contact.company_name') }}" class="logo-mark">
             <span class="logo-slogan" style="font-size:10px;color:#8892a4;white-space:nowrap;">Social Media Growth Tool</span>
         </a>
         <ul class="nav-links">

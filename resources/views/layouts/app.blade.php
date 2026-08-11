@@ -53,8 +53,8 @@
 
         <title>{{ config('app.name', 'Laravel') }}</title>
 
-        <link rel="icon" type="image/png" href="{{ asset('images/adtag_fav.png') }}">
-        <link rel="apple-touch-icon" href="{{ asset('images/adtag_fav.png') }}">
+        <link rel="icon" type="image/png" href="{{ asset('images/new-logo.png') }}">
+        <link rel="apple-touch-icon" href="{{ asset('images/new-logo.png') }}">
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
