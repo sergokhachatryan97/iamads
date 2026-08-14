@@ -69,16 +69,16 @@
             padding: 11px 22px;
             border-radius: 10px;
             border: none;
-            background: var(--purple);
+            background: linear-gradient(90deg, var(--cyan), var(--blue), var(--purple));
             color: #fff !important;
             font-size: 14px;
             font-weight: 700;
             font-family: inherit;
             cursor: pointer;
-            box-shadow: 0 4px 16px rgba(108, 92, 231, 0.35);
+            box-shadow: 0 4px 16px rgba(139, 92, 246, 0.35);
             transition: filter 0.15s;
         }
-        .settings-btn:hover { filter: brightness(1.06); }
+        .settings-btn:hover { filter: brightness(1.08); }
         .settings-hint { font-size: 12px; color: var(--text3); margin-top: 6px; line-height: 1.4; }
         .settings-alert {
             padding: 14px 16px;

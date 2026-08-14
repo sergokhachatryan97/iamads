@@ -65,11 +65,11 @@
         }
         .api-doc-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .api-doc-btn-purple {
-            background: var(--purple, #6c5ce7);
+            background: linear-gradient(90deg, var(--cyan), var(--blue), var(--purple));
             color: #fff !important;
-            box-shadow: 0 4px 14px rgba(108, 92, 231, 0.35);
+            box-shadow: 0 4px 14px rgba(139, 92, 246, 0.4);
         }
-        .api-doc-btn-purple:hover:not(:disabled) { filter: brightness(1.06); }
+        .api-doc-btn-purple:hover:not(:disabled) { filter: brightness(1.08); }
         .api-doc-base-url {
             margin-top: 14px;
             font-size: 13px;
@@ -80,8 +80,8 @@
             margin-top: 6px;
             padding: 6px 12px;
             border-radius: 8px;
-            background: rgba(108, 92, 231, 0.15);
-            border: 1px solid rgba(108, 92, 231, 0.3);
+            background: rgba(139, 92, 246, 0.15);
+            border: 1px solid rgba(139, 92, 246, 0.3);
             color: var(--teal);
             font-family: ui-monospace, monospace;
             font-size: 12px;
@@ -102,7 +102,7 @@
             font-size: 11px;
             font-weight: 800;
             letter-spacing: 0.06em;
-            background: rgba(0, 210, 211, 0.2);
+            background: rgba(6, 182, 212, 0.2);
             color: var(--teal);
             margin-right: 10px;
             vertical-align: middle;

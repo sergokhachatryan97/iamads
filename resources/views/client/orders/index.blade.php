@@ -60,11 +60,11 @@
             color: var(--text2) !important;
         }
         .client-orders-table-wrap .order-source-web {
-            background: rgba(108, 92, 231, 0.2) !important;
+            background: rgba(139, 92, 246, 0.2) !important;
             color: var(--purple-light) !important;
         }
         [data-theme="light"] .client-orders-table-wrap .order-source-web {
-            background: rgba(108, 92, 231, 0.12) !important;
+            background: rgba(139, 92, 246, 0.12) !important;
             color: var(--purple-dark) !important;
         }
         .client-orders-table-wrap .order-source-staff {
@@ -142,16 +142,16 @@
             justify-content: center;
         }
         .client-orders-table-wrap .co-actions-btn-icon:hover {
-            background: rgba(108, 92, 231, 0.12) !important;
+            background: rgba(139, 92, 246, 0.12) !important;
             color: var(--purple-light) !important;
-            border-color: rgba(108, 92, 231, 0.35) !important;
+            border-color: rgba(139, 92, 246, 0.35) !important;
         }
         [data-theme="light"] .client-orders-table-wrap .co-actions-btn-icon {
             background: #fff !important;
             color: var(--text2) !important;
         }
         [data-theme="light"] .client-orders-table-wrap .co-actions-btn-icon:hover {
-            background: rgba(108, 92, 231, 0.08) !important;
+            background: rgba(139, 92, 246, 0.08) !important;
         }
         .client-orders-table-wrap .co-th-actions {
             width: 52px;
@@ -180,16 +180,16 @@
             background: #fff !important;
         }
         .client-orders-table-wrap #client-orders-table .hover\:bg-gray-50:hover:not(:disabled) {
-            background: rgba(108, 92, 231, 0.1) !important;
+            background: rgba(139, 92, 246, 0.1) !important;
         }
         [data-theme="light"] .client-orders-table-wrap #client-orders-table .hover\:bg-gray-50:hover:not(:disabled) {
             background: rgba(0, 0, 0, 0.04) !important;
         }
         .client-orders-table-wrap #client-orders-table .bg-indigo-50 {
-            background: rgba(108, 92, 231, 0.15) !important;
+            background: rgba(139, 92, 246, 0.15) !important;
         }
         .client-orders-table-wrap .hover\:bg-gray-100:hover {
-            background: rgba(108, 92, 231, 0.12) !important;
+            background: rgba(139, 92, 246, 0.12) !important;
         }
         [data-theme="light"] .client-orders-table-wrap .hover\:bg-gray-100:hover {
             background: rgba(0, 0, 0, 0.06) !important;
@@ -212,7 +212,7 @@
             color: var(--text2) !important;
         }
         .client-orders-empty-card .co-empty-outline:hover {
-            background: rgba(108, 92, 231, 0.12) !important;
+            background: rgba(139, 92, 246, 0.12) !important;
         }
         [data-theme="light"] .client-orders-empty-card .co-empty-outline {
             background: #fff !important;
@@ -236,9 +236,9 @@
             letter-spacing: 0.05em;
             text-decoration: none;
             border: none;
-            background: linear-gradient(135deg, var(--purple), var(--teal));
+            background: linear-gradient(90deg, var(--cyan), var(--blue), var(--purple));
             color: #fff !important;
-            box-shadow: 0 4px 14px rgba(108, 92, 231, 0.35);
+            box-shadow: 0 4px 14px rgba(139, 92, 246, 0.4);
             transition: filter 0.15s ease, transform 0.15s ease;
         }
         .client-orders-empty-card .co-empty-primary:hover {
@@ -264,14 +264,14 @@
             border: 1px solid var(--border);
         }
         .client-orders-filter-panel .co-filter-toggle-idle:hover {
-            background: rgba(108, 92, 231, 0.15) !important;
+            background: rgba(139, 92, 246, 0.15) !important;
             color: var(--text) !important;
         }
         [data-theme="light"] .client-orders-filter-panel .co-filter-toggle-idle {
             background: rgba(0, 0, 0, 0.05) !important;
         }
         .client-orders-filter-panel .co-filter-toggle-active {
-            background: var(--purple) !important;
+            background: linear-gradient(135deg, var(--cyan), var(--blue), var(--purple)) !important;
             color: #fff !important;
             border: 1px solid var(--purple);
         }
@@ -281,10 +281,10 @@
         }
         .client-orders-filter-panel .co-filter-tab-idle:hover {
             color: var(--text) !important;
-            background: rgba(108, 92, 231, 0.1) !important;
+            background: rgba(139, 92, 246, 0.1) !important;
         }
         .client-orders-filter-panel .co-filter-tab-active {
-            background: var(--purple) !important;
+            background: linear-gradient(90deg, var(--cyan), var(--blue), var(--purple)) !important;
             color: #fff !important;
             border-color: var(--purple) !important;
         }
@@ -318,7 +318,7 @@
             color: var(--text3) !important;
         }
         .client-orders-filter-panel .co-filter-search-clear:hover {
-            background: rgba(108, 92, 231, 0.15) !important;
+            background: rgba(139, 92, 246, 0.15) !important;
             color: var(--text) !important;
         }
         .client-orders-filter-panel .co-filter-advanced {
@@ -336,7 +336,7 @@
             background: var(--card2) !important;
         }
         .client-orders-filter-panel .co-filter-apply {
-            background: var(--purple) !important;
+            background: linear-gradient(90deg, var(--cyan), var(--blue), var(--purple)) !important;
             border: 1px solid var(--purple) !important;
             color: #fff !important;
             box-sizing: border-box;
@@ -351,7 +351,7 @@
             box-sizing: border-box;
         }
         .client-orders-filter-panel .co-filter-reset:hover {
-            background: rgba(108, 92, 231, 0.12) !important;
+            background: rgba(139, 92, 246, 0.12) !important;
             color: var(--text) !important;
         }
         [data-theme="light"] .client-orders-filter-panel .co-filter-reset {
@@ -395,7 +395,7 @@
         }
         .client-orders-table-wrap .co-order-dropdown-action:hover,
         .client-orders-table-wrap .co-order-dropdown-action:focus {
-            background: rgba(108, 92, 231, 0.14) !important;
+            background: rgba(139, 92, 246, 0.14) !important;
             color: var(--text) !important;
         }
         .client-orders-table-wrap .co-order-dropdown-action-danger {
@@ -438,7 +438,7 @@
         }
         .co-bulk-wrap .co-bulk-dropdown-panel .co-order-dropdown-action:hover,
         .co-bulk-wrap .co-bulk-dropdown-panel .co-order-dropdown-action:focus {
-            background: rgba(108, 92, 231, 0.14) !important;
+            background: rgba(139, 92, 246, 0.14) !important;
             color: var(--text) !important;
         }
         .co-bulk-wrap .co-bulk-dropdown-panel .co-order-dropdown-action-danger {
@@ -520,7 +520,7 @@
         }
         #client-order-modals-root .client-smm-modal-panel .hover\:bg-gray-50:hover,
         .client-orders-table-wrap .client-smm-modal-panel .hover\:bg-gray-50:hover {
-            background: rgba(108, 92, 231, 0.12) !important;
+            background: rgba(139, 92, 246, 0.12) !important;
         }
         [data-theme="light"] #client-order-modals-root .client-smm-modal-panel .hover\:bg-gray-50:hover,
         [data-theme="light"] .client-orders-table-wrap .client-smm-modal-panel .hover\:bg-gray-50:hover {
@@ -630,14 +630,14 @@
             padding: 0 12px;
             border-radius: 8px;
             border: 1px solid var(--border);
-            background: rgba(108, 92, 231, 0.15);
+            background: rgba(139, 92, 246, 0.15);
             color: var(--purple-light);
             font-size: 12px;
             font-weight: 600;
             cursor: pointer;
         }
         .fo-cred-copy:hover {
-            background: rgba(108, 92, 231, 0.25);
+            background: rgba(139, 92, 246, 0.25);
         }
         .fo-cred-dismiss {
             margin-top: 18px;

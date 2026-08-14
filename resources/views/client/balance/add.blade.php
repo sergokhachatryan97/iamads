@@ -16,8 +16,8 @@
         .add-funds-balance-box {
             padding: 18px 20px;
             border-radius: 14px;
-            border: 1px solid rgba(0, 210, 211, 0.35);
-            background: rgba(0, 210, 211, 0.06);
+            border: 1px solid rgba(6, 182, 212, 0.35);
+            background: rgba(6, 182, 212, 0.06);
             margin-bottom: 26px;
         }
         .add-funds-balance-label { font-size: 13px; font-weight: 500; color: var(--text3); margin-bottom: 6px; }
@@ -72,8 +72,8 @@
             transition: background 0.15s, border-color 0.15s;
         }
         .add-funds-preset:hover {
-            border-color: rgba(108, 92, 231, 0.45);
-            background: rgba(108, 92, 231, 0.12);
+            border-color: rgba(139, 92, 246, 0.45);
+            background: rgba(139, 92, 246, 0.12);
         }
         .add-funds-pay-label { margin-bottom: 12px; }
         .add-funds-method {
@@ -105,7 +105,7 @@
             padding: 16px 20px;
             border: none;
             border-radius: 14px;
-            background: var(--purple);
+            background: linear-gradient(90deg, var(--cyan), var(--blue), var(--purple));
             color: #fff !important;
             font-size: 15px;
             font-weight: 700;
@@ -115,10 +115,10 @@
             align-items: center;
             justify-content: center;
             gap: 10px;
-            box-shadow: 0 6px 24px rgba(108, 92, 231, 0.45);
+            box-shadow: 0 6px 24px rgba(139, 92, 246, 0.45);
             transition: filter 0.15s, transform 0.15s;
         }
-        .add-funds-submit:hover:not(:disabled) { filter: brightness(1.06); transform: translateY(-1px); }
+        .add-funds-submit:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
         .add-funds-submit:disabled { opacity: 0.5; cursor: not-allowed; }
         .add-funds-alert {
             padding: 14px 16px;
@@ -127,7 +127,7 @@
             font-size: 14px;
             border: 1px solid var(--border);
         }
-        .add-funds-alert.info { background: rgba(108, 92, 231, 0.12); border-color: rgba(108, 92, 231, 0.35); color: var(--purple-light); }
+        .add-funds-alert.info { background: rgba(139, 92, 246, 0.12); border-color: rgba(139, 92, 246, 0.35); color: var(--purple-light); }
         .add-funds-alert.ok { background: rgba(0, 184, 148, 0.12); border-color: rgba(0, 184, 148, 0.35); color: #00d9a5; }
         .add-funds-alert.warn { background: rgba(253, 203, 110, 0.12); border-color: rgba(253, 203, 110, 0.35); color: #fdcb6e; }
         .add-funds-alert.neutral { background: var(--card2); color: var(--text2); }

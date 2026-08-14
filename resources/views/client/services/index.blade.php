@@ -38,14 +38,14 @@
             border: 1px solid var(--border);
         }
         .client-services-page .client-orders-filter-panel .co-filter-toggle-idle:hover {
-            background: rgba(108, 92, 231, 0.15) !important;
+            background: rgba(139, 92, 246, 0.15) !important;
             color: var(--text) !important;
         }
         [data-theme="light"] .client-services-page .client-orders-filter-panel .co-filter-toggle-idle {
             background: rgba(0, 0, 0, 0.05) !important;
         }
         .client-services-page .client-orders-filter-panel .co-filter-toggle-active {
-            background: var(--purple) !important;
+            background: linear-gradient(135deg, var(--cyan), var(--blue), var(--purple)) !important;
             color: #fff !important;
             border: 1px solid var(--purple);
         }
@@ -55,10 +55,10 @@
         }
         .client-services-page .client-orders-filter-panel .co-filter-tab-idle:hover {
             color: var(--text) !important;
-            background: rgba(108, 92, 231, 0.1) !important;
+            background: rgba(139, 92, 246, 0.1) !important;
         }
         .client-services-page .client-orders-filter-panel .co-filter-tab-active {
-            background: var(--purple) !important;
+            background: linear-gradient(90deg, var(--cyan), var(--blue), var(--purple)) !important;
             color: #fff !important;
             border-color: var(--purple) !important;
         }
@@ -92,7 +92,7 @@
             color: var(--text3) !important;
         }
         .client-services-page .client-orders-filter-panel .co-filter-search-clear:hover {
-            background: rgba(108, 92, 231, 0.15) !important;
+            background: rgba(139, 92, 246, 0.15) !important;
             color: var(--text) !important;
         }
         .client-services-page .client-orders-filter-panel .co-filter-advanced {
@@ -110,7 +110,7 @@
             background: var(--card2) !important;
         }
         .client-services-page .client-orders-filter-panel .co-filter-apply {
-            background: var(--purple) !important;
+            background: linear-gradient(90deg, var(--cyan), var(--blue), var(--purple)) !important;
             border: 1px solid var(--purple) !important;
             color: #fff !important;
             box-sizing: border-box;
@@ -125,7 +125,7 @@
             box-sizing: border-box;
         }
         .client-services-page .client-orders-filter-panel .co-filter-reset:hover {
-            background: rgba(108, 92, 231, 0.12) !important;
+            background: rgba(139, 92, 246, 0.12) !important;
             color: var(--text) !important;
         }
         [data-theme="light"] .client-services-page .client-orders-filter-panel .co-filter-reset {
@@ -208,13 +208,13 @@
             color: var(--text3) !important;
         }
         .client-services-table-wrap tbody tr.hover\:bg-gray-50:hover {
-            background: rgba(108, 92, 231, 0.08) !important;
+            background: rgba(139, 92, 246, 0.08) !important;
         }
         [data-theme="light"] .client-services-table-wrap tbody tr.hover\:bg-gray-50:hover {
             background: rgba(0, 0, 0, 0.04) !important;
         }
         .client-services-table-wrap .hover\:bg-gray-100:hover {
-            background: rgba(108, 92, 231, 0.12) !important;
+            background: rgba(139, 92, 246, 0.12) !important;
         }
         .client-services-table-wrap .text-indigo-600 {
             color: var(--purple-light) !important;
@@ -223,7 +223,7 @@
             border-color: var(--purple) !important;
         }
         .client-services-table-wrap .hover\:bg-indigo-50:hover {
-            background: rgba(108, 92, 231, 0.15) !important;
+            background: rgba(139, 92, 246, 0.15) !important;
         }
 
         #client-service-modals-root .client-smm-modal-backdrop {
@@ -235,12 +235,18 @@
         #client-service-modals-root .client-smm-modal-panel {
             background: var(--card) !important;
             color: var(--text);
+            border-top: 3px solid transparent !important;
+            border-image: linear-gradient(90deg, var(--cyan), var(--blue), var(--purple)) 1 !important;
         }
-        #client-service-modals-root .client-smm-modal-panel .text-gray-900,
-        #client-service-modals-root .client-smm-modal-panel .text-gray-700,
-        #client-service-modals-root .client-smm-modal-panel .text-gray-600,
-        #client-service-modals-root .client-smm-modal-panel .text-gray-500 {
+        #client-service-modals-root .client-smm-modal-panel .text-gray-900 {
             color: var(--text) !important;
+        }
+        #client-service-modals-root .client-smm-modal-panel .text-gray-700,
+        #client-service-modals-root .client-smm-modal-panel .text-gray-600 {
+            color: var(--text2) !important;
+        }
+        #client-service-modals-root .client-smm-modal-panel .text-gray-500 {
+            color: var(--text3) !important;
         }
         #client-service-modals-root .client-smm-modal-panel .border-gray-200,
         #client-service-modals-root .client-smm-modal-panel .border-gray-300 {
@@ -251,7 +257,7 @@
             color: var(--text2) !important;
         }
         #client-service-modals-root .client-smm-modal-panel .hover\:bg-gray-50:hover {
-            background: rgba(108, 92, 231, 0.12) !important;
+            background: rgba(139, 92, 246, 0.12) !important;
         }
         [data-theme="light"] #client-service-modals-root .client-smm-modal-panel .bg-white,
         [data-theme="light"] #client-service-modals-root .client-smm-modal-panel .hover\:bg-gray-50:hover {
@@ -261,10 +267,14 @@
             color: var(--purple-light) !important;
         }
         #client-service-modals-root .client-smm-modal-panel .bg-indigo-600 {
-            background: var(--purple) !important;
+            background: linear-gradient(90deg, var(--cyan), var(--blue), var(--purple)) !important;
+            border-color: transparent !important;
         }
         #client-service-modals-root .client-smm-modal-panel .hover\:bg-indigo-700:hover {
             filter: brightness(1.08);
+        }
+        #client-service-modals-root .client-smm-modal-panel .focus\:ring-indigo-500:focus {
+            --tw-ring-color: rgba(139, 92, 246, 0.4) !important;
         }
         #client-service-modals-root .client-smm-modal-panel .text-gray-400 {
             color: var(--text3) !important;
@@ -302,8 +312,8 @@
             cursor: pointer;
             transition: border-color 0.15s, background 0.15s;
         }
-        .cs-svc-card:hover { border-color: rgba(108,92,231,0.3); }
-        .cs-svc-card:active { background: rgba(108,92,231,0.06); }
+        .cs-svc-card:hover { border-color: rgba(139,92,246,0.3); }
+        .cs-svc-card:active { background: rgba(139,92,246,0.06); }
         .cs-svc-card-top {
             display: flex;
             align-items: center;

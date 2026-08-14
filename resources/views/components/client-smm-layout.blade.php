@@ -82,18 +82,20 @@
     <style>
         :root { --radius: 12px; --sidebar-w: 260px; }
         [data-theme="dark"] {
-            --bg: #0a0a0f; --card: #1a1a2e; --card2: #16213e;
-            --purple: #6c5ce7; --purple-light: #a29bfe; --purple-dark: #5a4fcf;
-            --teal: #00d2d3;
+            --bg: #06060f; --card: #0e0e1f; --card2: #13133a;
+            --cyan: #06B6D4; --blue: #3B82F6; --purple: #8B5CF6;
+            --purple-light: #A78BFA; --purple-dark: #7C3AED;
+            --teal: #06B6D4;
             /* Light copy on dark surfaces (avoid muddy grays that fail on --card) */
-            --text: #ffffff; --text2: #ffffff; --text3: #ffffff;
-            --border: rgba(255,255,255,0.08);
-            --sidebar-bg: #12121c;
+            --text: #e2e8f0; --text2: #a8b8cc; --text3: #4a5568;
+            --border: rgba(139,92,246,0.15);
+            --sidebar-bg: #09090f;
         }
         [data-theme="light"] {
             --bg: #f5f7fa; --card: #ffffff; --card2: #f0f2f7;
-            --purple: #6c5ce7; --purple-light: #7c6ff0; --purple-dark: #5a4fcf;
-            --teal: #00b4b5;
+            --cyan: #0891b2; --blue: #2563EB; --purple: #7C3AED;
+            --purple-light: #8B5CF6; --purple-dark: #6D28D9;
+            --teal: #0891b2;
             --text: #1a1a2e; --text2: #5a6178; --text3: #8892a4;
             --border: rgba(0,0,0,0.08);
             --sidebar-bg: #ffffff;
@@ -141,11 +143,11 @@
             display: flex; flex-direction: column; align-items: center; gap: 4px; text-decoration: none; color: inherit;
         }
         .smm-dash-brand-mark {
-            height: 40px; width: auto; max-width: 100%;
+            height: 60px; width: auto; max-width: 100%;
             display: block; flex-shrink: 0;
             filter: drop-shadow(0 4px 14px rgba(124, 58, 237, 0.35));
         }
-        .smm-dash-brand-text { font-weight: 800; font-size: 15px; background: linear-gradient(135deg, var(--purple), var(--teal)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .smm-dash-brand-text { font-weight: 800; font-size: 15px; background: linear-gradient(135deg, var(--cyan), var(--blue), var(--purple)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
         .smm-dash-brand-sub { font-size: 10px; color: var(--text3); margin-top: 2px; }
         .smm-dash-nav { flex: 1; padding: 12px 10px; overflow-y: auto; }
         .smm-dash-nav a {
@@ -153,8 +155,8 @@
             color: var(--text2); text-decoration: none; font-size: 13px; font-weight: 500; margin-bottom: 2px;
             transition: background 0.15s, color 0.15s;
         }
-        .smm-dash-nav a:hover { background: rgba(108,92,231,0.1); color: var(--text); }
-        .smm-dash-nav a.active { background: rgba(108,92,231,0.18); color: var(--purple-light); }
+        .smm-dash-nav a:hover { background: rgba(139,92,246,0.1); color: var(--text); }
+        .smm-dash-nav a.active { background: rgba(139,92,246,0.18); color: var(--purple-light); }
         .smm-dash-nav a i { width: 20px; text-align: center; opacity: 0.9; }
         .smm-dash-sidebar-foot {
             margin-top: auto;
@@ -337,7 +339,7 @@
         }
         .smm-dash-balance-pill {
             display: flex; align-items: center; justify-content: space-between; gap: 8px;
-            background: rgba(108,92,231,0.12); border: 1px solid rgba(108,92,231,0.25);
+            background: rgba(139,92,246,0.12); border: 1px solid rgba(139,92,246,0.25);
             border-radius: 10px; padding: 10px 12px; margin-bottom: 10px;
         }
         .smm-dash-balance-pill strong { color: var(--teal); font-size: 15px; }
@@ -510,7 +512,7 @@
             gap: 10px;
             padding: 6px 8px 6px 16px;
             border-radius: 999px;
-            border: 1px solid rgba(0, 210, 211, 0.5);
+            border: 1px solid rgba(6, 182, 212, 0.45);
             background: rgba(0, 0, 0, 0.22);
             font-size: 14px;
             color: var(--text2);
@@ -519,7 +521,7 @@
         }
         html[data-theme="light"] .smm-client-top-balance-pill {
             background: rgba(255, 255, 255, 0.9);
-            border-color: rgba(0, 180, 181, 0.55);
+            border-color: rgba(6, 182, 212, 0.5);
         }
         .smm-client-top-balance-pill strong {
             color: var(--teal);
@@ -547,19 +549,19 @@
             padding: 10px 18px;
             border-radius: 10px;
             border: none;
-            background: var(--purple);
+            background: linear-gradient(90deg, var(--cyan), var(--blue), var(--purple));
             color: #fff !important;
             font-weight: 700;
             font-size: 14px;
             text-decoration: none;
             font-family: inherit;
             cursor: pointer;
-            box-shadow: 0 4px 18px rgba(108, 92, 231, 0.45);
+            box-shadow: 0 4px 18px rgba(139, 92, 246, 0.45);
             transition: filter 0.15s, transform 0.15s;
             flex-shrink: 0;
             white-space: nowrap;
         }
-        .smm-client-top-btn-order:hover { filter: brightness(1.06); transform: translateY(-1px); }
+        .smm-client-top-btn-order:hover { filter: brightness(1.08); transform: translateY(-1px); }
         .smm-client-page-head { margin-bottom: 1.25rem; }
         .smm-client-page-head h1,
         .smm-client-page-head h2 {
@@ -772,7 +774,7 @@
         <aside class="smm-dash-sidebar" :class="{ 'open': sidebarOpen }">
             <a href="{{ route('dashboard') }}" class="smm-dash-brand" @click="sidebarOpen = false">
                 <img src="{{ asset('images/new-logo.png') }}" alt="{{ config('app.name', 'SMM Tool') }}" class="smm-dash-brand-mark">
-                <div class="smm-dash-brand-sub">Social Media Growth Tool</div>
+{{--                <div class="smm-dash-brand-sub">Social Media Growth Tool</div>--}}
             </a>
             <nav class="smm-dash-nav">
                 <a href="{{ route('dashboard') }}" class="{{ request()->routeIs('dashboard') ? 'active' : '' }}" @click="sidebarOpen = false">

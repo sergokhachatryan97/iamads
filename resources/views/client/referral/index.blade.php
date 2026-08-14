@@ -68,11 +68,11 @@
             cursor: pointer;
             border: none;
             transition: filter 0.15s, transform 0.15s;
-            background: var(--purple, #6c5ce7);
+            background: linear-gradient(90deg, var(--cyan), var(--blue), var(--purple));
             color: #fff !important;
-            box-shadow: 0 4px 14px rgba(108, 92, 231, 0.35);
+            box-shadow: 0 4px 14px rgba(139, 92, 246, 0.35);
         }
-        .ref-btn:hover { filter: brightness(1.06); }
+        .ref-btn:hover { filter: brightness(1.08); }
         .ref-stats {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -92,13 +92,14 @@
             position: absolute;
             top: 0; left: 0; right: 0;
             height: 3px;
-            background: linear-gradient(90deg, var(--purple), var(--teal));
+            background: linear-gradient(90deg, var(--cyan), var(--blue), var(--purple));
         }
         .ref-stat-val {
             font-size: 24px;
             font-weight: 800;
-            background: linear-gradient(135deg, var(--purple), var(--teal));
+            background: linear-gradient(135deg, var(--cyan), var(--blue), var(--purple));
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
         }
         .ref-stat-label { font-size: 12px; color: var(--text3); margin-top: 4px; }
