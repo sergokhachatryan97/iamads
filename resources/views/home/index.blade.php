@@ -773,9 +773,7 @@
 <!-- FLOATING BUTTONS -->
 <div class="floating-btns">
 {{--    <a href="https://wa.me/37495189233" target="_blank" rel="noopener noreferrer" class="float-btn float-btn-whatsapp" title="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>--}}
-    <x-telegram-support-picker variant="float">
-        <button type="button" x-on:click="open = !open" class="float-btn float-btn-support" title="{{ __('home.float_support_title') }}"><i class="fa-brands fa-telegram"></i></button>
-    </x-telegram-support-picker>
+    <a href="https://t.me/smmtw" target="_blank" rel="noopener noreferrer" class="float-btn float-btn-support" title="{{ __('home.float_support_title') }}"><i class="fa-brands fa-telegram"></i></a>
 </div>
 
 @if($errors->any())
