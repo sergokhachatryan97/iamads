@@ -817,16 +817,14 @@
                 </a>
             </nav>
             <div class="smm-dash-sidebar-foot">
-                <x-telegram-support-picker variant="sidebar">
-                    <button type="button" x-on:click="open = !open" class="smm-dash-sidebar-telegram w-full">
-                        <i class="fa-brands fa-telegram" aria-hidden="true"></i>
-                        <span>{{ __('Support') }}</span>
-                    </button>
-                </x-telegram-support-picker>
-                <a href="https://wa.me/37495189233" target="_blank" rel="noopener noreferrer" class="smm-dash-sidebar-whatsapp" @click="sidebarOpen = false">
-                    <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>
-                    <span>WhatsApp</span>
+                <a href="https://t.me/smmtw" target="_blank" rel="noopener noreferrer" class="smm-dash-sidebar-telegram" @click="sidebarOpen = false">
+                    <i class="fa-brands fa-telegram" aria-hidden="true"></i>
+                    <span>{{ __('Support') }}</span>
                 </a>
+{{--                <a href="https://wa.me/37495189233" target="_blank" rel="noopener noreferrer" class="smm-dash-sidebar-whatsapp" @click="sidebarOpen = false">--}}
+{{--                    <i class="fa-brands fa-whatsapp" aria-hidden="true"></i>--}}
+{{--                    <span>WhatsApp</span>--}}
+{{--                </a>--}}
                 <form method="POST" action="{{ route('logout') }}" class="smm-sidebar-logout-form" style="margin:0;">
                     @csrf
                     <button type="submit" class="smm-sidebar-logout-btn">

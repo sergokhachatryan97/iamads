@@ -239,23 +239,10 @@
                 <div class="card-icon telegram-icon"><i class="fab fa-telegram-plane"></i></div>
                 <div>
                     <div class="card-label">{{ __('contacts.telegram_bot') }}</div>
-                    <div class="card-title">{{ __('Select Support Language') }}</div>
+                    <div class="card-value">
+                        <a href="https://t.me/smmtw" target="_blank" rel="noopener noreferrer">@smmtw</a>
+                    </div>
                 </div>
-            </div>
-            <div class="tg-links">
-                @foreach(config('contact.telegram_support_list', []) as $support)
-                    @if(!empty($support['username']))
-                        @php $handle = ltrim($support['username'], '@'); @endphp
-                        <a href="https://t.me/{{ $handle }}" target="_blank" rel="noopener noreferrer" class="tg-link">
-                            <span class="tg-flag">{{ $support['flag'] }}</span>
-                            <div class="tg-info">
-                                <div class="tg-lang">{{ $support['label'] }}</div>
-                                <div class="tg-handle">{{ '@' . $handle }}</div>
-                            </div>
-                            <i class="fa-solid fa-arrow-right tg-arrow"></i>
-                        </a>
-                    @endif
-                @endforeach
             </div>
         </div>
 

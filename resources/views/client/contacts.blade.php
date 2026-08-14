@@ -20,18 +20,18 @@
                 transition: border-color 0.2s, box-shadow 0.2s;
             }
             .client-contacts-page .cc-card:hover {
-                border-color: rgba(108, 92, 231, 0.35);
+                border-color: rgba(139, 92, 246, 0.35);
                 box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
             }
             .client-contacts-page .cc-card--telegram {
-                background: linear-gradient(145deg, #0088cc, #006699);
+                background: linear-gradient(145deg, var(--cyan), var(--blue), var(--purple));
                 border-color: rgba(255, 255, 255, 0.15);
                 color: #fff;
             }
             .client-contacts-page .cc-card__icon {
                 font-size: 2.25rem;
                 margin-bottom: 1rem;
-                color: var(--purple-light);
+                color: var(--cyan);
             }
             .client-contacts-page .cc-card--telegram .cc-card__icon {
                 color: #fff;
@@ -91,16 +91,8 @@
             <div class="cc-card cc-card--telegram">
                 <div class="cc-card__icon" aria-hidden="true"><i class="fab fa-telegram-plane"></i></div>
                 <div class="cc-card__label">{{ __('contacts.telegram_bot') }}</div>
-                <div class="cc-card__value" style="display:flex;flex-direction:column;gap:8px;">
-                    @foreach(config('contact.telegram_support_list', []) as $support)
-                        @if(!empty($support['username']))
-                            <a href="https://t.me/{{ ltrim($support['username'], '@') }}" target="_blank" rel="noopener noreferrer"
-                               style="display:flex;align-items:center;gap:8px;">
-                                <span>{{ $support['flag'] }}</span>
-                                <span>{{ $support['label'] }}</span>
-                            </a>
-                        @endif
-                    @endforeach
+                <div class="cc-card__value">
+                    <a href="https://t.me/smmtw" target="_blank" rel="noopener noreferrer">@smmtw</a>
                 </div>
             </div>
             @if(filled($contactCooperationEmail))
