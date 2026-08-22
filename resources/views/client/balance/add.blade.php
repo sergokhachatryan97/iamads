@@ -1,5 +1,7 @@
 @php
     $providerCode = array_key_first($paymentTypes ?? []);
+    $allProviders = array_keys($paymentTypes ?? []);
+    $multiProvider = count($allProviders) > 1;
 @endphp
 
 <x-client-layout :title="__('Add Balance')">
@@ -76,11 +78,67 @@
             background: rgba(139, 92, 246, 0.12);
         }
         .add-funds-pay-label { margin-bottom: 12px; }
+
+        /* Payment method selector cards */
+        .pm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 4px; }
+        .pm-card {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            padding: 16px 12px;
+            border-radius: 14px;
+            border: 2px solid var(--border);
+            background: rgba(255,255,255,0.03);
+            cursor: pointer;
+            transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
+            text-align: center;
+            user-select: none;
+        }
+        .pm-card:hover { border-color: rgba(139,92,246,0.4); background: rgba(139,92,246,0.06); }
+        .pm-card.active {
+            border-color: var(--purple);
+            background: rgba(139,92,246,0.1);
+            box-shadow: 0 0 0 1px rgba(139,92,246,0.35);
+        }
+        .pm-card input[type="radio"] { position: absolute; opacity: 0; width: 0; height: 0; }
+        .pm-card-icon {
+            width: 46px;
+            height: 46px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+        .pm-card-icon--heleket   { background: rgba(253,121,43,0.15); color: #fd7b2b; }
+        .pm-card-icon--cryptomus { background: rgba(6,182,212,0.15);  color: var(--cyan); }
+        .pm-card-name { font-size: 13px; font-weight: 700; color: var(--text); line-height: 1.2; }
+        .pm-card-sub  { font-size: 11px; color: var(--text3); line-height: 1.3; }
+        .pm-check {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--purple);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            color: #fff;
+        }
+        .pm-card.active .pm-check { display: flex; }
+
+        /* Single method display (when only one provider) */
         .add-funds-method {
             display: flex;
             align-items: flex-start;
             gap: 14px;
-            padding: 18px 18px;
+            padding: 18px;
             border-radius: 14px;
             border: 1px solid var(--border);
             background: rgba(255, 255, 255, 0.03);
@@ -99,6 +157,7 @@
         }
         .add-funds-method-title { font-size: 15px; font-weight: 700; color: var(--text); margin: 0 0 4px; }
         .add-funds-method-sub { font-size: 12px; color: var(--text3); margin: 0; line-height: 1.4; }
+
         .add-funds-submit {
             width: 100%;
             margin-top: 26px;
@@ -182,7 +241,7 @@
 
                 <form method="POST" action="{{ route('client.balance.store') }}" id="add-funds-form">
                     @csrf
-                    <input type="hidden" name="payment_type" value="{{ $providerCode }}">
+                    <input type="hidden" name="payment_type" id="payment_type_input" value="{{ old('payment_type', $providerCode) }}">
 
                     <div class="add-funds-field-label">
                         <i class="fa-solid fa-dollar-sign" aria-hidden="true"></i>
@@ -218,15 +277,39 @@
                         <i class="fa-solid fa-credit-card" aria-hidden="true"></i>
                         {{ __('Payment method') }}
                     </div>
-                    <div class="add-funds-method">
-                        <div class="add-funds-method-icon" aria-hidden="true">
-                            <i class="fa-solid fa-bolt"></i>
+
+                    @if ($multiProvider)
+                        @php
+                            $pmMeta = [
+                                'heleket'   => ['icon' => 'fa-solid fa-bolt',       'cls' => 'pm-card-icon--heleket',   'name' => 'Heleket',   'sub' => 'Crypto · Fast & secure'],
+                                'cryptomus' => ['icon' => 'fa-solid fa-coins',      'cls' => 'pm-card-icon--cryptomus', 'name' => 'Cryptomus', 'sub' => 'Crypto · 100+ currencies'],
+                            ];
+                            $selectedProvider = old('payment_type', $providerCode);
+                        @endphp
+                        <div class="pm-grid">
+                            @foreach ($allProviders as $pCode)
+                                @php $m = $pmMeta[$pCode] ?? ['icon' => 'fa-solid fa-circle', 'cls' => '', 'name' => $pCode, 'sub' => '']; @endphp
+                                <label class="pm-card {{ $selectedProvider === $pCode ? 'active' : '' }}" data-provider="{{ $pCode }}">
+                                    <input type="radio" name="_pm_radio" value="{{ $pCode }}" {{ $selectedProvider === $pCode ? 'checked' : '' }}>
+                                    <span class="pm-check"><i class="fa-solid fa-check"></i></span>
+                                    <span class="pm-card-icon {{ $m['cls'] }}"><i class="{{ $m['icon'] }}" aria-hidden="true"></i></span>
+                                    <span class="pm-card-name">{{ $m['name'] }}</span>
+                                    <span class="pm-card-sub">{{ $m['sub'] }}</span>
+                                </label>
+                            @endforeach
                         </div>
-                        <div>
-                            <p class="add-funds-method-title">{{ __('Heleket payment') }}</p>
-                            <p class="add-funds-method-sub">{{ $paymentTypes[$providerCode] ?? __('Pay with cryptocurrency via Heleket.') }}</p>
+                    @else
+                        <div class="add-funds-method">
+                            <div class="add-funds-method-icon" aria-hidden="true">
+                                <i class="fa-solid fa-bolt"></i>
+                            </div>
+                            <div>
+                                <p class="add-funds-method-title">{{ __('Heleket payment') }}</p>
+                                <p class="add-funds-method-sub">{{ $paymentTypes[$providerCode] ?? __('Pay with cryptocurrency via Heleket.') }}</p>
+                            </div>
                         </div>
-                    </div>
+                    @endif
+
                     @error('payment_type')
                         <p class="add-funds-error">{{ $message }}</p>
                     @enderror
@@ -276,6 +359,18 @@
             btn.addEventListener('click', function () {
                 var input = document.getElementById('amount');
                 if (input) input.value = this.getAttribute('data-amount');
+            });
+        });
+
+        // Payment method card selector
+        document.querySelectorAll('.pm-card').forEach(function (card) {
+            card.addEventListener('click', function () {
+                document.querySelectorAll('.pm-card').forEach(function (c) { c.classList.remove('active'); });
+                card.classList.add('active');
+                var radio = card.querySelector('input[type="radio"]');
+                if (radio) radio.checked = true;
+                var hidden = document.getElementById('payment_type_input');
+                if (hidden) hidden.value = card.getAttribute('data-provider');
             });
         });
     </script>

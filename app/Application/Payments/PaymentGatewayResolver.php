@@ -15,7 +15,8 @@ final class PaymentGatewayResolver
 {
     /** @var array<string, class-string<PaymentGatewayInterface>> */
     private array $gateways = [
-        'heleket' => \App\Infrastructure\Payments\Heleket\HeleketGateway::class,
+        'heleket'   => \App\Infrastructure\Payments\Heleket\HeleketGateway::class,
+        'cryptomus' => \App\Infrastructure\Payments\Cryptomus\CryptomusGateway::class,
     ];
 
     public function __construct(

@@ -10,7 +10,7 @@ return [
     | Providers available for balance top-up. Must be registered in
     | PaymentGatewayResolver. Keys are provider codes.
     */
-    'enabled_providers' => ['heleket'],
+    'enabled_providers' => ['heleket', 'cryptomus'],
 
     /*
     |--------------------------------------------------------------------------
@@ -19,9 +19,14 @@ return [
     */
     'methods' => [
         'heleket' => [
-            'code' => 'heleket',
+            'code'  => 'heleket',
             'title' => 'Cryptocurrency (Heleket)',
             'notes' => 'Pay with crypto via Heleket gateway.',
-        ]
+        ],
+        'cryptomus' => [
+            'code'  => 'cryptomus',
+            'title' => 'Cryptocurrency (Cryptomus)',
+            'notes' => 'Pay with crypto via Cryptomus gateway.',
+        ],
     ],
 ];

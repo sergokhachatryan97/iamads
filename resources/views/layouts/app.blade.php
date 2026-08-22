@@ -45,6 +45,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
         <x-heleket-site-verification />
+        <x-cryptomus-site-verification />
 
         <meta property="og:title" content="SMMTool - Best SMM Panel" />
         <meta property="og:description" content="Grow your social media fast" />

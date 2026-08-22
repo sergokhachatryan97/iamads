@@ -53,6 +53,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <x-heleket-site-verification />
+    <x-cryptomus-site-verification />
 
     <meta property="og:title" content="{{ __('home.meta_og_title', ['name' => config('app.name', 'SMM Tool')]) }}" />
     <meta property="og:description" content="{{ __('home.meta_og_description') }}" />

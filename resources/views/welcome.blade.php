@@ -4,6 +4,7 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <x-heleket-site-verification />
+        <x-cryptomus-site-verification />
 
         <title>{{ config('app.name', 'Laravel') }}</title>
 

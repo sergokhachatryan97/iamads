@@ -98,6 +98,15 @@ return [
         'site_verification' => env('HELEKET_SITE_VERIFICATION', 'ec929dea'),
     ],
 
+    'cryptomus' => [
+        'base' => env('CRYPTOMUS_API_BASE', 'https://api.cryptomus.com'),
+        'merchant' => env('CRYPTOMUS_MERCHANT_UUID'),
+        'payment_key' => env('CRYPTOMUS_PAYMENT_KEY'),
+        'webhook_ip' => env('CRYPTOMUS_WEBHOOK_IP', '91.227.144.54'),
+        'enforce_webhook_ip' => env('CRYPTOMUS_ENFORCE_WEBHOOK_IP', true),
+        'site_verification' => env('CRYPTOMUS_SITE_VERIFICATION', 'ebab3db5'),
+    ],
+
     'provider' => [
         'base_url' => env('PROVIDER_BASE_URL'),
         'api_key' => env('PROVIDER_API_KEY'),

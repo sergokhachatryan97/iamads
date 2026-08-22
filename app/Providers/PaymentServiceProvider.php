@@ -7,6 +7,8 @@ namespace App\Providers;
 use App\Infrastructure\Payments\Heleket\HeleketClient;
 use App\Infrastructure\Payments\Heleket\HeleketGateway;
 use App\Infrastructure\Payments\Heleket\HeleketTestWebhookClient;
+use App\Infrastructure\Payments\Cryptomus\CryptomusClient;
+use App\Infrastructure\Payments\Cryptomus\CryptomusGateway;
 use Illuminate\Support\ServiceProvider;
 
 class PaymentServiceProvider extends ServiceProvider
@@ -43,5 +45,24 @@ class PaymentServiceProvider extends ServiceProvider
             );
         });
 
+        $this->app->bind(CryptomusClient::class, function () {
+            $config = config('services.cryptomus', []);
+
+            return new CryptomusClient(
+                baseUrl: $config['base'] ?? 'https://api.cryptomus.com',
+                merchant: $config['merchant'] ?? '',
+                paymentKey: $config['payment_key'] ?? '',
+            );
+        });
+
+        $this->app->bind(CryptomusGateway::class, function () {
+            $config = config('services.cryptomus', []);
+
+            return new CryptomusGateway(
+                client: $this->app->make(CryptomusClient::class),
+                webhookIp: $config['webhook_ip'] ?? '91.227.144.54',
+                enforceWebhookIp: (bool) ($config['enforce_webhook_ip'] ?? true),
+            );
+        });
     }
 }
