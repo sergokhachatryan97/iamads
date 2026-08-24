@@ -97,10 +97,10 @@ return Application::configure(basePath: dirname(__DIR__))
 //            ->onOneServer();
 
         // Sync validating provider orders — every 10 min @ :03 (staggered off :00).
-        $schedule->job(new SyncValidatingProviderOrdersJob('validating'))
-            ->cron('3-59/10 * * * *')
-            ->withoutOverlapping(10)
-            ->onOneServer();
+//        $schedule->job(new SyncValidatingProviderOrdersJob('validating'))
+//            ->cron('3-59/10 * * * *')
+//            ->withoutOverlapping(10)
+//            ->onOneServer();
 
 //        $schedule->job(new SyncValidatingProviderOrdersJob('ok'))
 //            ->cron('7 */4 * * *')
@@ -125,10 +125,10 @@ return Application::configure(basePath: dirname(__DIR__))
 //            ->onOneServer();
 
         // Sync completed provider orders — every 5 min @ :02 (staggered off :00).
-        $schedule->job(new \App\Jobs\SyncCompletedProviderOrdersJob)
-            ->cron('2-59/5 * * * *')
-            ->withoutOverlapping(30)
-            ->onOneServer();
+//        $schedule->job(new \App\Jobs\SyncCompletedProviderOrdersJob)
+//            ->cron('2-59/5 * * * *')
+//            ->withoutOverlapping(30)
+//            ->onOneServer();
 
         // Partial orders: fetch stats hourly for dashboard
         //        $schedule->job(new \App\Jobs\ProcessPartialOrdersJob())
