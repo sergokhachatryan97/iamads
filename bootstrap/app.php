@@ -52,10 +52,10 @@ return Application::configure(basePath: dirname(__DIR__))
             ->onOneServer();
 
         // Poll socpanel providers — every 3 min @ :00 (kept).
-        $schedule->command('socpanel:poll')
-            ->cron('0-59/3 * * * *')
-            ->withoutOverlapping(4)
-            ->onOneServer();
+//        $schedule->command('socpanel:poll')
+//            ->cron('0-59/3 * * * *')
+//            ->withoutOverlapping(4)
+//            ->onOneServer();
 
 //        $schedule->command('memberpro:poll')
 //            ->cron('2-59/3 * * * *')
@@ -63,17 +63,17 @@ return Application::configure(basePath: dirname(__DIR__))
 //            ->onOneServer();
 
         // Cancel invalid provider orders — every 3 min @ :02 (was everyMinute).
-        $schedule->command('socpanel:cancel-invalid')
-            ->cron('2-59/3 * * * *')
-            ->withoutOverlapping(10)
-            ->onOneServer();
+//        $schedule->command('socpanel:cancel-invalid')
+//            ->cron('2-59/3 * * * *')
+//            ->withoutOverlapping(10)
+//            ->onOneServer();
 
         // Daily cleanups — moved off midnight to avoid overlapping with
         // other daily cron activity (backups, logrotate, etc).
-        $schedule->command('max:clean-expired-subscriptions')
-            ->dailyAt('02:30')
-            ->withoutOverlapping(10)
-            ->onOneServer();
+//        $schedule->command('max:clean-expired-subscriptions')
+//            ->dailyAt('02:30')
+//            ->withoutOverlapping(10)
+//            ->onOneServer();
 
         $schedule->command('telegram:clean-expired-subscriptions')
             ->dailyAt('02:45')
@@ -109,20 +109,20 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Clean expired tasks — all reduced from everyMinute to every 5 min
         // with different offsets. Expired-task cleanup has no sub-minute SLA.
-        $schedule->job(new \App\Jobs\CleanExpiredYouTubeTasksJob)
-            ->cron('1-59/5 * * * *')
-            ->withoutOverlapping(2)
-            ->onOneServer();
+//        $schedule->job(new \App\Jobs\CleanExpiredYouTubeTasksJob)
+//            ->cron('1-59/5 * * * *')
+//            ->withoutOverlapping(2)
+//            ->onOneServer();
 
         $schedule->job(new \App\Jobs\CleanExpiredTelegramTasksJob)
             ->cron('3-59/5 * * * *')
             ->withoutOverlapping(2)
             ->onOneServer();
 
-        $schedule->job(new \App\Jobs\CleanExpiredMaxTasksJob)
-            ->cron('4-59/5 * * * *')
-            ->withoutOverlapping(2)
-            ->onOneServer();
+//        $schedule->job(new \App\Jobs\CleanExpiredMaxTasksJob)
+//            ->cron('4-59/5 * * * *')
+//            ->withoutOverlapping(2)
+//            ->onOneServer();
 
         // Sync completed provider orders — every 5 min @ :02 (staggered off :00).
         $schedule->job(new \App\Jobs\SyncCompletedProviderOrdersJob)
