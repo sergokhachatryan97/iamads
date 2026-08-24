@@ -103,6 +103,25 @@ func (h *HtmlInspector) parse(url, html string) *InspectResult {
 		return r
 	}
 
+	// Bot page with empty tgme_page_extra — try og:description for monthly users
+	if strings.Contains(html, "tgme_page_extra") && !strings.Contains(html, "tgme_widget_message") {
+		desc := ""
+		if m := reOgDescription.FindStringSubmatch(html); m != nil {
+			desc = strings.ToLower(m[1])
+		}
+		memberCount := 0
+		if strings.Contains(desc, "monthly user") {
+			memberCount = parseHumanCount(desc)
+		}
+		r.OK = true
+		r.ChatType = "bot"
+		r.Kind = "bot_start"
+		r.IsBot = true
+		r.Title = title
+		r.MemberCount = memberCount
+		return r
+	}
+
 	// Post page
 	if strings.Contains(html, "tgme_widget_message") {
 		r.OK = true
