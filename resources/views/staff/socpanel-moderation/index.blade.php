@@ -15,75 +15,75 @@
             </p>
 
             {{-- Filters & Search --}}
-            <form method="get" action="{{ route('staff.socpanel-moderation.index') }}" class="mb-4 flex flex-wrap items-end gap-4">
-                <div class="min-w-[200px]">
-                    <label for="search" class="block text-xs font-medium text-gray-500 uppercase mb-1">{{ __('Search') }}</label>
-                    <input type="text" name="search" id="search" value="{{ request('search') }}"
-                           placeholder="{{ __('Link, order ID, service ID, user, error…') }}"
-                           class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm w-full">
-                </div>
-                <div>
-                    <label for="status" class="block text-xs font-medium text-gray-500 uppercase mb-1">{{ __('Status') }}</label>
-                    <select name="status" id="status" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
-                        @foreach($statuses as $value => $label)
-                            <option value="{{ $value }}" {{ request('status', 'all') === $value ? 'selected' : '' }}>{{ $label }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div>
-                    <label for="remote_status" class="block text-xs font-medium text-gray-500 uppercase mb-1">{{ __('Remote status') }}</label>
-                    <select name="remote_status" id="remote_status" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm w-36">
-                        <option value="">{{ __('All') }}</option>
-                        <option value="__null__" {{ request('remote_status') === '__null__' ? 'selected' : '' }}>{{ __('(empty)') }}</option>
-                        @foreach($remoteStatuses ?? [] as $value => $label)
-                            <option value="{{ $value }}" {{ request('remote_status') === (string) $value ? 'selected' : '' }}>{{ $label }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div>
-                    <label for="provider_code" class="block text-xs font-medium text-gray-500 uppercase mb-1">{{ __('Provider') }}</label>
-                    <input type="text" name="provider_code" id="provider_code" value="{{ request('provider_code') }}"
-                           placeholder="e.g. adtag"
-                           class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm w-32">
-                </div>
-                <div>
-                    <label for="service_id" class="block text-xs font-medium text-gray-500 uppercase mb-1">{{ __('Service') }}</label>
-                    <select name="service_id" id="service_id" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm w-36">
-                        <option value="">{{ __('All services') }}</option>
-                        @foreach($serviceIds ?? [] as $id => $label)
-                            <option value="{{ $id }}" {{ request('service_id') === (string) $id ? 'selected' : '' }}>{{ $label }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div>
-                    <label for="user_login" class="block text-xs font-medium text-gray-500 uppercase mb-1">{{ __('User login') }}</label>
-                    <input type="text" name="user_login" id="user_login" value="{{ request('user_login') }}"
-                           placeholder="{{ __('Login') }}"
-                           class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm w-36">
-                </div>
-                <div>
-                    <label for="user_remote_id" class="block text-xs font-medium text-gray-500 uppercase mb-1">{{ __('User remote ID') }}</label>
-                    <input type="text" name="user_remote_id" id="user_remote_id" value="{{ request('user_remote_id') }}"
-                           placeholder="{{ __('Remote user ID') }}"
-                           class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm w-32">
-                </div>
-                <div>
-                    <label for="date_from" class="block text-xs font-medium text-gray-500 uppercase mb-1">{{ __('Date from') }}</label>
-                    <input type="date" name="date_from" id="date_from" value="{{ request('date_from') }}"
-                           class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
-                </div>
-                <div>
-                    <label for="date_to" class="block text-xs font-medium text-gray-500 uppercase mb-1">{{ __('Date to') }}</label>
-                    <input type="date" name="date_to" id="date_to" value="{{ request('date_to') }}"
-                           class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">
-                </div>
-                <button type="submit" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                    {{ __('Filter') }}
-                </button>
-                <a href="{{ route('staff.socpanel-moderation.index') }}" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-600 bg-white hover:bg-gray-50">
-                    {{ __('Reset') }}
-                </a>
-            </form>
+{{--            <form method="get" action="{{ route('staff.socpanel-moderation.index') }}" class="mb-4 flex flex-wrap items-end gap-4">--}}
+{{--                <div class="min-w-[200px]">--}}
+{{--                    <label for="search" class="block text-xs font-medium text-gray-500 uppercase mb-1">{{ __('Search') }}</label>--}}
+{{--                    <input type="text" name="search" id="search" value="{{ request('search') }}"--}}
+{{--                           placeholder="{{ __('Link, order ID, service ID, user, error…') }}"--}}
+{{--                           class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm w-full">--}}
+{{--                </div>--}}
+{{--                <div>--}}
+{{--                    <label for="status" class="block text-xs font-medium text-gray-500 uppercase mb-1">{{ __('Status') }}</label>--}}
+{{--                    <select name="status" id="status" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">--}}
+{{--                        @foreach($statuses as $value => $label)--}}
+{{--                            <option value="{{ $value }}" {{ request('status', 'all') === $value ? 'selected' : '' }}>{{ $label }}</option>--}}
+{{--                        @endforeach--}}
+{{--                    </select>--}}
+{{--                </div>--}}
+{{--                <div>--}}
+{{--                    <label for="remote_status" class="block text-xs font-medium text-gray-500 uppercase mb-1">{{ __('Remote status') }}</label>--}}
+{{--                    <select name="remote_status" id="remote_status" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm w-36">--}}
+{{--                        <option value="">{{ __('All') }}</option>--}}
+{{--                        <option value="__null__" {{ request('remote_status') === '__null__' ? 'selected' : '' }}>{{ __('(empty)') }}</option>--}}
+{{--                        @foreach($remoteStatuses ?? [] as $value => $label)--}}
+{{--                            <option value="{{ $value }}" {{ request('remote_status') === (string) $value ? 'selected' : '' }}>{{ $label }}</option>--}}
+{{--                        @endforeach--}}
+{{--                    </select>--}}
+{{--                </div>--}}
+{{--                <div>--}}
+{{--                    <label for="provider_code" class="block text-xs font-medium text-gray-500 uppercase mb-1">{{ __('Provider') }}</label>--}}
+{{--                    <input type="text" name="provider_code" id="provider_code" value="{{ request('provider_code') }}"--}}
+{{--                           placeholder="e.g. adtag"--}}
+{{--                           class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm w-32">--}}
+{{--                </div>--}}
+{{--                <div>--}}
+{{--                    <label for="service_id" class="block text-xs font-medium text-gray-500 uppercase mb-1">{{ __('Service') }}</label>--}}
+{{--                    <select name="service_id" id="service_id" class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm w-36">--}}
+{{--                        <option value="">{{ __('All services') }}</option>--}}
+{{--                        @foreach($serviceIds ?? [] as $id => $label)--}}
+{{--                            <option value="{{ $id }}" {{ request('service_id') === (string) $id ? 'selected' : '' }}>{{ $label }}</option>--}}
+{{--                        @endforeach--}}
+{{--                    </select>--}}
+{{--                </div>--}}
+{{--                <div>--}}
+{{--                    <label for="user_login" class="block text-xs font-medium text-gray-500 uppercase mb-1">{{ __('User login') }}</label>--}}
+{{--                    <input type="text" name="user_login" id="user_login" value="{{ request('user_login') }}"--}}
+{{--                           placeholder="{{ __('Login') }}"--}}
+{{--                           class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm w-36">--}}
+{{--                </div>--}}
+{{--                <div>--}}
+{{--                    <label for="user_remote_id" class="block text-xs font-medium text-gray-500 uppercase mb-1">{{ __('User remote ID') }}</label>--}}
+{{--                    <input type="text" name="user_remote_id" id="user_remote_id" value="{{ request('user_remote_id') }}"--}}
+{{--                           placeholder="{{ __('Remote user ID') }}"--}}
+{{--                           class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm w-32">--}}
+{{--                </div>--}}
+{{--                <div>--}}
+{{--                    <label for="date_from" class="block text-xs font-medium text-gray-500 uppercase mb-1">{{ __('Date from') }}</label>--}}
+{{--                    <input type="date" name="date_from" id="date_from" value="{{ request('date_from') }}"--}}
+{{--                           class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">--}}
+{{--                </div>--}}
+{{--                <div>--}}
+{{--                    <label for="date_to" class="block text-xs font-medium text-gray-500 uppercase mb-1">{{ __('Date to') }}</label>--}}
+{{--                    <input type="date" name="date_to" id="date_to" value="{{ request('date_to') }}"--}}
+{{--                           class="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-sm">--}}
+{{--                </div>--}}
+{{--                <button type="submit" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">--}}
+{{--                    {{ __('Filter') }}--}}
+{{--                </button>--}}
+{{--                <a href="{{ route('staff.socpanel-moderation.index') }}" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-600 bg-white hover:bg-gray-50">--}}
+{{--                    {{ __('Reset') }}--}}
+{{--                </a>--}}
+{{--            </form>--}}
 
             <div class="bg-white shadow-sm rounded-lg overflow-hidden">
                 @if($orders->isEmpty())

@@ -234,9 +234,11 @@ class OrderController extends Controller
 
         $query->orderBy($sortBy, $sortDir);
 
-        $ordersIds = $query->pluck('id')->toArray();
-
         $orders = $query->paginate(20)->withQueryString();
+
+        // Only current-page IDs — Alpine uses DOM checkboxes + getEligibleIds AJAX for select-all.
+        // Previously this was a full pluck() of all matching IDs which OOM'd on large datasets.
+        $ordersIds = $orders->pluck('id')->toArray();
 
         // Per-status counts (filtered by staff and other filters, but not by status)
         $countBase = Order::query();

@@ -20,14 +20,19 @@
                             {{ __('Managers') }}
                         </x-nav-link>
                     @endstaffcan
-                    @staffcan('socpanel-moderation.view')
-                        <x-nav-link :href="route('staff.socpanel-moderation.index')" :active="request()->routeIs('staff.socpanel-moderation.*')">
-                            {{ __('Socpanel Moderation') }}
-                        </x-nav-link>
-                    @endstaffcan
+{{--                    @staffcan('socpanel-moderation.view')--}}
+{{--                        <x-nav-link :href="route('staff.socpanel-moderation.index')" :active="request()->routeIs('staff.socpanel-moderation.*')">--}}
+{{--                            {{ __('Socpanel Moderation') }}--}}
+{{--                        </x-nav-link>--}}
+{{--                    @endstaffcan--}}
                     @staffcan('provider-order-stats.view')
                         <x-nav-link :href="route('staff.provider-order-stats.index')" :active="request()->routeIs('staff.provider-order-stats.*')">
                             {{ __('Provider Order Stats') }}
+                        </x-nav-link>
+                    @endstaffcan
+                    @staffcan('telegram-stats.view')
+                        <x-nav-link :href="route('staff.telegram-stats.index')" :active="request()->routeIs('staff.telegram-stats.*')">
+                            {{ __('Telegram Stats') }}
                         </x-nav-link>
                     @endstaffcan
                     @staffcan('activity-logs.view')
@@ -140,13 +145,18 @@
                 </x-responsive-nav-link>
             @endstaffcan
             @staffcan('socpanel-moderation.view')
-                <x-responsive-nav-link :href="route('staff.socpanel-moderation.index')" :active="request()->routeIs('staff.socpanel-moderation.*')">
-                    {{ __('Socpanel Moderation') }}
-                </x-responsive-nav-link>
+{{--                <x-responsive-nav-link :href="route('staff.socpanel-moderation.index')" :active="request()->routeIs('staff.socpanel-moderation.*')">--}}
+{{--                    {{ __('Socpanel Moderation') }}--}}
+{{--                </x-responsive-nav-link>--}}
             @endstaffcan
             @staffcan('provider-order-stats.view')
                 <x-responsive-nav-link :href="route('staff.provider-order-stats.index')" :active="request()->routeIs('staff.provider-order-stats.*')">
                     {{ __('Provider Order Stats') }}
+                </x-responsive-nav-link>
+            @endstaffcan
+            @staffcan('telegram-stats.view')
+                <x-responsive-nav-link :href="route('staff.telegram-stats.index')" :active="request()->routeIs('staff.telegram-stats.*')">
+                    {{ __('Telegram Stats') }}
                 </x-responsive-nav-link>
             @endstaffcan
             @staffcan('activity-logs.view')

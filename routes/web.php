@@ -202,13 +202,13 @@ Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSess
     Route::delete('users/{user}', [UserController::class, 'destroy'])->name('staff.users.destroy')->middleware('staff.permission:users.delete');
 
     // Statistics & Reports
-    Route::get('socpanel-moderation', [SocpanelModerationController::class, 'index'])->name('staff.socpanel-moderation.index')->middleware('staff.permission:socpanel-moderation.view');
+//    Route::get('socpanel-moderation', [SocpanelModerationController::class, 'index'])->name('staff.socpanel-moderation.index')->middleware('staff.permission:socpanel-moderation.view');
     Route::middleware('staff.permission:provider-order-stats.view')->group(function () {
         Route::get('provider-order-stats', [ProviderOrderStatsController::class, 'index'])->name('staff.provider-order-stats.index');
         Route::get('provider-order-stats/export', [ProviderOrderStatsController::class, 'exportCsv'])->name('staff.provider-order-stats.export')->middleware('staff.permission:provider-order-stats.export');
     });
     Route::get('activity-logs', [\App\Http\Controllers\Staff\ActivityLogController::class, 'index'])->name('staff.activity-logs.index')->middleware('staff.permission:activity-logs.view');
-    Route::get('telegram-stats', fn () => redirect()->route('staff.dashboard', ['network' => 'telegram']))->name('staff.telegram-stats.index')->middleware('staff.permission:telegram-stats.view');
+    Route::get('telegram-stats', [TelegramStatsController::class, 'index'])->name('staff.telegram-stats.index')->middleware('staff.permission:telegram-stats.view');
 
     // Clients Management
     Route::middleware('staff.permission:clients.view')->group(function () {
