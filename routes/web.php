@@ -209,6 +209,7 @@ Route::prefix('staff')->middleware(['auth:staff', 'staff.verified', UseStaffSess
     });
     Route::get('activity-logs', [\App\Http\Controllers\Staff\ActivityLogController::class, 'index'])->name('staff.activity-logs.index')->middleware('staff.permission:activity-logs.view');
     Route::get('telegram-stats', [TelegramStatsController::class, 'index'])->name('staff.telegram-stats.index')->middleware('staff.permission:telegram-stats.view');
+    Route::get('telegram-stats/data', [TelegramStatsController::class, 'data'])->name('staff.telegram-stats.data')->middleware('staff.permission:telegram-stats.view');
 
     // Clients Management
     Route::middleware('staff.permission:clients.view')->group(function () {
