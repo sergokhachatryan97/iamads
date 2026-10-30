@@ -15,7 +15,7 @@ All requests and responses use **JSON** (`Content-Type: application/json`).
 ### 1. Claim Task by Phone
 
 ```
-POST /api/provider/telegram/getOrder
+GET /api/provider/telegram/getOrder
 ```
 
 **Request body:**
@@ -54,8 +54,8 @@ POST /api/provider/telegram/getOrder
 ### 2. Check Task, Ignore Task
 
 ```
-POST /api/provider/telegram/check
-POST /api/provider/telegram/ignore
+GET /api/provider/telegram/check
+GET /api/provider/telegram/ignore
 ```
 
 **Request body:**
