@@ -100,7 +100,7 @@ class TelegramUnsubscribePhaseActivator
 
     private function getTelegramCategoryId(): ?int
     {
-        return Cache::remember('tg:category_id', 3600, fn () => \App\Models\Category::where('link_driver', 'telegram')->value('id')
+        return Cache::remember('tg:category_id:v2', 3600, fn () => \App\Models\Category::where('link_driver', 'telegram')->orderBy('id')->value('id')
         );
     }
 
