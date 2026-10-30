@@ -253,7 +253,10 @@ class MtprotoSessionRegistry
                 // Only kill parents with 3+ zombies to avoid false positives
                 // from normal short-lived transient zombies.
                 foreach ($zombieParents as $ppid => $count) {
-                    if ($count >= 3 && $ppid > 1) {
+                    // The scan is system-wide: never touch processes we don't own
+                    // (postgres, nginx, php-fpm master...). A busy postgres postmaster
+                    // routinely has transient zombie backends and was being SIGKILLed.
+                    if ($count >= 3 && $ppid > 1 && $this->isOwnPhpProcess($ppid)) {
                         Log::warning('MtprotoSessionRegistry: killing zombie-leaking parent', [
                             'ppid' => $ppid,
                             'zombie_count' => $count,
@@ -446,6 +449,22 @@ class MtprotoSessionRegistry
                 $this->forceKill($pid);
             }
         }
+    }
+
+    /**
+     * True only for this app's PHP workers (artisan / MadelineProto), so the
+     * zombie-parent killer can't hit unrelated system processes.
+     */
+    private function isOwnPhpProcess(int $pid): bool
+    {
+        $cmdline = @file_get_contents("/proc/{$pid}/cmdline");
+        if ($cmdline === false || $cmdline === '') {
+            return false;
+        }
+
+        return str_contains($cmdline, 'artisan')
+            || str_contains($cmdline, 'MadelineProto')
+            || str_contains($cmdline, 'madeline-ipc');
     }
 
     /**
