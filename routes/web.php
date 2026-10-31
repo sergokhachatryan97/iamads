@@ -9,6 +9,7 @@ use App\Http\Controllers\Client\BalanceController;
 use App\Http\Controllers\Client\DashboardController;
 use App\Http\Controllers\Client\OrderController;
 use App\Http\Controllers\Client\ServiceController as ClientServiceController;
+use App\Http\Controllers\CryptoPaymentController;
 use App\Http\Controllers\GoogleGmailOAuthController;
 use App\Http\Controllers\FastOrderAfterPaymentController;
 use App\Http\Controllers\FastOrderSessionController;
@@ -52,6 +53,14 @@ Route::get('/fast-order/session/{uuid}', [FastOrderSessionController::class, 'es
     ->middleware('signed')
     ->name('fast-order.session')
     ->whereUuid('uuid');
+
+// Crypto pay page for gateways without hosted checkout (Baosbabs)
+Route::get('/pay/crypto/{orderId}', [CryptoPaymentController::class, 'show'])
+    ->middleware('signed')
+    ->name('payments.crypto.show');
+Route::get('/pay/crypto/{orderId}/status', [CryptoPaymentController::class, 'status'])
+    ->middleware(['signed', 'throttle:60,1'])
+    ->name('payments.crypto.status');
 
 // Client Dashboard
 Route::get('/dashboard', [DashboardController::class, 'index'])->middleware(['auth:client'])->name('dashboard');

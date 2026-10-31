@@ -17,6 +17,10 @@ final class PaymentGatewayResolver
     private array $gateways = [
         'heleket'   => \App\Infrastructure\Payments\Heleket\HeleketGateway::class,
         'cryptomus' => \App\Infrastructure\Payments\Cryptomus\CryptomusGateway::class,
+        // One gateway, one key per asset (see BaosbabsGateway)
+        'baosbabs_trx'        => \App\Infrastructure\Payments\Baosbabs\BaosbabsGateway::class,
+        'baosbabs_usdt_trc20' => \App\Infrastructure\Payments\Baosbabs\BaosbabsGateway::class,
+        'baosbabs_usdt_bep20' => \App\Infrastructure\Payments\Baosbabs\BaosbabsGateway::class,
     ];
 
     public function __construct(

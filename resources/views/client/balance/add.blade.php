@@ -115,6 +115,9 @@
         }
         .pm-card-icon--heleket   { background: rgba(253,121,43,0.15); color: #fd7b2b; }
         .pm-card-icon--cryptomus { background: rgba(6,182,212,0.15);  color: var(--cyan); }
+        .pm-card-icon--usdt      { background: rgba(38,161,123,0.15); color: #26a17b; }
+        .pm-card-icon--bep20     { background: rgba(243,186,47,0.15); color: #f3ba2f; }
+        .pm-card-icon--trx       { background: rgba(235,0,41,0.15);   color: #eb0029; }
         .pm-card-name { font-size: 13px; font-weight: 700; color: var(--text); line-height: 1.2; }
         .pm-card-sub  { font-size: 11px; color: var(--text3); line-height: 1.3; }
         .pm-check {
@@ -283,6 +286,9 @@
                             $pmMeta = [
                                 'heleket'   => ['icon' => 'fa-solid fa-bolt',       'cls' => 'pm-card-icon--heleket',   'name' => 'Heleket',   'sub' => 'Crypto · Fast & secure'],
                                 'cryptomus' => ['icon' => 'fa-solid fa-coins',      'cls' => 'pm-card-icon--cryptomus', 'name' => 'Cryptomus', 'sub' => 'Crypto · 100+ currencies'],
+                                'baosbabs_usdt_trc20' => ['icon' => 'fa-solid fa-dollar-sign', 'cls' => 'pm-card-icon--usdt',  'name' => 'USDT',  'sub' => 'TRC-20 · Tron'],
+                                'baosbabs_usdt_bep20' => ['icon' => 'fa-solid fa-dollar-sign', 'cls' => 'pm-card-icon--bep20', 'name' => 'USDT',  'sub' => 'BEP-20 · BSC'],
+                                'baosbabs_trx'        => ['icon' => 'fa-solid fa-coins',       'cls' => 'pm-card-icon--trx',   'name' => 'TRX',   'sub' => 'Tron'],
                             ];
                             $selectedProvider = old('payment_type', $providerCode);
                         @endphp

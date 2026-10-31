@@ -98,6 +98,20 @@ return [
         'site_verification' => env('HELEKET_SITE_VERIFICATION', 'ec929dea'),
     ],
 
+    'baosbabs' => [
+        'base' => env('BAOSBABS_API_BASE', 'https://crypto.baosbabs.org'),
+        'api_key' => env('BAOSBABS_API_KEY'),
+        // Optional comma-separated postback IP allowlist (empty = any IP;
+        // postbacks are verified via the status API regardless)
+        'webhook_ip' => env('BAOSBABS_WEBHOOK_IP', ''),
+        // Provider key => Baosbabs asset code
+        'assets' => [
+            'baosbabs_trx' => env('BAOSBABS_ASSET_TRX', 'TRX'),
+            'baosbabs_usdt_trc20' => env('BAOSBABS_ASSET_USDT_TRC20', 'USDT'),
+            'baosbabs_usdt_bep20' => env('BAOSBABS_ASSET_USDT_BEP20', 'USDT_BEP20'),
+        ],
+    ],
+
     'cryptomus' => [
         'base' => env('CRYPTOMUS_API_BASE', 'https://api.cryptomus.com'),
         'merchant' => env('CRYPTOMUS_MERCHANT_UUID'),

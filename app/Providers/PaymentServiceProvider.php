@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Infrastructure\Payments\Baosbabs\BaosbabsClient;
+use App\Infrastructure\Payments\Baosbabs\BaosbabsGateway;
 use App\Infrastructure\Payments\Heleket\HeleketClient;
 use App\Infrastructure\Payments\Heleket\HeleketGateway;
 use App\Infrastructure\Payments\Heleket\HeleketTestWebhookClient;
@@ -62,6 +64,25 @@ class PaymentServiceProvider extends ServiceProvider
                 client: $this->app->make(CryptomusClient::class),
                 webhookIp: $config['webhook_ip'] ?? '91.227.144.54',
                 enforceWebhookIp: (bool) ($config['enforce_webhook_ip'] ?? true),
+            );
+        });
+
+        $this->app->bind(BaosbabsClient::class, function () {
+            $config = config('services.baosbabs', []);
+
+            return new BaosbabsClient(
+                baseUrl: $config['base'] ?? 'https://crypto.baosbabs.org',
+                apiKey: $config['api_key'] ?? '',
+            );
+        });
+
+        $this->app->bind(BaosbabsGateway::class, function () {
+            $config = config('services.baosbabs', []);
+
+            return new BaosbabsGateway(
+                client: $this->app->make(BaosbabsClient::class),
+                assets: $config['assets'] ?? [],
+                webhookIp: $config['webhook_ip'] ?? '',
             );
         });
     }
