@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class PaymentHistoryController extends Controller
@@ -45,7 +46,8 @@ class PaymentHistoryController extends Controller
         return view('client.payments.index', [
             'payments' => $payments,
             'filter' => $filter,
-            'totalDeposited' => (float) (clone $paidQuery)->sum('amount'),
+            // amount is a varchar column; Postgres has no SUM(varchar)
+            'totalDeposited' => (float) (clone $paidQuery)->sum(DB::raw('CAST(amount AS DECIMAL(20,2))')),
             'paidCount' => (clone $paidQuery)->count(),
             'lastPaidAt' => (clone $paidQuery)->max('paid_at'),
             'continueSince' => now()->subMinutes(self::CONTINUE_WINDOW_MINUTES),
