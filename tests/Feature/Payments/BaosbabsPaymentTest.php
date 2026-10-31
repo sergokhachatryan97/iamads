@@ -27,6 +27,7 @@ class BaosbabsPaymentTest extends TestCase
                 'base' => 'https://crypto.baosbabs.org',
                 'api_key' => 'pk_test',
                 'webhook_ip' => '',
+                'verify_retry_delay_ms' => 0,
                 'assets' => [
                     'baosbabs_trx' => 'TRX',
                     'baosbabs_usdt_trc20' => 'USDT',
@@ -214,7 +215,7 @@ class BaosbabsPaymentTest extends TestCase
         $this->assertSame(1, BalanceLedgerEntry::where('payment_id', $payment->id)->where('type', 'credit')->count());
     }
 
-    public function test_forged_postback_is_ignored_when_api_says_pending(): void
+    public function test_forged_postback_is_rejected_when_api_says_pending(): void
     {
         $client = Client::create([
             'name' => 'Test Client',
@@ -229,10 +230,61 @@ class BaosbabsPaymentTest extends TestCase
         $this->postJson('/api/webhooks/payments/baosbabs_usdt_trc20', [
             'transaction_id' => 'order-forged',
             'status' => 'completed',
-        ])->assertStatus(200);
+        ])->assertStatus(400);
 
         $this->assertSame('pending', $payment->refresh()->status);
         $this->assertEqualsWithDelta(0.0, (float) $client->refresh()->balance, 0.01);
+    }
+
+    public function test_postback_ahead_of_status_api_is_accepted_once_api_catches_up(): void
+    {
+        $client = Client::create([
+            'name' => 'Test Client',
+            'email' => 'baosbabs-'.uniqid().'@example.com',
+            'password' => bcrypt('password'),
+            'balance' => 0,
+        ]);
+        $payment = $this->pendingPayment('order-race', $client->id, '5.00');
+
+        Http::fake([self::STATUS_URL => Http::sequence()
+            ->push($this->statusBody('order-race', 'pending'))
+            ->push($this->statusBody('order-race', 'completed')),
+        ]);
+
+        $this->postJson('/api/webhooks/payments/baosbabs_usdt_trc20', [
+            'transaction_id' => 'order-race',
+            'status' => 'completed',
+        ])->assertStatus(200);
+
+        $this->assertSame('paid', $payment->refresh()->status);
+        $this->assertEqualsWithDelta(5.0, (float) $client->refresh()->balance, 0.01);
+    }
+
+    public function test_resent_identical_postback_credits_after_earlier_pending_event(): void
+    {
+        $client = Client::create([
+            'name' => 'Test Client',
+            'email' => 'baosbabs-'.uniqid().'@example.com',
+            'password' => bcrypt('password'),
+            'balance' => 0,
+        ]);
+        $payment = $this->pendingPayment('order-resend', $client->id, '5.00');
+        $postback = ['transaction_id' => 'order-resend', 'amount_usd' => '5.00'];
+
+        Http::fake([self::STATUS_URL => Http::sequence()
+            ->push($this->statusBody('order-resend', 'pending'))
+            ->push($this->statusBody('order-resend', 'completed')),
+        ]);
+
+        // First delivery while the API still says pending: recorded as a pending event
+        $this->postJson('/api/webhooks/payments/baosbabs_usdt_trc20', $postback)->assertStatus(200);
+        $this->assertSame(1, $payment->events()->count());
+
+        // Same body resent after the API moved to completed must not be deduplicated
+        $this->postJson('/api/webhooks/payments/baosbabs_usdt_trc20', $postback)->assertStatus(200);
+
+        $this->assertSame('paid', $payment->refresh()->status);
+        $this->assertEqualsWithDelta(5.0, (float) $client->refresh()->balance, 0.01);
     }
 
     public function test_postback_for_unknown_transaction_returns_400(): void
@@ -293,7 +345,12 @@ class BaosbabsPaymentTest extends TestCase
 
     private function statusResponse(string $transactionId, string $status)
     {
-        return Http::response([
+        return Http::response($this->statusBody($transactionId, $status), 200);
+    }
+
+    private function statusBody(string $transactionId, string $status): array
+    {
+        return [
             'success' => true,
             'data' => [
                 'transaction_id' => $transactionId,
@@ -303,6 +360,6 @@ class BaosbabsPaymentTest extends TestCase
                 'amount_crypto' => '25.01',
                 'amount_received' => '25.01',
             ],
-        ], 200);
+        ];
     }
 }

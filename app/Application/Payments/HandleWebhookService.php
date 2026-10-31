@@ -46,7 +46,10 @@ final class HandleWebhookService
             return; // Unknown order, return OK to avoid retries
         }
 
-        $eventHash = hash('sha256', $rawBody);
+        // Include the parsed status: gateways that verify via their API
+        // (Baosbabs) can get an identical body retried after the status moved
+        // on, and that retry must not be dropped as a duplicate.
+        $eventHash = hash('sha256', $rawBody . '|' . $event->status->value);
 
         DB::transaction(function () use ($payment, $event, $eventHash, $provider) {
             $payment = Payment::query()

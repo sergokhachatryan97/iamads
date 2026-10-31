@@ -83,6 +83,7 @@ class PaymentServiceProvider extends ServiceProvider
                 client: $this->app->make(BaosbabsClient::class),
                 assets: $config['assets'] ?? [],
                 webhookIp: $config['webhook_ip'] ?? '',
+                verifyRetryDelayMs: (int) ($config['verify_retry_delay_ms'] ?? 1500),
             );
         });
     }

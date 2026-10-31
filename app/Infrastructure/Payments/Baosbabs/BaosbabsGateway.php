@@ -30,6 +30,7 @@ final class BaosbabsGateway implements PaymentGatewayInterface
         private BaosbabsClient $client,
         private array $assets,
         private string $webhookIp = '',
+        private int $verifyRetryDelayMs = 1500,
     ) {}
 
     public function initiate(PaymentIntent $intent): PaymentInitiationResult
@@ -85,6 +86,35 @@ final class BaosbabsGateway implements PaymentGatewayInterface
 
         // Postbacks are unsigned, so the body is never trusted: re-read the
         // payment from the API with our key and use that status instead.
+        $verified = $this->fetchStatus($transactionId);
+
+        // Baosbabs sends the "completed" postback before its own status API
+        // reflects it (seen: postback completed, API pending with
+        // amount_received 0). Re-check briefly, then reject so they retry.
+        $claimed = strtolower(trim((string) ($body['status'] ?? '')));
+        for ($i = 0; $claimed === 'completed' && $this->apiStatus($verified) !== 'completed' && $i < 2; $i++) {
+            usleep($this->verifyRetryDelayMs * 1000);
+            $verified = $this->fetchStatus($transactionId);
+        }
+        if ($claimed === 'completed' && $this->apiStatus($verified) !== 'completed') {
+            throw new InvalidArgumentException(
+                "Postback claims completed but status API says '{$this->apiStatus($verified)}'"
+            );
+        }
+
+        return new GatewayWebhookEvent(
+            orderId: $transactionId,
+            providerRef: $transactionId,
+            status: $this->normalizeStatus($this->apiStatus($verified)),
+            raw: [
+                'postback' => $body,
+                'verified' => $verified,
+            ],
+        );
+    }
+
+    private function fetchStatus(string $transactionId): array
+    {
         try {
             $verified = $this->client->get('/api/payment/' . rawurlencode($transactionId) . '/status');
         } catch (RuntimeException $e) {
@@ -95,15 +125,12 @@ final class BaosbabsGateway implements PaymentGatewayInterface
             throw new InvalidArgumentException('Webhook verification returned a different transaction');
         }
 
-        return new GatewayWebhookEvent(
-            orderId: $transactionId,
-            providerRef: $transactionId,
-            status: $this->normalizeStatus((string) ($verified['status'] ?? '')),
-            raw: [
-                'postback' => $body,
-                'verified' => $verified,
-            ],
-        );
+        return $verified;
+    }
+
+    private function apiStatus(array $verified): string
+    {
+        return strtolower(trim((string) ($verified['status'] ?? '')));
     }
 
     private function validateIp(string $ip): void
@@ -119,7 +146,7 @@ final class BaosbabsGateway implements PaymentGatewayInterface
      */
     private function normalizeStatus(string $status): PaymentStatus
     {
-        return match (strtolower(trim($status))) {
+        return match ($status) {
             'completed' => PaymentStatus::PAID,
             'expired' => PaymentStatus::EXPIRED,
             'failed' => PaymentStatus::FAILED,
