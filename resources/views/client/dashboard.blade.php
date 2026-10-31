@@ -1,4 +1,5 @@
 <x-client-smm-layout :title="__('Dashboard')" :client="$client" :contactTelegram="$contactTelegram">
+    @include('client.payments._styles')
     <style>
         .smm-dash-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin-bottom: 28px; }
         .smm-dash-stat {
@@ -159,6 +160,45 @@
                 </div>
                 <div style="padding: 0 18px 16px">
                     <a href="{{ route('client.orders.index') }}" class="smm-dash-viewall">{{ __('View all orders') }} →</a>
+                </div>
+            @endif
+        </div>
+
+        <div class="smm-dash-table-wrap" style="margin-top: 28px;">
+            <h3>{{ __('Recent payments') }}</h3>
+            @if($recentPayments->isEmpty())
+                <div class="smm-dash-empty">{{ __('You have no payments yet.') }} <a href="{{ route('client.balance.add') }}">{{ __('Add Balance') }}</a></div>
+            @else
+                <div style="overflow-x:auto">
+                    <table class="smm-dash-table">
+                        <thead>
+                            <tr>
+                                <th>{{ __('Payment method') }}</th>
+                                <th>{{ __('Amount') }}</th>
+                                <th>{{ __('Status') }}</th>
+                                <th>{{ __('Date') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($recentPayments as $payment)
+                                <tr>
+                                    <td>
+                                        <div class="ph-method-cell">
+                                            @include('client.payments._method', ['payment' => $payment, 'small' => true])
+                                        </div>
+                                    </td>
+                                    <td style="font-weight:700; white-space:nowrap; color: {{ $payment->status === 'paid' ? 'var(--teal)' : 'var(--text2)' }}">
+                                        {{ $payment->status === 'paid' ? '+' : '' }}${{ number_format((float) $payment->amount, 2) }}
+                                    </td>
+                                    <td>@include('client.payments._status', ['payment' => $payment, 'continueSince' => $continueSince])</td>
+                                    <td style="white-space:nowrap">{{ $payment->created_at->format('M j, H:i') }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                <div style="padding: 0 18px 16px">
+                    <a href="{{ route('client.payments.index') }}" class="smm-dash-viewall">{{ __('View all payments') }} →</a>
                 </div>
             @endif
         </div>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Client;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Models\Payment;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -67,6 +68,13 @@ class DashboardController extends Controller
             ->limit(8)
             ->get();
 
+        $recentPayments = Payment::query()
+            ->where('client_id', $clientId)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->limit(5)
+            ->get();
+
         $platformStats = Order::query()
             ->where('orders.client_id', $clientId)
             ->whereNotNull('orders.category_id')
@@ -113,6 +121,8 @@ class DashboardController extends Controller
             'ordersTrendPct' => $ordersTrendPct,
             'spentTrendPct' => $spentTrendPct,
             'recentOrders' => $recentOrders,
+            'recentPayments' => $recentPayments,
+            'continueSince' => now()->subMinutes(PaymentHistoryController::CONTINUE_WINDOW_MINUTES),
             'platformStats' => $platformStats,
             'chartMonths' => $chartMonths,
             'chartMax' => $chartMax,

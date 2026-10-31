@@ -93,6 +93,7 @@ Route::middleware('auth:client')->group(function () {
     // Balance Management
     Route::get('balance/add', [BalanceController::class, 'create'])->name('client.balance.add');
     Route::post('balance', [BalanceController::class, 'store'])->name('client.balance.store');
+    Route::get('payments', [\App\Http\Controllers\Client\PaymentHistoryController::class, 'index'])->name('client.payments.index');
 
     // Promo Codes
     Route::post('promo-code/apply', [\App\Http\Controllers\Client\PromoCodeController::class, 'apply'])->name('client.promo-code.apply');

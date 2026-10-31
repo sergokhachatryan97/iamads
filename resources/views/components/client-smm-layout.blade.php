@@ -799,6 +799,9 @@
                 <a href="{{ route('client.balance.add') }}" class="{{ request()->routeIs('client.balance.*') ? 'active' : '' }}" @click="sidebarOpen = false">
                     <i class="fa-solid fa-wallet"></i> {{ __('Add Balance') }}
                 </a>
+                <a href="{{ route('client.payments.index') }}" class="{{ request()->routeIs('client.payments.*') ? 'active' : '' }}" @click="sidebarOpen = false">
+                    <i class="fa-solid fa-clock-rotate-left"></i> {{ __('Payment History') }}
+                </a>
                 <a href="{{ route('client.api.index') }}" class="{{ request()->routeIs('client.api.*') ? 'active' : '' }}" @click="sidebarOpen = false">
                     <i class="fa-solid fa-code"></i> {{ __('API') }}
                 </a>

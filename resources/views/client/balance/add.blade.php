@@ -326,6 +326,9 @@
                     </button>
                 </form>
 
+                <a href="{{ route('client.payments.index') }}" class="add-funds-cancel">
+                    <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> {{ __('Payment History') }}
+                </a>
                 <a href="{{ route('client.account.edit') }}" class="add-funds-cancel">{{ __('Cancel') }}</a>
             </div>
         @endif
