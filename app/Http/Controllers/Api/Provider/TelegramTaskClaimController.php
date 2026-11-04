@@ -19,6 +19,9 @@ use Illuminate\Support\Facades\Redis;
  */
 class TelegramTaskClaimController extends Controller
 {
+    /** Seconds a service's scope (default/premium) is cached in Redis. */
+    private const SCOPE_CACHE_TTL = 300;
+
     public function __construct(
         private TelegramTaskClaimService $claimService
     ) {}
@@ -89,10 +92,28 @@ class TelegramTaskClaimController extends Controller
             return $cache[$serviceId];
         }
 
+        // Hot path (~1000 req/s): keep the scope in Redis so a "no work" poll
+        // never opens a Postgres connection just to read template_key.
+        $redisKey = "tg:svc_scope:{$serviceId}";
+        try {
+            $cached = Redis::get($redisKey);
+            if ($cached === TelegramPremiumTemplateScope::SCOPE_DEFAULT
+                || $cached === TelegramPremiumTemplateScope::SCOPE_PREMIUM) {
+                return $cache[$serviceId] = $cached;
+            }
+        } catch (\Throwable) {
+            // Redis down — fall back to the DB lookup below.
+        }
+
         $templateKey = Service::where('id', $serviceId)->value('template_key');
         $scope = TelegramPremiumTemplateScope::isPremiumTemplateKey($templateKey)
             ? TelegramPremiumTemplateScope::SCOPE_PREMIUM
             : TelegramPremiumTemplateScope::SCOPE_DEFAULT;
+
+        try {
+            Redis::setex($redisKey, self::SCOPE_CACHE_TTL, $scope);
+        } catch (\Throwable) {
+        }
 
         return $cache[$serviceId] = $scope;
     }
