@@ -41,6 +41,10 @@ func (b *BotClient) Run(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
+		if isPermanentAuthErr(err) {
+			slog.Error("bot client auth rejected by Telegram, not retrying — set a valid TG_BOT_TOKEN", "error", err)
+			return
+		}
 		if time.Since(started) > time.Minute {
 			backoff = 5 * time.Second
 		}

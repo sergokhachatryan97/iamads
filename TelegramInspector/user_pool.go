@@ -210,6 +210,24 @@ func (p *UserPool) TotalCount() int {
 
 var errNotAuthorized = errors.New("not authorized")
 
+// isPermanentAuthErr: Telegram rejected the credentials themselves; reconnecting won't fix it.
+func isPermanentAuthErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := err.Error()
+	for _, code := range []string{
+		"ACCESS_TOKEN_EXPIRED", "ACCESS_TOKEN_INVALID",
+		"AUTH_KEY_UNREGISTERED", "AUTH_KEY_DUPLICATED", "SESSION_REVOKED",
+		"USER_DEACTIVATED", "USER_DEACTIVATED_BAN",
+	} {
+		if strings.Contains(s, code) {
+			return true
+		}
+	}
+	return false
+}
+
 // Connect establishes MTProto connection for a user account and keeps it alive:
 // if the connection drops, the account is marked not ready and reconnected.
 // Uses Telethon SQLite .session file or gotd file session.
@@ -250,7 +268,8 @@ func (a *UserAccount) runLoop(ctx context.Context, firstErr chan<- error) {
 		case firstErr <- err:
 		default:
 		}
-		if errors.Is(err, errNotAuthorized) {
+		if errors.Is(err, errNotAuthorized) || isPermanentAuthErr(err) {
+			slog.Error("user account auth rejected, not retrying", "phone", a.Phone, "error", err)
 			return // needs interactive setup, retrying won't help
 		}
 
