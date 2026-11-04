@@ -2,8 +2,13 @@
 .DS_Store
 Thumbs.db
 
-# Go TelegramInspector (deployed separately)
-/TelegramInspector/
+# Go TelegramInspector: track source only — sessions are account credentials
+/TelegramInspector/sessions/
+/TelegramInspector/sessions_ready/
+/TelegramInspector/gotd_sessions/
+/TelegramInspector/tdata/
+/TelegramInspector/TelegramInspector
+/TelegramInspector/TelegramInspector-linux
 
 .env
 .env.*

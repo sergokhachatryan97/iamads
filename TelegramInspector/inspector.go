@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -78,10 +79,42 @@ func (ins *Inspector) Inspect(ctx context.Context, req InspectRequest) InspectRe
 	return result
 }
 
+// resolveAttempts remembers why every source failed, so the final answer is
+// "does not exist" only when Telegram itself said so. Any other failure
+// (no free account, flood, timeout, t.me 429) is reported as temporary.
+type resolveAttempts struct {
+	notFound bool
+	lastErr  error
+}
+
+func (a *resolveAttempts) record(err error) {
+	if err == nil {
+		return
+	}
+	if isNotFoundErr(err) {
+		a.notFound = true
+	}
+	a.lastErr = err
+}
+
+func (a *resolveAttempts) fail(code, msg string) InspectResult {
+	if a.notFound {
+		return failResult(code, msg)
+	}
+	if a.lastErr == nil {
+		a.lastErr = fmt.Errorf("no inspection source available")
+	}
+	return tempResult("RESOLVE_TEMPORARY_UNAVAILABLE", a.lastErr)
+}
+
 // ── BOT START ──────────────────────────────────────────────
 func (ins *Inspector) inspectBot(ctx context.Context, p ParsedLink) InspectResult {
+	var att resolveAttempts
+
 	// 1) User pool
-	if r := ins.tryUserResolve(ctx, p.Username); r != nil {
+	r, err := ins.tryUserResolve(ctx, p.Username)
+	att.record(err)
+	if r != nil {
 		if r.ChatType == "channel" || r.ChatType == "supergroup" || r.ChatType == "group" {
 			return ins.inspectUsername(ctx, p)
 		}
@@ -111,6 +144,7 @@ func (ins *Inspector) inspectBot(ctx context.Context, p ParsedLink) InspectResul
 			}
 			return *r
 		}
+		att.record(err)
 		logMtprotoErr("bot", p.Username, err)
 	}
 
@@ -123,13 +157,17 @@ func (ins *Inspector) inspectBot(ctx context.Context, p ParsedLink) InspectResul
 	if looksLikeBot(p.Username) {
 		return InspectResult{OK: true, Kind: string(p.Kind), ChatType: "bot", Title: p.Username, Source: "fallback", IsBot: true}
 	}
-	return failResult("RESOLVE_FAILED", fmt.Sprintf("Cannot resolve @%s", p.Username))
+	return att.fail("RESOLVE_FAILED", fmt.Sprintf("Cannot resolve @%s", p.Username))
 }
 
 // ── PUBLIC USERNAME / BOOST ────────────────────────────────
 func (ins *Inspector) inspectUsername(ctx context.Context, p ParsedLink) InspectResult {
+	var att resolveAttempts
+
 	// 1) User pool
-	if r := ins.tryUserResolve(ctx, p.Username); r != nil {
+	r, err := ins.tryUserResolve(ctx, p.Username)
+	att.record(err)
+	if r != nil {
 		if p.Kind == KindBoostLink {
 			r.IsBoost = true
 		}
@@ -145,6 +183,7 @@ func (ins *Inspector) inspectUsername(ctx context.Context, p ParsedLink) Inspect
 			}
 			return *r
 		}
+		att.record(err)
 		logMtprotoErr("bot", p.Username, err)
 	}
 
@@ -157,13 +196,17 @@ func (ins *Inspector) inspectUsername(ctx context.Context, p ParsedLink) Inspect
 		return *r
 	}
 
-	return failResult("RESOLVE_FAILED", "Chat or user does not exist")
+	return att.fail("RESOLVE_FAILED", "Chat or user does not exist")
 }
 
 // ── PUBLIC POST ────────────────────────────────────────────
 func (ins *Inspector) inspectPost(ctx context.Context, p ParsedLink) InspectResult {
+	var att resolveAttempts
+
 	// 1) User pool — resolve + get post
-	if r := ins.tryUserResolve(ctx, p.Username); r != nil {
+	r, err := ins.tryUserResolve(ctx, p.Username)
+	att.record(err)
+	if r != nil {
 		r.Kind = "public_post"
 		r.PostID = p.PostID
 		return *r
@@ -175,6 +218,7 @@ func (ins *Inspector) inspectPost(ctx context.Context, p ParsedLink) InspectResu
 		if err == nil && r != nil && r.OK {
 			return *r
 		}
+		att.record(err)
 		logMtprotoErr("bot", fmt.Sprintf("%s/%d", p.Username, p.PostID), err)
 	}
 
@@ -186,13 +230,17 @@ func (ins *Inspector) inspectPost(ctx context.Context, p ParsedLink) InspectResu
 		return *r
 	}
 
-	return failResult("RESOLVE_FAILED", "Post does not exist")
+	return att.fail("RESOLVE_FAILED", "Post does not exist")
 }
 
 // ── COMMENT ────────────────────────────────────────────────
 func (ins *Inspector) inspectComment(ctx context.Context, p ParsedLink) InspectResult {
+	var att resolveAttempts
+
 	// 1) User pool
-	if r := ins.tryUserResolve(ctx, p.Username); r != nil {
+	r, err := ins.tryUserResolve(ctx, p.Username)
+	att.record(err)
+	if r != nil {
 		r.Kind = string(p.Kind)
 		r.PostID = p.PostID
 		return *r
@@ -206,15 +254,20 @@ func (ins *Inspector) inspectComment(ctx context.Context, p ParsedLink) InspectR
 			r.PostID = p.PostID
 			return *r
 		}
+		att.record(err)
 	}
 
-	return failResult("RESOLVE_FAILED", "Chat or user does not exist")
+	return att.fail("RESOLVE_FAILED", "Chat or user does not exist")
 }
 
 // ── STORY ──────────────────────────────────────────────────
 func (ins *Inspector) inspectStory(ctx context.Context, p ParsedLink) InspectResult {
+	var att resolveAttempts
+
 	// 1) User pool — can access stories
-	if r := ins.tryUserResolve(ctx, p.Username); r != nil {
+	r, err := ins.tryUserResolve(ctx, p.Username)
+	att.record(err)
+	if r != nil {
 		if r.ChatType != "channel" {
 			return failResult("NOT_CHANNEL", "Only public channel story links are allowed")
 		}
@@ -232,6 +285,7 @@ func (ins *Inspector) inspectStory(ctx context.Context, p ParsedLink) InspectRes
 			r.Kind = "story_link"
 			return *r
 		}
+		att.record(err)
 	}
 
 	// 3) HTML
@@ -243,7 +297,7 @@ func (ins *Inspector) inspectStory(ctx context.Context, p ParsedLink) InspectRes
 		return *r
 	}
 
-	return failResult("RESOLVE_FAILED", "Cannot resolve channel for story")
+	return att.fail("RESOLVE_FAILED", "Cannot resolve channel for story")
 }
 
 // ── INVITE ─────────────────────────────────────────────────
@@ -292,10 +346,13 @@ func (ins *Inspector) inspectInvite(ctx context.Context, p ParsedLink) InspectRe
 
 // ── HELPERS ────────────────────────────────────────────────
 
-func (ins *Inspector) tryUserResolve(ctx context.Context, username string) *InspectResult {
-	acct := ins.pool.Acquire()
+// tryUserResolve returns (result, nil) on success, or (nil, err) explaining the failure.
+func (ins *Inspector) tryUserResolve(ctx context.Context, username string) (*InspectResult, error) {
+	// Accounts sit in a 2-3s cooldown after every call, so under load wait briefly
+	// for a free one instead of skipping the user pool entirely.
+	acct := ins.pool.AcquireWait(ctx, userAcquireWait)
 	if acct == nil {
-		return nil
+		return nil, fmt.Errorf("NO_AVAILABLE_ACCOUNTS")
 	}
 
 	r, err := acct.ResolveUsername(ctx, username)
@@ -307,11 +364,29 @@ func (ins *Inspector) tryUserResolve(ctx context.Context, username string) *Insp
 		}
 		ins.pool.Release(acct)
 		logMtprotoErr("user", username, err)
-		return nil
+		return nil, err
 	}
 	ins.pool.SetCooldown(acct, 2*time.Second)
 	ins.pool.Release(acct)
-	return r
+	return r, nil
+}
+
+const userAcquireWait = 3 * time.Second
+
+var errPostNotFound = errors.New("POST_NOT_FOUND")
+
+// isNotFoundErr reports a definitive "this does not exist" answer from Telegram,
+// as opposed to infrastructure failures that must not fail an order.
+func isNotFoundErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, errPostNotFound) {
+		return true
+	}
+	s := err.Error()
+	return strings.Contains(s, "USERNAME_NOT_OCCUPIED") ||
+		strings.Contains(s, "USERNAME_INVALID")
 }
 
 func failResult(code, msg string) InspectResult {

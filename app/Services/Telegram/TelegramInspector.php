@@ -75,6 +75,10 @@ class TelegramInspector
                     'is_boost' => $goResult['is_boost'] ?? false,
                 ];
             }
+            // Go "not found" can be a false negative (seen on live channels) → re-check via PHP fallback below
+            elseif (strtoupper((string) ($goResult['error_code'] ?? '')) === 'RESOLVE_FAILED') {
+                \Illuminate\Support\Facades\Log::info('Go TelegramInspector RESOLVE_FAILED, re-checking via PHP fallback', ['link' => $link]);
+            }
             // Go returned ok=false, temporary=false → definitive failure
             elseif (($goResult['ok'] ?? false) === false && ($goResult['temporary'] ?? false) === false && ! empty($goResult['error_code'])) {
                 $parsed = TelegramLinkParser::parse($link);

@@ -51,6 +51,9 @@ func (h *HtmlInspector) fetch(url string) (string, error) {
 			return "", err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("t.me returned HTTP %d", resp.StatusCode)
+	}
 	b, err := io.ReadAll(resp.Body)
 	return string(b), err
 }

@@ -16,7 +16,8 @@ func main() {
 	// Structured logging
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})))
 
-	botToken := envOr("TG_BOT_TOKEN", "8675161582:AAENuaX8sM50-OC8QLYkhHRkrqp01FuNgIM")
+	// Never hardcode the token: pass it via the TG_BOT_TOKEN environment variable.
+	botToken := os.Getenv("TG_BOT_TOKEN")
 	port := envOr("TG_INSPECTOR_PORT", "8090")
 	sessionsDir := envOr("TG_SESSIONS_DIR", "./sessions_ready")
 	// CLI mode — single link inspection
@@ -31,18 +32,18 @@ func main() {
 
 	// 1) Bot client — persistent MTProto connection
 	bot := NewBotClient(botToken)
-	go func() {
-		if err := bot.Start(ctx); err != nil {
-			slog.Error("bot client stopped", "error", err)
-		}
-	}()
+	if botToken == "" {
+		slog.Warn("TG_BOT_TOKEN not set, bot client disabled (user pool + HTML only)")
+	} else {
+		go bot.Run(ctx)
 
-	// Wait for bot to be ready (max 10s)
-	waitCtx, waitCancel := context.WithTimeout(ctx, 10*time.Second)
-	if err := bot.WaitReady(waitCtx); err != nil {
-		slog.Warn("bot client not ready, will use fallbacks", "error", err)
+		// Wait for bot to be ready (max 10s)
+		waitCtx, waitCancel := context.WithTimeout(ctx, 10*time.Second)
+		if err := bot.WaitReady(waitCtx); err != nil {
+			slog.Warn("bot client not ready, will use fallbacks", "error", err)
+		}
+		waitCancel()
 	}
-	waitCancel()
 
 	// 2) User pool — load session files
 	pool := NewUserPool()
@@ -112,7 +113,7 @@ func main() {
 
 	slog.Info("TelegramInspector started",
 		"port", port,
-		"bot_token", botToken[:10]+"...",
+		"bot_enabled", botToken != "",
 		"sessions_dir", sessionsDir,
 		"user_accounts", pool.TotalCount(),
 	)
@@ -129,11 +130,13 @@ func runCLI(botToken, link string) {
 	defer cancel()
 
 	bot := NewBotClient(botToken)
-	go bot.Start(ctx)
+	if botToken != "" {
+		go bot.Start(ctx)
 
-	waitCtx, waitCancel := context.WithTimeout(ctx, 10*time.Second)
-	bot.WaitReady(waitCtx)
-	waitCancel()
+		waitCtx, waitCancel := context.WithTimeout(ctx, 10*time.Second)
+		bot.WaitReady(waitCtx)
+		waitCancel()
+	}
 
 	pool := NewUserPool()
 	inspector := NewInspector(bot, pool)

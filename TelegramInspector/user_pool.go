@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -143,6 +144,24 @@ func (p *UserPool) Acquire() *UserAccount {
 	return best
 }
 
+// AcquireWait is Acquire that polls for up to maxWait (or until ctx is done).
+func (p *UserPool) AcquireWait(ctx context.Context, maxWait time.Duration) *UserAccount {
+	deadline := time.Now().Add(maxWait)
+	for {
+		if a := p.Acquire(); a != nil {
+			return a
+		}
+		if time.Now().After(deadline) {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(200 * time.Millisecond):
+		}
+	}
+}
+
 // Release returns an account to the pool.
 func (p *UserPool) Release(a *UserAccount) {
 	a.mu.Lock()
@@ -189,12 +208,68 @@ func (p *UserPool) TotalCount() int {
 	return len(p.accounts)
 }
 
-// Connect establishes MTProto connection for a user account.
+var errNotAuthorized = errors.New("not authorized")
+
+// Connect establishes MTProto connection for a user account and keeps it alive:
+// if the connection drops, the account is marked not ready and reconnected.
 // Uses Telethon SQLite .session file or gotd file session.
 func (a *UserAccount) Connect(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	a.cancel = cancel
 
+	firstErr := make(chan error, 1)
+	go a.runLoop(ctx, firstErr)
+
+	// Wait a bit to see if the first connection succeeds
+	select {
+	case err := <-firstErr:
+		return err
+	case <-time.After(10 * time.Second):
+		if !a.isReady() {
+			return fmt.Errorf("timeout connecting %s (will keep retrying)", a.Phone)
+		}
+		return nil
+	}
+}
+
+func (a *UserAccount) runLoop(ctx context.Context, firstErr chan<- error) {
+	backoff := 5 * time.Second
+	for {
+		started := time.Now()
+		err := a.runOnce(ctx)
+
+		a.mu.Lock()
+		a.ready = false
+		a.api = nil
+		a.mu.Unlock()
+
+		if ctx.Err() != nil {
+			return
+		}
+		select {
+		case firstErr <- err:
+		default:
+		}
+		if errors.Is(err, errNotAuthorized) {
+			return // needs interactive setup, retrying won't help
+		}
+
+		if time.Since(started) > time.Minute {
+			backoff = 5 * time.Second
+		}
+		slog.Warn("user account disconnected, reconnecting", "phone", a.Phone, "error", err, "in", backoff)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(backoff):
+		}
+		if backoff < time.Minute {
+			backoff *= 2
+		}
+	}
+}
+
+func (a *UserAccount) runOnce(ctx context.Context) error {
 	var storage session.Storage
 	if a.sessionJSON != "" {
 		storage = &JSONSessionStorage{Path: a.sessionJSON}
@@ -203,60 +278,62 @@ func (a *UserAccount) Connect(ctx context.Context) error {
 		storage = &session.FileStorage{Path: sessionPath}
 	}
 
-	a.client = telegram.NewClient(a.ApiID, a.ApiHash, telegram.Options{
+	client := telegram.NewClient(a.ApiID, a.ApiHash, telegram.Options{
 		SessionStorage: storage,
 	})
+	a.client = client
 
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- a.client.Run(ctx, func(ctx context.Context) error {
-			status, err := a.client.Auth().Status(ctx)
-			if err != nil {
-				return fmt.Errorf("auth status: %w", err)
-			}
-			if !status.Authorized {
-				// Session not authorized — needs interactive setup
-				slog.Warn("user account not authorized, needs setup",
-					"phone", a.Phone,
-					"session", a.sessionJSON,
-				)
-				return fmt.Errorf("not authorized: run setup for %s", a.Phone)
-			}
-
-			a.mu.Lock()
-			a.api = a.client.API()
-			a.ready = true
-			a.mu.Unlock()
-
-			slog.Info("user account connected", "phone", a.Phone, "id", a.ID, "name", a.Name)
-
-			<-ctx.Done()
-			return ctx.Err()
-		})
-	}()
-
-	// Wait a bit to see if connection succeeds
-	select {
-	case err := <-errCh:
-		return err
-	case <-time.After(10 * time.Second):
-		// Check if ready
-		a.mu.Lock()
-		r := a.ready
-		a.mu.Unlock()
-		if !r {
-			cancel()
-			return fmt.Errorf("timeout connecting %s", a.Phone)
+	return client.Run(ctx, func(ctx context.Context) error {
+		status, err := client.Auth().Status(ctx)
+		if err != nil {
+			return fmt.Errorf("auth status: %w", err)
 		}
-		return nil
+		if !status.Authorized {
+			// Session not authorized — needs interactive setup
+			slog.Warn("user account not authorized, needs setup",
+				"phone", a.Phone,
+				"session", a.sessionJSON,
+			)
+			return fmt.Errorf("%w: run setup for %s", errNotAuthorized, a.Phone)
+		}
+
+		a.mu.Lock()
+		a.api = client.API()
+		a.ready = true
+		a.mu.Unlock()
+
+		slog.Info("user account connected", "phone", a.Phone, "id", a.ID, "name", a.Name)
+
+		<-ctx.Done()
+		return ctx.Err()
+	})
+}
+
+func (a *UserAccount) isReady() bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.ready
+}
+
+func (a *UserAccount) getAPI() (*tg.Client, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.api == nil {
+		return nil, fmt.Errorf("user account %s not connected", a.Phone)
 	}
+	return a.api, nil
 }
 
 // ResolveUsername resolves a username via user MTProto.
 func (a *UserAccount) ResolveUsername(ctx context.Context, username string) (*InspectResult, error) {
 	username = strings.TrimLeft(username, "@")
 
-	resolved, err := a.api.ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{
+	api, err := a.getAPI()
+	if err != nil {
+		return nil, err
+	}
+
+	resolved, err := api.ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{
 		Username: username,
 	})
 	if err != nil {
@@ -294,7 +371,7 @@ func (a *UserAccount) ResolveUsername(ctx context.Context, username string) (*In
 		}
 		classifyChannel(ch, r)
 
-		full, err := a.api.ChannelsGetFullChannel(ctx, &tg.InputChannel{
+		full, err := api.ChannelsGetFullChannel(ctx, &tg.InputChannel{
 			ChannelID: ch.ID, AccessHash: ch.AccessHash,
 		})
 		if err == nil {
@@ -313,7 +390,11 @@ func (a *UserAccount) ResolveUsername(ctx context.Context, username string) (*In
 
 // CheckInvite checks an invite hash via user MTProto.
 func (a *UserAccount) CheckInvite(ctx context.Context, hash string) (*InspectResult, error) {
-	invite, err := a.api.MessagesCheckChatInvite(ctx, hash)
+	api, err := a.getAPI()
+	if err != nil {
+		return nil, err
+	}
+	invite, err := api.MessagesCheckChatInvite(ctx, hash)
 	if err != nil {
 		return nil, err
 	}

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gotd/td/telegram"
 	"github.com/gotd/td/tg"
@@ -14,12 +15,13 @@ import (
 // BotClient is a persistent MTProto bot connection.
 // It connects once and reuses the connection for all requests.
 type BotClient struct {
-	botToken string
-	api      *tg.Client
-	ready    chan struct{}
-	mu       sync.RWMutex
-	running  bool
-	cancel   context.CancelFunc
+	botToken  string
+	api       *tg.Client
+	ready     chan struct{}
+	readyOnce sync.Once
+	mu        sync.RWMutex
+	running   bool
+	cancel    context.CancelFunc
 }
 
 func NewBotClient(botToken string) *BotClient {
@@ -29,11 +31,42 @@ func NewBotClient(botToken string) *BotClient {
 	}
 }
 
-// Start connects to Telegram MTProto and keeps the connection alive.
-// Call this once at startup in a goroutine.
+// Run keeps the bot connection alive, reconnecting with backoff when it drops.
+// Call this once at startup in a goroutine; returns when ctx is cancelled.
+func (b *BotClient) Run(ctx context.Context) {
+	backoff := 5 * time.Second
+	for {
+		started := time.Now()
+		err := b.Start(ctx)
+		if ctx.Err() != nil {
+			return
+		}
+		if time.Since(started) > time.Minute {
+			backoff = 5 * time.Second
+		}
+		slog.Error("bot client stopped, reconnecting", "error", err, "in", backoff)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(backoff):
+		}
+		if backoff < time.Minute {
+			backoff *= 2
+		}
+	}
+}
+
+// Start connects to Telegram MTProto and blocks until the connection ends.
 func (b *BotClient) Start(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	b.cancel = cancel
+
+	defer func() {
+		b.mu.Lock()
+		b.running = false
+		b.api = nil
+		b.mu.Unlock()
+	}()
 
 	client := telegram.NewClient(6, "eb06d4abfb49dc3eeb1aeb98ae0f581e", telegram.Options{})
 
@@ -53,8 +86,8 @@ func (b *BotClient) Start(ctx context.Context) error {
 		b.running = true
 		b.mu.Unlock()
 
-		close(b.ready)
-		slog.Info("bot_client connected", "token_prefix", b.botToken[:10]+"...")
+		b.readyOnce.Do(func() { close(b.ready) })
+		slog.Info("bot_client connected", "bot_id", strings.SplitN(b.botToken, ":", 2)[0])
 
 		<-ctx.Done()
 		return ctx.Err()
@@ -73,6 +106,15 @@ func (b *BotClient) IsReady() bool {
 	return b.running && b.api != nil
 }
 
+func (b *BotClient) getAPI() (*tg.Client, error) {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	if !b.running || b.api == nil {
+		return nil, fmt.Errorf("bot client not ready")
+	}
+	return b.api, nil
+}
+
 func (b *BotClient) WaitReady(ctx context.Context) error {
 	select {
 	case <-b.ready:
@@ -84,13 +126,14 @@ func (b *BotClient) WaitReady(ctx context.Context) error {
 
 // ResolveUsername resolves a public username via MTProto bot.
 func (b *BotClient) ResolveUsername(ctx context.Context, username string) (*InspectResult, error) {
-	if !b.IsReady() {
-		return nil, fmt.Errorf("bot client not ready")
+	api, err := b.getAPI()
+	if err != nil {
+		return nil, err
 	}
 
 	username = strings.TrimLeft(username, "@")
 
-	resolved, err := b.api.ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{
+	resolved, err := api.ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{
 		Username: username,
 	})
 	if err != nil {
@@ -136,7 +179,7 @@ func (b *BotClient) ResolveUsername(ctx context.Context, username string) (*Insp
 		classifyChannel(ch, r)
 
 		// Get full info
-		full, err := b.api.ChannelsGetFullChannel(ctx, &tg.InputChannel{
+		full, err := api.ChannelsGetFullChannel(ctx, &tg.InputChannel{
 			ChannelID:  ch.ID,
 			AccessHash: ch.AccessHash,
 		})
@@ -157,14 +200,15 @@ func (b *BotClient) ResolveUsername(ctx context.Context, username string) (*Insp
 
 // GetPostInfo gets views/poll info for a specific post.
 func (b *BotClient) GetPostInfo(ctx context.Context, username string, postID int) (*InspectResult, error) {
-	if !b.IsReady() {
-		return nil, fmt.Errorf("bot client not ready")
+	api, err := b.getAPI()
+	if err != nil {
+		return nil, err
 	}
 
 	username = strings.TrimLeft(username, "@")
 
 	// Resolve channel first
-	resolved, err := b.api.ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{
+	resolved, err := api.ContactsResolveUsername(ctx, &tg.ContactsResolveUsernameRequest{
 		Username: username,
 	})
 	if err != nil {
@@ -182,7 +226,7 @@ func (b *BotClient) GetPostInfo(ctx context.Context, username string, postID int
 		return nil, fmt.Errorf("channel @%s not found", username)
 	}
 
-	msgs, err := b.api.ChannelsGetMessages(ctx, &tg.ChannelsGetMessagesRequest{
+	msgs, err := api.ChannelsGetMessages(ctx, &tg.ChannelsGetMessagesRequest{
 		Channel: ic,
 		ID:      []tg.InputMessageClass{&tg.InputMessageID{ID: postID}},
 	})
@@ -201,7 +245,10 @@ func (b *BotClient) GetPostInfo(ctx context.Context, username string, postID int
 	}
 
 	if len(messages) == 0 {
-		return nil, fmt.Errorf("post %d not found", postID)
+		return nil, fmt.Errorf("post %d: %w", postID, errPostNotFound)
+	}
+	if _, empty := messages[0].(*tg.MessageEmpty); empty {
+		return nil, fmt.Errorf("post %d: %w", postID, errPostNotFound)
 	}
 
 	msg, ok := messages[0].(*tg.Message)
@@ -231,11 +278,12 @@ func (b *BotClient) GetPostInfo(ctx context.Context, username string, postID int
 
 // CheckInvite checks an invite hash.
 func (b *BotClient) CheckInvite(ctx context.Context, hash string) (*InspectResult, error) {
-	if !b.IsReady() {
-		return nil, fmt.Errorf("bot client not ready")
+	api, err := b.getAPI()
+	if err != nil {
+		return nil, err
 	}
 
-	invite, err := b.api.MessagesCheckChatInvite(ctx, hash)
+	invite, err := api.MessagesCheckChatInvite(ctx, hash)
 	if err != nil {
 		return nil, fmt.Errorf("check invite: %w", err)
 	}
