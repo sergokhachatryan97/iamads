@@ -22,6 +22,7 @@ class ServerHealthCheckService
             'disk' => $this->checkDisk(),
             'queue' => $this->checkQueue(),
             'nginx' => $this->checkNginx(),
+            'tg_inspector' => $this->checkTelegramInspector(),
         ];
 
         foreach ($results as $name => $result) {
@@ -373,6 +374,60 @@ class ServerHealthCheckService
         } catch (\Throwable $e) {
             return ['status' => 'unknown', 'message' => 'queue size check failed: '.$e->getMessage()];
         }
+    }
+
+    /**
+     * Go TelegramInspector: must be reachable, bot connected, and — if user
+     * sessions are loaded — at least one of them usable.
+     */
+    protected function checkTelegramInspector(): array
+    {
+        $baseUrl = config('services.telegram_inspector.url');
+        if (! $baseUrl) {
+            return ['status' => 'unknown', 'message' => 'TG_INSPECTOR_URL not set'];
+        }
+
+        $fetch = function () use ($baseUrl): ?array {
+            try {
+                $response = Http::timeout(3)->get(rtrim($baseUrl, '/').'/health');
+
+                return $response->successful() ? $response->json() : null;
+            } catch (\Throwable) {
+                return null;
+            }
+        };
+
+        $health = $fetch();
+        if ($health === null) {
+            return ['status' => 'bad', 'message' => "\xF0\x9F\xA4\x96 TelegramInspector (Go) is DOWN — {$baseUrl}/health not responding"];
+        }
+
+        $total = (int) ($health['user_accounts'] ?? 0);
+        $available = (int) ($health['user_available'] ?? 0);
+
+        // Accounts are briefly "in use" during a request — re-sample before alerting.
+        if ($total > 0 && $available === 0) {
+            sleep(2);
+            $health = $fetch() ?? $health;
+            $available = (int) ($health['user_available'] ?? 0);
+        }
+
+        $botReady = (bool) ($health['bot_ready'] ?? false);
+        $detail = sprintf('bot_ready=%s, accounts %d/%d available', $botReady ? 'yes' : 'no', $available, $total);
+
+        $problems = [];
+        if (! $botReady) {
+            $problems[] = 'bot not connected (check TG_BOT_TOKEN)';
+        }
+        if ($total > 0 && $available === 0) {
+            $problems[] = 'no user accounts available (dead / flood-wait — need new sessions)';
+        }
+
+        if ($problems) {
+            return ['status' => 'bad', 'message' => "\xF0\x9F\xA4\x96 TelegramInspector: ".implode('; ', $problems)." | {$detail}"];
+        }
+
+        return ['status' => 'ok', 'message' => "tg_inspector ok: {$detail}"];
     }
 
     protected function checkNginx(): array
