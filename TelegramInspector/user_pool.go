@@ -417,5 +417,10 @@ func (a *UserAccount) CheckInvite(ctx context.Context, hash string) (*InspectRes
 	if err != nil {
 		return nil, err
 	}
-	return parseInviteResult(invite, "go_mtproto_user")
+	r, ch, err := parseInviteResult(invite, "go_mtproto_user")
+	if err != nil {
+		return nil, err
+	}
+	fillChannelMemberCount(ctx, api, ch, r)
+	return r, nil
 }

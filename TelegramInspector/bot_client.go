@@ -292,7 +292,31 @@ func (b *BotClient) CheckInvite(ctx context.Context, hash string) (*InspectResul
 		return nil, fmt.Errorf("check invite: %w", err)
 	}
 
-	return parseInviteResult(invite, "go_mtproto_bot")
+	r, ch, err := parseInviteResult(invite, "go_mtproto_bot")
+	if err != nil {
+		return nil, err
+	}
+	fillChannelMemberCount(ctx, api, ch, r)
+	return r, nil
+}
+
+// fillChannelMemberCount fetches the subscriber count when the invite response
+// carried only the channel object (ChatInviteAlready / ChatInvitePeek).
+func fillChannelMemberCount(ctx context.Context, api *tg.Client, ch *tg.Channel, r *InspectResult) {
+	if ch == nil || r.MemberCount > 0 {
+		return
+	}
+	full, err := api.ChannelsGetFullChannel(ctx, &tg.InputChannel{ChannelID: ch.ID, AccessHash: ch.AccessHash})
+	if err != nil {
+		slog.Debug("invite: get full channel failed", "channel_id", ch.ID, "error", err)
+		return
+	}
+	if fc, ok := full.FullChat.(*tg.ChannelFull); ok {
+		r.MemberCount = fc.ParticipantsCount
+		if fc.SendPaidMessagesStars > 0 {
+			r.IsPaidMessages = true
+		}
+	}
 }
 
 func classifyChannel(ch *tg.Channel, r *InspectResult) {
@@ -311,8 +335,11 @@ func classifyChannel(ch *tg.Channel, r *InspectResult) {
 	}
 }
 
-func parseInviteResult(invite tg.ChatInviteClass, source string) (*InspectResult, error) {
+// parseInviteResult also returns the channel when the response carries one
+// without a participant count, so the caller can look the count up.
+func parseInviteResult(invite tg.ChatInviteClass, source string) (*InspectResult, *tg.Channel, error) {
 	r := &InspectResult{OK: true, Source: source, Kind: "invite", IsInvite: true}
+	var channel *tg.Channel
 
 	switch v := invite.(type) {
 	case *tg.ChatInvite:
@@ -337,6 +364,7 @@ func parseInviteResult(invite tg.ChatInviteClass, source string) (*InspectResult
 		case *tg.Channel:
 			r.Title = c.Title
 			classifyChannel(c, r)
+			channel = c
 		case *tg.Chat:
 			r.Title = c.Title
 			r.MemberCount = c.ParticipantsCount
@@ -350,13 +378,20 @@ func parseInviteResult(invite tg.ChatInviteClass, source string) (*InspectResult
 		case *tg.Channel:
 			r.Title = c.Title
 			classifyChannel(c, r)
+			channel = c
 		}
 
 	default:
-		return nil, fmt.Errorf("unexpected invite type")
+		return nil, nil, fmt.Errorf("unexpected invite type")
 	}
 
-	return r, nil
+	if channel != nil {
+		if n, ok := channel.GetParticipantsCount(); ok && n > 0 {
+			r.MemberCount = n
+		}
+	}
+
+	return r, channel, nil
 }
 
 func userFullName(u *tg.User) string {

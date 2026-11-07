@@ -311,6 +311,7 @@ func (ins *Inspector) inspectInvite(ctx context.Context, p ParsedLink) InspectRe
 		if err == nil && r != nil && r.OK {
 			ins.pool.SetCooldown(acct, 2*time.Second)
 			ins.pool.Release(acct)
+			ins.fillInviteCountFromHTML(hash, r)
 			return *r
 		}
 		if err != nil {
@@ -328,6 +329,7 @@ func (ins *Inspector) inspectInvite(ctx context.Context, p ParsedLink) InspectRe
 	if ins.bot.IsReady() {
 		r, err := ins.bot.CheckInvite(ctx, hash)
 		if err == nil && r != nil && r.OK {
+			ins.fillInviteCountFromHTML(hash, r)
 			return *r
 		}
 		logMtprotoErr("bot", "invite:"+hash, err)
@@ -345,6 +347,30 @@ func (ins *Inspector) inspectInvite(ctx context.Context, p ParsedLink) InspectRe
 }
 
 // ── HELPERS ────────────────────────────────────────────────
+
+// fillInviteCountFromHTML is the last resort when MTProto returned the chat
+// without a member count: the t.me invite page shows it.
+func (ins *Inspector) fillInviteCountFromHTML(hash string, r *InspectResult) {
+	if r.MemberCount > 0 {
+		return
+	}
+	// Bounded: PHP waits only ~5s for the whole /inspect response.
+	done := make(chan int, 1)
+	go func() {
+		n := 0
+		if h := ins.html.Inspect(fmt.Sprintf("https://t.me/+%s", hash)); h != nil && h.OK {
+			n = h.MemberCount
+		}
+		done <- n
+	}()
+	select {
+	case n := <-done:
+		if n > 0 {
+			r.MemberCount = n
+		}
+	case <-time.After(3 * time.Second):
+	}
+}
 
 // tryUserResolve returns (result, nil) on success, or (nil, err) explaining the failure.
 func (ins *Inspector) tryUserResolve(ctx context.Context, username string) (*InspectResult, error) {
