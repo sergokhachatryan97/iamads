@@ -740,11 +740,12 @@ class TelegramTaskClaimService
 
             $linkHash = TelegramAccountLinkState::linkHash($link);
 
+            // Any existing row (incl. failed/unsubscribed) blocks: the unique
+            // index tg_ord_phone_link_uq would reject the insert below anyway.
             $hasMembership = TelegramOrderMembership::query()
                 ->where('order_id', $order->id)
                 ->where('account_phone', $phone)
                 ->where('link_hash', $linkHash)
-                ->whereIn('state', [TelegramOrderMembership::STATE_SUBSCRIBED, TelegramOrderMembership::STATE_IN_PROGRESS])
                 ->exists();
 
             if ($hasMembership) {
@@ -1297,11 +1298,13 @@ LUA;
 
         // Membership dedup — single indexed read, no lock.
         // No RPUSH: task stays PENDING; preassign re-queues on next run.
+        // Any existing row (incl. failed/unsubscribed) blocks: the unique index
+        // tg_ord_phone_link_uq would reject the insert below anyway, after we'd
+        // already leased the task and spent cap/cooldown.
         $alreadyMember = TelegramOrderMembership::query()
             ->where('order_id', $order->id)
             ->where('account_phone', $phone)
             ->where('link_hash', $linkHash)
-            ->whereIn('state', [TelegramOrderMembership::STATE_SUBSCRIBED, TelegramOrderMembership::STATE_IN_PROGRESS])
             ->exists();
 
         if ($alreadyMember) {
