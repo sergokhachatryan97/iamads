@@ -7,8 +7,7 @@
     </x-slot>
 
     <div class="py-6 bg-white min-h-[calc(100vh-4rem)]"
-         x-data="telegramStats(@js($dataUrl), @js($serviceId))"
-         x-init="init()">
+         x-data="telegramStats(@js($dataUrl), @js($serviceId))">
 
         <div class="max-w-8xl mx-auto sm:px-6 lg:px-8">
 
@@ -303,13 +302,16 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script>
         function telegramStats(dataUrl, selectedServiceId) {
+            // Chart instance lives outside Alpine's reactive state: a Proxy-wrapped
+            // Chart.js object breaks its internal redraw after destroy().
+            let chart = null;
+
             return {
                 dataUrl,
                 selectedServiceId,
                 loading: true,
                 error: null,
                 data: {},
-                chart: null,
 
                 get periodLabel() {
                     if (!this.data || this.data.has_date_filter) return '';
@@ -382,7 +384,7 @@
 
                     const ctx = document.getElementById('chartMain');
                     if (!ctx) return;
-                    if (this.chart) { this.chart.destroy(); this.chart = null; }
+                    if (chart) { chart.destroy(); chart = null; }
                     if (!labels.length) return;
 
                     const tooltipLabels = labels.map(d => {
@@ -403,7 +405,7 @@
 
                     const fmt = v => v.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '\u00a0');
 
-                    this.chart = new Chart(ctx, {
+                    chart = new Chart(ctx, {
                         type: 'line',
                         data: {
                             labels: shortLabels,
