@@ -302,6 +302,8 @@ func (b *BotClient) CheckInvite(ctx context.Context, hash string) (*InspectResul
 
 // fillChannelMemberCount fetches the subscriber count when the invite response
 // carried only the channel object (ChatInviteAlready / ChatInvitePeek).
+// Only the count: invite links were never paid-messages checked, and doing it
+// here would depend on whether this account happens to be a member already.
 func fillChannelMemberCount(ctx context.Context, api *tg.Client, ch *tg.Channel, r *InspectResult) {
 	if ch == nil || r.MemberCount > 0 {
 		return
@@ -313,9 +315,6 @@ func fillChannelMemberCount(ctx context.Context, api *tg.Client, ch *tg.Channel,
 	}
 	if fc, ok := full.FullChat.(*tg.ChannelFull); ok {
 		r.MemberCount = fc.ParticipantsCount
-		if fc.SendPaidMessagesStars > 0 {
-			r.IsPaidMessages = true
-		}
 	}
 }
 
