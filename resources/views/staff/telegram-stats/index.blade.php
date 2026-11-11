@@ -155,10 +155,11 @@
             <div class="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
                 <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
                     <h3 class="text-sm font-semibold text-gray-700">{{ __('Services') }}</h3>
-                    <span x-show="!loading && data.pagination && data.pagination.total > data.pagination.per_page"
-                          x-cloak class="text-xs text-gray-400"
-                          x-text="((data.pagination.current_page - 1) * data.pagination.per_page + 1) + '–' + Math.min(data.pagination.current_page * data.pagination.per_page, data.pagination.total) + ' {{ __('of') }} ' + data.pagination.total">
-                    </span>
+                    <template x-if="!loading && data.pagination && data.pagination.total > data.pagination.per_page">
+                        <span class="text-xs text-gray-400"
+                              x-text="((data.pagination.current_page - 1) * data.pagination.per_page + 1) + '–' + Math.min(data.pagination.current_page * data.pagination.per_page, data.pagination.total) + ' {{ __('of') }} ' + data.pagination.total">
+                        </span>
+                    </template>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200 text-sm">
@@ -269,9 +270,9 @@
                     </table>
                 </div>
 
-                {{-- Pagination --}}
-                <div x-show="!loading && data.pagination && data.pagination.last_page > 1"
-                     x-cloak class="px-4 py-3 border-t border-gray-100 flex items-center gap-1 flex-wrap">
+                {{-- Pagination: x-if (not x-show) so inner bindings never run before data.pagination exists --}}
+                <template x-if="!loading && data.pagination && data.pagination.last_page > 1">
+                <div class="px-4 py-3 border-t border-gray-100 flex items-center gap-1 flex-wrap">
                     <button @click="changePage(data.pagination.current_page - 1)"
                             :disabled="data.pagination.current_page <= 1"
                             class="px-3 py-1.5 text-sm rounded border border-gray-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50">
@@ -293,6 +294,7 @@
                         &raquo;
                     </button>
                 </div>
+                </template>
             </div>
 
         </div>
