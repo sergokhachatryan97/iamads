@@ -87,17 +87,18 @@ return [
             // 'memory' => 128,
         // ],
 
-        'tg-double-check' => [
-            'connection' => 'redis',
-            'queue' => ['tg-double-check'],
-            'balance' => 'simple',
-            'minProcesses' => 1,
-            'maxProcesses' => 1,
-            'sleep' => 10,
-            'tries' => 2,
-            'timeout' => 900,
-            'memory' => 512,
-        ],
+        // Disabled: nothing dispatches to tg-double-check (see SyncValidatingProviderOrdersJob).
+        // 'tg-double-check' => [
+            // 'connection' => 'redis',
+            // 'queue' => ['tg-double-check'],
+            // 'balance' => 'simple',
+            // 'minProcesses' => 1,
+            // 'maxProcesses' => 1,
+            // 'sleep' => 10,
+            // 'tries' => 2,
+            // 'timeout' => 900,
+            // 'memory' => 512,
+        // ],
 
         'max-inspect' => [
             'connection' => 'redis',
@@ -149,11 +150,11 @@ return [
         |   tg-inspect        : 2 (MTProto, heaviest)
         |   tg-panel-inspect  : 3 (panel inspections, auto-scales for bulk uploads)
         |   link-inspect      : 0 (disabled — no youtube/app categories)
-        |   tg-double-check   : 1 (slow, every 10min)
+        |   tg-double-check   : 0 (disabled — dispatch commented out)
         |   max-inspect       : 1 (low-volume)
         |   main              : 2 (socpanel-poll, providers, default)
         |   ─────────────────────
-        |   total             : 9 (simple balance = 1 worker per queue)
+        |   total             : 8 (simple balance = 1 worker per queue)
         */
         'production' => [
             'tg-inspect' => [
@@ -203,18 +204,19 @@ return [
                 // 'maxJobs' => 1000,
             // ],
 
-            'tg-double-check' => [
-                'connection' => 'redis',
-                'queue' => ['tg-double-check'],
-                'balance' => 'simple',
-                'minProcesses' => 1,
-                'maxProcesses' => 1,
-                'sleep' => 10,
-                'tries' => 2,
-                'timeout' => 900,
-                'memory' => 512,
-                'maxJobs' => 500,
-            ],
+            // Disabled: nothing dispatches to tg-double-check (see SyncValidatingProviderOrdersJob).
+            // 'tg-double-check' => [
+                // 'connection' => 'redis',
+                // 'queue' => ['tg-double-check'],
+                // 'balance' => 'simple',
+                // 'minProcesses' => 1,
+                // 'maxProcesses' => 1,
+                // 'sleep' => 10,
+                // 'tries' => 2,
+                // 'timeout' => 900,
+                // 'memory' => 512,
+                // 'maxJobs' => 500,
+            // ],
 
             'max-inspect' => [
                 'connection' => 'redis',
@@ -283,18 +285,19 @@ return [
                 // 'timeout' => 60,
                 // 'memory' => 128,
             // ],
-            'tg-double-check' => [
-                'connection' => 'redis',
-                'queue' => ['tg-double-check'],
-                'balance' => 'auto',
-                'autoScalingStrategy' => 'time',
-                'maxProcesses' => 4,
-                'balanceMaxShift' => 1,
-                'balanceCooldown' => 3,
-                'tries' => 2,
-                'timeout' => 900,
-                'memory' => 512,
-            ],
+            // Disabled: nothing dispatches to tg-double-check (see SyncValidatingProviderOrdersJob).
+            // 'tg-double-check' => [
+                // 'connection' => 'redis',
+                // 'queue' => ['tg-double-check'],
+                // 'balance' => 'auto',
+                // 'autoScalingStrategy' => 'time',
+                // 'maxProcesses' => 4,
+                // 'balanceMaxShift' => 1,
+                // 'balanceCooldown' => 3,
+                // 'tries' => 2,
+                // 'timeout' => 900,
+                // 'memory' => 512,
+            // ],
             'max-inspect' => [
                 'connection' => 'redis',
                 'queue' => ['max-inspect'],
