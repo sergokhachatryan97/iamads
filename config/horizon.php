@@ -71,20 +71,21 @@ return [
             'memory' => 512,
         ],
 
-        // Merged yt-inspect + app-inspect: identical profiles, low-volume event-driven queues.
-        // simple balance = fixed worker count, no auto-scale Redis overhead.
-        'link-inspect' => [
-            'connection' => 'redis',
-            'queue' => ['yt-inspect', 'app-inspect'],
-            'balance' => 'simple',
-            'minProcesses' => 1,
-            'maxProcesses' => 2,
-            'balanceCooldown' => 30,
-            'sleep' => 10,
-            'tries' => 3,
-            'timeout' => 60,
-            'memory' => 128,
-        ],
+        // Disabled: no youtube/app categories in use (yt-inspect/app-inspect queues are empty).
+        // // Merged yt-inspect + app-inspect: identical profiles, low-volume event-driven queues.
+        // // simple balance = fixed worker count, no auto-scale Redis overhead.
+        // 'link-inspect' => [
+            // 'connection' => 'redis',
+            // 'queue' => ['yt-inspect', 'app-inspect'],
+            // 'balance' => 'simple',
+            // 'minProcesses' => 1,
+            // 'maxProcesses' => 2,
+            // 'balanceCooldown' => 30,
+            // 'sleep' => 10,
+            // 'tries' => 3,
+            // 'timeout' => 60,
+            // 'memory' => 128,
+        // ],
 
         'tg-double-check' => [
             'connection' => 'redis',
@@ -147,12 +148,12 @@ return [
         |
         |   tg-inspect        : 2 (MTProto, heaviest)
         |   tg-panel-inspect  : 3 (panel inspections, auto-scales for bulk uploads)
-        |   link-inspect      : 1 (yt + app, merged, event-driven)
+        |   link-inspect      : 0 (disabled — no youtube/app categories)
         |   tg-double-check   : 1 (slow, every 10min)
         |   max-inspect       : 1 (low-volume)
         |   main              : 2 (socpanel-poll, providers, default)
         |   ─────────────────────
-        |   total             : 8
+        |   total             : 9 (simple balance = 1 worker per queue)
         */
         'production' => [
             'tg-inspect' => [
@@ -186,20 +187,21 @@ return [
                 'maxJobs' => 500,
             ],
 
-            // Merged yt-inspect + app-inspect: identical profiles, low-volume.
-            'link-inspect' => [
-                'connection' => 'redis',
-                'queue' => ['yt-inspect', 'app-inspect'],
-                'balance' => 'simple',
-                'minProcesses' => 1,
-                'maxProcesses' => 1,         // was 2; event-driven queues are slow-moving
-                'balanceCooldown' => 30,
-                'sleep' => 10,
-                'tries' => 3,
-                'timeout' => 60,
-                'memory' => 128,
-                'maxJobs' => 1000,
-            ],
+            // Disabled: no youtube/app categories in use (yt-inspect/app-inspect queues are empty).
+            // // Merged yt-inspect + app-inspect: identical profiles, low-volume.
+            // 'link-inspect' => [
+                // 'connection' => 'redis',
+                // 'queue' => ['yt-inspect', 'app-inspect'],
+                // 'balance' => 'simple',
+                // 'minProcesses' => 1,
+                // 'maxProcesses' => 1,         // was 2; event-driven queues are slow-moving
+                // 'balanceCooldown' => 30,
+                // 'sleep' => 10,
+                // 'tries' => 3,
+                // 'timeout' => 60,
+                // 'memory' => 128,
+                // 'maxJobs' => 1000,
+            // ],
 
             'tg-double-check' => [
                 'connection' => 'redis',
@@ -256,30 +258,31 @@ return [
                 'timeout' => 900,
                 'memory' => 512,
             ],
-            'yt-inspect' => [
-                'connection' => 'redis',
-                'queue' => ['yt-inspect'],
-                'balance' => 'auto',
-                'autoScalingStrategy' => 'time',
-                'maxProcesses' => 2,
-                'balanceMaxShift' => 1,
-                'balanceCooldown' => 3,
-                'tries' => 3,
-                'timeout' => 60,
-                'memory' => 128,
-            ],
-            'app-inspect' => [
-                'connection' => 'redis',
-                'queue' => ['app-inspect'],
-                'balance' => 'auto',
-                'autoScalingStrategy' => 'time',
-                'maxProcesses' => 2,
-                'balanceMaxShift' => 1,
-                'balanceCooldown' => 3,
-                'tries' => 3,
-                'timeout' => 60,
-                'memory' => 128,
-            ],
+            // Disabled: no youtube/app categories in use.
+            // 'yt-inspect' => [
+                // 'connection' => 'redis',
+                // 'queue' => ['yt-inspect'],
+                // 'balance' => 'auto',
+                // 'autoScalingStrategy' => 'time',
+                // 'maxProcesses' => 2,
+                // 'balanceMaxShift' => 1,
+                // 'balanceCooldown' => 3,
+                // 'tries' => 3,
+                // 'timeout' => 60,
+                // 'memory' => 128,
+            // ],
+            // 'app-inspect' => [
+                // 'connection' => 'redis',
+                // 'queue' => ['app-inspect'],
+                // 'balance' => 'auto',
+                // 'autoScalingStrategy' => 'time',
+                // 'maxProcesses' => 2,
+                // 'balanceMaxShift' => 1,
+                // 'balanceCooldown' => 3,
+                // 'tries' => 3,
+                // 'timeout' => 60,
+                // 'memory' => 128,
+            // ],
             'tg-double-check' => [
                 'connection' => 'redis',
                 'queue' => ['tg-double-check'],
