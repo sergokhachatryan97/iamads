@@ -20,6 +20,19 @@ class StaffDashboardController extends Controller
     private const CACHE_TTL_SLOW = 300;
     private const CACHE_TTL_LIVE = 45;
 
+    /** Membership states that mean the subscription was delivered (incl. later expired). */
+    private const COMPLETED_MEMBERSHIP_STATES = [
+        TelegramOrderMembership::STATE_SUBSCRIBED,
+        TelegramOrderMembership::STATE_UNSUBSCRIBED,
+    ];
+
+    /** Order statuses the claim pipeline still delivers for. */
+    private const ACTIVE_ORDER_STATUSES = [
+        Order::STATUS_AWAITING,
+        Order::STATUS_IN_PROGRESS,
+        Order::STATUS_PROCESSING,
+    ];
+
     public function index(Request $request): View
     {
         $period = in_array($request->input('period'), ['days', 'monthly'], true)
@@ -63,8 +76,8 @@ class StaffDashboardController extends Controller
         $rateMap = $allServices->pluck('rate_per_1000', 'id');
 
         $keyPayload = compact('network', 'dateFrom', 'dateTo', 'serviceId', 'period');
-        $slowKey = 'dash:slow:' . md5(json_encode($keyPayload));
-        $liveKey = 'dash:live:' . md5(json_encode($keyPayload));
+        $slowKey = 'dash:slow:v2:' . md5(json_encode($keyPayload));
+        $liveKey = 'dash:live:v2:' . md5(json_encode($keyPayload));
 
         // ── Slow block ──
         $slowBlock = Cache::remember($slowKey, self::CACHE_TTL_SLOW, function () use (
@@ -203,7 +216,7 @@ class StaffDashboardController extends Controller
         // Pass 1 — total completions (NO join, fast)
         $allRows = DB::table('telegram_order_memberships as m')
             ->whereIn('m.service_id', $tgIds)
-            ->where('m.state', TelegramOrderMembership::STATE_SUBSCRIBED)
+            ->whereIn('m.state', self::COMPLETED_MEMBERSHIP_STATES)
             ->whereNotNull('m.subscribed_at')
             ->whereBetween('m.subscribed_at', [$start, $end])
             ->selectRaw("{$groupExpr} as period, m.service_id, COUNT(*) as completions")
@@ -237,7 +250,7 @@ class StaffDashboardController extends Controller
         // Count refill+test completions per period+service, using order_id IN (small set)
         $rtCompletions = DB::table('telegram_order_memberships as m')
             ->whereIn('m.order_id', $rtIds)
-            ->where('m.state', TelegramOrderMembership::STATE_SUBSCRIBED)
+            ->whereIn('m.state', self::COMPLETED_MEMBERSHIP_STATES)
             ->whereNotNull('m.subscribed_at')
             ->whereBetween('m.subscribed_at', [$start, $end])
             ->selectRaw("{$groupExpr} as period, m.service_id, m.order_id, COUNT(*) as cnt")
@@ -353,7 +366,7 @@ class StaffDashboardController extends Controller
         if (! empty($tgIds)) {
             $tgByOrder = DB::table('telegram_order_memberships as m')
                 ->whereIn('m.service_id', $tgIds)
-                ->where('m.state', TelegramOrderMembership::STATE_SUBSCRIBED)
+                ->whereIn('m.state', self::COMPLETED_MEMBERSHIP_STATES)
                 ->whereNotNull('m.subscribed_at')
                 ->whereBetween('m.subscribed_at', [$rangeStart, $rangeEnd])
                 ->selectRaw('m.order_id, COUNT(*) as cnt')
@@ -441,17 +454,20 @@ class StaffDashboardController extends Controller
             return collect();
         }
 
+        // "Active" = every status the claim pipeline still delivers for.
+        $active = "status IN ('".implode("','", self::ACTIVE_ORDER_STATUSES)."')";
+
         return DB::table('orders')
             ->whereIn('service_id', $serviceIds)
-            ->whereIn('status', [Order::STATUS_IN_PROGRESS, Order::STATUS_COMPLETED])
-            ->selectRaw('
+            ->whereIn('status', [...self::ACTIVE_ORDER_STATUSES, Order::STATUS_COMPLETED])
+            ->selectRaw("
                 service_id,
                 COUNT(*) as total_orders,
-                COALESCE(SUM(CASE WHEN status = ? AND COALESCE(quantity, 0) > COALESCE(delivered, 0) THEN COALESCE(quantity, 0) - COALESCE(delivered, 0) ELSE 0 END), 0) as total_volume,
-                COALESCE(SUM(CASE WHEN status = ? THEN 1 ELSE 0 END), 0) as in_progress_orders,
+                COALESCE(SUM(CASE WHEN {$active} AND COALESCE(remains, 0) > 0 THEN COALESCE(remains, 0) ELSE 0 END), 0) as total_volume,
+                COALESCE(SUM(CASE WHEN {$active} THEN 1 ELSE 0 END), 0) as in_progress_orders,
                 COALESCE(SUM(CASE WHEN status = ? THEN 1 ELSE 0 END), 0) as completed_orders,
                 COALESCE(SUM(CASE WHEN status = ? THEN CAST(charge AS DECIMAL(20,4)) ELSE 0 END), 0) as completed_balance
-            ', [Order::STATUS_IN_PROGRESS, Order::STATUS_IN_PROGRESS, Order::STATUS_COMPLETED, Order::STATUS_COMPLETED])
+            ", [Order::STATUS_COMPLETED, Order::STATUS_COMPLETED])
             ->groupBy('service_id')
             ->get()
             ->keyBy('service_id');
@@ -471,44 +487,51 @@ class StaffDashboardController extends Controller
         $delayPerService = collect();
 
         if (! empty($activeTgIds)) {
-            $tgQuery = DB::table('telegram_tasks as t')
-                ->whereIn('t.service_id', $activeTgIds)
-                ->whereIn('t.status', ['done', 'unsubscribed']);
+            // Completions by subscribed_at, same source as the chart.
+            // telegram_tasks.updated_at is not a completion time: expiring
+            // subscriptions flip old "done" tasks to "unsubscribed".
+            $tgQuery = DB::table('telegram_order_memberships as m')
+                ->whereIn('m.service_id', $activeTgIds)
+                ->whereIn('m.state', self::COMPLETED_MEMBERSHIP_STATES)
+                ->whereNotNull('m.subscribed_at');
 
             if ($hasDateFilter) {
-                if ($dateFromParsed) $tgQuery->where('t.updated_at', '>=', $dateFromParsed);
-                if ($dateToParsed) $tgQuery->where('t.updated_at', '<=', $dateToParsed);
+                if ($dateFromParsed) $tgQuery->where('m.subscribed_at', '>=', $dateFromParsed);
+                if ($dateToParsed) $tgQuery->where('m.subscribed_at', '<=', $dateToParsed);
             } else {
-                $tgQuery->where('t.updated_at', '>=', $today);
+                $tgQuery->where('m.subscribed_at', '>=', $today);
             }
 
-            foreach ($tgQuery->selectRaw('t.service_id, COUNT(*) as cnt')->groupBy('t.service_id')->get() as $row) {
+            foreach ($tgQuery->selectRaw('m.service_id, COUNT(*) as cnt')->groupBy('m.service_id')->get() as $row) {
                 $completionsTodayPerService[$row->service_id] = (int) $row->cnt;
             }
 
-            // Redis active accounts + delay
+            // Unique accounts per service over the last 2 hours: PFCOUNT over
+            // both hourly keys returns the size of their union.
             $currentHour = now()->format('Y-m-d-H');
             $prevHour = now()->subHour()->format('Y-m-d-H');
             try {
                 $results = Redis::pipeline(function ($pipe) use ($activeTgIds, $currentHour, $prevHour) {
                     foreach ($activeTgIds as $sid) {
-                        $pipe->pfcount("tg:claim_attempts:{$sid}:{$currentHour}");
-                        $pipe->pfcount("tg:claim_attempts:{$sid}:{$prevHour}");
+                        $pipe->pfcount(["tg:claim_attempts:{$sid}:{$currentHour}", "tg:claim_attempts:{$sid}:{$prevHour}"]);
                     }
                 });
                 foreach ($activeTgIds as $i => $sid) {
-                    $count = max((int) ($results[$i * 2] ?? 0), (int) ($results[$i * 2 + 1] ?? 0));
+                    $count = (int) ($results[$i] ?? 0);
                     if ($count > 0) $accountsPerService[$sid] = $count;
                 }
             } catch (\Throwable) {}
 
+            // Average seconds between completions over the last hour (not
+            // created_at: preassign creates pending tasks ahead of time).
             foreach (
-                DB::table('telegram_tasks')
+                DB::table('telegram_order_memberships')
                     ->whereIn('service_id', $activeTgIds)
-                    ->where('created_at', '>=', now()->subHour())
-                    ->selectRaw('service_id, COUNT(*) as task_count')
+                    ->whereIn('state', self::COMPLETED_MEMBERSHIP_STATES)
+                    ->where('subscribed_at', '>=', now()->subHour())
+                    ->selectRaw('service_id, COUNT(*) as cnt')
                     ->groupBy('service_id')
-                    ->pluck('task_count', 'service_id') as $sid => $count
+                    ->pluck('cnt', 'service_id') as $sid => $count
             ) {
                 if ($count > 1) $delayPerService[$sid] = round(3600 / $count);
             }
