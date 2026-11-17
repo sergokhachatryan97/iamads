@@ -530,6 +530,9 @@ class TelegramTaskClaimService
         if ($this->isPhoneDailyCapExhausted($phone, $scope, 'subscribe')) {
             return null;
         }
+        if ($this->isPhoneChannelsFull($phone)) {
+            return null;
+        }
 
         $eligible = $this->getEligibleSubscribeOrders($scope, $serviceId);
 
@@ -1045,6 +1048,24 @@ LUA;
         }
     }
 
+    /**
+     * Redis key marking a phone that Telegram rejected with CHANNELS_TOO_MUCH.
+     * Set by TelegramTaskService when such a report arrives.
+     */
+    public static function channelsFullKey(string $phone): string
+    {
+        return "tg:phone:channels_full:{$phone}";
+    }
+
+    private function isPhoneChannelsFull(string $phone): bool
+    {
+        try {
+            return (bool) Redis::exists(self::channelsFullKey($phone));
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
     private function isGlobalCooldownActive(string $phone): bool
     {
         try {
@@ -1174,6 +1195,11 @@ LUA;
             return null;
         }
         if ($this->isPhoneDailyCapExhausted($phone, $scope, 'subscribe')) {
+            return null;
+        }
+        // Telegram already refused this phone with CHANNELS_TOO_MUCH — don't
+        // pop a task it can only fail.
+        if ($this->isPhoneChannelsFull($phone)) {
             return null;
         }
 

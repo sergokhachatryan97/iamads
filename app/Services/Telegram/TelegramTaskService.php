@@ -1705,6 +1705,19 @@ class TelegramTaskService
         }
         $accountPhone = TelegramAccountLinkState::normalizePhone((string) $accountPhone);
 
+        // Telegram refuses joins for a phone that is in too many channels;
+        // stop handing it subscribe tasks for a while (see TelegramTaskClaimService).
+        if (! $ok && is_string($error) && stripos($error, 'channels_too_much') !== false) {
+            try {
+                Redis::setex(
+                    TelegramTaskClaimService::channelsFullKey($accountPhone),
+                    max(60, (int) config('telegram.channels_full_block_seconds', 86400)),
+                    1
+                );
+            } catch (\Throwable) {
+            }
+        }
+
         $action = $task->action ?? 'subscribe';
 
         // Wrap mutations in a transaction with deadlock retries. Canonical lock

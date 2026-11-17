@@ -46,6 +46,12 @@ return [
     |
     */
 
+    // A phone reported with Telegram's CHANNELS_TOO_MUCH can't join anything
+    // until it leaves channels; skip it for subscribe claims for this long.
+    // Prod data (Nov 2026): ~95% of such phones never succeed again, the rest
+    // recover after ~3.5 days (median) — hence 7 days.
+    'channels_full_block_seconds' => (int) env('TELEGRAM_CHANNELS_FULL_BLOCK_SECONDS', 604800),
+
     'action_policies' => [
         'subscribe' => [
             'daily_cap' => env('TELEGRAM_SUBSCRIBE_DAILY_CAP', 4),
