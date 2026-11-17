@@ -721,11 +721,11 @@ class TelegramTaskClaimService
                 $order->loadMissing('service');
             }
 
-            // In-flight check (locked to prevent race condition)
+            // In-flight check. No FOR UPDATE here: PostgreSQL rejects it with
+            // aggregates, and the order row lock above already serializes claims.
             $inFlight = TelegramOrderMembership::query()
                 ->where('order_id', $order->id)
                 ->where('state', TelegramOrderMembership::STATE_IN_PROGRESS)
-                ->lockForUpdate()
                 ->count();
 
             if ((int) $order->delivered + $inFlight >= $order->target_quantity) {
