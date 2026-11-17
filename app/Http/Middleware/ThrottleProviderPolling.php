@@ -32,6 +32,12 @@ class ThrottleProviderPolling
 
     public function handle(Request $request, Closure $next): Response
     {
+        // public/fast-getorder.php already acquired this exact throttle key
+        // before handing the request to Laravel — don't count it twice.
+        if (defined('PROVIDER_POLL_THROTTLE_ACQUIRED')) {
+            return $next($request);
+        }
+
         $account = $request->input('account_identity');
 
         if (empty($account)) {
