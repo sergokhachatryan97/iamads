@@ -31,6 +31,19 @@ class TelegramStatsController extends Controller
     /** Active accounts + delay — not date-sensitive. */
     private const CACHE_TTL_REALTIME = 60;
 
+    /** Membership states that mean the subscription was delivered. */
+    private const COMPLETED_MEMBERSHIP_STATES = [
+        TelegramOrderMembership::STATE_SUBSCRIBED,
+        TelegramOrderMembership::STATE_UNSUBSCRIBED,
+    ];
+
+    /** Order statuses the claim pipeline still delivers for. */
+    private const ACTIVE_ORDER_STATUSES = [
+        Order::STATUS_AWAITING,
+        Order::STATUS_IN_PROGRESS,
+        Order::STATUS_PROCESSING,
+    ];
+
     private ?string $dbDriver = null;
 
     private function dbDriver(): string
@@ -127,7 +140,7 @@ class TelegramStatsController extends Controller
             && $dateToParsed->diffInHours(now(), true) >= 2;
 
         // ── Slow block ────────────────────────────────────────────────────────
-        $slowKey = 'tg_stats:slow:' . md5(json_encode([
+        $slowKey = 'tg_stats:slow:v2:' . md5(json_encode([
             'scope'     => $scope,
             'period'    => $resolvedPeriod,
             'date_from' => $dateFrom,
@@ -142,9 +155,12 @@ class TelegramStatsController extends Controller
                 $todayStr     = now()->format('Y-m-d');
                 $yesterdayStr = now()->subDay()->format('Y-m-d');
 
+                // A completion is a membership that reached "subscribed" — including
+                // ones that later expired to "unsubscribed", otherwise past days
+                // would shrink as subscriptions run out.
                 $rawRows = DB::table('telegram_order_memberships as m')
                     ->whereIn('m.service_id', $filteredServiceIds)
-                    ->where('m.state', TelegramOrderMembership::STATE_SUBSCRIBED)
+                    ->whereIn('m.state', self::COMPLETED_MEMBERSHIP_STATES)
                     ->whereNotNull('m.subscribed_at')
                     ->whereBetween('m.subscribed_at', [$rangeStart, $rangeEnd])
                     ->selectRaw("{$groupExpr} as period, m.service_id, COUNT(*) as completions")
@@ -159,18 +175,22 @@ class TelegramStatsController extends Controller
                 [$incomeToday, $incomeYesterday, $completionsToday, $completionsYesterday] =
                     $this->resolveTopMetrics($hasDateFilter, $resolvedPeriod, $chartRows, $todayStr, $yesterdayStr);
 
+                // "Active" = every status the claim pipeline still hands out tasks
+                // for (see TelegramTaskClaimService), not only in_progress.
+                $active = "status IN ('".implode("','", self::ACTIVE_ORDER_STATUSES)."')";
+
                 $serviceStats = DB::table('orders')
                     ->whereIn('service_id', $filteredServiceIds)
-                    ->whereIn('status', [Order::STATUS_IN_PROGRESS, Order::STATUS_COMPLETED])
-                    ->selectRaw('
+                    ->whereIn('status', [...self::ACTIVE_ORDER_STATUSES, Order::STATUS_COMPLETED])
+                    ->selectRaw("
                         service_id,
                         COUNT(*) as total_orders,
-                        SUM(CASE WHEN status = ? AND COALESCE(quantity,0) > COALESCE(delivered,0)
-                                 THEN COALESCE(quantity,0) - COALESCE(delivered,0) ELSE 0 END) as total_volume,
-                        SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as in_progress_orders,
+                        SUM(CASE WHEN {$active} AND COALESCE(remains,0) > 0
+                                 THEN COALESCE(remains,0) ELSE 0 END) as total_volume,
+                        SUM(CASE WHEN {$active} THEN 1 ELSE 0 END) as in_progress_orders,
                         SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as completed_orders,
                         SUM(CASE WHEN status = ? THEN CAST(charge AS DECIMAL(20,4)) ELSE 0 END) as completed_balance
-                    ', [Order::STATUS_IN_PROGRESS, Order::STATUS_IN_PROGRESS, Order::STATUS_COMPLETED, Order::STATUS_COMPLETED])
+                    ", [Order::STATUS_COMPLETED, Order::STATUS_COMPLETED])
                     ->groupBy('service_id')
                     ->get()
                     ->keyBy('service_id');
@@ -184,7 +204,7 @@ class TelegramStatsController extends Controller
         unset($slowBlock['chartRows'], $slowBlock['serviceStats']);
 
         // ── Completions per service ───────────────────────────────────────────
-        $completionsKey = 'tg_stats:completions:' . md5(json_encode([
+        $completionsKey = 'tg_stats:completions:v2:' . md5(json_encode([
             'svc'       => $filteredServiceIds,
             'date_from' => $dateFrom,
             'date_to'   => $dateTo,
@@ -195,53 +215,69 @@ class TelegramStatsController extends Controller
         ) {
             $cutoff = $hasDateFilter ? $dateFromParsed : now()->startOfDay();
 
-            $q = DB::table('telegram_tasks as t')
-                ->whereIn('t.service_id', $filteredServiceIds)
-                ->whereIn('t.status', ['done', 'unsubscribed']);
+            // Same source as the chart and top cards. telegram_tasks.updated_at
+            // is not a completion time: expiring subscriptions flip old "done"
+            // tasks to "unsubscribed" and would be counted (and billed) today.
+            $q = DB::table('telegram_order_memberships as m')
+                ->whereIn('m.service_id', $filteredServiceIds)
+                ->whereIn('m.state', self::COMPLETED_MEMBERSHIP_STATES)
+                ->whereNotNull('m.subscribed_at');
 
-            if ($cutoff) $q->where('t.updated_at', '>=', $cutoff);
-            if ($hasDateFilter && $dateToParsed) $q->where('t.updated_at', '<=', $dateToParsed);
+            if ($cutoff) $q->where('m.subscribed_at', '>=', $cutoff);
+            if ($hasDateFilter && $dateToParsed) $q->where('m.subscribed_at', '<=', $dateToParsed);
 
-            return $q->selectRaw('t.service_id, COUNT(*) as cnt')
-                ->groupBy('t.service_id')
+            return $q->selectRaw('m.service_id, COUNT(*) as cnt')
+                ->groupBy('m.service_id')
                 ->pluck('cnt', 'service_id')
                 ->map(fn ($v) => (int) $v);
         });
 
         // ── Realtime (accounts + delay) ───────────────────────────────────────
-        $realtimeKey = 'tg_stats:realtime:' . md5(json_encode($filteredServiceIds));
+        $realtimeKey = 'tg_stats:realtime:v2:' . md5(json_encode($filteredServiceIds));
 
-        [$accountsPerService, $delayPerService] = Cache::remember($realtimeKey, self::CACHE_TTL_REALTIME, function () use ($filteredServiceIds) {
+        [$accountsPerService, $accountsTotal, $delayPerService] = Cache::remember($realtimeKey, self::CACHE_TTL_REALTIME, function () use ($filteredServiceIds) {
             $currentHour = now()->format('Y-m-d-H');
             $prevHour    = now()->subHour()->format('Y-m-d-H');
             $activeAccounts = collect();
+            $accountsTotal  = 0;
+
+            // PFCOUNT over several keys returns the size of their union, so
+            // every account is counted once: per service across both hours
+            // ("last 2 hours"), and once overall across all services. Summing
+            // per-service counts would count an account once per service polled.
+            $keysFor = fn ($sid) => ["tg:claim_attempts:{$sid}:{$currentHour}", "tg:claim_attempts:{$sid}:{$prevHour}"];
 
             try {
-                $results = Redis::pipeline(function ($pipe) use ($filteredServiceIds, $currentHour, $prevHour) {
+                $results = Redis::pipeline(function ($pipe) use ($filteredServiceIds, $keysFor) {
                     foreach ($filteredServiceIds as $sid) {
-                        $pipe->pfcount("tg:claim_attempts:{$sid}:{$currentHour}");
-                        $pipe->pfcount("tg:claim_attempts:{$sid}:{$prevHour}");
+                        $pipe->pfcount($keysFor($sid));
                     }
+                    $pipe->pfcount(array_merge(...array_map($keysFor, $filteredServiceIds)));
                 });
                 foreach ($filteredServiceIds as $i => $sid) {
-                    $count = max((int) ($results[$i * 2] ?? 0), (int) ($results[$i * 2 + 1] ?? 0));
+                    $count = (int) ($results[$i] ?? 0);
                     if ($count > 0) $activeAccounts[$sid] = $count;
                 }
+                $accountsTotal = (int) ($results[count($filteredServiceIds)] ?? 0);
             } catch (\Throwable) {}
 
-            $taskCounts = DB::table('telegram_tasks')
+            // Average seconds between completions over the last hour. Not
+            // telegram_tasks.created_at: preassign creates pending tasks ahead
+            // of time, which says nothing about delivery speed.
+            $completedLastHour = DB::table('telegram_order_memberships')
                 ->whereIn('service_id', $filteredServiceIds)
-                ->where('created_at', '>=', now()->subHour())
-                ->selectRaw('service_id, COUNT(*) as task_count')
+                ->whereIn('state', self::COMPLETED_MEMBERSHIP_STATES)
+                ->where('subscribed_at', '>=', now()->subHour())
+                ->selectRaw('service_id, COUNT(*) as cnt')
                 ->groupBy('service_id')
-                ->pluck('task_count', 'service_id');
+                ->pluck('cnt', 'service_id');
 
             $delayPerService = collect();
-            foreach ($taskCounts as $sid => $count) {
+            foreach ($completedLastHour as $sid => $count) {
                 if ($count > 1) $delayPerService[$sid] = round(3600 / $count);
             }
 
-            return [$activeAccounts, $delayPerService];
+            return [$activeAccounts, $accountsTotal, $delayPerService];
         });
 
         // ── Build services list with pagination ───────────────────────────────
@@ -282,7 +318,7 @@ class TelegramStatsController extends Controller
         // Totals across ALL services (not just current page)
         $totals = [
             'completions_today'  => $completionsTodayPerService->sum(),
-            'accounts'           => $accountsPerService->sum(),
+            'accounts'           => $accountsTotal,
             'in_progress_orders' => $serviceStats->sum('in_progress_orders'),
             'total_volume'       => $serviceStats->sum('total_volume'),
             'income_today'       => $allDisplayedServices->sum(fn ($s) =>
