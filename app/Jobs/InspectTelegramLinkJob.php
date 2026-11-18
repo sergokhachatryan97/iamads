@@ -534,6 +534,13 @@ class InspectTelegramLinkJob implements ShouldQueue
             $errors[] = $prefix . 'Paid Telegram groups are not supported';
         }
 
+        // Paid messages (Stars) block only actions that send a message;
+        // subscribing, viewing or reacting is free in such chats.
+        if (!empty($inspectionResult['is_paid_messages'])
+            && in_array($template['action'] ?? null, ['comment'], true)) {
+            $errors[] = $prefix . 'This Telegram channel/supergroup requires paid messages (Stars). Paid messages are not supported.';
+        }
+
         // Start param is optional — bot_start links work with or without referral
 
         return $errors;

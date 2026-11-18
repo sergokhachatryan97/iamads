@@ -283,6 +283,16 @@ class SocpanelValidateOrderJob implements ShouldQueue
             } else {
                 $inspectionResult = $inspector->inspect($this->normalizedLink, serviceId: $this->serviceId);
 
+                // The inspector now only flags paid messages; this legacy flow
+                // keeps rejecting such chats as before.
+                if (($inspectionResult['ok'] ?? false) === true && ! empty($inspectionResult['is_paid_messages'])) {
+                    $inspectionResult = array_merge($inspectionResult, [
+                        'ok' => false,
+                        'error_code' => 'PAID_MESSAGES',
+                        'error' => 'This Telegram channel/supergroup requires paid messages (Stars). Paid messages are not supported.',
+                    ]);
+                }
+
                 if (($inspectionResult['ok'] ?? false) === true) {
                     Cache::put($cacheKey, $inspectionResult, now()->addHours(4));
                 } else {

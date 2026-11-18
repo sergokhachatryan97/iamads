@@ -43,18 +43,9 @@ class TelegramInspector
                     ], 'INVALID_FORMAT', 'Invalid Telegram link format');
                 }
 
-                // Paid messages → fail
-                if (! empty($goResult['is_paid_messages'])) {
-                    return $this->fail([
-                        'ok' => false, 'parsed' => $parsed, 'chat_type' => $goResult['chat_type'] ?? null,
-                        'title' => $goResult['title'] ?? null, 'member_count' => $goResult['member_count'] ?? null,
-                        'is_paid_join' => false, 'error_code' => null, 'error' => null, 'resolved' => null,
-                        'audience_type' => $goResult['audience_type'] ?? null,
-                        'is_channel' => $goResult['is_channel'] ?? false,
-                        'is_group' => $goResult['is_group'] ?? false, 'is_boost' => false,
-                    ], 'PAID_MESSAGES', 'This Telegram channel/supergroup requires paid messages (Stars). Paid messages are not supported.');
-                }
-
+                // Paid messages (Stars) only matter for actions that send
+                // messages — joining/viewing is free. Report it and let the
+                // caller decide per action (see InspectTelegramLinkJob).
                 return [
                     'ok' => true,
                     'parsed' => $parsed,
@@ -62,6 +53,7 @@ class TelegramInspector
                     'title' => $goResult['title'] ?? null,
                     'member_count' => $goResult['member_count'] ?? null,
                     'is_paid_join' => $goResult['is_paid_join'] ?? false,
+                    'is_paid_messages' => ! empty($goResult['is_paid_messages']),
                     'is_poll' => $goResult['is_poll'] ?? false,
                     'error_code' => null,
                     'error' => null,
@@ -358,13 +350,9 @@ class TelegramInspector
                     $result['member_count'] =
                         (isset($info['participants_count']) ? (int) $info['participants_count'] : null);
 
-                    // paid messages check (getInfo only)
-                    if (in_array($result['chat_type'], ['supergroup', 'channel'], true)) {
-                        $maybeFail = $this->ensureNoPaidMessagesOrFail($result, $username, null, $info, $forB2c);
-                        if (is_array($maybeFail)) {
-                            return $maybeFail;
-                        }
-                    }
+                    // Paid messages: flag only — the caller decides per action.
+                    $result['is_paid_messages'] = in_array($result['chat_type'], ['supergroup', 'channel'], true)
+                        && is_array($this->ensureNoPaidMessagesOrFail($result, $username, null, $info, $forB2c));
 
                     $result['resolved'] = [
                         'source' => 'mtproto_getinfo',
