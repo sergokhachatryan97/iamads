@@ -92,6 +92,8 @@
                          :class="(data.income_today - data.income_yesterday) >= 0 ? 'text-emerald-400' : 'text-red-400'"
                          x-text="((data.income_today - data.income_yesterday) >= 0 ? '▲' : '▼') + ' $' + fmtNum(Math.abs(data.income_today - data.income_yesterday)) + ' vs ' + (data.period === 'monthly' ? '{{ __('prev month') }}' : '{{ __('yesterday') }}')">
                     </div>
+                    <div x-show="!loading" x-cloak class="text-xs mt-1 text-gray-300"
+                         x-text="'{{ __('Orders') }}: $' + fmtNum(data.orders_total || 0) + ' · ' + fmtNum(data.orders_count || 0)"></div>
                     <div class="text-gray-600 text-xs mt-1" x-text="periodLabel"></div>
                 </div>
 
